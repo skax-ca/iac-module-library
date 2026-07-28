@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pre-commit — OpenTofu 로컬 게이트 (fmt → tflint → trivy)
+# 활성화: git config core.hooksPath .githooks  (clone마다 1회, CLAUDE.md 검증 절 참조)
+# 의도적 우회는 git commit --no-verify (사유를 커밋 메시지에 남길 것)
+set -euo pipefail
+
+# Terraform 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
+staged=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -E '\.(tf|tfvars)$|\.terraform\.lock\.hcl$|^\.tflint\.hcl$|^\.trivyignore$' || true)
+[ -z "$staged" ] && exit 0
+
+echo "[pre-commit] Terraform 변경 감지 — 로컬 게이트 실행"
+
+echo "  1/3 tofu fmt -check"
+tofu fmt -recursive -check
+
+echo "  2/3 tflint --recursive"
+tflint --recursive
+
+echo "  3/3 trivy config (MEDIUM+)"
+# .terraform/(init 캐시)과 다운로드된 원격 모듈 내부는 우리가 수정할 수 없는 upstream 코드 —
+# 게이트 대상에서 제외한다. upstream 경유 보안 손잡이(예: EKS 컨트롤플레인 로깅)는
+# 설계 문서 열린 항목으로 추적한다.
+trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
+  --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules .
+
+echo "[pre-commit] 게이트 통과 ✓"

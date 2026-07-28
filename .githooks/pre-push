@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# pre-push — 모듈 tofu test 실행 (push 범위에 modules/ 변경이 있을 때만)
+# 활성화: git config core.hooksPath .githooks
+set -euo pipefail
+
+zero="0000000000000000000000000000000000000000"
+changed=""
+while read -r _local_ref local_sha _remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # branch 삭제 push
+  if [ "$remote_sha" = "$zero" ]; then
+    range_diff=$(git diff --name-only "$(git merge-base origin/main "$local_sha" 2>/dev/null || echo "$local_sha^")".."$local_sha" 2>/dev/null || true)
+  else
+    range_diff=$(git diff --name-only "$remote_sha".."$local_sha")
+  fi
+  changed="$changed"$'\n'"$range_diff"
+done
+
+echo "$changed" | grep -qE '^modules/.*\.tf$' || exit 0
+
+echo "[pre-push] modules/ 변경 감지 — tofu test 실행"
+for m in modules/*/; do
+  [ -d "${m}tests" ] || continue
+  [ -d "${m}.terraform" ] || tofu -chdir="$m" init -backend=false -input=false > /dev/null
+  echo "  test: $m"
+  tofu -chdir="$m" test
+done
+
+echo "[pre-push] 테스트 통과 ✓"

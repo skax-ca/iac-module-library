@@ -7,10 +7,22 @@
 - **배경**: `terraform-enterprise-poc`가 2026-07-28 **동결(졸업)**. 결정 전문은 그 repo의
   `docs/architecture/05-oss-asset-repo-decision.md`(D-OSS-STACK).
   ⛔ **PoC repo의 모듈·설계를 고치지 않는다** — 양쪽 개발은 곧 drift다.
-- **스택**: OpenTofu **1.12.5** + GitHub Actions(OIDC) + S3 backend(`use_lockfile`) + OPA/Conftest.
-  명령은 `terraform`이 아니라 **`tofu`**. hook 활성화됨(`git config core.hooksPath .githooks`).
-- **완료**: §6-0 골격 + deepinit · §6-1 설계 승계 · **§6-2 1단계 VPC 설계 개정** · MCP 설정.
-  커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6`.
+- **⚖️ 엔진 중립**(2026-07-29 신규 결정, `docs/architecture/04-engine-neutrality.md` = **D-ENGINE-NEUTRAL**):
+  모듈 코드는 **OpenTofu·Terraform 양쪽에서 동작**한다. 엔진 선택은 **배포 루트의 결정**이다.
+  - D-OSS-STACK(PoC repo `05`)의 **엔진 축을 개정**했다. PoC는 동결이라 그쪽에 개정 표시가 없으니
+    **05를 인용할 때 04를 함께 읽지 않으면 "이 repo는 OpenTofu 전용"이라는 낡은 결론을 쓰게 된다.**
+  - 근거: ① HashiCorp FAQ가 **컨설팅 사용을 명시적 허용**(라이선스는 걸림돌이 아님)
+    ② 고객 비용 장벽은 CLI가 아니라 **HCP/TFE 구독** — GitHub Actions+S3로 이미 해소
+    ③ lock은 remote module을 추적하지 않아 **모듈이 소비자의 엔진을 강제하지 않는다**
+  - **로컬/hook = `tofu`**(제약이 빡빡한 1차 방어선). **중립성 실증 = CI의 `terraform` 잡**.
+    로컬 통과 ≠ 중립성 통과.
+  - ⛔ **`.terraform.lock.hcl` 커밋 금지**(04 §4) — `.gitignore` + `pre-commit` **2중 차단, 실측 검증됨**.
+    상한 방어는 **예제의 `~> 6.0`**이 맡는다(모듈은 하한만).
+  - 중립성 규칙 N1~N7(04 §5) 대표: `required_version` 하한을 **1.12 위로 올리지 말 것** ·
+    `.tofu` 확장자/`tofu {}`/`encryption` 블록 금지 · provider source에 **registry 호스트 금지**.
+- **완료**: §6-0 골격 + deepinit · §6-1 설계 승계 · §6-2 1단계 VPC 설계 개정 · MCP 설정 ·
+  **엔진 중립 전환(ADR 04 + 문서 11개 개정)**.
+  커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79` → **(엔진 중립: 미커밋)**
 
 ### ⏭️ 다음 작업 = §6-2 **2단계 — `modules/vpc` 코드 이식**
 
@@ -18,21 +30,23 @@
 
 | Task | 내용 |
 |------|------|
-| 10.1 | `versions.tf` + `variables.tf` — §1.2 계약, validation |
+| 10.1 | `versions.tf` + `variables.tf` — §1.2 계약, validation. ⚠️ `required_version` **상한 금지** |
 | 10.2 | `main.tf` — vpc/secondary assoc/subnet/RT/IGW/NAT. ⚠️ subnet에 `depends_on` 필수 |
 | 10.3 | `flow-logs.tf` — D11 리소스 4종 |
 | 10.4 | `outputs.tf` — §1.4, **null-safe**(D10) |
-| 10.5 | `examples/vpc/`(minimal) + `examples/vpc-enterprise/`(9그룹) |
+| 10.5 | `examples/vpc/`(minimal) + `examples/vpc-enterprise/`(9그룹). **`versions.tf`에 `aws ~> 6.0` 상한 필수** |
 | 10.6 | `modules/vpc/tests/plan.tftest.hcl` — `Name` 태그 assertion 필수 |
-| 10.7 | 릴리스 게이트(`02 §4`) + `vpc-v1.0.0` 태그 |
+| 10.7 | 릴리스 게이트(`02 §4`) + **두 엔진 test 통과 실증** + `vpc-v1.0.0` 태그 |
 
 - **착수 전 확인**: 사용자가 설계 §1을 승인했는지. 특히 신규 결정 3건 — D10(kill switch 경계),
   D11(Flow Logs 대상 CloudWatch 고정), §1.3(IAM inline policy 약어 미생성).
+  ※ 엔진 중립(D-ENGINE-NEUTRAL)은 **2026-07-29 사용자 승인 완료** — 재확인 불필요.
 - 코드 작성 전 `terraform-style-guide` 스킬 로드. 각 Task 후 로컬 게이트(pre-commit이 강제).
+- VPC는 순수 AWS 리소스라 **엔진 고유 문법을 쓸 이유가 없다** — 설계 판단은 04 이전과 동일하다.
 
 ### 문서 인용 규칙 (`docs/README.md` 상태표가 판정 근거)
 
-- `docs/architecture/*` ✅ · **`docs/design/10-vpc-module.md` ✅ (2026-07-29 개정)**
+- `docs/architecture/*` ✅ (**04-engine-neutrality.md 신규**) · **`docs/design/10-vpc-module.md` ✅ (2026-07-29 개정)**
 - `docs/design/{20,30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
 - `docs/reference/poc-findings.md`는 **외부 스냅샷** — 참조만, 복사·갱신 금지
 - `docs/consumer/*` 📦 배포 루트 소유. 모듈 설계 근거로 쓰지 않는다

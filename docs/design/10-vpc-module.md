@@ -2,8 +2,10 @@
 
 > **승계**: `terraform-enterprise-poc` `docs/design/10-vpc-module.md` @ `76285f7`(동결 커밋)
 > **개정**(2026-07-29, D-OSS-STACK §6-2):
-> - **실행 스택 종속부 제거** — Terraform/HCP Terraform → **OpenTofu**, `tfe_outputs` 참조 → data source(`03 §3.1`),
+> - **실행 스택 종속부 제거** — HCP Terraform 전제 폐기, `tfe_outputs` 참조 → data source(`03 §3.1`),
 >   TFC 워크스페이스 전제 폐기.
+> **재개정**(2026-07-29, D-ENGINE-NEUTRAL): 특정 엔진 전제를 제거하고 **엔진 중립**으로 전환
+> (`../architecture/04-engine-neutrality.md`). 설계 판단은 변경 없음 — 표기와 릴리스 게이트만 조정했다.
 > - **PoC 진화 서사 제거** — v1→v2 전환 서술, `877f1d9` 등 PoC 커밋 참조, 승인 날짜, "networking-dev 미적용" 상태 서술.
 >   설계 결정 **D1–D9는 판단 내용만 승계**하고 결정 ID를 보존한다(PoC 문서와의 상호 참조 유지).
 > - **배포 루트 소유권 이전** — 구 `§1.5 live/dev/networking` 프리셋을 **`examples/`**로 이전.
@@ -284,10 +286,11 @@ variable "flow_logs_kms_key_id"     { type = string  default = null }    # found
 - per-AZ NAT(`single_nat_gateway = false`) 시 NAT 호스트 그룹의 AZ 수가 private 그룹
   최대 AZ 수 이상이어야 한다(D6 precondition) — 아니면 커버되지 않는 AZ의 NAT 경로가 없다.
 - ⚠️ **secondary CIDR 함정**: 서브넷 CIDR가 secondary 대역이면
-  `aws_vpc_ipv4_cidr_block_association`이 먼저 `associated` 상태여야 하는데 OpenTofu가
-  참조 관계로 추론하지 못한다 → `aws_subnet`에 `depends_on = [aws_vpc_ipv4_cidr_block_association.this]` 필수.
+  `aws_vpc_ipv4_cidr_block_association`이 먼저 `associated` 상태여야 하는데 **의존성 그래프가
+  참조 관계로 추론하지 못한다**(두 엔진 공통) → `aws_subnet`에
+  `depends_on = [aws_vpc_ipv4_cidr_block_association.this]` 필수.
 - ⚠️ **primary/secondary 조합 제약**: primary가 `10.0.0.0/15` 범위 안이면 `10.0.0.0/16` 대역의 secondary는
-  연결 불가(공식 제약표). 이 제약은 **plan이 아니라 apply 시 API가 검출**하므로 `tofu test`로 잡히지 않는다 —
+  연결 불가(공식 제약표). 이 제약은 **plan이 아니라 apply 시 API가 검출**하므로 plan 기반 test로 잡히지 않는다 —
   예제/프리셋에서 대역을 고를 때 주의한다.
 
 ### 1.3 네이밍 (`02 §1.2` 포맷 · 카탈로그 A.2 정합)
@@ -345,7 +348,8 @@ output "flow_log_group_name"      {}   # string      — D11. 비활성 시 null
 ### 1.5 예제 (`examples/` — 이 repo가 소유하는 유일한 호출 지점)
 
 > ⚠️ 이 절은 **배포 루트가 아니다.** 이 repo는 배포 루트를 소유하지 않는다(`03 §4` 각주).
-> 아래는 `tofu test`가 실행되는 검증 대상이자 소비자에게 보여줄 사용 예시다.
+> 아래는 **두 엔진의 `test`가 실행되는** 검증 대상이자 소비자에게 보여줄 사용 예시다.
+> 예제는 루트이므로 `versions.tf`에 provider 상한(`~> 6.0`)을 건다(`02 §2`).
 > 디렉토리 명명은 `examples/AGENTS.md`의 `<module>-<scenario>/` 규약을 따른다.
 
 #### (a) `examples/vpc/` — minimal
@@ -469,10 +473,14 @@ module "vpc" {
 > 선행: 이 문서 §1 검토·승인. 코드 작성 전 `terraform-style-guide` 스킬 로드(`CLAUDE.md` 검증 절).
 > 각 태스크 후 로컬 게이트: `tofu fmt -recursive -check` → `tofu validate` → `tflint --recursive` → `trivy config .`
 > (pre-commit hook이 강제한다).
+>
+> ⚖️ **엔진 중립 필수**(`../architecture/04-engine-neutrality.md` §5 N1~N7). 로컬은 `tofu`만 돌지만
+> **코드는 Terraform에서도 동작해야 한다** — 이 모듈에는 한쪽 전용 문법을 쓸 이유가 없다(순수 AWS 리소스).
 
 ### Task 10.1: 모듈 골격 — `versions.tf` + `variables.tf`
 **Files:** `modules/vpc/{versions.tf,variables.tf}`
-- `required_version >= 1.9.0`, `required_providers.aws >= 6.0`(모듈은 하한만 — `02 §2`)
+- `required_version >= 1.9.0`(⚠️ **상한 금지** — 04 §5 N1), `required_providers.aws >= 6.0`
+  (모듈은 하한만 — `02 §2`). provider source는 `hashicorp/aws` **짧은 주소만**(N6)
 - §1.2 계약 전체. `validation`: `type`/`eks_role`/`flow_logs_traffic_type` enum,
   `az_selection` 길이, `flow_logs_retention_days` 유효값
 - Commit: `feat(vpc): 모듈 인터페이스 정의 (설계 §1.2)`
@@ -501,12 +509,14 @@ module "vpc" {
 - Commit: `feat(vpc): 출력 계약 정의 (설계 §1.4)`
 
 ### Task 10.5: 예제 2종
-**Files:** `examples/vpc/{main,variables,outputs}.tf` + `README.md`,
-`examples/vpc-enterprise/{main,variables,outputs}.tf` + `README.md`
+**Files:** `examples/vpc/{main,versions,variables,outputs}.tf` + `README.md`,
+`examples/vpc-enterprise/{main,versions,variables,outputs}.tf` + `README.md`
 - §1.5(a)/(b). enterprise는 `cidrsubnet()` 파생 locals 포함(D2)
+- **`versions.tf`에 provider 상한 `~> 6.0`** — 예제는 루트이고, 이 repo는 lock을 커밋하지 않으므로
+  major 파괴 변경 방어가 여기에 달려 있다(`02 §2` · 04 §4)
 - `outputs.tf`에서 모듈 출력을 실제로 소비해 계약이 동작함을 보인다(`examples/AGENTS.md`)
-- 인자 없이 `tofu validate`가 도는 상태로 둔다(`examples/AGENTS.md`)
-- 검증: `tofu -chdir=examples/<dir> init -backend=false && validate`
+- 인자 없이 `validate`가 도는 상태로 둔다(`examples/AGENTS.md`)
+- 검증: `tofu -chdir=examples/<dir> init -backend=false && validate` (CI가 `terraform`으로도 실행)
 - Commit: `docs(examples): vpc minimal·enterprise 예제 추가`
 
 ### Task 10.6: 테스트
@@ -527,7 +537,9 @@ assertions:
 
 ### Task 10.7: 릴리스 게이트 + 태그
 - `02 §4` 체크리스트 전 항목 통과 확인
-- `.terraform.lock.hcl` 커밋 — ⚠️ registry 주소가 `registry.opentofu.org`인지 확인(`02 §2`)
+- **엔진 중립 실증**: `tofu`와 `terraform` **양쪽에서** `validate` + `test` 통과.
+  엔진 전환 시 `rm -rf .terraform .terraform.lock.hcl` 후 재init(04 §4)
+- **`.terraform.lock.hcl`이 커밋되지 않았는지 확인** — 커밋하면 반대 엔진에서 checksum 실패(04 §4)
 - `trivy config .` **예외 0건 유지 확인** — 필요 시 D11 판정 재실행
 - `docs/README.md` 상태표에서 10번 문서를 ✅로 갱신 (이 개정으로 이미 반영)
 - 태그: `vpc-v1.0.0`

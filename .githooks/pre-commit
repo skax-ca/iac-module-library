@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
-# pre-commit — OpenTofu 로컬 게이트 (fmt → tflint → trivy)
+# pre-commit — 로컬 게이트 (lock 차단 → fmt → tflint → trivy)
+# 로컬 게이트는 tofu 기준이다(두 엔진 중 제약이 빡빡한 쪽 = 1차 방어선, D-ENGINE-NEUTRAL §3.2).
+# 반대 방향 위반(OpenTofu 전용 문법)은 CI의 terraform 잡이 잡는다 — 로컬 통과 ≠ 중립성 통과.
 # 활성화: git config core.hooksPath .githooks  (clone마다 1회, CLAUDE.md 검증 절 참조)
 # 의도적 우회는 git commit --no-verify (사유를 커밋 메시지에 남길 것)
 set -euo pipefail
 
-# Terraform 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
+# 0/4 — lock 파일 커밋 차단 (D-ENGINE-NEUTRAL §4)
+# 두 엔진은 GPG 신뢰 루트가 달라 같은 lock을 공유할 수 없다. 커밋되면 반대 엔진 사용자가
+# init 시 checksum 실패를 만난다. .gitignore가 1차 방어지만 git add -f를 뚫으므로 여기서도 막는다.
+locked=$(git diff --cached --name-only --diff-filter=ACMR |
+  grep -E '(^|/)\.terraform\.lock\.hcl$' || true)
+if [ -n "$locked" ]; then
+  echo "[pre-commit] ✗ .terraform.lock.hcl 은 이 repo에서 커밋하지 않는다 (D-ENGINE-NEUTRAL §4)" >&2
+  echo "$locked" | sed 's/^/    /' >&2
+  echo "    해제: git restore --staged <경로>" >&2
+  exit 1
+fi
+
+# HCL 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
 staged=$(git diff --cached --name-only --diff-filter=ACMR |
-  grep -E '\.(tf|tfvars)$|\.terraform\.lock\.hcl$|^\.tflint\.hcl$|^\.trivyignore$' || true)
+  grep -E '\.(tf|tfvars)$|^\.tflint\.hcl$|^\.trivyignore$' || true)
 [ -z "$staged" ] && exit 0
 
-echo "[pre-commit] Terraform 변경 감지 — 로컬 게이트 실행"
+echo "[pre-commit] HCL 변경 감지 — 로컬 게이트 실행"
 
 echo "  1/3 tofu fmt -check"
 tofu fmt -recursive -check

@@ -78,18 +78,17 @@ GITHUB_TOKEN=$(gh auth token) tflint --init
 
 | 서버 | 용도 | 준비 |
 |------|------|------|
-| `terraform` | provider/모듈 스키마 조회 — `CLAUDE.md` 검증 절이 요구하는 "추정 금지" 근거 | 아래 `go install` 1회 |
+| `opentofu` | provider/모듈 스키마 조회 — `CLAUDE.md` 검증 절의 "추정 금지" 근거 | **없음**(`npx`가 자동 설치) |
 | `aws-docs` | AWS 공식 문서 조회 (설계 근거 소스) | `uvx`가 자동 설치 |
 
-```bash
-go install github.com/hashicorp/terraform-mcp-server/cmd/terraform-mcp-server@v1.1.0
-# → ${HOME}/go/bin/terraform-mcp-server (.mcp.json이 이 경로를 참조)
-```
-
-- `terraform` 서버는 **`registry` toolset만** 켠다(`--toolsets=registry`). 이름과 달리 로컬 CLI를
-  실행하지 않고 Terraform Registry API만 조회하므로 **OpenTofu 사용에 지장이 없다.**
-- ⛔ **TFE/HCP Terraform 연동(`TFE_TOKEN`·`ENABLE_TF_OPERATIONS`)은 넣지 않는다.** 이 repo는
-  TFC를 졸업했고(D-OSS-STACK), 해당 toolset은 워크스페이스·run 조작용이라 여기에 대상이 없다.
+- **[OpenTofu 공식 MCP 서버](https://github.com/opentofu/opentofu-mcp-server)**(`@opentofu/opentofu-mcp-server`)를 쓴다.
+  인증 토큰이 필요 없고, **우리가 실제로 `tofu init`으로 조회하는 `registry.opentofu.org`**를 본다.
+- `get-resource-docs`는 `namespace`·`name`·`resource`만으로 **단독 호출**된다 — 이전에 쓰던
+  `terraform-mcp-server`의 2단계 호출(`search` → `details`) 제약이 없다.
+- ⚠️ **로컬 npx 판(0.1.x)에는 버전 조회 툴이 없다**(hosted `mcp.opentofu.org` 1.0.x에만 있다).
+  버전 존재 확인은 표준 registry API로 한다 — `CLAUDE.md` 검증 절 참조.
+- ⛔ **TFE/HCP Terraform 연동 서버는 넣지 않는다.** 이 repo는 TFC를 졸업했고(D-OSS-STACK),
+  해당 toolset은 워크스페이스·run 조작용이라 여기에 대상이 없다.
 
 ## 다음 작업
 

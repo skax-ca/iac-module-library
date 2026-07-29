@@ -132,11 +132,15 @@ module "vpc" {
 ## 검증
 
 ### 코드 작성 전
-- **리소스 스키마**: 새 리소스/인자 사용 전 `mcp__terraform__*`로 확인(추정 금지). **2단계 호출**이다 —
-  `search_providers`(`provider_name`·`provider_namespace`·`service_slug`·`provider_document_type` 필수)로
-  `providerDocID`를 얻고, 그 값을 `get_provider_details`(`provider_doc_id` 필수)에 넘긴다.
-  `get_provider_details`는 단독 호출이 불가능하다.
-- **커뮤니티 모듈 wrapping**: `mcp__terraform__get_module_details`로 실제 upstream 변수/출력명 확인 후 작성.
+- **리소스 스키마**: 새 리소스/인자 사용 전 `mcp__opentofu__get-resource-docs`로 확인(추정 금지).
+  인자는 `namespace`·`name`·`resource` 3개이고 **단독 호출된다**(예: `hashicorp`/`aws`/`vpc`).
+  data source는 `get-datasource-docs`(`dataSource` 인자). 이름을 모르면 `search-opentofu-registry` 먼저.
+- **커뮤니티 모듈 wrapping**: `mcp__opentofu__get_module_details`(`namespace`·`name`·`target`)로
+  실제 upstream 변수/출력명 확인 후 작성.
+- **버전 존재 확인**: 핀을 걸기 전에 **`tofu`가 실제로 조회하는 registry**에 그 버전이 있는지 본다.
+  로컬 npx 판(0.1.x)에는 버전 조회 툴이 없으므로 표준 registry API를 쓴다 — 실측으로 동작 확인:
+  `curl -s https://registry.opentofu.org/v1/providers/<ns>/<name>/versions`
+  (모듈은 `.../v1/modules/<ns>/<name>/<target>/versions`)
 - **MCP 미가용 시 대체 경로**: provider 저장소의 문서 원문을 직접 읽는다 —
   `https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/<resource>.html.markdown`
   (registry 웹페이지는 SPA라 WebFetch로 읽히지 않는다). **추정으로 대체하지 않는다.**

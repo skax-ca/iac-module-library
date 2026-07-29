@@ -67,12 +67,17 @@
 - `docs/reference/poc-findings.md`는 **외부 스냅샷** — 참조만, 복사·갱신 금지
 - `docs/consumer/*` 📦 배포 루트 소유. 모듈 설계 근거로 쓰지 않는다
 
-### MCP (2026-07-29 신설, `.mcp.json` project 스코프)
+### MCP (`.mcp.json` project 스코프 — 2026-07-29 **`terraform` → `opentofu` 교체**)
 
-- `terraform`(registry toolset만) + `aws-docs`. ⏸ **승인 대기 상태** — `claude` 재시작 시 승인 필요.
-- `terraform-mcp-server` **v1.1.0**은 `go install` 완료(`~/go/bin/`). CLI를 실행하지 않아 **tofu와 무관하게 동작**(실측 확인).
-- ⛔ `TFE_TOKEN`·`ENABLE_TF_OPERATIONS`·`aws-api`는 의도적으로 제외했다 — 되살리지 말 것.
-- ⚠️ `get_provider_details`는 단독 호출 불가 — `search_providers`로 `providerDocID`를 먼저 얻는 **2단계**(`CLAUDE.md` 검증 절).
+- **`opentofu`**([공식](https://github.com/opentofu/opentofu-mcp-server), `npx -y @opentofu/opentofu-mcp-server`) + `aws-docs`.
+  ⏸ 교체 후 **`claude` 재시작 + 승인 필요**.
+- 교체 이유: ① `get-resource-docs`가 **단독 호출** — 기존 `terraform-mcp-server`의 2단계 제약 소멸
+  ② **`registry.opentofu.org`**(우리가 실제로 쓰는 registry)를 조회 ③ `go install` 불필요.
+- ⚠️ **로컬 npx 판은 0.1.x / 툴 5종**, hosted(`mcp.opentofu.org`)는 **1.0.1 / 7종**(실측).
+  로컬에는 `get-provider-versions`가 **없다** → 버전 존재 확인은 표준 API로:
+  `curl -s https://registry.opentofu.org/v1/providers/<ns>/<name>/versions` (실측 동작 확인).
+- ⛔ TFE/HCP 연동 서버·`aws-api`는 의도적으로 제외했다 — 되살리지 말 것.
+- 구 `terraform-mcp-server` v1.1.0 바이너리는 `~/go/bin/`에 남아 있다(미사용, 삭제해도 무방).
 
 ## 미결 항목
 

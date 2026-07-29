@@ -1,11 +1,11 @@
 {
   "mcpServers": {
-    "terraform": {
+    "opentofu": {
       "type": "stdio",
-      "command": "${HOME}/go/bin/terraform-mcp-server",
+      "command": "npx",
       "args": [
-        "stdio",
-        "--toolsets=registry"
+        "-y",
+        "@opentofu/opentofu-mcp-server"
       ],
       "env": {}
     },

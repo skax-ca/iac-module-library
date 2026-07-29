@@ -345,6 +345,22 @@ variable "flow_logs_kms_key_id"     { type = string  default = null }    # found
   연결 불가(공식 제약표). 이 제약은 **plan이 아니라 apply 시 API가 검출**하므로 `tofu test`로 잡히지 않는다 —
   예제/프리셋에서 대역을 고를 때 주의한다.
 
+#### 1.2-1 구현 제약 (2026-07-30 보강 — Task 10.2 착수 중 확정)
+
+§1.2의 **계약(변수·출력)은 바뀌지 않았다.** 아래는 계약을 그 형태로만 구현할 수 있게 만드는 제약과,
+설계가 침묵했던 지점의 결정이다. 근거를 남기지 않으면 이후 세션이 되돌릴 위험이 있는 것들만 적는다.
+
+| # | 항목 | 결정과 근거 |
+|---|------|------------|
+| C1 | **구조 라우트는 별도 `aws_route`** — `aws_route_table`의 inline `route` 블록 금지 | provider 문서: inline `route`와 `aws_route`는 **혼용 불가**("will cause a conflict of rule settings and will **overwrite** rules"). D3는 소비자가 모듈의 RT에 `aws_route`로 운영 라우트를 얹는 구조이므로, 모듈이 inline을 쓰면 **소비자의 운영 라우트가 덮어써진다** — D3 앵커 계약이 성립하지 않는다. `CLAUDE.md`의 SG rule 규칙(inline 금지·혼용 금지)과 동일 원리 |
+| C2 | **VPC DNS 속성은 `true` 하드코딩** (`enable_dns_support`·`enable_dns_hostnames`) | 사용자 승인(2026-07-30). EKS 프라이빗 엔드포인트·VPC 엔드포인트 프라이빗 DNS가 둘 다 요구한다. `aws_vpc` 기본값은 `hostnames = false`라 명시하지 않으면 동작하지 않는다. **변수화하지 않은 이유**: 얇은 모듈의 계약 표면을 늘리지 않는다 — 끌 수요가 생기면 `02 §3`대로 **계약 확장 = 마이너** |
+| C3 | **IGW는 `public` 그룹이 1개 이상일 때만 생성** | public 그룹이 없으면 IGW를 걸 RT가 없다. 무조건 생성하면 고아 IGW가 남는다 |
+| C4 | **public 서브넷에 `map_public_ip_on_launch`를 설정하지 않는다**(기본 `false`) | public 그룹의 용도는 **ELB·NAT 호스팅**이고 둘 다 자동 공개 IP가 불필요하다(ALB는 자체 주소, NAT는 EIP). ⚠️ **EKS 노드를 public 서브넷에 두려면 auto-assign이 필수**(공식) — 그 구성은 이 모듈의 프리셋 범위 밖이다(노드는 `private` 그룹) |
+| C5 | **NAT는 `private` 그룹이 존재할 때만 생성** | `enable_nat_gateway`는 "private 그룹에 NAT 경로를 구성할지"다(§1.2). private 그룹이 없으면 구성할 경로가 없고, NAT는 유휴로도 과금된다 |
+| C6 | **precondition 5건** — 설계가 명시한 3건(D6 2건 + NAT/public) + **평가 안전 2건**(리전 AZ 수 ≥ `az_count`, `az_selection` suffix가 리전에 존재) | 후자 2건이 없으면 잘못된 입력이 **locals의 index 오류**로 먼저 죽어 `tofu test`의 `expect_failures`가 잡을 수 없다 — `expect_failures`는 **선언된 check 객체만** 대상으로 한다. 같은 이유로 locals는 `min()`/`slice()`로 범위를 잘라 **precondition이 먼저 말하게** 한다 |
+| C7 | **`extra_tags`는 서브넷에만 부착** | §1.2가 "그룹 단위 추가 태그"라고만 정의한다. RT는 그룹당 1개(또는 AZ별)로 서브넷과 1:1이 아니므로 보수적으로 서브넷에 한정한다. RT 태그가 필요해지면 계약 확장(마이너) |
+| C8 | ⚠️ **`kubernetes.io/cluster/<name> = shared`는 레거시 태그다** | [공식 문서](https://docs.aws.amazon.com/eks/latest/userguide/network-reqs.html) 확인(2026-07-30): *"When you create a new Kubernetes cluster now, Amazon EKS doesn't add the tag to your subnets"* — **AWS Load Balancer Controller 2.1.1 이하만** 요구하고 최신 버전은 제거해도 무중단이다. D4대로 구현하되(기본 `eks_cluster_name = null`이라 opt-in), **필수 요구로 오해하지 말 것**. 현행 필수는 `kubernetes.io/role/{elb,internal-elb} = 1` 뿐이다 |
+
 ### 1.3 네이밍 (`02 §1.2` 포맷 · 카탈로그 A.2 정합)
 
 그룹 키가 Name의 purpose 토큰이 된다. **그룹 키는 `<용도 축약>-<uniq|dup>` 형식을 권고**한다 —
@@ -606,3 +622,16 @@ assertions:
 5. **private NAT 옵션**: D9-B 전환 조건이 충족되면 모듈에 옵션 추가. 계약 확장이므로 마이너.
 6. **IAM inline policy 약어**: §1.3에서 role 이름 종속으로 처리했다. 독립 약어가 필요하다는 판단이 서면
    카탈로그 거버넌스 리뷰로 추가한다.
+7. **Flow Logs 역할의 confused deputy 방어 (2026-07-30 신설)**: AWS는 신뢰 정책에
+   `aws:SourceAccount`·`aws:SourceArn` 조건을 **권고**한다([공식](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html)).
+   v1.0.0은 **공식 최소 신뢰 정책만** 구현했다 — 조건을 넣으려면 `data.aws_caller_identity`·
+   `data.aws_partition`·`data.aws_region` 3개를 추가(각각 D10 게이트 필요)해야 하고, ARN 조건이
+   틀리면 **배달이 조용히 실패**하는데 이 실패는 plan으로 검출되지 않는다. 실계정 apply로 검증할 수
+   있는 시점에 도입한다. 계약 변경이 아니므로 **패치/마이너**로 처리 가능.
+8. **`aws_flow_log` Name 태그 약어 부재 (2026-07-30 확인)**: 카탈로그에 VPC Flow Log 약어가 없다
+   (`cwfm`=CloudWatch Network Flow Monitor, `brfl`=Bedrock Flows로 **다른 서비스**). 임의 생성 금지
+   규칙에 따라 이 리소스에는 `Name`을 붙이지 않았다. 필요하다면 거버넌스 리뷰로 카탈로그에 추가한다.
+9. **per-AZ NAT의 개수 기준 (2026-07-30 확인)**: §1.2를 문자 그대로 구현해 NAT를 **NAT 호스트 그룹의
+   AZ마다** 만든다. 호스트 그룹이 private 그룹보다 넓으면 쓰이지 않는 NAT가 생기고 AZ당 약 $43/월이
+   과금된다. 프리셋은 pub 2AZ이므로 현재는 무해하나, "private가 실제로 필요한 AZ만" 기준으로 좁힐지는
+   재검토 여지가 있다.

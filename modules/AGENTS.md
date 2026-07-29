@@ -21,9 +21,9 @@ source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=
 | `<module>/main.tf` | 리소스 정의 |
 | `<module>/variables.tf` | 입력. `naming` 객체 + `<component>_enabled` kill switch 필수 |
 | `<module>/outputs.tf` | **출력 계약** — 메이저 버전 내 안정 |
-| `<module>/versions.tf` | `required_version >= 1.9.0`(상한 금지) + `required_providers`(모듈은 **하한만**) |
-| `<module>/tests/*.tftest.hcl` | `Name` 태그 assertion 포함. 두 엔진 공통 포맷 |
-| ~~`<module>/.terraform.lock.hcl`~~ | **커밋하지 않는다** — `.gitignore` 제외([04 §4](../docs/architecture/04-engine-neutrality.md)) |
+| `<module>/versions.tf` | `required_version` + `required_providers`(모듈은 하한만) |
+| `<module>/tests/*.tftest.hcl` | `Name` 태그 assertion 포함 |
+| `<module>/.terraform.lock.hcl` | 커밋 대상. ⚠️ `registry.opentofu.org` 주소여야 한다 |
 
 ## Subdirectories
 | Directory | Purpose |
@@ -38,17 +38,12 @@ source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=
 
 - **⛔ 설계 없이 모듈을 만들지 않는다.** `../docs/design/`에 해당 설계가 있어야 하고,
   그 문서가 **⚠️ 미개정 상태면 개정이 먼저**다(PoC 전제 제거 + 재사용 요건 적용).
-- **⚖️ 엔진 중립 필수.** 모듈 코드는 OpenTofu와 Terraform 양쪽에서 동작해야 한다
-  ([04 §5](../docs/architecture/04-engine-neutrality.md) N1~N7). 대표 금지:
-  `.tofu` 확장자 · `tofu {}` / `encryption` 블록 · `backend`/`cloud` 블록 ·
-  provider source에 registry 호스트 명시 · `required_version` 하한을 1.12 위로.
-  **로컬은 `tofu`만 돌지만 그것이 중립성 통과를 뜻하지 않는다** — CI의 `terraform` 잡이 반대편을 잡는다.
 - **재사용 요건 5종**(`../docs/architecture/01-module-strategy.md` §4) — 하나라도 빠지면 릴리스하지 않는다:
   1. **파라미터화** — workload·계정·리전 하드코딩 금지. `naming` 객체로 주입
   2. **kill switch** — `<component>_enabled = false`면 전 리소스 파기.
      **data source의 `count`까지 0**이 되어야 참조 대상이 사라진 뒤에도 plan이 통과한다
   3. **환경 프로파일** — dev/stg/prd 차이를 모듈 변수로 흡수(소비자가 조건 분기를 짜지 않게)
-  4. **예제 + 테스트** — `../examples/<module>/`이 곧 테스트 대상
+  4. **예제 + 테스트** — `../examples/<module>/`이 곧 `tofu test` 대상
   5. **출력 계약** — 이름 변경은 메이저 버전
 - **커뮤니티 모듈 wrapping 시**: upstream 변수·출력명을 registry에서 **직접 확인**한다(추정 금지).
   facade가 upstream 변수명을 소비자에게 노출하면 wrapper의 의미가 사라진다.
@@ -58,20 +53,12 @@ source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=
 ### Testing Requirements
 
 ```bash
-# 로컬 1차 (pre-push hook이 modules/*.tf 변경 시 자동 실행)
 tofu -chdir=modules/<name> init -backend=false
-tofu -chdir=modules/<name> test
-
-# 중립성 확인 — CI가 강제하지만 로컬에서도 재현 가능
-terraform -chdir=modules/<name> init -backend=false
-terraform -chdir=modules/<name> test
+tofu -chdir=modules/<name> test          # pre-push hook이 modules/*.tf 변경 시 자동 실행
 ```
 
 - `*.tftest.hcl`에 **`Name` 태그 assertion을 반드시 포함**한다 — plan 단계에서 네이밍 규약 위반을 잡는다.
 - kill switch가 `false`일 때도 plan이 통과하는지 테스트한다(teardown 가능성 보장).
-- ⚠️ 두 엔진을 같은 디렉토리에서 번갈아 돌리면 `.terraform/`·lock 캐시가 충돌한다.
-  전환 시 `rm -rf modules/<name>/.terraform .terraform.lock.hcl` 후 재init한다.
-  **CI는 각자의 러너에서 fresh init하므로 이 문제가 없다**([04 §6](../docs/architecture/04-engine-neutrality.md)).
 
 ### Common Patterns
 

@@ -55,10 +55,8 @@ Upstream 계층 (커뮤니티 모듈 / provider)
 
 ### 2.3 의존성 통제 메커니즘
 
-1. **커뮤니티 모듈 정확 버전 핀** — 내부 모듈은 upstream을 `= x.y.z`로, `required_providers`에 테스트한 범위.
-   ⚠️ **이 repo는 lock을 커밋하지 않는다**(엔진 중립 — [`04 §4`](04-engine-neutrality.md)).
-   provider 상한 방어는 예제(`~> 6.0`)가, upstream 모듈 고정은 정확 핀이 맡는다.
-   소비 프로젝트 루트는 반대다 — **실제 apply하므로 lock을 반드시 커밋**한다.
+1. **정확 버전 핀 + lock 커밋** — 내부 모듈은 upstream을 `= x.y.z`로, `required_providers`에 테스트한 범위.
+   ⚠️ lock의 registry 주소가 `registry.opentofu.org/...`인지 확인(다른 스택의 lock을 복사하지 않는다).
 2. **Wrapper(facade) 패턴** — 업그레이드 폭발 반경을 한 곳에 가둔다.
 3. **provider 핀을 컴포넌트 단위로 격리** — 한 모듈이 전체 estate의 provider를 끌고 가지 못하게.
 4. **의존성 봇은 이 repo에만, 자동 머지 금지** — 소비 프로젝트는 우리가 릴리스한 태그로만 올린다.
@@ -112,9 +110,8 @@ GitOps 모듈을 설계할 때 **대안(self-managed ArgoCD 포함)과 함께 �
 | **파라미터화** | workload code·계정 ID·리전·환경 프로파일을 하드코딩하지 않는다. `naming` 객체로 주입받는다 |
 | **kill switch** | 각 컴포넌트에 `<component>_enabled` 변수를 두어 `false`면 전 리소스를 파기한다. **data source의 `count`까지 0**이 되게 해야 참조 대상이 사라진 뒤에도 plan이 통과한다(findings §6.2) |
 | **환경 프로파일** | dev/stg/prd 차이를 모듈 변수로 흡수(`single_nat_gateway`, `az_count`, spot 비율 등). 소비자가 조건 분기를 짜지 않게 한다 |
-| **예제 + 테스트** | `examples/<module>/`이 곧 테스트 대상. 모듈은 예제 없이 릴리스하지 않는다 |
+| **예제 + 테스트** | `examples/<module>/`이 곧 `tofu test` 대상. 모듈은 예제 없이 릴리스하지 않는다 |
 | **출력 계약** | 소비자가 의존하는 출력은 **메이저 버전 내에서 안정**. 이름 변경은 메이저 |
-| **엔진 중립** | 모듈은 소비자의 엔진(OpenTofu/Terraform)을 강제하지 않는다. 규칙 → [`04 §5`](04-engine-neutrality.md) |
 
 ---
 
@@ -154,4 +151,3 @@ GitOps 모듈을 설계할 때 **대안(self-managed ArgoCD 포함)과 함께 �
 - [AWS EKS Blueprints — v4→v5 Motivation (GitOps 전환)](https://aws-ia.github.io/terraform-aws-eks-blueprints/v4-to-v5/motivation/)
 - [GitOps Bridge](https://github.com/gitops-bridge-dev/gitops-bridge)
 - [OpenTofu 문서](https://opentofu.org/docs/)
-- [Terraform 문서](https://developer.hashicorp.com/terraform/docs) — 엔진 중립 검증의 반대편 기준([04](04-engine-neutrality.md))

@@ -25,13 +25,14 @@
 | 01 | [01-module-strategy.md](architecture/01-module-strategy.md) | 계층형 하이브리드 모듈 전략, IaC↔GitOps 경계, **재사용 자산 요건** | ✅ |
 | 02 | [02-naming-tagging-and-pinning.md](architecture/02-naming-tagging-and-pinning.md) | 태그·`Name` 거버넌스, 어휘 표준, 버전 핀, 모듈 소싱, 검증 게이트 | ✅ |
 | 03 | [03-dependencies.md](architecture/03-dependencies.md) | SG rule 순환 해소, 공유/기반 리소스 참조(**SSM Parameter**), 소유 모델 | ✅ |
-| 04 | [04-engine-neutrality.md](architecture/04-engine-neutrality.md) | **엔진 중립 결정(D-ENGINE-NEUTRAL)** — 라이선스 재평가, 중립성 규칙 N1~N7, lock 방침, CI 2잡 | ✅ (신규 작성) |
+| 04 | [04-engine-decision.md](architecture/04-engine-decision.md) | **엔진 결정(D-ENGINE)** — 라이선스 재평가, **두 엔진 지원 기각 근거(실측)**, 재검토 조건 | ✅ (신규 작성) |
 
 > PoC의 `02 §4`(TFC 연동)·`§5`(Phase 0 태스크)·`01 §5`(Stacks)는 **폐기**했다 — 스택 종속이거나 일회성이다.
 
 > ⚠️ **04는 승계 문서가 아니라 이 repo에서 새로 쓴 ADR이다.** D-OSS-STACK(PoC repo `05`)의
-> **엔진 축을 개정**하며, PoC는 동결이라 그쪽에 개정 표시가 없다. **D-OSS-STACK을 인용할 때는 04를 함께 읽는다** —
-> 04를 빠뜨리면 "이 repo는 OpenTofu 전용"이라는 낡은 결론을 인용하게 된다.
+> **엔진 축 근거를 교체**한다 — 결론(OpenTofu)은 같지만 이유가 다르다(05는 라이선스, 04는 조달 마찰·운영 비용).
+> PoC는 동결이라 그쪽에 표시가 없으므로 **D-OSS-STACK을 인용할 때는 04를 함께 읽는다.**
+> 특히 *"두 엔진을 지원하면 되지 않나"* 라는 제안이 나오면 **04 §3이 이미 값을 매겨 기각한 안**이다.
 
 ## design — 모듈 설계
 

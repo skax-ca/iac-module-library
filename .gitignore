@@ -1,11 +1,5 @@
-# 로컬 상태 및 캐시
-#
-# .terraform.lock.hcl 은 이 repo에서 커밋하지 않는다 (D-ENGINE-NEUTRAL §4).
-#  - OpenTofu와 Terraform은 GPG 신뢰 루트가 달라 같은 lock을 공유할 수 없고, 파일명이 고정이라 병존 불가
-#  - lock은 루트 구성의 소유물이라 git tag로 소싱된 모듈과 함께 소비자에게 전달되지 않는다
-#  - 이 repo는 apply하지 않으므로 "동일 바이너리 재현" 가치가 낮다
-# major 파괴 변경 방어는 examples/*/versions.tf 의 provider 상한(~> 6.0)이 맡는다.
-.terraform.lock.hcl
+# Terraform 로컬 상태 및 캐시
+# 주의: .terraform.lock.hcl 은 커밋 대상 (provider 버전 고정). 무시하지 않는다.
 .terraform/
 *.tfstate
 *.tfstate.*

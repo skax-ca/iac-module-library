@@ -3,10 +3,8 @@
 > **승계**: `terraform-enterprise-poc` `docs/architecture/02-common-governance.md` @ `76285f7`(동결 커밋)
 > **개정**: §4(TFC 워크스페이스·run trigger·`tfe_outputs` 연동)와 §5(Phase 0 스캐폴딩) **폐기** —
 > 전자는 TFC 종속이자 배포 루트 관심사(→ [`../consumer/`](../consumer/)), 후자는 PoC 일회성 태스크 ·
-> workloadcode를 **프로젝트 정의**로 전환 · 정책 엔진을 Sentinel에서 **OPA**로 ·
+> workloadcode를 **프로젝트 정의**로 전환 · 버전 핀을 OpenTofu 기준으로 · 정책 엔진을 Sentinel에서 **OPA**로 ·
 > 소싱 승격 경로를 **git tag** 모델로.
-> **재개정(2026-07-29)**: §2 버전 핀과 §4 릴리스 게이트를 **엔진 중립**으로 전환
-> ([`04-engine-neutrality.md`](04-engine-neutrality.md), D-ENGINE-NEUTRAL).
 > 이후 **이 문서가 SSOT**다.
 
 > 모든 모듈이 공유하는 규약. 개별 모듈 문서는 이 문서를 참조한다.
@@ -146,17 +144,13 @@ locals {
 
 | 대상 | 규약 | 근거 |
 |------|------|------|
-| 엔진 (`required_version`) | 모듈 하한 `>= 1.9.0`. **상한 없음, 단 하한을 1.12.x 위로 올리지 않는다** | 1.12 초과 하한은 OpenTofu를 전부 배제 → 중립성 파괴([04 §5 N1](04-engine-neutrality.md)) |
-| aws provider | 모듈 `>= 6.0`(하한만) / **예제·소비 루트 `~> 6.0`** | 상한은 **루트가 통제**. 예제도 루트다 |
-| provider source | `hashicorp/aws` 형태 **짧은 주소만** | 호스트를 쓰면 엔진이 갈린다([04 §5 N6](04-engine-neutrality.md)) |
+| OpenTofu | 모듈 하한 `>= 1.9.0` / 실행 최신 1.12.x | 하한은 실제로 쓰는 기능 기준으로만 올린다 |
+| aws provider | 모듈 `>= 6.0` / 소비 루트 `~> 6.0` + lock 커밋 | 상한은 소비자가 통제 |
 | 커뮤니티 모듈 | **정확 핀**(`= x.y.z`), wrapper 내부에서만 | churn 격리 |
 | 내부 모듈 소비 | git tag `<module>-vX.Y.Z` | §3 |
 
-- **`.terraform.lock.hcl`은 이 repo에서 커밋하지 않는다**([04 §4](04-engine-neutrality.md)).
-  두 엔진의 GPG 신뢰 루트가 달라 해시가 갈리고, 파일명이 고정이라 병존할 수 없다.
-  lock은 **remote module을 추적하지 않으므로** 소비자에게 전달되지도 않는다.
-  → major 파괴 변경 방어는 **예제의 `~> 6.0` 상한**이 맡는다. minor/patch 회귀는 fresh init으로 조기 검출한다.
-- ⚠️ 이 규약은 **이 repo에만** 적용된다. 소비 프로젝트 루트는 실제로 apply하므로 **lock을 반드시 커밋**한다.
+- `.terraform.lock.hcl`은 **커밋**한다. ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인 —
+  다른 스택의 lock을 복사하면 안 된다.
 - 하한을 올릴 때는 **그 버전의 어떤 기능이 필요한지**를 근거로 남긴다.
 
 ---
@@ -182,16 +176,10 @@ locals {
 
 ## 4. 공통 검증 게이트 (모듈 완료 판정)
 
-**엔진 중립 검증 — 두 엔진 모두에서** (`<E>` = `tofu` · `terraform`)
-
-- [ ] `<E> fmt -recursive -check` clean **(양쪽)**
-- [ ] 모든 `modules/*`: `<E> validate` + `<E> test` 통과 **(양쪽)**
-- [ ] `examples/*`: `<E> validate` 통과 **(양쪽)**. 예제 없는 모듈은 릴리스하지 않는다
-- [ ] [04 §5](04-engine-neutrality.md) 중립성 규칙 N1~N7 위반 없음
-- [ ] `.terraform.lock.hcl`이 **커밋되지 않았다**(04 §4 — 커밋하면 반대 엔진에서 checksum 실패)
-
-**엔진 무관 검증** (1회만)
-
+- [ ] `tofu fmt -recursive -check` clean
+- [ ] 모든 `modules/*`: `tofu validate` + `tofu test` 통과
+- [ ] `examples/*`: `tofu validate` 통과 (예제 없는 모듈은 릴리스하지 않는다)
+- [ ] `.terraform.lock.hcl` 커밋됨 + registry 주소가 `registry.opentofu.org`
 - [ ] `Name` 태그가 §1.2 포맷 + 카탈로그 약어 준수 (`*.tftest.hcl` assertion으로 증명)
 - [ ] 커뮤니티 모듈은 정확 핀, facade가 upstream 변수를 소비자에게 노출하지 않음
 - [ ] `<component>_enabled` kill switch 존재([01 §4](01-module-strategy.md))

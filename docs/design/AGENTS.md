@@ -4,16 +4,17 @@
 # design
 
 ## Purpose
-모듈별 상세 설계. ⚠️ **전부 미개정 상태**다 — PoC(Terraform 1.15 + HCP Terraform) 전제와
-실증 서술이 그대로 남아 있다. 각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
+모듈별 상세 설계. **10(VPC)은 개정 완료**, 나머지는 ⚠️ **미개정**이다 —
+PoC(Terraform 1.15 + HCP Terraform) 전제와 실증 서술이 그대로 남아 있다.
+각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
 
-**설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하고, 실행 스택 종속부가 무효다.**
+**미개정 문서의 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하고, 실행 스택 종속부가 무효다.**
 이 구분이 이 디렉토리를 다루는 핵심이다.
 
 ## Key Files
 | File | Description | 상태 |
 |------|-------------|------|
-| `10-vpc-module.md` | 스크래치 VPC 모듈 — 서브넷 그룹 프리셋, EKS-aware 태깅, custom networking용 100.64 대역 | ⚠️ 미개정 |
+| `10-vpc-module.md` | 스크래치 VPC 모듈 — `subnet_groups` 계약, EKS-aware 태깅, custom networking용 100.64 대역, kill switch(D10), Flow Logs(D11) | ✅ 개정 완료 (`vpc-v1.0.0`) |
 | `20-eks-module.md` | EKS wrapper(facade) — addon 경계(D-ADDON-BOUNDARY), Karpenter, Access Entry, 관리형 ArgoCD seam(§2.7) | ⚠️ 미개정 |
 | `30-gitops-repo.md` | GitOps 저장소 구조 — App-of-Apps + ApplicationSet, AppProject 테넌시, addon 3분류 | ⚠️ 미개정 |
 | `40-bastion.md` | SSM 기반 bastion — private 클러스터의 유일 조작 지점, `bastion_enabled` kill switch | ⚠️ 미개정 |
@@ -22,8 +23,9 @@
 
 ### Working In This Directory
 
-- ⛔ **확정 설계로 인용하지 않는다.** 각 파일 상단의 미개정 헤더를 먼저 읽는다.
-  여기 적힌 "실증됨"은 **이 repo에서 재현한 것이 아니다**.
+- ⛔ **미개정 문서를 확정 설계로 인용하지 않는다.** 각 파일 상단 헤더를 먼저 읽어
+  개정 여부를 판정한다 — 미개정 문서에 적힌 "실증됨"은 **이 repo에서 재현한 것이 아니다**.
+  개정 완료 문서(현재 `10-vpc-module.md`)는 이 repo의 SSOT이므로 인용 가능하다.
 - **개정 시 반드시 할 일**:
   1. 실증 서술(날짜·run ID·"확인됨")을 본문에서 제거하고 `../reference/poc-findings.md` 참조로 대체
   2. `workload=poc`·상대경로 소싱·TFC 워크스페이스 전제를 걷어낸다

@@ -32,13 +32,13 @@
 
 | # | 문서 | 상태 |
 |---|------|------|
-| 10 | [10-vpc-module.md](design/10-vpc-module.md) | ⚠️ 미개정 |
+| 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-07-29 개정 — `vpc-v1.0.0` 계약) |
 | 20 | [20-eks-module.md](design/20-eks-module.md) | ⚠️ 미개정 |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
 | 40 | [40-bastion.md](design/40-bastion.md) | ⚠️ 미개정 |
 
-> 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하나 **실행 스택 종속부와 실증 서술이 무효**다.
-> 각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
+> 미개정 문서의 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하나
+> **실행 스택 종속부와 실증 서술이 무효**다. 각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
 
 ## reference
 

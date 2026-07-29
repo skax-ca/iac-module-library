@@ -2,7 +2,8 @@
 
 ## Priority Context
 
-**OSS IaC 모듈 자산 SSOT** — 2026-07-29 신설. 로컬 전용(원격 repo 미생성 → `git push` 불가).
+**OSS IaC 모듈 자산 SSOT** — 2026-07-29 신설. 원격: `skax-ca/iac-module-library`(**private**, 무료 org).
+`origin`=`https://github.com/skax-ca/iac-module-library.git`, `main` 추적. push 정상.
 
 - **배경**: `terraform-enterprise-poc`가 2026-07-28 **동결(졸업)**. 결정 전문은 그 repo의
   `docs/architecture/05-oss-asset-repo-decision.md`(D-OSS-STACK).
@@ -39,7 +40,8 @@
    `tofu fmt`·`validate` 통과. 커밋하지 **못한** 이유는 아래 "커밋 단위 제약"이다. 재작성하지 말 것.
 2. **MCP가 `terraform` → `opentofu`로 교체됐다**(`1bd6641`). 재시작 후 **project 스코프 승인 필요**.
    툴 이름이 바뀌었다 — `mcp__opentofu__get-resource-docs`(단독 호출, 2단계 아님).
-3. ⚠️ **원격 repo가 없어 `git push`가 불가능하다.** 커밋은 이 Mac에만 있다.
+3. ✅ **원격 repo 생성·push 완료**(2026-07-29): `skax-ca/iac-module-library`(private).
+   `gh` 토큰에 **`workflow` 스코프 추가됨**(`.github/workflows/` 파일 push에 필수).
 
 ### ⏭️ 다음 작업 = §6-2 **2단계 — `modules/vpc` 코드 이식**
 
@@ -96,8 +98,9 @@
 
 ## 미결 항목
 
-- **원격 repo 미생성** → 커밋만 되고 push 불가. 생성 시 ⚠️ **immutable sub claim**
-  (2026-07-15 이후 repo는 OIDC `sub`가 숫자 org/repo ID)
+- ~~원격 repo 미생성~~ ✅ **해결**: `skax-ca/iac-module-library`(private) 생성·push 완료(2026-07-29).
+  ⚠️ **immutable sub claim 주의**: 이 repo는 2026-07-15 이후 생성 → OIDC `sub`가 숫자 org/repo ID다.
+  소비자 repo 신뢰 정책 작성 전 실제 토큰 `sub` 확인 필수(`repo:<org>@<org_id>/<repo>@<repo_id>:...`).
 - ⚠️ **TFE_TOKEN 폐기·재발급 미처리**(2026-07-28 세션 중 노출) — 보안 사항, 우선순위 높음
 - 보존한 `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
   → 부트스트랩 시 신뢰 정책 교체 필요

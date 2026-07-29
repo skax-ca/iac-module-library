@@ -61,6 +61,25 @@ git config core.hooksPath .githooks          # clone마다 1회 — 로컬 게�
 GITHUB_TOKEN=$(gh auth token) tflint --init
 ```
 
+### MCP 서버 (AI 에이전트로 작업할 때)
+
+`.mcp.json`(project 스코프)에 두 서버가 등록돼 있다. **clone 후 첫 실행 시 승인이 필요**하다.
+
+| 서버 | 용도 | 준비 |
+|------|------|------|
+| `terraform` | provider/모듈 스키마 조회 — `CLAUDE.md` 검증 절이 요구하는 "추정 금지" 근거 | 아래 `go install` 1회 |
+| `aws-docs` | AWS 공식 문서 조회 (설계 근거 소스) | `uvx`가 자동 설치 |
+
+```bash
+go install github.com/hashicorp/terraform-mcp-server/cmd/terraform-mcp-server@v1.1.0
+# → ${HOME}/go/bin/terraform-mcp-server (.mcp.json이 이 경로를 참조)
+```
+
+- `terraform` 서버는 **`registry` toolset만** 켠다(`--toolsets=registry`). 이름과 달리 로컬 CLI를
+  실행하지 않고 Terraform Registry API만 조회하므로 **OpenTofu 사용에 지장이 없다.**
+- ⛔ **TFE/HCP Terraform 연동(`TFE_TOKEN`·`ENABLE_TF_OPERATIONS`)은 넣지 않는다.** 이 repo는
+  TFC를 졸업했고(D-OSS-STACK), 해당 toolset은 워크스페이스·run 조작용이라 여기에 대상이 없다.
+
 ## 다음 작업
 
 부트스트랩 순서는 D-OSS-STACK §6을 따른다.

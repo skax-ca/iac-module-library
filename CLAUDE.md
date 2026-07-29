@@ -115,8 +115,14 @@ module "vpc" {
 ## 검증
 
 ### 코드 작성 전
-- **리소스 스키마**: 새 리소스/인자 사용 전 `mcp__terraform__get_provider_details`로 확인(추정 금지).
+- **리소스 스키마**: 새 리소스/인자 사용 전 `mcp__terraform__*`로 확인(추정 금지). **2단계 호출**이다 —
+  `search_providers`(`provider_name`·`provider_namespace`·`service_slug`·`provider_document_type` 필수)로
+  `providerDocID`를 얻고, 그 값을 `get_provider_details`(`provider_doc_id` 필수)에 넘긴다.
+  `get_provider_details`는 단독 호출이 불가능하다.
 - **커뮤니티 모듈 wrapping**: `mcp__terraform__get_module_details`로 실제 upstream 변수/출력명 확인 후 작성.
+- **MCP 미가용 시 대체 경로**: provider 저장소의 문서 원문을 직접 읽는다 —
+  `https://raw.githubusercontent.com/hashicorp/terraform-provider-aws/main/website/docs/r/<resource>.html.markdown`
+  (registry 웹페이지는 SPA라 WebFetch로 읽히지 않는다). **추정으로 대체하지 않는다.**
 - **스타일**: `.tf` 작성 시 `terraform-style-guide` 스킬 로드(HCL 컨벤션은 OpenTofu에도 동일 적용).
 
 ### 코드 변경 후 (로컬 CLI 게이트 — git hook으로 강제)

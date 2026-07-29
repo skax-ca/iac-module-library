@@ -30,7 +30,16 @@
     통과했다 → **`*.tftest.hcl`이 유일한 검출 지점**. `examples`의 `validate`로는 안 잡힌다.
 - **완료**: §6-0 골격 + deepinit · §6-1 설계 승계 · §6-2 1단계 VPC 설계 개정 · MCP 설정 ·
   **엔진 결정 ADR 04**.
-  커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79` → `30ea306`(중립안, 정정됨)
+  커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79`
+  → `30ea306`(중립안 — **정정됨**) → `86cc91a`(D-ENGINE 확정) → `e89742d`(D12) → `1bd6641`(MCP 교체)
+
+### 🔴 세션 시작 시 가장 먼저 볼 것 (2026-07-29 종료 시점)
+
+1. **`modules/vpc/`가 untracked 상태로 남아 있다** — `versions.tf`·`variables.tf` 작성 완료,
+   `tofu fmt`·`validate` 통과. 커밋하지 **못한** 이유는 아래 "커밋 단위 제약"이다. 재작성하지 말 것.
+2. **MCP가 `terraform` → `opentofu`로 교체됐다**(`1bd6641`). 재시작 후 **project 스코프 승인 필요**.
+   툴 이름이 바뀌었다 — `mcp__opentofu__get-resource-docs`(단독 호출, 2단계 아님).
+3. ⚠️ **원격 repo가 없어 `git push`가 불가능하다.** 커밋은 이 Mac에만 있다.
 
 ### ⏭️ 다음 작업 = §6-2 **2단계 — `modules/vpc` 코드 이식**
 
@@ -38,8 +47,8 @@
 
 | Task | 내용 |
 |------|------|
-| ~~10.1~~ | ✅ **작성 완료**(미커밋) — `modules/vpc/{versions,variables}.tf`. `tofu validate` 통과 |
-| 10.2 | `main.tf` — vpc/secondary assoc/subnet/RT/IGW/NAT. ⚠️ subnet에 `depends_on` 필수 |
+| ~~10.1~~ | ✅ **작성 완료 · untracked** — `modules/vpc/{versions,variables}.tf`. `fmt`·`validate` 통과. `required_version >= 1.12.0`(D12), `deletion_protection` 포함 |
+| **10.2** | ⏭️ **여기서 시작.** `main.tf` — vpc/secondary assoc/subnet/RT/IGW/NAT. ⚠️ subnet에 `depends_on` 필수 · `aws_vpc`에 `lifecycle { prevent_destroy = var.deletion_protection }`(D12) |
 | 10.3 | `flow-logs.tf` — D11 리소스 4종 |
 | 10.4 | `outputs.tf` — §1.4, **null-safe**(D10) |
 | 10.5 | `examples/vpc/`(minimal) + `examples/vpc-enterprise/`(9그룹). `versions.tf`에 `aws ~> 6.0` 상한 |
@@ -53,12 +62,18 @@
 실제 커밋 단위는 **"선언한 변수가 전부 소비되는 시점"**이다.
 → **10.1 + 10.2(main.tf) + 10.3(flow-logs.tf)을 한 커밋으로 묶는다.** `--no-verify`는 쓰지 않는다.
 
-- **착수 전 확인**: 사용자가 설계 §1을 승인했는지. 특히 신규 결정 3건 — D10(kill switch 경계),
+- **착수 전 확인**: 사용자가 설계 §1을 승인했는지. 특히 D10(kill switch 경계),
   D11(Flow Logs 대상 CloudWatch 고정), §1.3(IAM inline policy 약어 미생성).
+  ※ D12(삭제 보호)와 D-ENGINE(OpenTofu 단독)은 **2026-07-29 승인 완료** — 재확인 불필요.
 - 코드 작성 전 `terraform-style-guide` 스킬 로드. 로컬 게이트는 pre-commit이 강제.
-- **MCP로 확인 완료한 스키마**(aws 6.56.0): `aws_cloudwatch_log_group.retention_in_days` 유효값 ·
-  `aws_flow_log.traffic_type`(ACCEPT/REJECT/ALL, vpc_id 지정 시 필수) — 설계와 일치.
-  10.2용 doc ID: `vpc_ipv4_cidr_block_association`=12942950 · `subnet`=12942884 · `nat_gateway`=12942351.
+- **스키마 확인 완료**(aws 6.56.0): `aws_cloudwatch_log_group.retention_in_days` 유효값 23종 ·
+  `aws_flow_log.traffic_type`(ACCEPT/REJECT/ALL, `vpc_id` 지정 시 **필수**) — 설계와 일치.
+  ⚠️ 구 doc ID(12942950 등)는 **교체된 MCP에서 무효**다. 신규 서버는
+  `get-resource-docs(namespace="hashicorp", name="aws", resource="subnet")` 형태로 **단독 호출**한다.
+- **10.2에서 스키마 확인이 필요한 리소스**: `aws_vpc`(확인 완료 — 8054자) · `aws_subnet` ·
+  `aws_vpc_ipv4_cidr_block_association` · `aws_route_table` · `aws_route` ·
+  `aws_route_table_association` · `aws_internet_gateway` · `aws_nat_gateway` · `aws_eip` ·
+  `data.aws_availability_zones`. **추정 금지**(`CLAUDE.md` 검증 절).
 
 ### 문서 인용 규칙 (`docs/README.md` 상태표가 판정 근거)
 

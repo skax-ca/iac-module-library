@@ -154,8 +154,15 @@ D-OSS-STACK은 두 축을 묶어 결정했고, 그래서 엔진 선택의 실제
 
 > 모듈에 **OpenTofu 고유 기능**을 쓸 때는 그 이유를 해당 설계 문서에 남긴다. 이유 없이 쓰지 않는다.
 
-- 대표 고유 기능: `encryption` 블록(state 암호화) · `.tofu`/`.tofu.json` 확장자 · `tofu {}` 블록.
+- 대표 고유 기능: `encryption` 블록(state 암호화, 1.7) · `.tofu`/`.tofu.json` 확장자(1.8) ·
+  provider `for_each`(1.9) · early variable evaluation(1.10) · **`language {}` 블록(1.12)**.
   이들은 **대부분 루트 관심사**라 얇은 모듈에는 애초에 등장할 이유가 없다.
+- ⚠️ **`tofu {}` 블록은 존재하지 않는다**(2026-07-29 정정 — 초판의 오류). OpenTofu의 최상위
+  설정 블록은 `terraform {}`이며, 공식 문서는 이를 *"only for compatibility with Terraform"*으로
+  규정한다. 네이티브 대안은 **1.12의 `language {}` 블록**(`compatible_with`·`edition`·`experiments`)이다.
+- **모듈 레벨에 실제로 해당하는 고유 기능은 1.12의 두 가지뿐이다**:
+  **동적 `prevent_destroy`**(입력 변수 참조 가능 — Terraform은 리터럴만 허용) ·
+  **`destroy = false`**(원격 객체를 파기하지 않고 state에서만 제거). 채택 판단은 각 모듈 설계에서 한다.
 - `backend`/`cloud` 블록을 모듈에 두지 않는 것은 엔진과 무관한 기존 규약이다.
 - **CI 잡을 추가하지 않는다. 규칙 검사도 하지 않는다.** 지키면 좋고, 못 지켜도 릴리스를 막지 않는다.
 

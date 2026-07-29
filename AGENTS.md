@@ -51,7 +51,7 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 - **실증 주장 금지**: 이 repo에서 재현하지 않은 것을 "실증됨"으로 쓰지 않는다.
   PoC 관찰은 `docs/reference/poc-findings.md`를 **참조**만 한다.
 - **명령은 `tofu`**: `terraform`이 아니다. hook·문서·CI 전부 `tofu` 기준(D-ENGINE).
-  OpenTofu 고유 기능(`encryption`·`.tofu` 확장자·`tofu {}`)을 쓸 때만 이유를 설계 문서에 남긴다 —
+  OpenTofu 고유 기능(`encryption`·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때만 이유를 설계 문서에 남긴다 —
   강제 장치는 없고, 얇은 모듈에는 등장할 일이 없는 것들이다(04 §5).
 
 ### Testing Requirements

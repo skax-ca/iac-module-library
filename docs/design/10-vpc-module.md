@@ -11,6 +11,8 @@
 > - **재사용 요건 5종 적용**(`01 §4`) — **D10(kill switch)** 신설, 파라미터화(`poc` 하드코딩 제거),
 >   환경 프로파일, 예제 2종, 출력 계약 안정성 규약.
 > - **D11(VPC Flow Logs) 신설** — 구 "열린 항목 1"의 보류를 해소해 v1.0.0 스코프에 포함.
+> - **D12(삭제 보호) 신설**(2026-07-29 2차 개정) — OpenTofu 1.12 동적 `prevent_destroy` 채택.
+>   `required_version`을 **`>= 1.12.0`으로 상향**한다(`02 §2`). D-ENGINE(단일 엔진) 확정으로 가능해진 선택이다.
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -182,6 +184,54 @@ SNAT되어 노드 그룹 RT를 타므로 Pod 서브넷엔 기본 경로가 불�
   모듈은 "출력이 에러 대신 null을 준다"까지를 보장한다.
 - 테스트 의무: `vpc_enabled = false`에서 plan이 통과하고 리소스 수가 0인지 검증한다(§2 Task 10.6).
 
+**D12. 삭제 보호 `deletion_protection` (신설 — OpenTofu 1.12 동적 `prevent_destroy`)**
+
+D10은 **파괴 방향** 장치다. 반대 방향, 즉 prd VPC를 실수로 지우지 못하게 하는 수단이 모듈에 없었다.
+재사용 모듈이 `prevent_destroy`를 쓰지 못해온 이유는 그 인자가 **리터럴만** 받아 소비자가 제어할 수
+없었기 때문이다. **OpenTofu 1.12부터 입력 변수를 참조할 수 있다** —
+*"The `prevent_destroy` argument in a resource's lifecycle block can now refer to other symbols
+within the same module, such as input variables."*([OpenTofu 1.12 릴리스 노트](https://opentofu.org/docs/intro/whats-new/))
+
+**결정**
+
+| 항목 | 내용 |
+|------|------|
+| 변수 | `deletion_protection`(bool, **기본 `false`**) |
+| 적용 대상 | **`aws_vpc` 하나뿐** — VPC가 막히면 전체가 막힌다. 하위 리소스까지 걸면 오류 지점만 늘어난다 |
+| 구현 | `lifecycle { prevent_destroy = var.deletion_protection }` |
+| `required_version` | **`>= 1.12.0`으로 상향**. 이 기능이 하한을 올리는 근거다(`02 §2` — "실제로 쓰는 기능 기준") |
+
+**기본값이 `false`인 이유**: D10의 teardown 보장이 **기본 동작**이어야 한다. 보호는 opt-in이다.
+기본을 `true`로 두면 모든 소비자가 파기 전에 우회 절차를 배워야 하고, 릴리스 게이트의
+"kill switch로 plan이 통과한다"는 판정이 기본 구성에서 깨진다.
+
+**D10과의 상충 — 실측으로 확인했다** (OpenTofu 1.12.5, 2026-07-29, 이 repo에서 재현):
+
+| 조합 | 실측 결과 |
+|------|----------|
+| `vpc_enabled = false` + `deletion_protection = true` | ❌ **plan 차단** — `Error: Resource instance cannot be destroyed` |
+| `vpc_enabled = false` + `deletion_protection = false` | ✅ plan 통과 |
+
+즉 **두 변수는 실제로 충돌한다.** 처리 방식:
+
+1. **`validation`으로 조기 차단**(교차변수 참조) — `deletion_protection && !vpc_enabled` 조합을 거부하고,
+   *"파기하려면 `deletion_protection = false`로 먼저 apply하라"*는 **도메인 언어의 메시지**를 준다.
+   엔진 기본 메시지도 명확하지만 우리 변수 이름으로 해법을 알려주지는 않는다.
+2. `prevent_destroy`는 **최종 방어선**으로 남는다 — validation을 우회해도 파괴는 막힌다.
+
+**결과적으로 teardown은 2단계가 된다**(보호를 켠 경우에 한해): `deletion_protection = false` apply →
+`vpc_enabled = false` apply. 이는 결함이 아니라 **보호의 정의**다.
+
+> ⚠️ **교차변수 `validation`은 `validate`가 아니라 `plan` 시점에 평가된다**(2026-07-29 실측).
+> 잘못된 조합으로 모듈을 호출해도 `tofu validate`는 **Success로 통과**했고, `tofu plan`에서만
+> 우리 메시지와 함께 차단됐다. 따라서 이 계약은 **`*.tftest.hcl`(plan 기반)이 유일한 검출 지점**이다 —
+> `examples/*`를 `validate`까지만 도는 규약(`examples/AGENTS.md`)으로는 잡히지 않는다.
+> `az_selection` 길이 검증(§1.2)도 같은 성질이므로 Task 10.6에서 함께 다룬다.
+
+> ⚠️ **Terraform 비호환 지점**(`04 §5`가 요구하는 사유 기록). 이 문법은 OpenTofu 1.12 전용이다.
+> 채택 사유: **재사용 모듈이 소비자에게 삭제 보호를 위임할 수 있는 유일한 수단**이며,
+> 이것이 OpenTofu 채택으로 얻는 첫 번째 기능적 이득이다(`04 §4.1`).
+
 **D11. VPC Flow Logs를 v1.0.0 스코프에 포함 (신설 — 구 "열린 항목 1" 해소)**
 
 PoC는 Flow Logs를 보류하고 trivy 예외로 처리했다. 이 repo는 **재사용 자산이므로 보안 기본값을 켠 채 배포한다**
@@ -231,7 +281,12 @@ variable "naming" {                                  # 02 §1.4(b) — 소비자
 variable "purpose" { type = string  default = "main" }
 variable "tags"    { type = map(string)  default = {} }   # 거버넌스 태그는 default_tags 소관(02 §1.1)
 
-variable "vpc_enabled" { type = bool  default = true }    # D10 — kill switch
+variable "vpc_enabled" { type = bool  default = true }    # D10 — kill switch(파괴 방향)
+variable "deletion_protection" {                          # D12 — 보호 방향. OpenTofu 1.12 전용
+  type    = bool
+  default = false                                         # 기본 false — D10 teardown 보장이 기본 동작
+  # validation: deletion_protection && !vpc_enabled 조합 거부(D12)
+}
 
 # ── 주소 공간 ──────────────────────────────────────────────
 variable "cidr_block" { type = string }              # primary CIDR
@@ -472,15 +527,18 @@ module "vpc" {
 
 ### Task 10.1: 모듈 골격 — `versions.tf` + `variables.tf`
 **Files:** `modules/vpc/{versions.tf,variables.tf}`
-- `required_version >= 1.9.0`, `required_providers.aws >= 6.0`(모듈은 하한만 — `02 §2`)
+- `required_version >= 1.12.0`(**D12 동적 `prevent_destroy`가 근거** — `02 §2`),
+  `required_providers.aws >= 6.0`(모듈은 하한만)
 - §1.2 계약 전체. `validation`: `type`/`eks_role`/`flow_logs_traffic_type` enum,
-  `az_selection` 길이, `flow_logs_retention_days` 유효값
+  `az_selection` 길이, `flow_logs_retention_days` 유효값,
+  **`deletion_protection && !vpc_enabled` 조합 거부**(D12)
 - Commit: `feat(vpc): 모듈 인터페이스 정의 (설계 §1.2)`
 
 ### Task 10.2: 코어 리소스 — `main.tf`
 **Files:** `modules/vpc/main.tf`
 - `locals.name_mid`(§1.3) + `data.aws_availability_zones`(D7 suffix 해석, **`count`는 D10 게이트**)
-- `aws_vpc` · `aws_vpc_ipv4_cidr_block_association`(for_each secondary)
+- `aws_vpc` — **`lifecycle { prevent_destroy = var.deletion_protection }`**(D12. `aws_vpc`에만 건다)
+- `aws_vpc_ipv4_cidr_block_association`(for_each secondary)
 - subnet/RT/association을 그룹×AZ `for_each`로 구성 (키: `"<group>-<az suffix>"`)
   → ⚠️ 모든 `aws_subnet`에 `depends_on = [aws_vpc_ipv4_cidr_block_association.this]`(§1.2)
 - 라우팅 매트릭스(§1.2): public 공유 RT+IGW / private AZ별 RT+NAT / isolated 공유 RT(경로 없음)
@@ -519,7 +577,8 @@ assertions:
 - isolated 그룹 RT에 `0.0.0.0/0` **부재**, public RT에 IGW 경로, private RT에 NAT 경로
 - secondary CIDR association 생성 수
 - `eks_role` 지정 그룹에만 EKS 태그 부착 / 미지정 그룹엔 미부착(D4)
-- **`vpc_enabled = false` → 리소스 0개, plan 통과**(D10)
+- **`vpc_enabled = false` → 리소스 0개, plan 통과**(D10) — ⚠️ `deletion_protection` 기본값 `false`에 의존한다
+- `deletion_protection = true` + `vpc_enabled = false` → `expect_failures`(D12 validation)
 - `flow_logs_enabled = false` → Flow Logs 리소스 0개(D11)
 - public 그룹 없이 `enable_nat_gateway = true` → `expect_failures`
 - `length(cidrs) > az_count` → `expect_failures`(D6)

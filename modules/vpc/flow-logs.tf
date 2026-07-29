@@ -58,8 +58,9 @@ resource "aws_iam_role" "flow_logs" {
 resource "aws_iam_role_policy" "flow_logs" {
   count = local.flow_logs_enabled ? 1 : 0
 
-  # inline policy는 role에 종속된 하위 객체이므로 새 약어를 만들지 않고
-  # role 이름 + "-policy"로 명명한다(설계 §1.3).
+  # 카탈로그의 "종속 객체는 부모 이름을 상속한다" 규약 — inline policy는 role 없이 존재할 수 없으므로
+  # 새 약어를 만들지 않고 role 이름 + "-policy"를 쓴다(설계 §1.3).
+  # ⚠️ inline policy는 tags를 지원하지 않는다. 이 name이 곧 식별자다(제약 리소스).
   name = "iamr-${local.flow_logs_base_name}-policy"
   role = aws_iam_role.flow_logs[0].id
 
@@ -103,8 +104,10 @@ resource "aws_flow_log" "this" {
   log_destination = aws_cloudwatch_log_group.flow_logs[0].arn
   iam_role_arn    = aws_iam_role.flow_logs[0].arn
 
-  # Name 태그를 붙이지 않는다: aws_flow_log의 약어가 카탈로그에 없다(cwfm은 CloudWatch
-  # Network Flow Monitor, brfl은 Bedrock Flows로 서로 다른 서비스다). 임의 생성 금지 규칙에 따라
-  # 약어가 필요하다는 판단이 서면 거버넌스 리뷰로 카탈로그에 추가한다(CLAUDE.md 네이밍 규칙 3).
-  tags = var.tags
+  # 약어 fl은 2026-07-30에 카탈로그에 신규 등재했다(AWS 실제 리소스 ID 접두사 fl-을 따름).
+  # 로그 그룹·IAM 역할과 달리 -flowlog 접미사가 없다 — 리소스 자체가 곧 Flow Log이므로
+  # 용도를 되풀이할 필요가 없다.
+  tags = merge(var.tags, {
+    Name = "fl-${local.name_mid}-${var.purpose}"
+  })
 }

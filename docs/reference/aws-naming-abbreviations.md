@@ -24,8 +24,31 @@
 | purpose | 자원의 상세 용도 | `web`, `db`, `batch`, `admin` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **309개** 약어, 8개 카테고리.
+- 총 **311개** 약어, 8개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
+
+### 종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다
+
+독립 식별자가 아니라 **부모 리소스에 종속된 하위 객체**는 약어를 신설하지 않고
+`<부모 이름>-<역할 접미사>` 형태로 명명한다. 접미사는 위 포맷 표의 **serial/suffix 축**(`policy` 등)이다.
+
+| 종속 객체 | 명명 | 예시 |
+|-----------|------|------|
+| `aws_iam_role_policy` (**inline** 정책) | `<role 이름>-policy` | `iamr-acme-prd-an2-main-flowlog-policy` |
+
+- **왜 상속인가**: inline 정책은 role 없이 존재할 수 없고 IAM 콘솔·API에서도 role 하위에 표시된다.
+  독립 약어를 주면 이름만으로 부모를 알 수 없어 오히려 추적성이 떨어진다.
+- ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다** — 여러 role에 붙고 자체 ARN을 갖는다.
+- ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라
+  리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급 —
+  [../architecture/02-naming-tagging-and-pinning.md](../architecture/02-naming-tagging-and-pinning.md) §1.5).
+
+### 개정 이력 (승계 이후 추가된 약어)
+
+| 날짜 | 약어 | 리소스 | 근거 |
+|------|------|--------|------|
+| 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다 — 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
+| 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
 
 ---
 
@@ -75,7 +98,7 @@
 | ECR | 프라이빗 리포지토리 | `ecrpri` | ecrpri-acme-prd-an2-web-01 |
 | ECR | 퍼블릭 리포지토리 | `ecrpub` | ecrpub-acme-prd-an2-lib-01 |
 
-## A.2 Network (72)
+## A.2 Network (73)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
@@ -88,6 +111,7 @@
 | VPC | 관리형 접두사 목록 | `pl` | pl-acme-prd-an2-internal |
 | VPC | NAT 게이트웨이 | `ngw` | ngw-acme-prd-an2-pub-uniq1-a |
 | VPC | 피어링 연결 | `pcx` | pcx-acme-prd-an2-to-legacy |
+| VPC | 플로우 로그 | `fl` | fl-acme-prd-an2-main |
 | VPC 보안 | 네트워크 ACL | `nacl` | nacl-acme-prd-an2-pub-01 |
 | PrivateLink & Lattice | 엔드포인트 | `vpce` | vpce-acme-prd-an2-s3-if |
 | PrivateLink & Lattice | 엔드포인트 서비스 | `vpces` | vpces-acme-prd-an2-api |
@@ -286,11 +310,12 @@
 | Bedrock 튜닝 | 모델 배포 (PT) | `brpt` | brpt-acme-prd-an2-claude3-sonnet-01 |
 | Bedrock 평가 | 평가 (Evaluation) | `brev` | brev-acme-prd-an2-qa-bench-01 |
 
-## A.6 Security, Identity, Compliance (16)
+## A.6 Security, Identity, Compliance (17)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
 | IAM | 역할 (Role) | `iamr` | iamr-acme-prd-an2-ebs-csi |
+| IAM | 정책 (관리형, `aws_iam_policy`) | `iamp` | iamp-acme-prd-an2-s3-read |
 | ACM | 인증서 (Certificate) | `acmc` | acmc-acme-prd-an2-wildcard-01 |
 | KMS | 고객 관리형 키 | `kmsk` | kmsk-acme-prd-an2-s3-01 |
 | KMS | 외부 키 스토어 | `kmss` | kmss-acme-prd-an2-hsm-01 |

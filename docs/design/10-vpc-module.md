@@ -381,12 +381,17 @@ serial은 동일 용도·대역 조합이 복수일 때만 붙인다.
 | `aws_eip` (NAT) | `eip` | `eip-<mid>-nat-<az>` | eip-acme-dev-an2-nat-a |
 | `aws_cloudwatch_log_group` (D11) | `cwlg` | `cwlg-<mid>-<purpose>-flowlog` | cwlg-acme-dev-an2-main-flowlog |
 | `aws_iam_role` (D11) | `iamr` | `iamr-<mid>-<purpose>-flowlog` | iamr-acme-dev-an2-main-flowlog |
+| `aws_flow_log` (D11) | `fl` | `fl-<mid>-<purpose>` | fl-acme-dev-an2-main |
 
 - 약어는 전부 [카탈로그](../reference/aws-naming-abbreviations.md)에 등재된 것이다(임의 생성 없음).
-- ⚠️ **`aws_iam_role_policy`(inline)는 카탈로그에 해당 약어가 없다.** inline policy는 독립 식별자가 아니라
-  role에 종속된 하위 객체이므로 **role 이름 + suffix**(`iamr-<mid>-<purpose>-flowlog-policy`)로 명명하고
-  새 약어를 만들지 않는다. 별도 약어가 필요하다는 판단이 서면 거버넌스 리뷰로 카탈로그에 추가한다
-  (`CLAUDE.md` 네이밍 규칙 3).
+- ✅ **`fl`은 2026-07-30에 카탈로그에 신규 등재했다**(Task 10.3에서 필요해짐). 약어가 없을 때의
+  올바른 처리는 **생략도 임의 생성도 아니라 "확정 후 카탈로그에 추가"** 다 — `Name` 없이 배포하면
+  나중에 태그를 붙일 때 재적용이 필요하고, 릴리스 게이트의 `Name` assertion을 통과할 수 없다.
+- **`aws_iam_role_policy`(inline)는 카탈로그의 "종속 객체" 규약을 따른다**(2026-07-30 명문화) —
+  독립 식별자가 아니라 role에 종속된 하위 객체이므로 **role 이름 + suffix**
+  (`iamr-<mid>-<purpose>-flowlog-policy`)로 명명하고 새 약어를 만들지 않는다.
+  ⚠️ 관리형 정책(`aws_iam_policy`)은 독립 자원이라 별도 약어 **`iamp`** 가 있다(같은 날 등재).
+  ⚠️ inline 정책은 `tags`를 지원하지 않으므로 이 이름은 `Name` 태그가 아니라 **`name` 인자 = 식별자**다.
 - `aws_cloudwatch_log_group`의 `name`은 Name 태그와 별개로 CloudWatch 경로 관례(`/aws/vpc/flow-log/…`)를
   따를 수 있다 — **경로형 이름과 `Name` 태그는 다른 축**이다(`02 §1.5` 제약 리소스와 같은 취급).
 
@@ -620,17 +625,18 @@ assertions:
 4. **Flow Logs 대상 확장**: S3/Firehose 대상은 D11에서 범위 밖으로 두었다.
    수요 발생 시 `flow_logs_destination_type` 추가 — **계약 확장이므로 마이너**(`02 §3`).
 5. **private NAT 옵션**: D9-B 전환 조건이 충족되면 모듈에 옵션 추가. 계약 확장이므로 마이너.
-6. **IAM inline policy 약어**: §1.3에서 role 이름 종속으로 처리했다. 독립 약어가 필요하다는 판단이 서면
-   카탈로그 거버넌스 리뷰로 추가한다.
+6. ~~**IAM inline policy 약어**~~ ✅ **해소**(2026-07-30): 카탈로그에 **"종속 객체는 부모 이름을 상속한다"**
+   규약을 명문화했다 — inline 정책은 약어를 신설하지 않고 `<role 이름>-policy`를 쓴다.
+   관리형 정책용 약어 **`iamp`** 는 같은 날 별도 등재했다(독립 자원이므로).
 7. **Flow Logs 역할의 confused deputy 방어 (2026-07-30 신설)**: AWS는 신뢰 정책에
    `aws:SourceAccount`·`aws:SourceArn` 조건을 **권고**한다([공식](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html)).
    v1.0.0은 **공식 최소 신뢰 정책만** 구현했다 — 조건을 넣으려면 `data.aws_caller_identity`·
    `data.aws_partition`·`data.aws_region` 3개를 추가(각각 D10 게이트 필요)해야 하고, ARN 조건이
    틀리면 **배달이 조용히 실패**하는데 이 실패는 plan으로 검출되지 않는다. 실계정 apply로 검증할 수
    있는 시점에 도입한다. 계약 변경이 아니므로 **패치/마이너**로 처리 가능.
-8. **`aws_flow_log` Name 태그 약어 부재 (2026-07-30 확인)**: 카탈로그에 VPC Flow Log 약어가 없다
-   (`cwfm`=CloudWatch Network Flow Monitor, `brfl`=Bedrock Flows로 **다른 서비스**). 임의 생성 금지
-   규칙에 따라 이 리소스에는 `Name`을 붙이지 않았다. 필요하다면 거버넌스 리뷰로 카탈로그에 추가한다.
+8. ~~**`aws_flow_log` Name 태그 약어 부재**~~ ✅ **해소**(2026-07-30): 카탈로그에 `fl`을 신규 등재하고
+   `Name = fl-<mid>-<purpose>`를 부착했다(§1.3). AWS 실제 리소스 ID 접두사(`fl-`)를 따랐다.
+   ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**라 재사용 불가.
 9. **per-AZ NAT의 개수 기준 (2026-07-30 확인)**: §1.2를 문자 그대로 구현해 NAT를 **NAT 호스트 그룹의
    AZ마다** 만든다. 호스트 그룹이 private 그룹보다 넓으면 쓰이지 않는 NAT가 생기고 AZ당 약 $43/월이
    과금된다. 프리셋은 pub 2AZ이므로 현재는 무해하나, "private가 실제로 필요한 AZ만" 기준으로 좁힐지는

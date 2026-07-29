@@ -41,10 +41,11 @@
 
 ### 🔴 세션 시작 시 가장 먼저 볼 것 (2026-07-29 종료 시점)
 
-1. **`modules/vpc/`가 untracked 상태로 남아 있다** — `versions.tf`·`variables.tf` 작성 완료,
-   `tofu fmt`·`validate` 통과. 커밋하지 **못한** 이유는 아래 "커밋 단위 제약"이다. 재작성하지 말 것.
-2. **MCP가 `terraform` → `opentofu`로 교체됐다**(`1bd6641`). 재시작 후 **project 스코프 승인 필요**.
-   툴 이름이 바뀌었다 — `mcp__opentofu__get-resource-docs`(단독 호출, 2단계 아님).
+1. ✅ **`modules/vpc/` 커밋 완료**(2026-07-30) — `versions`·`variables`·`main`·`flow-logs`·`outputs.tf`.
+   Task 10.1~10.4 종료. 게이트 전부 통과(fmt·validate·tflint·trivy 0건). **재작성하지 말 것.**
+2. ✅ **MCP `opentofu` 승인·동작 확인**(2026-07-30). `get-resource-docs`는 **단독 호출**
+   (`namespace`/`name`/`resource` 3인자). ⚠️ **`aws-docs`의 `search_documentation`은 SSL 인증서
+   오류로 실패**한다(사내 프록시 추정) — `read_documentation`은 정상이므로 **URL을 알면 그걸 쓴다.**
 3. ✅ **원격 repo 생성·push 완료**(2026-07-29): `skax-ca/iac-module-library`(private).
    `gh` 토큰에 **`workflow` 스코프 추가됨**(`.github/workflows/` 파일 push에 필수).
 
@@ -54,20 +55,32 @@
 
 | Task | 내용 |
 |------|------|
-| ~~10.1~~ | ✅ **작성 완료 · untracked** — `modules/vpc/{versions,variables}.tf`. `fmt`·`validate` 통과. `required_version >= 1.12.0`(D12), `deletion_protection` 포함 |
-| **10.2** | ⏭️ **여기서 시작.** `main.tf` — vpc/secondary assoc/subnet/RT/IGW/NAT. ⚠️ subnet에 `depends_on` 필수 · `aws_vpc`에 `lifecycle { prevent_destroy = var.deletion_protection }`(D12) |
-| 10.3 | `flow-logs.tf` — D11 리소스 4종 |
-| 10.4 | `outputs.tf` — §1.4, **null-safe**(D10) |
-| 10.5 | `examples/vpc/`(minimal) + `examples/vpc-enterprise/`(9그룹). `versions.tf`에 `aws ~> 6.0` 상한 |
-| 10.6 | `modules/vpc/tests/plan.tftest.hcl` — `Name` 태그 assertion 필수 |
+| ~~10.1~~ | ✅ 커밋 `65d2283` — `{versions,variables}.tf` |
+| ~~10.2~~ | ✅ 커밋 `65d2283` — `main.tf` |
+| ~~10.3~~ | ✅ 커밋 `65d2283` + `7114239` — `flow-logs.tf`(D11 4종) |
+| ~~10.4~~ | ✅ 커밋 `8346672` — `outputs.tf`(§1.4, null-safe) |
+| **10.5** | ⏭️ **여기서 시작.** `examples/vpc/`(minimal 2그룹) + `examples/vpc-enterprise/`(9그룹). `versions.tf`에 `aws ~> 6.0` **상한**(모듈은 하한만, 루트가 상한) · enterprise는 `cidrsubnet()` 파생 locals(D2) · `outputs.tf`에서 모듈 출력을 실제로 소비 · **인자 없이 `tofu validate`가 도는 상태**로 둔다 |
+| 10.6 | `modules/vpc/tests/plan.tftest.hcl` — `Name` 태그 assertion 필수. ⚠️ **교차변수 validation·precondition은 `plan`에서만 평가**되므로 이 파일이 유일한 검출 지점이다 |
 | 10.7 | 릴리스 게이트(`02 §4`) + `vpc-v1.0.0` 태그 |
 
-### ⚠️ 커밋 단위 제약 (2026-07-29 실측)
+**10.5 착수 시 주의**: 예제가 모듈에 **리터럴**을 넘기면 trivy 판정이 달라질 수 있다(D11 측정 근거).
+예제 작성 후 `trivy config .`를 **재실행**해 예외 0건이 유지되는지 확인한다(설계 Task 10.7).
 
-**tflint `terraform_unused_declarations`가 미사용 변수를 exit 2로 잡는다.** 따라서
-`variables.tf`(10.1)만으로는 **커밋이 불가능**하다 — 설계 §2가 태스크마다 Commit 라인을 두었지만
-실제 커밋 단위는 **"선언한 변수가 전부 소비되는 시점"**이다.
-→ **10.1 + 10.2(main.tf) + 10.3(flow-logs.tf)을 한 커밋으로 묶는다.** `--no-verify`는 쓰지 않는다.
+### ✅ 커밋 단위 제약 — 해소됨 (2026-07-30)
+
+**tflint `terraform_unused_declarations`가 미사용 변수를 exit 2로 잡는다**는 제약 때문에
+10.1+10.2+10.3을 한 커밋(`65d2283`)으로 묶었다. 변수 15개가 전부 소비되어 게이트를 통과했다.
+→ 이후 태스크는 설계 §2대로 **태스크당 1커밋**으로 진행한다. `--no-verify`는 쓰지 않았다.
+
+### 🏷️ 네이밍 규칙 (2026-07-30 갱신 — 사용자 지침)
+
+**약어가 카탈로그에 없을 때 `Name`을 생략하거나 "열린 항목"으로 미루지 않는다.**
+→ **사용자에게 물어 확정 → 카탈로그 등재 → 구현** 순서다. 임의 생성도 금지(둘 다 틀린 처리).
+- 이번에 등재: **`fl`**(VPC Flow Log — AWS 실제 ID 접두사) · **`iamp`**(IAM 관리형 정책).
+  카탈로그 총계 309 → **311**(Network 73, Security 17). 커밋 `7114239`.
+- 신설 규약: **"종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다"** —
+  `aws_iam_role_policy`(inline)는 `<role 이름>-policy`. ⚠️ inline 정책은 **`tags` 미지원**이라
+  이 이름은 `Name` 태그가 아니라 **`name` 인자 = 식별자**다.
 
 - **착수 전 확인**: 사용자가 설계 §1을 승인했는지. 특히 D10(kill switch 경계),
   D11(Flow Logs 대상 CloudWatch 고정), §1.3(IAM inline policy 약어 미생성).
@@ -106,7 +119,9 @@
 - ~~원격 repo 미생성~~ ✅ **해결**: `skax-ca/iac-module-library`(private) 생성·push 완료(2026-07-29).
   ⚠️ **immutable sub claim 주의**: 이 repo는 2026-07-15 이후 생성 → OIDC `sub`가 숫자 org/repo ID다.
   소비자 repo 신뢰 정책 작성 전 실제 토큰 `sub` 확인 필수(`repo:<org>@<org_id>/<repo>@<repo_id>:...`).
-- ⚠️ **TFE_TOKEN 폐기·재발급 미처리**(2026-07-28 세션 중 노출) — 보안 사항, 우선순위 높음
+- ✅ **TFE_TOKEN 유지 결정**(2026-07-30) — 폐기·재발급하지 않는다. 2026-07-28 세션 중 노출됐으나
+  사용자가 유지를 선택. ⚠️ 잔여 리스크: 노출된 토큰이 유효한 상태로 남으므로, 향후 TFE/HCP를
+  안 쓰기로 굳어지면(D-ENGINE=OpenTofu 단독) 그때 폐기 재검토 여지.
 - 보존한 `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
   → 부트스트랩 시 신뢰 정책 교체 필요
 - `docs/design/30-gitops-repo.md`의 소유권 재검토(모듈 repo vs consumer)

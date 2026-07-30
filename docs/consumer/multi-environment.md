@@ -1,18 +1,19 @@
 # 03 · 멀티 환경(dev/stg/prd) 전략
 
-> 📦 **보관 문서 — 이 repo의 규칙이 아니다.**
+> 🗄️ **TFC 시절 잔재 — 보관 문서다. 이 repo의 규칙도, 소비 규약의 SSOT도 아니다.**
 >
 > **출처**: `terraform-enterprise-poc` @ `76285f7`(동결 커밋) / **개정 안 됨**
+> **성격 확정**: [`design/50` D26-1](../design/50-reference-consumer-repo.md)(2026-07-30, 사용자 결정)
 >
-> 이 문서가 다루는 것은 **배포 루트(프로젝트 repo)의 관심사**다. 이 repo는 모듈만 소유하고
-> 배포하지 않으므로 여기서는 **검증할 수단이 없다.** 그래서 `architecture/`가 아니라 여기에 둔다.
->
-> **왜 버리지 않는가**: 검증된 논증(안티패턴 근거·환경 divergence 규칙·승격 게이트·2단 역할 체인)을
-> 지금 버리면 첫 프로젝트 repo를 만들 때 처음부터 다시 논증해야 한다.
->
-> **이관 시 처리**: 첫 프로젝트 repo 생성 시 그곳으로 옮기며 개정한다.
-> TFC 종속부(워크스페이스 구조·`tfe_outputs`·OIDC 발급자 `app.terraform.io`)는
-> **GitHub Actions + S3 backend 기준으로 재작성**한다.
+> - **이관하지 않는다.** 소비 repo(`iac-reference-infra`)로 옮기지 않고 여기 보관한다.
+>   ⚠️ 2026-07-29판 헤더는 "첫 프로젝트 repo로 옮기며 개정한다"였다 — **D26이 그 다음날 이관을
+>   기각**했고 이 헤더가 뒤늦게 따라온 것이다. 이관 여부를 다시 묻지 말 것.
+> - **소비 규약의 SSOT는 [`design/50`(D-CONSUME)](../design/50-reference-consumer-repo.md)이다.**
+>   D20~D29가 소싱 인증·backend·OIDC 체인·plan artifact를 소유한다. 이 문서가 아니다.
+> - **왜 버리지 않는가**: §3 디렉토리 · §4 divergence 3단 규칙 · §6 승격 플로우 · §8 안티패턴 근거는
+>   **도구 무관이라 그대로 유효**하고, `design/50` **D22**가 §3을 직접 인용한다.
+> - ⚠️ **TFC 종속부(§5 워크스페이스 구조·`tfe_outputs`·실행 주체 서술)는 무효다.**
+>   이 문서를 근거로 새 구현을 하지 않는다 — 인용 전에 그 규칙이 도구 무관인지 먼저 확인한다.
 
 
 > 공통 규약: [02-common-governance.md](../architecture/02-naming-tagging-and-pinning.md) · 결정 근거: [01-strategy-and-decisions.md](../architecture/01-module-strategy.md)

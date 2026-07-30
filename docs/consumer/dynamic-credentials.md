@@ -1,18 +1,21 @@
 # Terraform Cloud Dynamic Credentials (AWS OIDC) 설정 가이드
 
-> 📦 **보관 문서 — 이 repo의 규칙이 아니다.**
+> 🗄️ **TFC 시절 잔재 — PoC 절차 기록이다. 규약도, 유효한 구성 가이드도 아니다.**
 >
 > **출처**: `terraform-enterprise-poc` @ `76285f7`(동결 커밋) / **개정 안 됨**
+> **성격 확정**: [`design/50` D26-1](../design/50-reference-consumer-repo.md)(2026-07-30, 사용자 결정)
 >
-> 이 문서가 다루는 것은 **배포 루트(프로젝트 repo)의 관심사**다. 이 repo는 모듈만 소유하고
-> 배포하지 않으므로 여기서는 **검증할 수단이 없다.** 그래서 `architecture/`가 아니라 여기에 둔다.
->
-> **왜 버리지 않는가**: 검증된 논증(안티패턴 근거·환경 divergence 규칙·승격 게이트·2단 역할 체인)을
-> 지금 버리면 첫 프로젝트 repo를 만들 때 처음부터 다시 논증해야 한다.
->
-> **이관 시 처리**: 첫 프로젝트 repo 생성 시 그곳으로 옮기며 개정한다.
-> TFC 종속부(워크스페이스 구조·`tfe_outputs`·OIDC 발급자 `app.terraform.io`)는
-> **GitHub Actions + S3 backend 기준으로 재작성**한다.
+> - ⛔ **이 문서의 절차를 따라 하지 않는다.** 발급자가 `app.terraform.io`이고 `aud`가
+>   `aws.workload.identity`다 — **현행 스택(GitHub Actions)에서는 한 단계도 맞지 않는다.**
+>   절차서는 도구가 바뀌면 남는 게 없다. 살아남은 것은 **2단 역할 체인이라는 구조** 하나뿐이다.
+> - **현행 대체물이 이미 실측 기반으로 존재한다**:
+>   2단 체인 규약 → 소비 repo `CLAUDE.md` §4 · [`design/50` D28](../design/50-reference-consumer-repo.md) ·
+>   실측 `sub` 3패턴 → 소비 repo `docs/deployment-facts.md` §3 · `AWSAFTExecution` 처리 → D27.
+> - **이관하지 않는다.** ⚠️ 2026-07-29판 헤더는 "첫 프로젝트 repo로 옮기며 개정한다"였으나
+>   **D26이 이관을 기각**했다. 이관 여부를 다시 묻지 말 것.
+> - **왜 버리지 않는가**: AFT 이관 경로와 트러블슈팅이 PoC 당시의 실제 시행착오 기록이다.
+> - ⚠️ **PoC 계정 ID(`533616270150`)가 12곳 있다.** private repo인 동안의 **유예**이지 해소가 아니다 —
+>   `design/50` D20 기각안이 "모듈 repo public 전환"의 선결 과제로 등재하고 있다.
 
 
 Terraform Cloud(`born2k`)의 워크스페이스(`networking-dev` · `eks-cluster-dev` · `gitops-hub-cicd`)가

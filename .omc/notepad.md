@@ -90,8 +90,9 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 생성)"이 남아 있어, 세션 시작 시 이미 해소된 일을 다음 태스크로 잘못 안내했다.
 `CLAUDE.md`가 경고하는 *"양쪽 개발은 곧 drift"* 와 같은 구조의 사고이며, 코드가 아니라 **상태 기록**에서 났다.
 
-**이 repo가 다시 관여하는 시점 = 소비 repo Phase 5** — `docs/consumer/*` 개정.
+**이 repo가 다시 관여하는 시점 = 소비 repo Phase 5** — **`docs/design/50` 개정**.
 D26에 따라 **소싱 인증·backend 규약·OIDC 체인·plan artifact 계약의 SSOT는 이 repo**다.
+⚠️ **개정 대상이 `docs/consumer/*`에서 `design/50`으로 바뀌었다**(D26-1) — 아래 참조.
 개정은 **첫 apply 이후**에 한다(실측값 없이 쓰면 또 미검증 문서가 된다). 그때 반영할 실측 사실:
 - OIDC `sub`는 **immutable이 맞다**: `repo:skax-ca@310520211/iac-reference-infra@1316830050:{pull_request | ref:refs/heads/main | environment:dev}`
 - ⚠️ **`environment`가 `ref`를 덮어쓴다** → apply job의 브랜치 제한을 `sub`로 걸 수 없다(설계 미예상 제약)
@@ -171,10 +172,15 @@ docs/로 새어 D25가 무의미해진다.
 - **`docs/design/50-reference-consumer-repo.md` ✅ (2026-07-30 신규 = D-CONSUME)** — 소비 경로 규약의 SSOT
 - `docs/design/{20,30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
 - `docs/reference/poc-findings.md`는 **외부 스냅샷** — 참조만, 복사·갱신 금지
-- `docs/consumer/*` 📦 **개정 예정**. ⚠️ **이관하지 않고 이 repo에 남긴다**(D26 확정) —
-  소싱 인증·backend 규약·OIDC 체인·plan artifact는 모든 소비 repo가 따르는 **계약**이라 이 repo가 SSOT다.
-  소비 repo에는 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·Role ARN·실측 sub)만 둔다.
-  개정 시점은 **첫 apply 이후** — 실측값 없이 다시 쓰면 또 미검증 문서가 된다.
+- `docs/consumer/*` 🗄️ **TFC 시절 잔재 — 보관 전용**(D26-1, 2026-07-30 사용자 결정).
+  ⛔ **확정 규약으로 인용 금지 · 개정하지 않음 · 이관하지 않음 · 삭제하지 않음** — 네 가지 다 결정됐다.
+  - **소비 규약의 SSOT는 `docs/design/50`(D-CONSUME) 하나**다. 최초 D26은 "`consumer/*`를 개정해
+    SSOT로 삼는다"였으나 **철회했다** — GitHub Actions 규약의 SSOT가 TFC 절차서일 수는 없고,
+    경쟁 SSOT는 그 자체로 drift다.
+  - 유효 범위: `multi-environment.md` §3·§4·§6·§8(**도구 무관**, D22가 인용) / `dynamic-credentials.md`는
+    **2단 체인 구조만**. 절차 전체 무효(발급자·`aud`·신뢰 정책이 전부 TFC 기준).
+  - ⚠️ `dynamic-credentials.md`에 **PoC 계정 ID 12곳** — private인 동안의 유예이지 해소가 아니다.
+    public 전환의 선결 과제로 D20 기각안에 등재돼 있다.
 
 ### MCP (`.mcp.json` project 스코프 — 2026-07-29 **`terraform` → `opentofu` 교체**)
 

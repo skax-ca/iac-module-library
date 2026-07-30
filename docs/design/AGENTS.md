@@ -32,8 +32,10 @@ PoC(Terraform 1.15 + HCP Terraform) 전제와 실증 서술이 그대로 남아 
   3. **재사용 요건 적용**(`../architecture/01-module-strategy.md` §4): 파라미터화·kill switch·
      환경 프로파일·예제/테스트·출력 계약
   4. 개정 완료 후 헤더를 provenance 형식으로 교체하고 `../README.md` 상태표를 ✅로 갱신
-- **30-gitops-repo.md의 소유권은 재검토 대상이다.** GitOps 저장소는 모듈이 아니라 배포 자산에 가까워
-  `../consumer/`로 옮기는 것이 맞을 수 있다. EKS 모듈과의 결합도를 보고 이식 시 판단한다.
+- **30-gitops-repo.md의 소유권은 재검토 대상이다.** GitOps 저장소는 모듈이 아니라 배포 자산에 가깝다.
+  EKS 모듈과의 결합도를 보고 이식 시 판단한다.
+  ⚠️ **`../consumer/`로 옮기는 안은 이제 성립하지 않는다** — 그 디렉토리는 TFC 잔재 보관소가 됐다(D26-1).
+  배포 자산 규약의 자리는 `50` 계열(소비 경로 설계)이다.
 - **20의 관리형 ArgoCD 결정(§2.7)은 승계되지 않았다.** `../architecture/01-module-strategy.md` §3.3이
   "이 repo에서 재결정 필요"로 열어두었다 — IdC 필수·cross-region·RETAIN 등 제약이 크다.
 

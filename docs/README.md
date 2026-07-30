@@ -46,7 +46,8 @@
 
 > ⚠️ **50은 승계 문서가 아니라 이 repo에서 새로 쓴 설계다.** 모듈이 아니라 **소비 경로**를 다루므로
 > `design/`에 있으면서도 다른 문서들과 성격이 다르다 — 산출물은 `.tf`가 아니라 별도 repo
-> (`iac-reference-infra`)와 `docs/consumer/*` 개정이다. D26이 그 소유권 경계를 정한다.
+> (`iac-reference-infra`)다. D26이 소유권 경계를, **D26-1이 `consumer/`의 성격(TFC 잔재)** 을 정한다.
+> **50 자신이 소비 규약의 SSOT다.**
 
 > 미개정 문서의 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하나
 > **실행 스택 종속부와 실증 서술이 무효**다. 각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
@@ -61,20 +62,24 @@
 > `poc-findings.md`가 승계 설계의 핵심 장치다. 설계 문서 본문에 실증 날짜·run ID를 옮겨 적으면
 > **이 repo가 하지 않은 실증을 했다고 주장**하게 되므로, 증거는 이 파일 한 곳에 모으고 설계는 참조만 한다.
 
-## consumer — 배포 루트(프로젝트 repo) 소유
+## consumer — 🗄️ TFC 시절 잔재 (보관 전용)
 
 | 문서 | 내용 | 상태 |
 |------|------|------|
-| [multi-environment.md](consumer/multi-environment.md) | dev/stg/prd 전략, 디렉토리 구조, divergence 3단 규칙, 승격 플로우 | 📦 **개정 예정** |
-| [dynamic-credentials.md](consumer/dynamic-credentials.md) | OIDC 2단 역할 체인 구성 | 📦 **개정 예정** |
+| [multi-environment.md](consumer/multi-environment.md) | dev/stg/prd 전략, 디렉토리 구조, divergence 3단 규칙, 승격 플로우 | 🗄️ **잔재** — §3·§4·§6·§8만 유효(도구 무관), §5 무효 |
+| [dynamic-credentials.md](consumer/dynamic-credentials.md) | TFC OIDC 2단 역할 체인 **구성 절차** | 🗄️ **잔재** — 절차 전체 무효. 구조만 유효 |
 
-> ⚠️ **개정 방향이 확정됐다**([design/50](design/50-reference-consumer-repo.md) D26): 두 문서는
-> **이관하지 않고 이 repo에 남긴다.** 소싱 인증·backend 규약·OIDC 체인·plan artifact 규칙은
-> 모든 소비 repo가 따라야 하는 **계약**이므로 이 repo가 SSOT여야 한다 — 소비 repo마다 복제하면 곧 drift다.
-> 소비 repo에는 그 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·Role ARN·실측 `sub`)만 둔다.
+> ⛔ **소비 규약의 SSOT는 여기가 아니라 [design/50](design/50-reference-consumer-repo.md)(D-CONSUME)이다.**
+> D20~D29가 모듈 소싱 인증·backend 규약·OIDC 체인·plan artifact를 소유한다.
+> **두 문서를 확정 규약으로 인용하지 않는다** — `terraform-enterprise-poc` @ `76285f7`의 TFC 전제다.
 >
-> 개정 시점은 `iac-reference-infra`의 첫 apply **이후**다. 실측값 없이 다시 쓰면 TFC 전제를
-> GitHub Actions 전제로 바꿔 적기만 하고 또 미검증 문서가 된다.
+> **이관하지 않는다**(D26). 소비 repo에는 그 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·
+> Role ARN·실측 `sub`)만 둔다. **삭제도 하지 않는다**(D26-1, 2026-07-30 사용자 결정) —
+> `multi-environment.md`의 논증은 도구 무관이라 살아 있고 `design/50` D22가 직접 인용한다.
+>
+> ⚠️ **최초 D26은 "두 문서를 개정해 SSOT로 삼는다"였고, D26-1이 그 배정을 철회했다.**
+> GitHub Actions 규약의 SSOT가 TFC 절차서일 수는 없다 — 경쟁 SSOT는 그 자체로 drift다.
+> 개정은 예정하지 않는다. 규약을 고쳐야 하면 `design/50`을 고친다.
 
 ---
 

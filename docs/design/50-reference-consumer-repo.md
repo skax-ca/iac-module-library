@@ -213,8 +213,27 @@ tofu init \
 
 | 대상 | 위치 | 이유 |
 |------|------|------|
-| **소비 규약** — 모듈 소싱 인증 · backend 규약 · OIDC 체인 패턴 · plan artifact 규칙 | **이 repo** `docs/consumer/*` (SSOT) | 모든 소비 repo가 따라야 하는 **계약**이다. 소비 repo마다 복제하면 곧 drift다 |
+| **소비 규약** — 모듈 소싱 인증 · backend 규약 · OIDC 체인 패턴 · plan artifact 규칙 | **이 repo** — 현행 SSOT는 **이 문서(`design/50`)** | 모든 소비 repo가 따라야 하는 **계약**이다. 소비 repo마다 복제하면 곧 drift다 |
 | **그 repo 고유의 배포 사실** — 계정 ID · 버킷 GUID · Role ARN · 실측 `sub` 값 | 새 repo `docs/` | 재사용 자산이 아니라 인스턴스 값이다. 이 repo에 쓰면 05 §5.4(하드코딩 금지)를 위반한다 |
+| **TFC 시절 잔재** — `docs/consumer/multi-environment.md` · `dynamic-credentials.md` | **이 repo** `docs/consumer/` (**보관**) | 아래 D26-1 참조. 규약의 SSOT가 **아니다** |
+
+#### D26-1 · `docs/consumer/*`는 SSOT가 아니라 TFC 잔재다 (2026-07-30 정정, 사용자 결정)
+
+**최초 D26은 "`docs/consumer/*`를 개정해 소비 규약의 SSOT로 삼는다"였다. 그 배정을 철회한다.**
+
+- **사실과 맞지 않았다.** 두 문서는 `terraform-enterprise-poc` @ `76285f7`에서 온 **TFC 전제**다
+  (`app.terraform.io` · `TFC_AWS_RUN_ROLE_ARN` · 워크스페이스 구조 등 32곳). GitHub Actions 기반
+  소비 규약의 SSOT가 TFC 절차서일 수는 없다. 규약은 **이 문서가 D20~D29로 이미 소유**하고 있었다.
+- **경쟁 SSOT는 그 자체로 drift다.** D26이 막으려던 것과 같은 종류의 위험을, 개정 예정 문서를
+  SSOT로 선언함으로써 스스로 만들고 있었다.
+- **삭제하지 않는다**(사용자 결정). `multi-environment.md`의 논증(디렉토리 구조 · divergence 3단 ·
+  승격 게이트 · 안티패턴 근거)은 **도구 무관이라 여전히 유효**하고, 위 **D22**가 §3을 실제로 인용한다.
+  `dynamic-credentials.md`는 대체물이 이미 실측 기반으로 존재하지만(소비 repo `CLAUDE.md` §4 ·
+  `docs/deployment-facts.md` §3) **PoC 절차 기록으로 남긴다**.
+- ⚠️ **잔재를 근거로 새 구현을 하지 않는다.** 인용해야 한다면 그 규칙이 도구 무관인지 먼저 확인한다.
+- ⚠️ **`dynamic-credentials.md`에 PoC 계정 ID가 12곳 남아 있다.** 위 **D20 기각안**의
+  "모듈 repo public 전환" 항목이 이것을 선결 과제로 등재하고 있다 — private인 동안의 **유예**이지
+  해소가 아니다.
 
 ### D27 · 실행 Role = 기존 `AWSAFTExecution` 재사용
 

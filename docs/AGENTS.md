@@ -19,7 +19,7 @@
 | `architecture/` | 전략·공통 규약 — **개정 완료, 인용 가능** (see `architecture/AGENTS.md`) |
 | `design/` | 모듈별 설계 — **미개정, 확정 설계로 인용 금지** (see `design/AGENTS.md`) |
 | `reference/` | 약어 SSOT + PoC 실증 기록 (see `reference/AGENTS.md`) |
-| `consumer/` | 배포 루트(프로젝트 repo) 소유 문서 — 보관용 (see `consumer/AGENTS.md`) |
+| `consumer/` | 🗄️ **TFC 시절 잔재 — 보관 전용.** 소비 규약의 SSOT는 `design/50`이다 (see `consumer/AGENTS.md`) |
 | `runbooks/` | 운영 절차 — 아직 없음. PoC 런북은 TFC 종속이라 미승계 |
 
 ## For AI Agents

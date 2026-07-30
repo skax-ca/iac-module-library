@@ -605,6 +605,17 @@ assertions:
 - `length(cidrs) > az_count` → `expect_failures`(D6)
 - Commit: `test(vpc): 계약(그룹/isolated/secondary/네이밍/kill switch) plan 검증`
 
+**구현 시 확인된 제약 (2026-07-30, OpenTofu 1.12.5 실측)** — 이걸 모르면 테스트를 쓸 수 없다:
+
+| # | 제약 | 대응 |
+|---|------|------|
+| T1 | **`command = plan`도 data source를 실제 조회한다.** 이 repo는 배포하지 않아 CI에 자격증명이 없으므로 모킹 없이는 plan이 죽는다 | `mock_provider "aws"` + `mock_data "aws_availability_zones"`로 AZ 목록을 고정 주입. 덕분에 **D7의 suffix→AZ 해석까지 검증 대상**이 된다 |
+| T2 | **모킹은 computed 속성에 임의 문자열을 채우는데 aws provider가 plan 시점에 ARN 형식을 검증한다** — `aws_flow_log`의 `log_destination`·`iam_role_arn`이 `invalid ARN: arn: invalid prefix`로 실패 | `mock_resource "aws_cloudwatch_log_group"`·`"aws_iam_role"`의 `defaults.arn`에 형식이 맞는 값을 준다. **모듈 결함이 아니다** |
+| T3 | 모킹에서 `id`·`arn`은 plan 시점 unknown이다 | assertion은 **설정값**(tags·cidr_block·availability_zone·name)과 **인스턴스 개수·키 집합**만 본다 |
+| T4 | **HCL `==`는 타입까지 비교한다** — `output.subnet_ids_by_group`(map of tuple) `== {}`(object)는 둘 다 비어도 실패 | 빈 컬렉션은 `length(...) == 0`으로 검증. 스칼라 `== null`은 정상 동작 |
+| T5 | HCL 표현식은 괄호·대괄호 안이 아니면 **줄을 넘길 수 없다**(`&&`로 끝나는 줄은 파싱 오류) | 여러 조건은 `alltrue([...])`로 묶는다 |
+| T6 | ⚠️ **`.githooks/pre-push`는 테스트가 0건이어도 "테스트 통과 ✓"를 출력한다** — `tofu test`가 테스트 없이 성공 종료하기 때문 | 이 파일이 생긴 이후로는 실제 검증이 돈다. 신규 모듈에서는 **테스트 파일 부재 자체를 의심**할 것 |
+
 ### Task 10.7: 릴리스 게이트 + 태그
 - `02 §4` 체크리스트 전 항목 통과 확인
 - `.terraform.lock.hcl` 커밋 — ⚠️ registry 주소가 `registry.opentofu.org`인지 확인(`02 §2`)

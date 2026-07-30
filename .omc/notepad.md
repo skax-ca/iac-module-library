@@ -95,8 +95,30 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
   `https://github.com/organizations/skax-ca/settings/apps/new` → Contents: Read-only 하나 ·
   Webhook 해제 · 설치는 `iac-module-library` 1개만 → `MODULE_READER_APP_ID`(변수)·`MODULE_READER_KEY`(secret).
 
-이후: Phase 2(sub 실측) → Phase 3(`bootstrap.sh`) → Phase 4(apply) → Phase 5(`docs/consumer/*` 개정).
+**✅ Phase 2 완료**(2026-07-30) — OIDC `sub` **3패턴 실측**, 미해결 3번 종결.
+값은 소비 repo `docs/deployment-facts.md` §3. 커밋 `0cc0ec0`+`a2416d9`.
+- **immutable `sub`가 맞다**: `repo:skax-ca@310520211/iac-reference-infra@1316830050:{pull_request | ref:refs/heads/main | environment:dev}`
+- ⚠️ **`environment`가 `ref`를 덮어쓴다** → apply job의 브랜치 제한을 `sub`로 걸 수 없다(설계 미예상 제약)
+
+**⏭️ 다음 = Phase 3 (`bootstrap.sh`)** — 실제 AWS 리소스를 만든다. 신뢰 정책 입력값은 **전부 확보됐다**.
+Phase 4(apply) → Phase 5(`docs/consumer/*` 개정)로 이어진다.
 ⚠️ **의존 순서가 중요하다** — 신뢰 정책은 sub를 알아야 하고, sub는 repo가 있어야 나온다(닭-달걀 2차).
+
+### ✅ 모듈 CI 구현 완료 (2026-07-30, 커밋 `47e133e`)
+
+⚠️ **그 전까지 `CLAUDE.md`의 "모듈 CI가 검증한다"는 서술은 사실이 아니었다** — `.github/workflows/`에
+`.gitkeep`만 있었고 게이트는 로컬 훅뿐이었다. Phase 2에서 Actions를 진단하다 발견해 실물을 맞췄다.
+
+`verify.yml` 게이트 6개 — run [`30525585145`](https://github.com/skax-ca/iac-module-library/actions/runs/30525585145) 전부 통과 실측:
+① fmt ② tflint ③ trivy ④ modules `init -lockfile=readonly`+`validate`+**`test` 12 passed**
+⑤ examples(2개 루트, `Initializing modules...` 확인) ⑥ lock registry 검사(3개, 음성 테스트로 검증)
+
+- 🔑 **CI와 로컬 훅의 도구 버전·플래그를 일치시킨다.** 어긋나면 사람이 CI를 신뢰하지 않게 된다.
+  기준: OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.48.0**.
+  ⚠️ `setup-tflint`가 "0.64.0이 나왔다"고 경고하는데 **의도적으로 0.63.1**이다. 올릴 땐 **양쪽 같이**.
+- trivy는 `trivy-action`이 아니라 **바이너리 설치** — 액션은 플래그를 자기 입력으로 번역해
+  pre-commit과 결과가 갈릴 수 있다. 파리티가 이 CI의 핵심 요건이다.
+- `-lockfile=readonly`로 "lock 커밋됨"을 강제한다. tests 없는 모듈은 **실패**시킨다(02 §4).
 
 - ⚠️ `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
   → `bootstrap.sh`가 `update-assume-role-policy`로 **신뢰 정책 전체 교체**(D27).

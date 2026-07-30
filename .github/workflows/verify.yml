@@ -1,0 +1,127 @@
+# 모듈 검증 CI — docs/architecture/02-naming-tagging-and-pinning.md §4 "공통 검증 게이트" 구현.
+#
+# ⚠️ 이 repo는 **배포하지 않는다.** apply 워크플로가 없는 것은 누락이 아니라 설계다(CLAUDE.md).
+#    배포는 소비 repo(iac-reference-infra 등)의 몫이다.
+#
+# ⚠️ **로컬 게이트와 도구 버전·플래그를 정확히 일치시킨다.**
+#    어긋나면 "로컬은 통과했는데 CI가 막는다"가 생기고, 그러면 사람이 CI를 신뢰하지 않게 된다.
+#    로컬 기준(2026-07-30): OpenTofu 1.12.5 · tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0
+#    로컬 훅은 .githooks/{pre-commit,pre-push} 에 있다. 한쪽을 바꾸면 다른 쪽도 바꾼다.
+name: verify
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# CI는 읽기 전용이라 앞선 run을 취소해도 안전하다.
+# ⚠️ 소비 repo의 **apply** 워크플로는 반대로 cancel-in-progress: false 여야 한다 —
+#    apply 중단은 state 잠금·부분 적용을 남긴다. 이 블록을 그대로 복사하지 말 것.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TOFU_VERSION: "1.12.5"
+  TFLINT_VERSION: "v0.63.1"
+  TRIVY_VERSION: "v0.72.0"
+
+jobs:
+  verify:
+    name: 공통 검증 게이트
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - uses: opentofu/setup-opentofu@v2.0.2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          # wrapper는 stdout을 가로채 후속 스텝의 grep을 깨뜨린다. 게이트에는 불필요하다.
+          tofu_wrapper: false
+
+      - name: "게이트 1/6 — tofu fmt"
+        run: tofu fmt -recursive -check -diff
+
+      - uses: terraform-linters/setup-tflint@v6.3.0
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: "게이트 2/6 — tflint"
+        env:
+          # 플러그인(aws ruleset 0.48.0)을 GitHub 릴리스에서 받는다 — 익명 호출은 rate limit 에 걸린다.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          tflint --init
+          tflint --recursive
+
+      - name: "게이트 3/6 — trivy config"
+        run: |
+          # trivy-action 대신 바이너리를 직접 설치한다: 로컬 pre-commit 과 **완전히 같은 명령**을
+          # 실행해야 결과가 갈리지 않는데, 액션은 플래그를 자기 입력으로 번역하기 때문이다.
+          curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+            | sh -s -- -b /usr/local/bin "${TRIVY_VERSION}"
+          trivy --version
+          # ↓ .githooks/pre-commit 의 명령과 한 글자도 다르지 않아야 한다
+          trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
+            --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules .
+
+      - name: "게이트 4/6 — modules: validate + test"
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          found=0
+          for m in modules/*/; do
+            found=1
+            echo "::group::$m"
+            # -lockfile=readonly: lock 이 커밋돼 있고 config 와 맞는지 CI 가 강제한다(02 §4).
+            # lock 을 갱신해야 하는 상태면 여기서 실패한다 — 의도된 동작이다.
+            tofu -chdir="$m" init -backend=false -input=false -lockfile=readonly
+            tofu -chdir="$m" validate
+            if [ -d "${m}tests" ]; then
+              tofu -chdir="$m" test
+            else
+              echo "⚠️ ${m}tests 없음 — 계약 검증이 없는 모듈은 릴리스하지 않는다(02 §4)"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+          [ "$found" = 1 ] || { echo "modules/ 가 비어 있다"; exit 1; }
+
+      - name: "게이트 5/6 — examples: validate"
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for e in examples/*/; do
+            [ -n "$(find "$e" -maxdepth 1 -name '*.tf' -print -quit 2>/dev/null)" ] || continue
+            echo "::group::$e"
+            # 예제는 상대경로로 모듈을 소싱한다 — 외부 인증이 필요 없다.
+            tofu -chdir="$e" init -backend=false -input=false -lockfile=readonly
+            tofu -chdir="$e" validate
+            echo "::endgroup::"
+          done
+
+      - name: "게이트 6/6 — lock 파일 registry 검사"
+        run: |
+          set -euo pipefail
+          # 02 §4: lock 은 커밋되고 registry 주소가 registry.opentofu.org 여야 한다.
+          # 다른 스택(PoC)의 lock 을 복사하면 registry.terraform.io 가 섞여 들어온다.
+          # $(find ...) 를 for 로 순회하면 경로의 공백에서 깨진다(그리고 zsh 에서는 아예 분할되지
+          # 않아 로컬 검증이 조용히 무의미해진다). -print0 + read -d '' 로 고정한다.
+          rc=0
+          n=0
+          while IFS= read -r -d '' f; do
+            n=$((n + 1))
+            if grep -qE 'provider "registry\.terraform\.io/' "$f"; then
+              echo "::error file=$f::registry.terraform.io 참조 — registry.opentofu.org 여야 한다"
+              rc=1
+            else
+              echo "  ✓ $f"
+            fi
+          done < <(find . -name '.terraform.lock.hcl' -not -path '*/.terraform/*' -print0)
+          [ "$n" -gt 0 ] || { echo "::error::lock 파일이 하나도 없다"; exit 1; }
+          echo "  검사한 lock: ${n}개"
+          exit $rc

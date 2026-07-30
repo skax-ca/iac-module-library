@@ -159,5 +159,15 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 - tflint: `.tflint.hcl`(terraform recommended preset + aws ruleset 정확 핀). 설치:
   `brew install trivy opentofu` + tflint는 GitHub 릴리스 바이너리, 이후 `GITHUB_TOKEN=$(gh auth token) tflint --init`.
 - trivy 예외는 `.trivyignore`로만 — 항목마다 사유·백로그 링크 필수, 무단 추가 금지.
-- **모듈 CI**: `.github/workflows/`가 fmt·validate·tflint·trivy·`tofu test`를 검증한다
-  (프로젝트 repo와 달리 이 repo는 배포하지 않으므로 apply 워크플로가 없다).
+- **모듈 CI**: `.github/workflows/verify.yml`이 **게이트 6개**를 검증한다(2026-07-30 구현 —
+  그 전까지 이 줄은 사실이 아니었다. `.github/workflows/`에 `.gitkeep`만 있었다).
+  ① `tofu fmt` ② `tflint --recursive` ③ `trivy config` ④ modules: `init -lockfile=readonly`
+  + `validate` + `test`(tests 없는 모듈은 **실패**) ⑤ examples: `init -lockfile=readonly` + `validate`
+  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — 02 §4).
+  - ⚠️ **CI와 로컬 훅의 도구 버전·플래그를 일치시킨다.** 어긋나면 "로컬은 통과했는데 CI가 막는다"가
+    생기고, 그러면 사람이 CI를 신뢰하지 않게 된다. 기준(2026-07-30): OpenTofu 1.12.5 ·
+    tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. **한쪽을 바꾸면 다른 쪽도 바꾼다.**
+    특히 trivy는 액션 대신 **바이너리를 설치해 pre-commit과 같은 명령을 그대로** 실행한다.
+  - 프로젝트 repo와 달리 이 repo는 배포하지 않으므로 **apply 워크플로가 없다**(누락이 아니라 설계).
+  - CI는 읽기 전용이라 `cancel-in-progress: true`다. ⚠️ 소비 repo의 **apply**는 반대여야 한다 —
+    apply 중단은 state 잠금·부분 적용을 남긴다. 이 블록을 그대로 복사하지 말 것.

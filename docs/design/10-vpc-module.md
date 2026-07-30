@@ -625,6 +625,41 @@ assertions:
 
 ---
 
+## 3. 릴리스 기록 — `vpc-v1.0.0` (2026-07-30)
+
+`02 §4` 게이트 실측 결과. **OpenTofu 1.12.5 · aws provider 6.57.1** 기준이다.
+
+| # | 게이트 항목 | 결과 |
+|---|------------|------|
+| 1 | `tofu fmt -recursive -check` | exit 0 |
+| 2 | `modules/vpc`: `validate` + `test` | Success · **12 passed, 0 failed** |
+| 3 | `examples/*`: `validate` | `vpc`·`vpc-enterprise` 양쪽 Success |
+| 4 | `.terraform.lock.hcl` 커밋 + registry | 3개 루트 전부 `registry.opentofu.org/hashicorp/aws` |
+| 5 | `Name` 태그 §1.2 포맷 + 카탈로그 약어 | `naming_contract` run이 11종 검증 |
+| 6 | 커뮤니티 모듈 정확 핀 | N/A — 스크래치 모듈이다(`01 §2.2`) |
+| 7 | `<component>_enabled` kill switch | `vpc_enabled`(D10) |
+| 8 | `tflint --recursive` · `trivy config` | 0건 · 0건 |
+
+**provider 버전을 정렬한 이유**: `tofu test`는 `modules/vpc`를 루트로 실행하므로 그곳 lock이 테스트
+버전을 결정한다. 예제만 6.57.1이고 모듈이 6.56.0이면 **"테스트한 버전 ≠ 예제가 검증한 버전"** 상태가
+태그에 굳는다. 릴리스 전에 `init -upgrade`로 하나로 맞췄다.
+
+### v1.0.0이 보장하지 **않는** 것 (apply 미검증 항목)
+
+이 릴리스의 증거는 전부 `plan` 수준이다. 아래는 **실계정 apply에서만 드러나며 아직 검증되지 않았다** —
+소비 프로젝트의 첫 apply에서 확인해야 한다.
+
+| 항목 | 왜 plan으로 안 잡히나 |
+|------|---------------------|
+| secondary CIDR `depends_on` 순서 | association이 `associated` 상태가 되는 타이밍은 apply 시점 문제다 |
+| primary/secondary CIDR 조합 제약 | AWS API가 apply 시 거부한다(§1.2) |
+| CIDR 겹침 | 〃 — `examples/vpc-enterprise`의 파생값은 `tofu console`로 산술만 검증했다 |
+| Flow Logs 배달 | IAM 권한이 부족해도 plan은 통과한다. 로그가 실제로 쌓이는지 봐야 한다 |
+| `prevent_destroy` 실제 차단 | plan 차단은 실측했으나(D12) apply 후 상태에서의 동작은 미확인 |
+| **`git tag` 소싱 경로** | 예제는 상대경로로 소싱한다 — 태그 소싱은 소비 repo에서 처음 돈다 |
+
+---
+
 ## 열린 항목
 
 1. **Phase 3 — TGW attachment 리소스**: 서브넷 그룹(`tgw-uniq`)은 v1.0.0이 수용하나

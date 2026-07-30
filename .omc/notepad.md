@@ -118,11 +118,31 @@ docs/로 새어 D25가 무의미해진다.
   pre-commit과 결과가 갈릴 수 있다. 파리티가 이 CI의 핵심 요건이다.
 - `-lockfile=readonly`로 "lock 커밋됨"을 강제한다. tests 없는 모듈은 **실패**시킨다(02 §4).
 
-- ⚠️ `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
-  → `bootstrap.sh`가 `update-assume-role-policy`로 **신뢰 정책 전체 교체**(D27).
+### ⛔ D27 철회 → **D27-1**(실행 Role 신설) + **D27-2**(공용 계정 운영 규칙) — 커밋 `7df9edf`
+
+**최초 D27**(`AWSAFTExecution`의 신뢰 정책을 `update-assume-role-policy`로 **전체 교체**)는
+**철회됐다. 이 서술을 되살리지 말 것.**
+- 철회 근거 = **F13(공용 개발 계정)**. `update-assume-role-policy`는 병합이 아니라 **덮어쓰기**라
+  그 Role을 쓰는 다른 주체를 **말없이 끊는다**. `AWSAFTExecution`은 AFT 표준 이름이라 우리 PoC
+  말고도 용도가 있을 수 있고, 공용 계정에서는 그 주체를 우리가 알 수 없다.
+  "고아 Role이 남는다"는 원래 근거는 **비용이 아니라 미관**이었다.
+- **D27-1(확정)**: 실행 Role을 **신설**한다 — `iamr-ref-dev-an2-gha-exec-01`(`AdministratorAccess`,
+  신뢰는 입구 Role `iamr-ref-dev-an2-gha-entry-01` **하나만**). `AWSAFTExecution`은 **읽지도 쓰지도
+  않는다** — 소비 repo 실측으로 principal이 `AROAXYPQCDNDOM5Y4T6V3` 그대로임을 확인했다.
+- ⚠️ **"`AWSAFTExecution` assume 불가"는 이제 해결 대상이 아니라 무관한 문제다.** 깨진 채로 둔다 —
+  고치는 것도 남의 자산 변경이다.
+- **D27-2**: 공용 계정 운영 규칙(PoC `05` §7.1 승계) — apply 승인 전 **destroy/replace 목록을 사람이
+  읽는다**(예외 없음) · 우리 자산은 **`Workload=ref` 태그로만** 판별 · apply는 Environment 승인 게이트
+  필수 · `prevent_destroy`(D12) 유지. `AdministratorAccess`를 **자동 트리거**에 연결한 것이 PoC와의
+  실질적 차이라 규칙이 필요하다.
+- 권한 축소는 **열린 항목**(50 §5-7). VPC 하나에 맞춰 최소권한을 뽑으면 EKS에서 다시 해야 한다.
+
+### ⏭️ 이 repo의 다음 관여 지점
+
 - ⚠️ **첫 apply로 판정되는 것은 미검증 6항목 중 6번(git tag 소싱)뿐이다**(50 §4).
   1~5는 후속 apply 시나리오다. 흐리면 "apply로 검증했다"는 과잉 주장이 된다.
-- 그 다음이 **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
+- 소비 repo **Phase 5 = `docs/design/50` 개정**(첫 apply 실측값 반영). 그 전엔 착수하지 않는다.
+- 그와 독립으로 착수 가능한 것이 **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 
@@ -202,8 +222,11 @@ docs/로 새어 D25가 무의미해진다.
 - ✅ **TFE_TOKEN 유지 결정**(2026-07-30) — 폐기·재발급하지 않는다. 2026-07-28 세션 중 노출됐으나
   사용자가 유지를 선택. ⚠️ 잔여 리스크: 노출된 토큰이 유효한 상태로 남으므로, 향후 TFE/HCP를
   안 쓰기로 굳어지면(D-ENGINE=OpenTofu 단독) 그때 폐기 재검토 여지.
-- 보존한 `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
-  → 부트스트랩 시 신뢰 정책 교체 필요
+- ~~보존한 `AWSAFTExecution`이 assume 불가 → 부트스트랩 시 신뢰 정책 교체 필요~~
+  ✅ **미결 아님**(2026-07-30, D27-1). 실행 Role을 신설했으므로 그 Role을 **쓰지 않는다** —
+  해결된 게 아니라 **무관해졌다**. 깨진 상태로 방치하는 것이 의도된 결정이다(남의 자산).
+- **실행 Role 권한 축소**(`iamr-ref-dev-an2-gha-exec-01` = `AdministratorAccess`) — 50 §5-7.
+  판단 시점은 **모듈 집합이 안정된 뒤**(최소 EKS 이식 후). 그때까지 완화책은 D27-2 운영 규칙
 - `docs/design/30-gitops-repo.md`의 소유권 재검토 — **D26이 부분 답**(규약/사실 분리). GitOps hub 자체는 미결
 - plan/apply 권한 분리 — `tofu plan`도 state lock을 잡아 "plan은 read-only"가 성립하지 않는다(D28 열린 항목)
 - CI `init`이 모듈 repo **전체를 clone**한다(실측 F2). 태그·히스토리 증가 시 `?depth=1` 검토

@@ -24,7 +24,7 @@
 | purpose | 자원의 상세 용도 | `web`, `db`, `batch`, `admin` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **311개** 약어, 8개 카테고리.
+- 총 **312개** 약어, 8개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다
@@ -49,6 +49,7 @@
 |------|------|--------|------|
 | 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다 — 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
 | 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
+| 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요([../design/50-reference-consumer-repo.md](../design/50-reference-consumer-repo.md) D23). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
 
 ---
 
@@ -310,12 +311,13 @@
 | Bedrock 튜닝 | 모델 배포 (PT) | `brpt` | brpt-acme-prd-an2-claude3-sonnet-01 |
 | Bedrock 평가 | 평가 (Evaluation) | `brev` | brev-acme-prd-an2-qa-bench-01 |
 
-## A.6 Security, Identity, Compliance (17)
+## A.6 Security, Identity, Compliance (18)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
 | IAM | 역할 (Role) | `iamr` | iamr-acme-prd-an2-ebs-csi |
 | IAM | 정책 (관리형, `aws_iam_policy`) | `iamp` | iamp-acme-prd-an2-s3-read |
+| IAM | OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | `iamoidc` | iamoidc-acme-prd-an2-gha |
 | ACM | 인증서 (Certificate) | `acmc` | acmc-acme-prd-an2-wildcard-01 |
 | KMS | 고객 관리형 키 | `kmsk` | kmsk-acme-prd-an2-s3-01 |
 | KMS | 외부 키 스토어 | `kmss` | kmss-acme-prd-an2-hsm-01 |
@@ -410,11 +412,17 @@
 | # | 카테고리 | 약어 수 |
 |---|----------|--------:|
 | A.1 | Compute | 41 |
-| A.2 | Network | 72 |
+| A.2 | Network | 73 |
 | A.3 | Databases | 39 |
 | A.4 | Storage | 33 |
 | A.5 | Analytics, AI, ML | 47 |
-| A.6 | Security, Identity, Compliance | 16 |
+| A.6 | Security, Identity, Compliance | 18 |
 | A.7 | Management, Governance | 30 |
-| A.8 | Developer Tools, Others | 30 |
-| | **합계** | **308** |
+| A.8 | Developer Tools, Others | 31 |
+| | **합계** | **312** |
+
+> ⚠️ **이 표는 2026-07-30에 정정됐다.** 그 전까지 합계 308(Network 72 · Security 16 · Developer Tools 30)로
+> 남아 상단 서술·섹션 헤더와 어긋나 있었다 — `fl`·`iamp` 추가 시 갱신되지 않았고, Developer Tools의 1건은
+> 개정 이력에도 없어 승계 원본부터의 불일치로 보인다. **실제 행을 세어**(카테고리별 약어 행 카운트)
+> 섹션 헤더 쪽이 맞음을 확인한 뒤 이 표를 맞췄다. SSOT 문서에 총계가 두 개 있는 상태였으므로
+> **약어를 추가할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

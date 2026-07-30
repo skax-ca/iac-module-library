@@ -42,6 +42,11 @@
 | 20 | [20-eks-module.md](design/20-eks-module.md) | ⚠️ 미개정 |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
 | 40 | [40-bastion.md](design/40-bastion.md) | ⚠️ 미개정 |
+| 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
+
+> ⚠️ **50은 승계 문서가 아니라 이 repo에서 새로 쓴 설계다.** 모듈이 아니라 **소비 경로**를 다루므로
+> `design/`에 있으면서도 다른 문서들과 성격이 다르다 — 산출물은 `.tf`가 아니라 별도 repo
+> (`iac-reference-infra`)와 `docs/consumer/*` 개정이다. D26이 그 소유권 경계를 정한다.
 
 > 미개정 문서의 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하나
 > **실행 스택 종속부와 실증 서술이 무효**다. 각 모듈을 이식할 때 재검토하며 개정한다(D-OSS-STACK §6-2).
@@ -50,7 +55,7 @@
 
 | 문서 | 내용 | 상태 |
 |------|------|------|
-| [aws-naming-abbreviations.md](reference/aws-naming-abbreviations.md) | 리소스 약어 **SSOT**(311개). 임의 생성 금지 · **없으면 물어서 등재 후 사용** | ✅ (2026-07-30 `fl`·`iamp` 추가 + 종속 객체 상속 규약) |
+| [aws-naming-abbreviations.md](reference/aws-naming-abbreviations.md) | 리소스 약어 **SSOT**(312개). 임의 생성 금지 · **없으면 물어서 등재 후 사용** | ✅ (2026-07-30 `fl`·`iamp`·`iamoidc` 추가 + 종속 객체 상속 규약 + **카테고리 카운트 요약표 정정**) |
 | [poc-findings.md](reference/poc-findings.md) | PoC 실증 기록 — **외부 출처, 이 repo에서 재현 안 됨** | 📋 |
 
 > `poc-findings.md`가 승계 설계의 핵심 장치다. 설계 문서 본문에 실증 날짜·run ID를 옮겨 적으면
@@ -60,10 +65,16 @@
 
 | 문서 | 내용 | 상태 |
 |------|------|------|
-| [multi-environment.md](consumer/multi-environment.md) | dev/stg/prd 전략, 디렉토리 구조, divergence 3단 규칙, 승격 플로우 | 📦 |
-| [dynamic-credentials.md](consumer/dynamic-credentials.md) | OIDC 2단 역할 체인 구성 | 📦 |
+| [multi-environment.md](consumer/multi-environment.md) | dev/stg/prd 전략, 디렉토리 구조, divergence 3단 규칙, 승격 플로우 | 📦 **개정 예정** |
+| [dynamic-credentials.md](consumer/dynamic-credentials.md) | OIDC 2단 역할 체인 구성 | 📦 **개정 예정** |
 
-> 첫 프로젝트 repo를 만들 때 그곳으로 이관하며 개정한다. TFC 종속부는 GitHub Actions 기준으로 재작성.
+> ⚠️ **개정 방향이 확정됐다**([design/50](design/50-reference-consumer-repo.md) D26): 두 문서는
+> **이관하지 않고 이 repo에 남긴다.** 소싱 인증·backend 규약·OIDC 체인·plan artifact 규칙은
+> 모든 소비 repo가 따라야 하는 **계약**이므로 이 repo가 SSOT여야 한다 — 소비 repo마다 복제하면 곧 drift다.
+> 소비 repo에는 그 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·Role ARN·실측 `sub`)만 둔다.
+>
+> 개정 시점은 `iac-reference-infra`의 첫 apply **이후**다. 실측값 없이 다시 쓰면 TFC 전제를
+> GitHub Actions 전제로 바꿔 적기만 하고 또 미검증 문서가 된다.
 
 ---
 

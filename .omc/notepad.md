@@ -68,21 +68,49 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 - **`examples/vpc-enterprise`의 목적이 재정의됐다**: 검증 자산이 아니라 **고객사 착수 템플릿**이다
   (설계가 든 근거는 10.6 테스트가 이미 커버). `examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**.
 
-### ⏭️ 다음 작업 = **레퍼런스 소비 repo** (2026-07-30 논의 결정)
+### ✅ 레퍼런스 소비 repo — **설계 완료(Phase 0)** / 다음은 Phase 1 (2026-07-30)
 
-`iac-reference-infra`(가칭)를 만들어 **VPC 하나만으로** 소비 경로를 끝까지 통과시킨다.
-실 고객사 repo보다 이걸 먼저 두는 이유: 아래 3가지가 **전부 첫 apply에서 터지고**, 고객 앞에서
-처음 부딪히는 것과 리허설에서 잡아 **템플릿으로 복사해 주는** 것은 완전히 다른 일이다.
+설계 SSOT는 **`docs/design/50-reference-consumer-repo.md` = D-CONSUME**(✅). 커밋 `96dcfab`.
+실행 계획(Phase·수용 기준·위험표)은 **`.omc/plans/reference-consumer-repo.md`**(gitignore).
+⛔ **D20~D29를 재논의하지 말 것** — 실측 근거와 기각 이유가 50에 다 있다.
 
-| # | 먼저 막힐 지점 | 현재 상태 |
-|---|---------------|----------|
-| 1 | **private repo의 `git tag` 소싱 인증** — `tofu init`이 `git::https://`로 clone해야 한다 | ❌ 미해결. 방식은 **실측 후 결정**(사용자 결정: 지금 정하면 추정이 된다). 후보: repo public 전환 / GitHub App 토큰(org) / deploy key. ⚠️ `gh` 토큰은 **개인(silverte) 종속**이라 팀 자산의 CI 자격증명으로 부적절 |
-| 2 | **부트스트랩 닭-달걀** — state용 S3 버킷(`use_lockfile`)과 OIDC 입구/실행 Role을 누가 만드나 | ❌ 미결정 |
-| 3 | **OIDC `sub` claim** | ⚠️ 이 repo는 2026-07-15 이후 생성 → `sub`가 숫자 org/repo ID다. 신뢰 정책 작성 전 **실제 토큰의 `sub`를 확인**할 것 |
+**미해결 3건의 현재 상태** (실측으로 1건 해소, 2건은 방식 확정 + 실측 대기)
 
-- 그 결과로 **`docs/consumer/*` 개정**(현재 📦 미개정, TFC 전제 잔존) + `docs/design/30` 소유권 재검토.
+| # | 지점 | 상태 |
+|---|------|------|
+| 1 | private repo `git tag` 소싱 인증 | ✅ **로컬은 이미 동작**(실측: `osxkeychain`) → **CI 전용 문제로 축소**. 방식 확정 = **GitHub App 토큰 + `insteadOf`**(D20). 소싱 URL은 `git::https://` 하나로 유지 |
+| 2 | 부트스트랩 닭-달걀 | ✅ 방식 확정 = **AWS CLI 스크립트(IaC 밖)**(D21, 사용자 선택). ⚠️ 완화책 4종(멱등성·기대상태표·`verify.sh`·`import` 초안)이 **수용 기준**이다 |
+| 3 | OIDC `sub` claim | ⚠️ **Phase 2에서 실측**. 추정 금지. org ID 확정=`310520211`, repo ID는 소비 repo 생성 후 조회. **plan/apply의 sub가 다르다**(D28 — `environment:` 선언 job만 `:environment:`를 받는다) → 신뢰 정책 **3패턴** |
+
+**✅ Phase 1 골격 완료** (2026-07-30) — 이후 작업은 **`iac-reference-infra` repo에서** 한다.
+로컬 경로 `/Users/a07326/born2k/ai/iac-reference-infra`. 그쪽 `.omc/notepad.md`가 진행 SSOT다.
+
+- repo 생성 + Team `iac` `maintain` ✅ · **repo 숫자 ID = `1316830050`** ✅ (R3 해소: 사용자가 org admin)
+- 골격 커밋 `cfb575a` + notepad `33a1386`. 게이트 실측 통과(tflint 0 · fmt 0 · trivy 0 · 훅 `100755`)
+- **D25를 계정 식별 정보 일반으로 확장**: 계정 ID·Role ARN도 git에 두지 않고 repo 변수에 둔다.
+  소비 repo `docs/deployment-facts.md`는 **값이 아니라 포인터**를 기록한다 — D26의 "배포 사실은
+  소비 repo docs/에" 를 그대로 하면 `backend.tf`에서 뺀 정보가 docs/로 새어 D25가 무의미해진다.
+- ⏸ **Phase 1 잔여 = GitHub App 생성 (사용자 작업, 브라우저 전용)**.
+  ⚠️ **API로 불가** — `POST /orgs/{org}/apps` 없음, manifest 변환은 브라우저 `code` 필요(실측 확인).
+  `https://github.com/organizations/skax-ca/settings/apps/new` → Contents: Read-only 하나 ·
+  Webhook 해제 · 설치는 `iac-module-library` 1개만 → `MODULE_READER_APP_ID`(변수)·`MODULE_READER_KEY`(secret).
+
+이후: Phase 2(sub 실측) → Phase 3(`bootstrap.sh`) → Phase 4(apply) → Phase 5(`docs/consumer/*` 개정).
+⚠️ **의존 순서가 중요하다** — 신뢰 정책은 sub를 알아야 하고, sub는 repo가 있어야 나온다(닭-달걀 2차).
+
+- ⚠️ `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
+  → `bootstrap.sh`가 `update-assume-role-policy`로 **신뢰 정책 전체 교체**(D27).
+- ⚠️ **첫 apply로 판정되는 것은 미검증 6항목 중 6번(git tag 소싱)뿐이다**(50 §4).
+  1~5는 후속 apply 시나리오다. 흐리면 "apply로 검증했다"는 과잉 주장이 된다.
 - 그 다음이 **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
-- ⚠️ `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환) → 부트스트랩 시 신뢰 정책 교체.
+
+### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
+
+`backend.tf`는 **`terraform { backend "s3" {} }` 뿐**이다. 버킷명이 **git에 없다**(계정 ID 노출 방지).
+- CI: GitHub repo 변수 / 로컬: **gitignore된 `backend.hcl`**
+- `tofu init -backend-config="bucket=..." -backend-config="key=..." -backend-config="use_lockfile=true"`
+- 버킷명: `s3-ref-dev-an2-tfstate-<guid12>` · workload code = **`ref`**(D24)
+- ⚠️ 버저닝+`use_lockfile` → lock 객체 버전 폭증(공식 경고) → **lifecycle 필수**(D29)
 
 ### ✅ 커밋 단위 제약 — 해소됨 (2026-07-30)
 
@@ -94,8 +122,13 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 
 **약어가 카탈로그에 없을 때 `Name`을 생략하거나 "열린 항목"으로 미루지 않는다.**
 → **사용자에게 물어 확정 → 카탈로그 등재 → 구현** 순서다. 임의 생성도 금지(둘 다 틀린 처리).
-- 이번에 등재: **`fl`**(VPC Flow Log — AWS 실제 ID 접두사) · **`iamp`**(IAM 관리형 정책).
-  카탈로그 총계 309 → **311**(Network 73, Security 17). 커밋 `7114239`.
+- 등재: **`fl`**(VPC Flow Log — AWS 실제 ID 접두사) · **`iamp`**(IAM 관리형 정책) — 커밋 `7114239`.
+- 등재: **`iamoidc`**(`aws_iam_openid_connect_provider`, D23) — 커밋 `96dcfab`.
+  기각안도 문서에 남겼다: `iamo`(`o`가 OIDC임을 알 수 없고 짝 `iams`가 오독됨) · `iamidp`(OIDC/SAML 미구분).
+  ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → `Name` **태그로만** 붙는다(inline 정책과 반대).
+- 카탈로그 총계 **312**(Network 73, Security 18, DevTools 31).
+  ⚠️ **약어 추가 시 3곳을 함께 고친다**: ① 섹션 헤더 ② 상단 총계(27행) ③ 끝 카테고리 카운트 요약표.
+  요약표가 308로 stale했던 것을 `96dcfab`에서 실측 재카운트로 정정했다 — 같은 실수를 반복하지 말 것.
 - 신설 규약: **"종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다"** —
   `aws_iam_role_policy`(inline)는 `<role 이름>-policy`. ⚠️ inline 정책은 **`tags` 미지원**이라
   이 이름은 `Name` 태그가 아니라 **`name` 인자 = 식별자**다.
@@ -116,9 +149,13 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 ### 문서 인용 규칙 (`docs/README.md` 상태표가 판정 근거)
 
 - `docs/architecture/*` ✅ (**04-engine-decision.md 신규**) · **`docs/design/10-vpc-module.md` ✅ (2026-07-29 개정)**
+- **`docs/design/50-reference-consumer-repo.md` ✅ (2026-07-30 신규 = D-CONSUME)** — 소비 경로 규약의 SSOT
 - `docs/design/{20,30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
 - `docs/reference/poc-findings.md`는 **외부 스냅샷** — 참조만, 복사·갱신 금지
-- `docs/consumer/*` 📦 배포 루트 소유. 모듈 설계 근거로 쓰지 않는다
+- `docs/consumer/*` 📦 **개정 예정**. ⚠️ **이관하지 않고 이 repo에 남긴다**(D26 확정) —
+  소싱 인증·backend 규약·OIDC 체인·plan artifact는 모든 소비 repo가 따르는 **계약**이라 이 repo가 SSOT다.
+  소비 repo에는 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·Role ARN·실측 sub)만 둔다.
+  개정 시점은 **첫 apply 이후** — 실측값 없이 다시 쓰면 또 미검증 문서가 된다.
 
 ### MCP (`.mcp.json` project 스코프 — 2026-07-29 **`terraform` → `opentofu` 교체**)
 
@@ -142,7 +179,10 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
   안 쓰기로 굳어지면(D-ENGINE=OpenTofu 단독) 그때 폐기 재검토 여지.
 - 보존한 `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환)
   → 부트스트랩 시 신뢰 정책 교체 필요
-- `docs/design/30-gitops-repo.md`의 소유권 재검토(모듈 repo vs consumer)
+- `docs/design/30-gitops-repo.md`의 소유권 재검토 — **D26이 부분 답**(규약/사실 분리). GitOps hub 자체는 미결
+- plan/apply 권한 분리 — `tofu plan`도 state lock을 잡아 "plan은 read-only"가 성립하지 않는다(D28 열린 항목)
+- CI `init`이 모듈 repo **전체를 clone**한다(실측 F2). 태그·히스토리 증가 시 `?depth=1` 검토
+- plan artifact 암호화 — `retention-days: 1`은 완화이지 해결이 아니다(50 §5)
 - 관리형 ArgoCD 채택 여부 재결정(`docs/architecture/01-module-strategy.md` §3.3)
 - VPC 설계 열린 항목 6건은 `docs/design/10-vpc-module.md` 말미 참조
   (TGW 리소스 · prefix list 소유권 · IPAM · Flow Logs 대상 확장 · private NAT · IAM policy 약어)

@@ -49,22 +49,40 @@
 3. ✅ **원격 repo 생성·push 완료**(2026-07-29): `skax-ca/iac-module-library`(private).
    `gh` 토큰에 **`workflow` 스코프 추가됨**(`.github/workflows/` 파일 push에 필수).
 
-### ⏭️ 다음 작업 = §6-2 **2단계 — `modules/vpc` 코드 이식**
+### ✅ §6-2 2단계 완료 — `vpc-v1.0.0` 릴리스됨 (2026-07-30)
 
-설계는 확정됐다(`docs/design/10-vpc-module.md` ✅ 인용 가능). **§2 구현 계획의 Task 10.1~10.7을 순서대로** 수행한다.
+Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측은 `docs/design/10-vpc-module.md` **§3 릴리스 기록**에 있다.
 
-| Task | 내용 |
+| Task | 커밋 |
 |------|------|
-| ~~10.1~~ | ✅ 커밋 `65d2283` — `{versions,variables}.tf` |
-| ~~10.2~~ | ✅ 커밋 `65d2283` — `main.tf` |
-| ~~10.3~~ | ✅ 커밋 `65d2283` + `7114239` — `flow-logs.tf`(D11 4종) |
-| ~~10.4~~ | ✅ 커밋 `8346672` — `outputs.tf`(§1.4, null-safe) |
-| **10.5** | ⏭️ **여기서 시작.** `examples/vpc/`(minimal 2그룹) + `examples/vpc-enterprise/`(9그룹). `versions.tf`에 `aws ~> 6.0` **상한**(모듈은 하한만, 루트가 상한) · enterprise는 `cidrsubnet()` 파생 locals(D2) · `outputs.tf`에서 모듈 출력을 실제로 소비 · **인자 없이 `tofu validate`가 도는 상태**로 둔다 |
-| 10.6 | `modules/vpc/tests/plan.tftest.hcl` — `Name` 태그 assertion 필수. ⚠️ **교차변수 validation·precondition은 `plan`에서만 평가**되므로 이 파일이 유일한 검출 지점이다 |
-| 10.7 | 릴리스 게이트(`02 §4`) + `vpc-v1.0.0` 태그 |
+| 10.1·10.2·10.3 | `65d2283` (+ `7114239` 네이밍) — `{versions,variables,main,flow-logs}.tf` |
+| 10.4 | `8346672` — `outputs.tf` |
+| 10.5 | `5129429` — `examples/vpc` + `examples/vpc-enterprise` |
+| 10.6 | `7d753a8` — `tests/plan.tftest.hcl` **12 passed** |
+| 10.7 | `27cd26e` + **태그 `vpc-v1.0.0`** |
 
-**10.5 착수 시 주의**: 예제가 모듈에 **리터럴**을 넘기면 trivy 판정이 달라질 수 있다(D11 측정 근거).
-예제 작성 후 `trivy config .`를 **재실행**해 예외 0건이 유지되는지 확인한다(설계 Task 10.7).
+- 검증 기준: **OpenTofu 1.12.5 · aws 6.57.1**(3개 루트 lock 정렬 완료).
+- ⚠️ **v1.0.0의 증거는 전부 `plan` 수준이다.** apply 미검증 6항목이 설계 §3에 표로 있다 —
+  secondary CIDR `depends_on` 순서 · primary/secondary 조합 제약 · CIDR 겹침 · Flow Logs 배달 ·
+  `prevent_destroy` 실동작 · **`git tag` 소싱 경로**. 소비 repo 첫 apply에서 확인한다.
+- **`examples/vpc-enterprise`의 목적이 재정의됐다**: 검증 자산이 아니라 **고객사 착수 템플릿**이다
+  (설계가 든 근거는 10.6 테스트가 이미 커버). `examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**.
+
+### ⏭️ 다음 작업 = **레퍼런스 소비 repo** (2026-07-30 논의 결정)
+
+`iac-reference-infra`(가칭)를 만들어 **VPC 하나만으로** 소비 경로를 끝까지 통과시킨다.
+실 고객사 repo보다 이걸 먼저 두는 이유: 아래 3가지가 **전부 첫 apply에서 터지고**, 고객 앞에서
+처음 부딪히는 것과 리허설에서 잡아 **템플릿으로 복사해 주는** 것은 완전히 다른 일이다.
+
+| # | 먼저 막힐 지점 | 현재 상태 |
+|---|---------------|----------|
+| 1 | **private repo의 `git tag` 소싱 인증** — `tofu init`이 `git::https://`로 clone해야 한다 | ❌ 미해결. 방식은 **실측 후 결정**(사용자 결정: 지금 정하면 추정이 된다). 후보: repo public 전환 / GitHub App 토큰(org) / deploy key. ⚠️ `gh` 토큰은 **개인(silverte) 종속**이라 팀 자산의 CI 자격증명으로 부적절 |
+| 2 | **부트스트랩 닭-달걀** — state용 S3 버킷(`use_lockfile`)과 OIDC 입구/실행 Role을 누가 만드나 | ❌ 미결정 |
+| 3 | **OIDC `sub` claim** | ⚠️ 이 repo는 2026-07-15 이후 생성 → `sub`가 숫자 org/repo ID다. 신뢰 정책 작성 전 **실제 토큰의 `sub`를 확인**할 것 |
+
+- 그 결과로 **`docs/consumer/*` 개정**(현재 📦 미개정, TFC 전제 잔존) + `docs/design/30` 소유권 재검토.
+- 그 다음이 **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
+- ⚠️ `AWSAFTExecution`이 **assume 불가**(입구 Role 삭제로 principal이 unique ID로 치환) → 부트스트랩 시 신뢰 정책 교체.
 
 ### ✅ 커밋 단위 제약 — 해소됨 (2026-07-30)
 

@@ -50,7 +50,7 @@
 
 | 문서 | 내용 | 상태 |
 |------|------|------|
-| [aws-naming-abbreviations.md](reference/aws-naming-abbreviations.md) | 리소스 약어 **SSOT**(309개). 임의 생성 금지 | 📋 (예시 코드만 `acme`로) |
+| [aws-naming-abbreviations.md](reference/aws-naming-abbreviations.md) | 리소스 약어 **SSOT**(311개). 임의 생성 금지 · **없으면 물어서 등재 후 사용** | ✅ (2026-07-30 `fl`·`iamp` 추가 + 종속 객체 상속 규약) |
 | [poc-findings.md](reference/poc-findings.md) | PoC 실증 기록 — **외부 출처, 이 repo에서 재현 안 됨** | 📋 |
 
 > `poc-findings.md`가 승계 설계의 핵심 장치다. 설계 문서 본문에 실증 날짜·run ID를 옮겨 적으면

@@ -68,41 +68,38 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 - **`examples/vpc-enterprise`의 목적이 재정의됐다**: 검증 자산이 아니라 **고객사 착수 템플릿**이다
   (설계가 든 근거는 10.6 테스트가 이미 커버). `examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**.
 
-### ✅ 레퍼런스 소비 repo — **설계 완료(Phase 0)** / 다음은 Phase 1 (2026-07-30)
+### ✅ 레퍼런스 소비 repo — **설계 완료(Phase 0)**. 이후 진행은 소비 repo 소관 (2026-07-30)
 
 설계 SSOT는 **`docs/design/50-reference-consumer-repo.md` = D-CONSUME**(✅). 커밋 `96dcfab`.
 실행 계획(Phase·수용 기준·위험표)은 **`.omc/plans/reference-consumer-repo.md`**(gitignore).
 ⛔ **D20~D29를 재논의하지 말 것** — 실측 근거와 기각 이유가 50에 다 있다.
 
-**미해결 3건의 현재 상태** (실측으로 1건 해소, 2건은 방식 확정 + 실측 대기)
+**미해결 3건의 현재 상태** (2건 실측 종결, 1건은 방식 확정 + 구현 대기)
 
 | # | 지점 | 상태 |
 |---|------|------|
-| 1 | private repo `git tag` 소싱 인증 | ✅ **로컬은 이미 동작**(실측: `osxkeychain`) → **CI 전용 문제로 축소**. 방식 확정 = **GitHub App 토큰 + `insteadOf`**(D20). 소싱 URL은 `git::https://` 하나로 유지 |
-| 2 | 부트스트랩 닭-달걀 | ✅ 방식 확정 = **AWS CLI 스크립트(IaC 밖)**(D21, 사용자 선택). ⚠️ 완화책 4종(멱등성·기대상태표·`verify.sh`·`import` 초안)이 **수용 기준**이다 |
-| 3 | OIDC `sub` claim | ⚠️ **Phase 2에서 실측**. 추정 금지. org ID 확정=`310520211`, repo ID는 소비 repo 생성 후 조회. **plan/apply의 sub가 다르다**(D28 — `environment:` 선언 job만 `:environment:`를 받는다) → 신뢰 정책 **3패턴** |
+| 1 | private repo `git tag` 소싱 인증 | ✅ **종결**. 로컬은 `osxkeychain`으로 이미 동작 → CI는 **GitHub App 토큰 + `insteadOf`**(D20)로 **실측 검증 완료**(소비 repo `efe1776`). 소싱 URL은 `git::https://` 하나로 유지 |
+| 2 | 부트스트랩 닭-달걀 | ⏳ 방식 확정 = **AWS CLI 스크립트(IaC 밖)**(D21, 사용자 선택), **구현은 소비 repo Phase 3**. ⚠️ 완화책 4종(멱등성·기대상태표·`verify.sh`·`import` 초안)이 **수용 기준**이다 |
+| 3 | OIDC `sub` claim | ✅ **종결**. 3패턴 실측 완료(소비 repo `0cc0ec0`+`a2416d9`, 값은 그쪽 `docs/deployment-facts.md` §3). **plan/apply의 sub가 다르다**(D28)가 실측으로 확인됨 |
 
-**✅ Phase 1 골격 완료** (2026-07-30) — 이후 작업은 **`iac-reference-infra` repo에서** 한다.
-로컬 경로 `/Users/a07326/born2k/ai/iac-reference-infra`. 그쪽 `.omc/notepad.md`가 진행 SSOT다.
+#### 📍 Phase 1 이후 진행 상태는 **여기서 추적하지 않는다**
 
-- repo 생성 + Team `iac` `maintain` ✅ · **repo 숫자 ID = `1316830050`** ✅ (R3 해소: 사용자가 org admin)
-- 골격 커밋 `cfb575a` + notepad `33a1386`. 게이트 실측 통과(tflint 0 · fmt 0 · trivy 0 · 훅 `100755`)
-- **D25를 계정 식별 정보 일반으로 확장**: 계정 ID·Role ARN도 git에 두지 않고 repo 변수에 둔다.
-  소비 repo `docs/deployment-facts.md`는 **값이 아니라 포인터**를 기록한다 — D26의 "배포 사실은
-  소비 repo docs/에" 를 그대로 하면 `backend.tf`에서 뺀 정보가 docs/로 새어 D25가 무의미해진다.
-- ⏸ **Phase 1 잔여 = GitHub App 생성 (사용자 작업, 브라우저 전용)**.
-  ⚠️ **API로 불가** — `POST /orgs/{org}/apps` 없음, manifest 변환은 브라우저 `code` 필요(실측 확인).
-  `https://github.com/organizations/skax-ca/settings/apps/new` → Contents: Read-only 하나 ·
-  Webhook 해제 · 설치는 `iac-module-library` 1개만 → `MODULE_READER_APP_ID`(변수)·`MODULE_READER_KEY`(secret).
+진행 SSOT = `/Users/a07326/born2k/ai/iac-reference-infra` 의 `.omc/notepad.md`.
+⛔ **Phase 체크박스를 이 파일에 중복 기록하지 말 것.** 양쪽에 두면 곧 drift다 —
+2026-07-30 실제로 발생했다: 소비 repo는 Phase 2까지 끝냈는데 여기엔 "Phase 1 잔여 ⏸(GitHub App
+생성)"이 남아 있어, 세션 시작 시 이미 해소된 일을 다음 태스크로 잘못 안내했다.
+`CLAUDE.md`가 경고하는 *"양쪽 개발은 곧 drift"* 와 같은 구조의 사고이며, 코드가 아니라 **상태 기록**에서 났다.
 
-**✅ Phase 2 완료**(2026-07-30) — OIDC `sub` **3패턴 실측**, 미해결 3번 종결.
-값은 소비 repo `docs/deployment-facts.md` §3. 커밋 `0cc0ec0`+`a2416d9`.
-- **immutable `sub`가 맞다**: `repo:skax-ca@310520211/iac-reference-infra@1316830050:{pull_request | ref:refs/heads/main | environment:dev}`
+**이 repo가 다시 관여하는 시점 = 소비 repo Phase 5** — `docs/consumer/*` 개정.
+D26에 따라 **소싱 인증·backend 규약·OIDC 체인·plan artifact 계약의 SSOT는 이 repo**다.
+개정은 **첫 apply 이후**에 한다(실측값 없이 쓰면 또 미검증 문서가 된다). 그때 반영할 실측 사실:
+- OIDC `sub`는 **immutable이 맞다**: `repo:skax-ca@310520211/iac-reference-infra@1316830050:{pull_request | ref:refs/heads/main | environment:dev}`
 - ⚠️ **`environment`가 `ref`를 덮어쓴다** → apply job의 브랜치 제한을 `sub`로 걸 수 없다(설계 미예상 제약)
 
-**⏭️ 다음 = Phase 3 (`bootstrap.sh`)** — 실제 AWS 리소스를 만든다. 신뢰 정책 입력값은 **전부 확보됐다**.
-Phase 4(apply) → Phase 5(`docs/consumer/*` 개정)로 이어진다.
-⚠️ **의존 순서가 중요하다** — 신뢰 정책은 sub를 알아야 하고, sub는 repo가 있어야 나온다(닭-달걀 2차).
+**이 repo의 규약에 영향을 준 결정 — `D25`를 계정 식별 정보 일반으로 확장**: 계정 ID·Role ARN도
+git에 두지 않고 repo 변수에 둔다. 소비 repo `docs/deployment-facts.md`는 **값이 아니라 포인터**를
+기록한다 — D26의 "배포 사실은 소비 repo docs/에"를 그대로 적용하면 `backend.tf`에서 뺀 정보가
+docs/로 새어 D25가 무의미해진다.
 
 ### ✅ 모듈 CI 구현 완료 (2026-07-30, 커밋 `47e133e`)
 

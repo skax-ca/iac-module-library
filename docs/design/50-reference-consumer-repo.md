@@ -39,7 +39,10 @@
 | F3 | org `skax-ca` 숫자 ID = **310520211** | `gh api orgs/skax-ca` |
 | F4 | `iac-module-library` = **1315873255** (생성 2026-07-29) | `gh api repos/...`. ⚠️ 신뢰 정책이 쓰는 것은 **소비 repo의 ID**다 |
 | F5 | `gh` 토큰은 **개인(silverte)** — `gist,read:org,repo,workflow` | `gh auth status` |
-| F6 | AWS 계정 `533616270150`, 신원은 IAM **user** `silverte` | `aws sts get-caller-identity` |
+| F6 | AWS 계정 `533616270150`, 신원은 IAM **user** `silverte` (프로파일 **`team`**) | `aws sts get-caller-identity --profile team` |
+| **F13** | ⚠️ **이 계정은 PoC 전용이 아니라 여러 사람이 쓰는 공용 개발 계정이다** | 실측(2026-07-30): VPC **23개**(`yg-` `jsh-` `pizza-` `cjh220-` `bae-` `lshdev-` `hj-` 등 12명 이상) · tfstate 버킷 **7개**(`kgkang-` `lsh-` `lyg-` `platform-…-koo` `ym-`). PoC repo `05` §7.1이 "최우선 주의"로 이미 등재했으나 **이 repo로 승계되지 않았었다** |
+| **F14** | `AWSAFTExecution`은 `AdministratorAccess`이고, 신뢰 정책 principal이 **unique ID `AROAXYPQCDNDOM5Y4T6V3`로 치환**돼 현재 assume 불가 | `aws iam get-role --role-name AWSAFTExecution` · `list-attached-role-policies` |
+| **F15** | GitHub Actions용 OIDC provider가 **없다**(EKS용 하나뿐, TFC용은 이미 삭제됨) | `aws iam list-open-id-connect-providers` |
 | F7 | `use_lockfile`은 s3 backend의 **실재 인자**(`cty.Bool`, Optional) | OpenTofu v1.12 `internal/backend/remote-state/s3/backend.go:469` |
 | F8 | ⚠️ **버저닝 버킷 + `use_lockfile=true` → lock 객체 버전 폭증** | `website/docs/.../s3.mdx:411-416`이 lifecycle로 버전 수 제한을 **권고** |
 | F9 | **partial backend configuration** 지원 | `website/docs/language/settings/backends/configuration.mdx:93-139` |
@@ -235,16 +238,59 @@ tofu init \
   "모듈 repo public 전환" 항목이 이것을 선결 과제로 등재하고 있다 — private인 동안의 **유예**이지
   해소가 아니다.
 
-### D27 · 실행 Role = 기존 `AWSAFTExecution` 재사용
+### ~~D27 · 실행 Role = 기존 `AWSAFTExecution` 재사용~~ → **철회 (D27-1로 대체)**
 
-새 Role을 만들지 않고 신뢰 정책만 교체한다.
+> **최초 D27**: 새 Role을 만들지 않고 `AWSAFTExecution`의 신뢰 정책을 `update-assume-role-policy`로
+> **전체 교체**한다. 근거는 "새 Role을 만들면 기존 것이 고아로 남는다" + AFT 구조 선반영이었다.
+> **F13(공용 계정) 실측으로 철회한다** — 아래.
 
-- PoC 계정(F6)을 재사용하고, "코드를 AFT 구조에 미리 맞춘다"는 원래 의도가 유효하며,
-  새 Role을 만들면 기존 것이 고아로 남는다.
-- ⚠️ **알려진 문제**: TFC용 입구 Role이 삭제되어 `AWSAFTExecution`의 신뢰 정책 principal이
-  **unique ID로 치환**되었다 → 현재 assume 불가. `bootstrap.sh`가
-  `update-assume-role-policy`로 **신뢰 정책을 전체 교체**한다.
-- 입구 Role은 신규: `iamr-ref-dev-an2-gha-entry-01`. 권한은 `AWSAFTExecution` assume **하나뿐**.
+### D27-1 · 실행 Role을 **신설**한다. `AWSAFTExecution`은 건드리지 않는다 (2026-07-30, 사용자 결정)
+
+| | 최초 D27 | **D27-1 (확정)** |
+|---|---|---|
+| `AWSAFTExecution` | 신뢰 정책 **전체 교체** | **손대지 않는다** (읽지도 쓰지도 않음) |
+| 실행 Role | 위를 재사용 | **신설** `iamr-ref-dev-an2-gha-exec-01` |
+| 입구 Role | `iamr-ref-dev-an2-gha-entry-01` (신규) | **동일** |
+
+**철회 근거 — F13이 전제를 무너뜨린다**
+
+- `update-assume-role-policy`는 **전체 교체**다. 병합이 아니라 덮어쓰기이므로, `AWSAFTExecution`을
+  쓰는 다른 주체가 있으면 **말없이 끊는다.** 공용 계정에서는 그 주체를 우리가 알 수 없다.
+  `AWSAFTExecution`은 **AFT 표준 이름**이라 우리 PoC 말고도 용도가 있을 수 있다.
+- 되돌리기 어렵다: 교체 전 정책을 백업해도, 그 사이 끊긴 다른 파이프라인은 이미 실패한 뒤다.
+- "고아로 남는다"는 원래 근거는 **비용이 아니라 미관**이다. 공용 계정에서 남의 Role을 갈아엎는
+  리스크와 교환할 만한 것이 아니다.
+- ⚠️ **F14의 "assume 불가" 문제는 이로써 해결 대상이 아니라 무관해진다.** 우리는 그 Role을
+  쓰지 않는다. `AWSAFTExecution`은 **깨진 채로 그대로 둔다** — 고치는 것도 남의 자산 변경이다.
+
+**신설 Role 사양**
+
+| 항목 | 값 |
+|------|-----|
+| 이름 | `iamr-ref-dev-an2-gha-exec-01` (`Name` 태그 동일) |
+| 신뢰 | 입구 Role `iamr-ref-dev-an2-gha-entry-01` **하나만** (계정 루트 아님 — 넓히면 계정 내 누구나 assume) |
+| 권한 | `AdministratorAccess` (아래 단서) |
+
+- ⚠️ **권한 축소는 하지 않되 열린 항목으로 등재한다**([§5](#5-열린-항목)). VPC 하나에 맞춰 최소권한을
+  도출하면 EKS 단계에서 다시 해야 하고, 그 비용을 지금 치를 이유가 없다. **대신 신뢰 경계를 좁혔다** —
+  AFT 구조 선반영이라는 원래 의도는 **이름 규약**(`AWSAFT*`와 무관한 우리 네임스페이스)으로 대체한다.
+- **공용 계정 운영 규칙은 D27-2가 정한다.**
+
+### D27-2 · 공용 계정(F13) 운영 규칙 — PoC `05` §7.1 승계
+
+`AdministratorAccess`를 **자동 트리거**에 연결한다는 것이 PoC와의 실질적 차이다.
+PoC에서는 사람이 TFC workspace에서 돌렸다. 이제 `pull_request`가 `plan`을 자동 실행한다.
+
+| 규칙 | 내용 |
+|------|------|
+| **삭제 대상 사람 검토** | apply 승인 전 plan의 **destroy/replace 목록을 사람이 읽는다.** 공용 계정이므로 예외 없음(`05` §7.1 원문) |
+| **대상 판별은 태그로** | 우리 자산은 `Workload=ref` 태그로 식별한다. 이름만 보고 판단하지 않는다 |
+| **apply는 승인 게이트 필수** | Environment protection rules. 이것이 §7.1의 "사람이 검토"를 이행하는 지점이다 |
+| **plan은 자동이어도 된다** | 리소스를 만들지 않는다. ⚠️ 단 state lock을 잡고 read 권한이 Administrator다([§5](#5-열린-항목) D28 열린 항목과 같은 지점) |
+| **`prevent_destroy` 유지** | VPC 모듈 D12. 공용 계정에서 실수 삭제의 마지막 방어선이다 |
+
+⚠️ **다른 사람의 리소스는 plan에도 나타나지 않는다** — 우리 state에 없기 때문이다. 위험은
+"plan에 잡히는 것"이 아니라 **`AdministratorAccess`가 손댈 수 있는 범위 전체**다. 규칙이 필요한 이유다.
 
 ### D28 · 신뢰 정책은 `sub` 패턴 3개를 가진다
 
@@ -297,8 +343,10 @@ deploy.yml
     6. tofu apply tfplan                     ← 재-plan 하지 않는다
 ```
 
-- **2단 체인**: `configure-aws-credentials`가 입구 Role을 OIDC로 인증 → provider의 `assume_role`이
-  `AWSAFTExecution`을 체인 assume. 정적 키 없음.
+- **2단 체인**: `configure-aws-credentials`가 입구 Role(`iamr-ref-dev-an2-gha-entry-01`)을 OIDC로
+  인증 → provider의 `assume_role`이 실행 Role(`iamr-ref-dev-an2-gha-exec-01`)을 체인 assume.
+  정적 키 없음. ⚠️ **`AWSAFTExecution`이 아니다** — D27-1로 실행 Role이 신설로 바뀌었다.
+- ⚠️ **apply 승인 시 destroy/replace 목록을 사람이 읽는다**(D27-2). 공용 계정(F13)이라 예외 없음.
 - ⚠️ **plan artifact는 민감할 수 있다** — plan 파일에 리소스 속성이 평문으로 들어간다.
   repo read 권한자가 받을 수 있으므로 `retention-days: 1`로 제한하고 소비 규약에 명시한다.
 - ⚠️ **역할 체인 세션은 최대 1시간**(연장 불가). apply job이 다시 인증하므로 승인 지연 자체는
@@ -336,6 +384,11 @@ deploy.yml
 5. **[`design/30-gitops-repo.md`](30-gitops-repo.md) 소유권** — D26이 부분 답.
    GitOps hub는 이 결정 범위 밖이다
 6. **plan artifact 암호화** — `retention-days: 1`은 완화이지 해결이 아니다
+7. **실행 Role 권한 축소** — `iamr-ref-dev-an2-gha-exec-01`이 `AdministratorAccess`다(D27-1).
+   공용 계정(F13)이라 축소 이득이 크지만, VPC 하나에 맞춰 도출하면 EKS 단계에서 다시 해야 한다.
+   **판단 시점 = 모듈 집합이 안정된 뒤**(최소 EKS 모듈 이식 후). 그때까지는 D27-2의 운영 규칙이 완화책이다
+8. **`AWSAFTExecution`의 깨진 신뢰 정책** — principal이 unique ID로 치환된 상태로 방치된다(F14).
+   우리가 안 쓰기로 했으므로(D27-1) **우리 문제가 아니다.** 계정 소유자가 판단할 사안이라 여기 남긴다
 
 ---
 

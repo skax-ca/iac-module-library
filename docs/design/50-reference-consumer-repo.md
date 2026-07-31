@@ -65,9 +65,14 @@
 | F3 | org `skax-ca` 숫자 ID = **310520211** | `gh api orgs/skax-ca` |
 | F4 | `iac-module-library` = **1315873255** (생성 2026-07-29) | `gh api repos/...`. ⚠️ 신뢰 정책이 쓰는 것은 **소비 repo의 ID**다 |
 | F5 | `gh` 토큰은 **개인(silverte)** — `gist,read:org,repo,workflow` | `gh auth status` |
-| F6 | AWS 계정 `533616270150`, 신원은 IAM **user** `silverte` (프로파일 **`team`**) | `aws sts get-caller-identity --profile team` |
-| **F13** | ⚠️ **이 계정은 PoC 전용이 아니라 여러 사람이 쓰는 공용 개발 계정이다** | 실측(2026-07-30): VPC **23개**(`yg-` `jsh-` `pizza-` `cjh220-` `bae-` `lshdev-` `hj-` 등 12명 이상) · tfstate 버킷 **7개**(`kgkang-` `lsh-` `lyg-` `platform-…-koo` `ym-`). PoC repo `05` §7.1이 "최우선 주의"로 이미 등재했으나 **이 repo로 승계되지 않았었다** |
-| **F14** | `AWSAFTExecution`은 `AdministratorAccess`이고, 신뢰 정책 principal이 **unique ID `AROAXYPQCDNDOM5Y4T6V3`로 치환**돼 현재 assume 불가 | `aws iam get-role --role-name AWSAFTExecution` · `list-attached-role-policies` |
+| F6 | **AWS 계정이 하나뿐이다.** 신원은 IAM **role**이 아니라 **user**다 | `aws sts get-caller-identity`. ⛔ **계정 ID는 여기 적지 않는다** — 값은 소비 repo `docs/deployment-facts.md` §2가 소유한다(D26 · D25 연장) |
+| **F13** | ⚠️ **이 계정은 PoC 전용이 아니라 여러 사람이 쓰는 공용 개발 계정이다** | 실측(2026-07-30): VPC **23개** · tfstate 버킷 **7개**가 다른 사람들 것이고 소유자는 **12명 이상**이다. PoC repo `05` §7.1이 "최우선 주의"로 이미 등재했으나 **이 repo로 승계되지 않았었다** |
+| **F14** | `AWSAFTExecution`은 `AdministratorAccess`이고, 신뢰 정책 principal이 **삭제된 주체의 unique ID로 치환**돼 현재 assume 불가 | `aws iam get-role --role-name AWSAFTExecution` · `list-attached-role-policies` |
+
+> ⛔ **이 표에 인스턴스 값을 적지 않는다** (2026-07-31 정정). 여기는 **규약 SSOT**라 고객사에
+> 인용된다. 초판은 계정 ID·동료들의 리소스 prefix·남의 Role의 unique principal ID를 적어 두었는데,
+> 세 결정(F6→D22 · F13→D27-1/D27-2 · F14→D27-1) 중 **어느 것도 그 값을 필요로 하지 않는다.**
+> F13이 뒷받침하는 것은 *"공용이다"* 이고 그 근거는 **개수**이지 누구인지가 아니다.
 | **F15** | GitHub Actions용 OIDC provider가 **없다**(EKS용 하나뿐, TFC용은 이미 삭제됨) | `aws iam list-open-id-connect-providers` |
 | F7 | `use_lockfile`은 s3 backend의 **실재 인자**(`cty.Bool`, Optional) | OpenTofu v1.12 `internal/backend/remote-state/s3/backend.go:469` |
 | F8 | ⚠️ **버저닝 버킷 + `use_lockfile=true` → lock 객체 버전 폭증** | `website/docs/.../s3.mdx:411-416`이 lifecycle로 버전 수 제한을 **권고** |
@@ -130,7 +135,7 @@ module "vpc" {
 
 | 안 | 기각 이유 |
 |----|----------|
-| 모듈 repo public 전환 | 모듈 코드·설계 문서가 공개된다. `docs/consumer/*`에 PoC 계정 ID가 다수 남아 있어 선결 과제가 생긴다 |
+| 모듈 repo public 전환 | 모듈 코드·설계 문서가 공개된다. ✅ **선결 과제이던 "PoC 계정 ID 다수"는 해소됐다**(2026-07-31 — `docs/consumer/*` 12곳 치환 · 이 문서 F6/F13/F14 정리). 남은 기각 근거는 **설계 문서 공개 자체**다 |
 | deploy key (SSH) | 소싱 URL이 로컬(HTTPS)과 CI(SSH)로 갈라진다. `insteadOf`로 흡수해도 결국 갈래가 하나 늘고, 키 로테이션이 수동이다 |
 
 ### D21 · 부트스트랩 = AWS CLI 스크립트 (IaC 밖)
@@ -542,16 +547,18 @@ deploy.yml
     지금은 "입구 Role이 OIDC가 도달하는 유일한 지점"을 지키려고 기각했으나, `assume_role`을
     두 곳에 중복 선언하는 비용과 견줄 여지가 있다. **재검토 조건**: 배포 루트가 늘어 중복이
     누락 사고를 내기 시작하면
-12. **이 문서의 F6·F13이 계정 ID를 노출한다 (2026-07-31 신설)** — D25의 연장은
-    *"계정 식별 정보를 git에 두지 않는다"* 이고 D26은 *"인스턴스 값은 소비 repo가 소유한다"* 인데,
-    §1의 실측 표가 **특정 계정 ID를 규약 SSOT에 적어 두었다.** 두 원칙 모두와 어긋난다.
-    - F6이 실제로 뒷받침하는 결정은 *"계정이 **하나**라 stg/prd를 표현할 수 없다"*(D22)이고,
-      F13은 *"그 계정이 **공용**이다"*(D27-1·D27-2)다. **둘 다 값 없이 성립한다.**
-    - ⚠️ 단순 삭제가 아니라 **provenance를 잃지 않는 형태**로 바꿔야 한다 — 실측 표의 값은
-      "언제 무엇을 보고 결정했는가"의 근거다. 소비 repo `docs/deployment-facts.md`를 가리키는
-      포인터로 대체하는 것이 D26에 맞는 방향이다.
-    - 같은 성격의 잔재가 `docs/consumer/dynamic-credentials.md`에 **12곳** 더 있다(D26-1이
-      이미 등재). **D20 기각안의 "모듈 repo public 전환" 선결 과제와 같은 항목**이다
+12. ~~**이 문서의 F6·F13이 계정 ID를 노출한다**~~ ✅ **해소**(2026-07-31 등재 · 같은 날 처리).
+    D25의 연장(*"계정 식별 정보를 git에 두지 않는다"*)과 D26(*"인스턴스 값은 소비 repo가 소유한다"*)
+    **둘 다와 어긋나 있었다.** 규약 SSOT는 고객사에 인용되므로 더 무겁게 봤다.
+    - 처리: **값 → 서술·포인터**. 세 결정 중 **어느 것도 값을 필요로 하지 않았다** —
+      F6→D22(*"계정이 **하나**"*) · F13→D27-1/D27-2(*"**공용**이다"*, 근거는 **개수**) ·
+      F14→D27-1(*"신뢰 정책이 깨져 있다"*).
+    - **동료들의 리소스 prefix와 남의 Role의 unique principal ID도 함께 지웠다.** 계정 ID보다
+      오히려 **개인 식별 정보**에 가깝고, 규약 문서에 이름 목록이 있을 이유가 없다.
+    - `docs/consumer/dynamic-credentials.md`의 **12곳은 `<poc-account-id>`로 치환**했다.
+      절차 기록의 가치는 ARN의 *형태*(2단 체인 구조)이지 *값*이 아니다.
+      → **D20 기각안의 "모듈 repo public 전환" 선결 과제가 해소됐다**(기각 근거 자체는 유효하다 —
+      남은 것은 설계 문서 공개 자체다).
 
 ---
 

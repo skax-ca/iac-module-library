@@ -14,8 +14,12 @@
 > - **이관하지 않는다.** ⚠️ 2026-07-29판 헤더는 "첫 프로젝트 repo로 옮기며 개정한다"였으나
 >   **D26이 이관을 기각**했다. 이관 여부를 다시 묻지 말 것.
 > - **왜 버리지 않는가**: AFT 이관 경로와 트러블슈팅이 PoC 당시의 실제 시행착오 기록이다.
-> - ⚠️ **PoC 계정 ID(`533616270150`)가 12곳 있다.** private repo인 동안의 **유예**이지 해소가 아니다 —
->   `design/50` D20 기각안이 "모듈 repo public 전환"의 선결 과제로 등재하고 있다.
+> - ✅ **PoC 계정 ID 12곳을 `<poc-account-id>`로 치환했다** (2026-07-31).
+>   초판은 *"private repo인 동안의 유예"* 로 두었으나, `design/50` D20 기각안이 이것을
+>   "모듈 repo public 전환"의 **선결 과제**로 등재하고 있어 먼저 해소했다.
+>   - **절차 기록으로서의 가치를 잃지 않는다.** 이 문서가 남은 이유는 **2단 역할 체인이라는
+>     구조**이고, 그것은 ARN의 *형태*로 전달된다 — *값*이 아니다.
+>   - ⚠️ 실제 값이 필요하면 동결 repo `terraform-enterprise-poc` @ `76285f7`을 본다.
 
 
 Terraform Cloud(`born2k`)의 워크스페이스(`networking-dev` · `eks-cluster-dev` · `gitops-hub-cicd`)가
@@ -52,7 +56,7 @@ AWS Provider(providers.tf 의 assume_role) 가 임시 자격증명으로 워크�
 | TFC Organization | `born2k` |
 | TFC Workspace | `networking-dev` · `eks-cluster-dev` · `gitops-hub-cicd` (컴포넌트×계정, [03-multi-environment §5](multi-environment.md)) |
 | TFC Project | `skhy-poc` |
-| 대상 Account ID | `533616270150` (AWS_PROFILE=`silverte`, region `ap-northeast-2`) |
+| 대상 Account ID | `<poc-account-id>` (AWS_PROFILE=`silverte`, region `ap-northeast-2`) |
 | Audience | `aws.workload.identity` (TFC 기본값) |
 | 입구 Role | `tfc-terraform-enterprise-poc` (OIDC 신뢰, assume-only) |
 | 실행 Role | `AWSAFTExecution` (AdministratorAccess) — 지금은 수동 생성한 **AFT 대체용 임시 Role** |
@@ -70,13 +74,13 @@ aws iam create-open-id-connect-provider \
   --client-id-list "aws.workload.identity"
 ```
 
-생성 ARN: `arn:aws:iam::533616270150:oidc-provider/app.terraform.io`
+생성 ARN: `arn:aws:iam::<poc-account-id>:oidc-provider/app.terraform.io`
 
 ## 2. 입구 Role (`tfc-terraform-enterprise-poc`) — OIDC 신뢰 + assume-only
 
 TFC OIDC 토큰으로만 assume되고, 권한은 "실행 Role을 assume" 하나뿐인 게이트웨이 Role.
 
-`trust-policy.json` (account `533616270150`, project `skhy-poc` 반영 완료):
+`trust-policy.json` (account `<poc-account-id>`, project `skhy-poc` 반영 완료):
 ```json
 {
   "Version": "2012-10-17",
@@ -84,7 +88,7 @@ TFC OIDC 토큰으로만 assume되고, 권한은 "실행 Role을 assume" 하나�
     {
       "Effect": "Allow",
       "Principal": {
-        "Federated": "arn:aws:iam::533616270150:oidc-provider/app.terraform.io"
+        "Federated": "arn:aws:iam::<poc-account-id>:oidc-provider/app.terraform.io"
       },
       "Action": "sts:AssumeRoleWithWebIdentity",
       "Condition": {
@@ -122,7 +126,7 @@ TFC OIDC 토큰으로만 assume되고, 권한은 "실행 Role을 assume" 하나�
       "Sid": "AssumeAWSAFTExecution",
       "Effect": "Allow",
       "Action": "sts:AssumeRole",
-      "Resource": "arn:aws:iam::533616270150:role/AWSAFTExecution"
+      "Resource": "arn:aws:iam::<poc-account-id>:role/AWSAFTExecution"
     }
   ]
 }
@@ -141,7 +145,7 @@ aws iam put-role-policy \
   --policy-document file://entry-assume-only.json
 ```
 
-입구 Role ARN: `arn:aws:iam::533616270150:role/tfc-terraform-enterprise-poc`
+입구 Role ARN: `arn:aws:iam::<poc-account-id>:role/tfc-terraform-enterprise-poc`
 
 > ℹ️ 입구 Role은 `AdministratorAccess`를 갖지 않는다. 유출돼도 곧장 admin이 아니라
 > "실행 Role을 거쳐야만" 권한을 얻는 진짜 게이트웨이다. 실질 권한은 실행 Role이 보유.
@@ -158,7 +162,7 @@ aws iam put-role-policy \
     {
       "Effect": "Allow",
       "Principal": {
-        "AWS": "arn:aws:iam::533616270150:role/tfc-terraform-enterprise-poc"
+        "AWS": "arn:aws:iam::<poc-account-id>:role/tfc-terraform-enterprise-poc"
       },
       "Action": "sts:AssumeRole"
     }
@@ -176,7 +180,7 @@ aws iam attach-role-policy \
   --policy-arn arn:aws:iam::aws:policy/AdministratorAccess
 ```
 
-실행 Role ARN: `arn:aws:iam::533616270150:role/AWSAFTExecution`
+실행 Role ARN: `arn:aws:iam::<poc-account-id>:role/AWSAFTExecution`
 
 > ℹ️ `AdministratorAccess`를 붙이는 이유: 워크로드 범위가 열려 있고(IAM Role/정책 포함)
 > 최소권한을 매번 갱신하는 비용이 크기 때문. 다음 3중 안전장치가 상한을 잡는다:
@@ -196,8 +200,8 @@ provider "aws" {
   ...
 }
 ```
-→ `workload_account_id = 533616270150`, `execution_role_name = "AWSAFTExecution"` 조합으로
-`arn:aws:iam::533616270150:role/AWSAFTExecution` 이 조립된다.
+→ `workload_account_id = <poc-account-id>`, `execution_role_name = "AWSAFTExecution"` 조합으로
+`arn:aws:iam::<poc-account-id>:role/AWSAFTExecution` 이 조립된다.
 
 ## 4. TFC 변수 — Variable Set `aws-oidc-poc-dev`
 
@@ -208,8 +212,8 @@ dev 환경 공통 변수는 개별 워크스페이스 변수가 아니라 **Vari
 | Key | Value | Category | 용도 |
 |-----|-------|----------|------|
 | `TFC_AWS_PROVIDER_AUTH` | `true` | env | OIDC 동적 자격증명 활성화 |
-| `TFC_AWS_RUN_ROLE_ARN` | `arn:aws:iam::533616270150:role/tfc-terraform-enterprise-poc` | env | 입구 Role OIDC 인증 |
-| `workload_account_id` | `533616270150` | terraform | provider assume_role 조립 |
+| `TFC_AWS_RUN_ROLE_ARN` | `arn:aws:iam::<poc-account-id>:role/tfc-terraform-enterprise-poc` | env | 입구 Role OIDC 인증 |
+| `workload_account_id` | `<poc-account-id>` | terraform | provider assume_role 조립 |
 
 > `execution_role_name`은 각 루트 `variables.tf`의 기본값(`AWSAFTExecution`)을 사용하므로 변수 주입 불필요.
 

@@ -140,10 +140,42 @@ docs/로 새어 D25가 무의미해진다.
 
 ### ⏭️ 이 repo의 다음 관여 지점
 
-- ⚠️ **첫 apply로 판정되는 것은 미검증 6항목 중 6번(git tag 소싱)뿐이다**(50 §4).
-  1~5는 후속 apply 시나리오다. 흐리면 "apply로 검증했다"는 과잉 주장이 된다.
-- 소비 repo **Phase 5 = `docs/design/50` 개정**(첫 apply 실측값 반영). 그 전엔 착수하지 않는다.
-- 그와 독립으로 착수 가능한 것이 **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
+#### ✅ Phase 5 완료 (2026-07-31) — `design/50`·`design/10` 개정 끝
+
+PR [#1](https://github.com/skax-ca/iac-module-library/pull/1)(`dec37a9`) · [#2](https://github.com/skax-ca/iac-module-library/pull/2)(`f19049a`, 계정 정보 정리).
+
+- **🆕 D30 신설** — backend도 실행 Role을 체인 assume한다. D-CONSUME 범위가 **D20~D30**.
+- **F16~F19** 추가 · **D27-2에 "승인 게이트는 GitHub Team 이상 요구" 전제** 등재.
+- ⚠️ **아래 "첫 apply로 6번뿐" 서술은 폐기됐다** — 판정 범위는 **형상 의존**이다(50 §4).
+  소비 repo가 enterprise를 택해 **6항목 중 5개가 판정**됐다(`design/10` §3 참조).
+  ⏸ 남은 것은 **`prevent_destroy`(5번)** 하나이고, 파기를 시도해야 판정된다.
+
+#### ⏭️ 다음 = 열린 항목 7 (Flow Logs confused deputy) — **차단 해소됨. 이 repo 작업이다**
+
+`modules/vpc/flow-logs.tf:40-51`의 신뢰 정책에 **`Condition`이 없다.**
+`vpc-flow-logs.amazonaws.com`은 **전 세계 공용 서비스 principal**이라, 남이 자기 flow log의
+`deliver_logs_permission_arn`에 우리 Role ARN을 넣으면 **우리 로그 그룹에 남의 트래픽이 쌓이고
+CloudWatch ingestion 비용이 우리에게 청구**된다(피해 방향이 직관과 반대다).
+
+**확정 방침** (소비 repo `.omc/notepad.md` 「6-3」에 전문):
+```json
+"Condition": {
+  "StringEquals": { "aws:SourceAccount": "<account>" },
+  "ArnLike": { "aws:SourceArn": "arn:<partition>:ec2:<region>:<account>:vpc-flow-log/*" }
+}
+```
+- ⚠️ **와일드카드가 불가피**하다 — flow log ID를 넣으면 Role ↔ flow log **순환 참조**다.
+  AWS 공식도 인정한다(*"replace that portion of the ARN with a wildcard"*).
+- `data.aws_caller_identity`·`aws_partition`·`aws_region` 3개 추가.
+  **각각 D10 게이트**(`count = local.enabled ? 1 : 0`) — 선례는 `main.tf:90`의 `aws_availability_zones`.
+- 버전 **`vpc-v1.1.0`**(마이너 — 변수 추가는 없으나 **동작 변경**이고 잘못 걸면 배달이 멈춘다).
+- ⛔ 기각: opt-in 변수로 두는 안 — 보안 기본값을 끄는 스위치를 계약에 남기게 된다.
+- ✅ **수용 기준은 `tofu test` 통과가 아니라 실계정 로그 도착 재확인**이다.
+  이 실패 모드의 정의가 "**조용히 실패**"라 `apply` 성공은 증거가 아니다.
+
+#### 그 밖에 독립 착수 가능
+
+- **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

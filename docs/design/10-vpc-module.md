@@ -648,10 +648,10 @@ assertions:
 
 릴리스 시점의 증거는 전부 `plan` 수준이었다. 아래는 **실계정 apply에서만 드러나는** 항목이다.
 
-#### ✅ 5/6 판정됨 (2026-07-31, `iac-reference-infra` 첫 apply)
+#### ✅ 6/6 판정됨 (2026-07-31, `iac-reference-infra`)
 
 첫 소비 repo가 **enterprise 형상**(9그룹 · secondary CIDR 2개 · 서브넷 20개)으로 apply해
-6항목 중 5개가 판정됐다. `66 added` → 두 번째 apply `No changes`.
+1~4·6이 판정됐고(`66 added` → 두 번째 apply `No changes`), 이어서 5(`prevent_destroy`)까지 판정했다.
 
 | 항목 | 왜 plan으로 안 잡히나 | 판정 |
 |------|---------------------|------|
@@ -659,21 +659,25 @@ assertions:
 | primary/secondary CIDR 조합 제약 | AWS API가 apply 시 거부한다(§1.2) | ✅ API가 수락 |
 | CIDR 겹침 | 〃 — `examples/vpc-enterprise`의 파생값은 `tofu console`로 산술만 검증했다 | ✅ `cidrsubnet()` 파생 서브넷 20개 전부 생성 |
 | Flow Logs 배달 | IAM 권한이 부족해도 plan은 통과한다. 로그가 실제로 쌓이는지 봐야 한다 | ✅ 로그 스트림에 **실제 레코드 도착** 확인 |
-| `prevent_destroy` 실제 차단 | plan 차단은 실측했으나(D12) apply 후 상태에서의 동작은 미확인 | ⏸ **미판정** — 아래 |
+| `prevent_destroy` 실제 차단 | plan 차단은 mock으로 실측했으나 **라이브 파이프라인**에서의 거부는 미확인 | ✅¹ 라이브 CI plan이 파기 시도 거부 |
 | **`git tag` 소싱 경로** | 예제는 상대경로로 소싱한다 — 태그 소싱은 소비 repo에서 처음 돈다 | ✅ CI `init`이 태그를 받아 배치 |
 
 > **증거와 run ID는 여기 적지 않는다.** 인스턴스의 배포 사실은 소비 repo
 > `docs/deployment-facts.md` §6이 소유한다([`design/50` D26](50-reference-consumer-repo.md)).
 > 이 표는 **모듈 계약이 어디까지 증명됐는가**만 기록한다.
 
-#### ⏸ 남은 1건 — `prevent_destroy`
+#### ✅¹ 5번 판정 범위 — 두 가드를 구분한다 (§7 정직성)
 
-`deletion_protection = true`로 **걸어 둔 상태로 apply까지 갔다.** 그러나 그것은 "보호가 설정됐다"이지
-"보호가 동작한다"가 아니다 — **파기를 시도해야** 판정된다. teardown이 2단계라는 계약
-(`deletion_protection = false` → `vpc_enabled = false`)도 같은 시점에 확인된다.
+D12에는 가드가 둘이다. 라이브로 판정된 것은 **교차변수 validation**이다:
+소비 repo가 `vpc_enabled = false`(보호 켠 채)를 걸자 **CI plan이 거부**했다
+(`deletion_protection = true인 상태에서는 vpc_enabled = false로 파기할 수 없다`). apply는 skip됐다.
+이것이 이 모듈의 실제 teardown 시도(D10 kill switch)가 부딪히는 가드다. 모듈 계약 테스트
+`reject_teardown_while_protected`가 mock으로, 소비 repo가 라이브 파이프라인으로 — 두 층위에서 증명됐다.
 
-⚠️ **소비 repo의 리소스를 실제로 파기할 때가 유일한 판정 기회다.** 그 전에 "D12는 검증됐다"고
-쓰지 않는다.
+**`prevent_destroy` lifecycle 메타 인자**(`prevent_destroy = var.deletion_protection`, `tofu destroy`·replace
+차단)는 라이브 plan에 `= true`로 존재하나, 그것을 직접 겨누는 **destroy-plan은 라이브로 실행하지 않았다**
+— 소비 repo 워크플로에 destroy 경로가 없고, 리허설 자산을 유지하기로 했다. 두 가드를 뭉뚱그리지 않는다.
+teardown 2단계 계약(`deletion_protection = false` → `vpc_enabled = false`)의 완주도 같은 이유로 미실행이다.
 
 #### ℹ️ 판정 범위는 **소비 repo의 형상에 의존한다**
 

@@ -5,6 +5,23 @@
 > **범위**: 소비 경로 규약(모듈 소싱 인증 · state backend · OIDC 체인 · plan artifact)의 결정과 근거.
 > 실행 계획(Phase·태스크·수용 기준)은 `.omc/plans/reference-consumer-repo.md`에 있다.
 
+> ### 🔄 2026-07-31 개정 — 첫 이행 인스턴스가 **apply까지 통과했다**
+>
+> `skax-ca/iac-reference-infra`가 §3의 파이프라인으로 실제 계정에 apply를 완료했다
+> (`66 added` → 두 번째 apply `No changes`). **이 문서의 규약이 처음으로 실행 증거를 얻었다.**
+>
+> 그 과정에서 **설계에 없던 것 4건**(F16~F19)과 **설계의 빈틈 1건**이 드러났다:
+>
+> | 무엇 | 어디 |
+> |------|------|
+> | 🔴 **§3의 2단 체인 그림에 backend 경로가 빠져 있었다** — 첫 CI plan이 여기서 죽었다 | **D30**(신설) · §3 |
+> | ⚠️ D27-2의 승인 게이트는 **GitHub Team 이상을 전제**한다. Free private repo에서는 이행 불가 | D27-2 전제 조건 |
+> | ⚠️ 실계정에는 **자동 태거**가 있다 → `ignore_tags`가 선택이 아니다 | F16 |
+> | ⚠️ repo 변수는 CI 로그에 **평문**으로 남는다 | F19 · §5 |
+> | §4의 "첫 apply는 minimal 경로만 판정한다"는 **형상 의존**이었다 | §4 |
+>
+> **인스턴스의 값과 로그는 여기 적지 않는다**(D26) — 소비 repo `docs/deployment-facts.md`가 소유한다.
+
 > 공통 규약: [02-naming-tagging-and-pinning.md](../architecture/02-naming-tagging-and-pinning.md) ·
 > 엔진: [04-engine-decision.md](../architecture/04-engine-decision.md) ·
 > 의존성: [03-dependencies.md](../architecture/03-dependencies.md)
@@ -13,8 +30,8 @@
 
 ## 0. 왜 실 고객사 repo보다 이것을 먼저 만드는가
 
-`vpc-v1.0.0`의 증거는 **전부 `plan` 수준**이다([`design/10` §3](10-vpc-module.md)). 소비 경로에는
-아직 한 번도 통과하지 않은 구간이 셋 있고, 셋 다 **첫 `apply`에서 터진다**:
+`vpc-v1.0.0`의 증거는 **전부 `plan` 수준**이었다([`design/10` §3](10-vpc-module.md)). 소비 경로에는
+한 번도 통과하지 않은 구간이 셋 있었고, 셋 다 **첫 `apply`에서 터진다**:
 
 1. private repo의 `git tag` 소싱 인증
 2. state 버킷·OIDC Role의 부트스트랩 순서(닭-달걀)
@@ -22,6 +39,15 @@
 
 고객 앞에서 처음 부딪히는 것과, 리허설에서 잡아 **템플릿으로 복사해 주는** 것은 완전히 다른 일이다.
 그래서 `vpc` 하나만 배포하는 최소 소비 repo를 먼저 세운다.
+
+> ### ✅ 셋 다 통과했다 (2026-07-31) — 그리고 **넷째가 있었다**
+>
+> 1·2·3은 첫 이행 인스턴스에서 전부 실측으로 종결됐다. 그런데 **설계가 예상하지 못한 구간이
+> 하나 더 있었다**: **backend의 자격증명 경로**(F17 → **D30**). `tofu init`은 provider보다 먼저
+> backend로 state를 읽는데, 그 경로에는 provider 설정이 적용되지 않는다.
+>
+> **이 문단이 이 repo를 먼저 만든 이유를 스스로 증명한다.** 셋을 예상했고 넷째에 걸렸다 —
+> 고객 앞이 아니라 리허설에서 걸렸다는 것이 정확히 §0이 노린 값이다.
 
 > ⚠️ 이 repo는 **모듈만 소유**한다. 배포 루트는 소유하지 않는다. 이 문서가 정의하는 것은
 > "소비 repo가 지켜야 할 계약"이고, 그 계약을 처음 이행하는 인스턴스가 `iac-reference-infra`다.
@@ -49,6 +75,18 @@
 | F10 | `actions/create-github-app-token` 최신 = **v3.2.0** (2026-05-12) | `gh api repos/.../releases/latest` |
 | F11 | `aws-actions/configure-aws-credentials` 최신 = **v6.2.3** (2026-07-22) | 동일 |
 | F12 | AWS는 **예측 불가능한 버킷명을 권장**한다 | S3 `bucketnamingrules.html` Best practices |
+
+### 첫 apply에서 추가된 실측 (2026-07-31)
+
+| # | 사실 | 근거 | 어느 결정을 바꾸나 |
+|---|------|------|------------------|
+| **F16** | ⚠️ **실계정에는 자동 태거가 돈다.** 생성 주체(CloudFormation·Terraform·콘솔)와 **무관하게** 동일 키가 붙는다 | 대상 계정 전수 조회: VPC **22/23** · Subnet **78/82** · IGW **16/17**에 7개 키(`CreationTime`·`Creator`·`cz-*`). 우리가 만든 VPC에도 apply 직후 붙었다 | `ignore_tags`가 **선택이 아니다**. [02 §1.4(a-2)](../architecture/02-naming-tagging-and-pinning.md)의 경고가 실증됐다 |
+| **F17** | 🔴 **S3 backend는 provider와 독립적으로 자격증명을 해결한다.** provider의 `assume_role`이 backend에 적용되지 않는다 | OpenTofu 공식 s3 backend 문서 + 실패 실측(`init`이 `HeadObject 403`) | **D30 신설** — §3의 체인 그림에 backend 경로가 없었다 |
+| **F18** | ⚠️ **GitHub Free + private repo는 Environment protection rules를 쓸 수 없다.** required reviewers·wait timer 모두 `422 billing`. **deployment branch policy만** 걸린다 | 규칙별로 하나씩 PUT 시도해 경계를 확정 | **D27-2의 전제 조건** — 승인 게이트는 Team 이상을 요구한다 |
+| **F19** | ⚠️ **repo 변수(`vars.*`)는 CI 로그에 평문으로 남는다.** GitHub은 **secret만** 마스킹한다 | 워크플로 로그에 `-backend-config="bucket=…"`이 그대로 출력됨 | D25의 "🙈 비노출"이 **git 밖에서는 보장되지 않는다** → [§5](#5-열린-항목) |
+
+> ℹ️ **F17은 `-backend-config` 주입 방식까지 바꾼다.** `-backend-config=KEY=VALUE` 플래그는
+> **문자열 값만** 받는데 `assume_role`은 객체다 → **HCL 파일이 유일한 경로**다(D30).
 
 ---
 
@@ -284,10 +322,40 @@ PoC에서는 사람이 TFC workspace에서 돌렸다. 이제 `pull_request`가 `
 | 규칙 | 내용 |
 |------|------|
 | **삭제 대상 사람 검토** | apply 승인 전 plan의 **destroy/replace 목록을 사람이 읽는다.** 공용 계정이므로 예외 없음(`05` §7.1 원문) |
-| **대상 판별은 태그로** | 우리 자산은 `Workload=ref` 태그로 식별한다. 이름만 보고 판단하지 않는다 |
-| **apply는 승인 게이트 필수** | Environment protection rules. 이것이 §7.1의 "사람이 검토"를 이행하는 지점이다 |
+| **대상 판별은 태그로** | 우리 자산은 `Workload=<code>` 태그로 식별한다. 이름만 보고 판단하지 않는다 |
+| **apply는 승인 게이트 필수** | Environment protection rules. 이것이 §7.1의 "사람이 검토"를 이행하는 지점이다. ⚠️ **전제 조건이 있다 — 아래** |
 | **plan은 자동이어도 된다** | 리소스를 만들지 않는다. ⚠️ 단 state lock을 잡고 read 권한이 Administrator다([§5](#5-열린-항목) D28 열린 항목과 같은 지점) |
 | **`prevent_destroy` 유지** | VPC 모듈 D12. 공용 계정에서 실수 삭제의 마지막 방어선이다 |
+
+#### ⚠️ D27-2의 전제 조건 — 승인 게이트는 **GitHub Team 이상**을 요구한다 (2026-07-31, F18)
+
+**"apply는 승인 게이트 필수"는 플랜에 따라 이행할 수 없다.** 첫 이행 인스턴스에서 실측했다:
+
+| protection rule | Free + private repo |
+|-----------------|--------------------|
+| required reviewers | ❌ `422 … billing plan supports the required reviewers protection rule` |
+| wait timer | ❌ `422 … wait timer protection rule` |
+| **deployment branch policy** | ✅ 적용됨 |
+
+**소비 repo를 세울 때 가장 먼저 확인할 항목이다.** 실 고객사는 대부분 Team/Enterprise이므로
+정상 경로가 성립하지만, **리허설·PoC·개인 org에서는 성립하지 않는다.**
+
+**Free에서의 대체 운영 형태(열화를 명시한다)**
+
+```
+PR 생성 → plan 자동 실행 → PR 댓글에 destroy/replace 목록 + plan 전문
+       → 사람이 읽고 merge          ← 검토 지점 (강제력 없음)
+       → push:main → plan → apply   ← 대기 없이 진행
+```
+
+- ✅ 유지: `environment:` 선언(→ `sub` 패턴 ③ 일치) · deployment branch policy
+- ❌ 상실: **"읽어야 진행된다"는 강제력.** merge 권한자와 apply 승인자가 분리되지 않는다
+- 완화: plan job이 `will be destroyed`·`must be replaced`를 **전문 위로 끌어올려** PR 댓글에 남긴다.
+  ⚠️ *"읽을 수 있게 한다"* 이지 *"읽어야 진행된다"* 가 아니다 — 이 구분을 흐리지 않는다.
+
+> ℹ️ **걸린 하나가 D28의 미해결 제약을 메운다.** `environment`가 `sub`의 `ref`를 덮어써
+> **apply job의 브랜치 제한을 `sub`로 걸 수 없는데**(D28 실측), deployment branch policy가
+> 그 자리를 맡는다. IAM에서 표현 불가능한 조건을 GitHub 레이어가 대신 거는 구조다.
 
 ⚠️ **다른 사람의 리소스는 plan에도 나타나지 않는다** — 우리 state에 없기 때문이다. 위험은
 "plan에 잡히는 것"이 아니라 **`AdministratorAccess`가 손댈 수 있는 범위 전체**다. 규칙이 필요한 이유다.
@@ -316,6 +384,60 @@ PoC에서는 사람이 TFC workspace에서 돌렸다. 이제 `pull_request`가 `
 `bootstrap.sh`가 **lifecycle 규칙**을 함께 만든다 — 비현행 버전 보관 기간을 짧게(예: 7일) 두고
 불완전 멀티파트 업로드를 정리한다. **공식 문서가 직접 권고한 대응이다.**
 
+### D30 · backend도 실행 Role을 체인 assume한다 (2026-07-31 신설 — 첫 apply가 강제한 결정)
+
+**D28까지의 체인 그림에는 backend가 없었다.** 그 누락이 첫 CI `plan`을 죽였다.
+
+```
+Successfully configured the backend "s3"!
+Error: Error refreshing state
+  operation error S3: HeadObject, https response error StatusCode: 403
+```
+
+**원인 — 두 개의 자격증명 경로가 있다(F17).**
+
+| 무엇이 AWS를 호출하나 | 자격증명 출처 | 결과 |
+|---------------------|-------------|------|
+| `aws` **provider** | provider 블록의 `assume_role` | ✅ 실행 Role |
+| **backend**(state 읽기·lock) | **환경 자격증명** — provider 설정과 무관 | ❌ **입구 Role 그대로** |
+
+입구 Role의 권한은 D27-1이 의도적으로 `sts:AssumeRole` **하나로** 좁혀 두었다. 그래서
+backend가 S3를 읽을 수 없다. ⚠️ **설계를 어겨서가 아니라 설계대로 만들어서 실패한다** —
+모든 소비 repo가 첫 CI run에서 똑같이 부딪힌다.
+
+**결정: `backend.hcl`에 `assume_role`을 넣어 backend도 같은 실행 Role을 체인 assume한다.**
+
+```hcl
+# CI 가 repo 변수로 조립한다. 파일명이 .gitignore 대상이라 커밋될 수 없다(D25 와 같은 방어).
+bucket       = "<repo 변수>"
+key          = "<env>/<component>.tfstate"
+region       = "<region>"
+use_lockfile = true
+
+assume_role = {
+  role_arn     = "<실행 Role ARN — repo 변수>"
+  session_name = "tofu-backend-<run_id>"
+}
+```
+
+- ⚠️ **`-backend-config=KEY=VALUE` 플래그로는 불가능하다.** 문자열 값만 받는데 `assume_role`은
+  객체다(F17) → **파일이 유일한 경로**다. 부수 효과로 CI와 로컬이 같은 명령
+  (`tofu init -backend-config=backend.hcl`)을 쓰게 된다.
+- ⚠️ **plan job과 apply job 양쪽에 필요하다.** 자격증명과 `.terraform/`은 job 경계를 넘지 못해
+  apply job이 `init`을 새로 한다 — 거기 빠지면 apply가 같은 403으로 죽는다.
+- ℹ️ 로컬은 `assume_role`을 **넣지 않는다.** 개인 자격증명이 실행 Role을 assume할 수 없고
+  (신뢰가 입구 Role 하나뿐, D27-1) 버킷 자체는 그 권한으로 읽힌다.
+
+**기각안**
+
+| 안 | 기각 이유 |
+|----|----------|
+| **입구 Role에 state 버킷 접근 권한을 추가** | *"입구 Role의 권한은 실행 Role assume 하나뿐"* 이라는 **D27-1의 신뢰 경계가 깨진다.** 입구 Role은 OIDC로 직접 도달 가능한 지점이라, 거기에 권한을 얹으면 2단 체인이 만든 격리가 그만큼 줄어든다 |
+| `configure-aws-credentials`의 role chaining으로 **환경 자격증명 자체를 실행 Role로** | backend·provider가 한 번에 해결되지만, 워크플로가 실행 Role을 **직접** 들게 된다. 입구 Role이 "OIDC가 도달하는 유일한 지점"이라는 성질이 흐려진다. 재검토 여지는 있다 → [§5](#5-열린-항목) |
+
+> ⚠️ **이 결정은 "state를 읽는 주체 = 리소스를 만드는 주체"를 명시한다.** 둘이 갈리면
+> 권한 분석이 두 배가 된다. D28이 plan/apply 권한을 분리하지 않은 것과 같은 사고다.
+
 ---
 
 ## 3. 워크플로 — "승인한 계획 = 적용된 계획"
@@ -333,19 +455,25 @@ deploy.yml
 │   1. create-github-app-token@v3.2.0        (D20)
 │   2. git config insteadOf                  (D20)
 │   3. configure-aws-credentials@v6.2.3      → 입구 Role      ← OIDC 1단
-│   4. tofu init -backend-config=...         (D25)
-│   5. tofu plan -out=tfplan                 → provider assume_role  ← 체인 2단
-│   6. upload-artifact (tfplan, retention-days: 1)
+│   4. backend.hcl 조립 (repo 변수 → 파일)   (D25 + D30)
+│        · bucket/key/region/use_lockfile
+│        · assume_role = { role_arn = 실행 Role }   ← 체인 2단 ⓐ backend
+│   5. tofu init -backend-config=backend.hcl
+│   6. tofu plan -out=tfplan                 → provider assume_role ← 체인 2단 ⓑ provider
+│   7. plan 요약 → PR 댓글 (destroy/replace를 위로) (D27-2)
+│   8. upload-artifact (tfplan, retention-days: 1)
 │
-└─ job: apply    needs: plan · if: push→main · environment: dev   ← 승인 게이트
-    1~4. plan job과 동일 (자격증명은 job 간 이동 불가하므로 재수행)
-    5. download-artifact (같은 run의 tfplan)
-    6. tofu apply tfplan                     ← 재-plan 하지 않는다
+└─ job: apply    needs: plan · if: push→main · environment: <env>  ← 승인 게이트
+    1~5. plan job과 동일 (자격증명·.terraform 은 job 간 이동 불가하므로 재수행)
+    6. download-artifact (같은 run의 tfplan)
+    7. tofu apply tfplan                     ← 재-plan 하지 않는다
 ```
 
-- **2단 체인**: `configure-aws-credentials`가 입구 Role(`iamr-ref-dev-an2-gha-entry-01`)을 OIDC로
-  인증 → provider의 `assume_role`이 실행 Role(`iamr-ref-dev-an2-gha-exec-01`)을 체인 assume.
+- **2단 체인**: `configure-aws-credentials`가 **입구 Role**을 OIDC로 인증 → 실행 Role을 체인 assume.
   정적 키 없음. ⚠️ **`AWSAFTExecution`이 아니다** — D27-1로 실행 Role이 신설로 바뀌었다.
+- 🔴 **2단째가 둘이다**(D30). `assume_role`을 **provider와 backend 양쪽에** 걸어야 한다 —
+  backend는 provider 설정을 쓰지 않고 환경 자격증명(=입구 Role)으로 S3에 붙기 때문이다(F17).
+  **한쪽만 걸면 `init`이 `HeadObject 403`으로 죽는다.** 첫 이행 인스턴스가 실제로 그렇게 실패했다.
 - ⚠️ **apply 승인 시 destroy/replace 목록을 사람이 읽는다**(D27-2). 공용 계정(F13)이라 예외 없음.
 - ⚠️ **plan artifact는 민감할 수 있다** — plan 파일에 리소스 속성이 평문으로 들어간다.
   repo read 권한자가 받을 수 있으므로 `retention-days: 1`로 제한하고 소비 규약에 명시한다.
@@ -358,18 +486,29 @@ deploy.yml
 
 [`design/10` §3](10-vpc-module.md)의 apply 미검증 6항목.
 
-| # | 항목 | 판정 시점 |
-|---|------|----------|
-| 1 | secondary CIDR `depends_on` 순서 | 후속 apply 시나리오 |
-| 2 | primary/secondary 조합 제약 | 후속 apply 시나리오 |
-| 3 | CIDR 겹침 | 후속 apply 시나리오 |
-| 4 | Flow Logs 실제 배달 | 후속 apply 시나리오 |
-| 5 | `prevent_destroy` 실동작 (D12) | 후속 apply 시나리오 |
-| 6 | **`git tag` 소싱 경로** | **첫 CI `init` 성공 자체** |
+### ⚠️ 판정 범위는 **배포 형상에 의존한다** (2026-07-31 정정)
 
-> ⚠️ **VPC 하나를 minimal 구성으로 apply하는 것만으로는 1~5가 판정되지 않는다.**
-> 첫 apply는 6번과 minimal 경로만 판정한다. 이 구분을 흐리면 "apply로 검증했다"는 과잉 주장이 되고,
-> 그것이 [`reference/poc-findings.md`](../reference/poc-findings.md)가 경계하는 실수다.
+초판은 *"첫 apply는 6번과 minimal 경로만 판정한다"* 고 썼다. **그 문장은 minimal 형상을 전제한
+것이었다.** 소비 repo가 무엇을 배포하느냐에 따라 판정되는 항목이 달라진다:
+
+| 항목 | minimal(`examples/vpc`) | enterprise(`examples/vpc-enterprise`) |
+|------|------------------------|--------------------------------------|
+| 1 secondary CIDR `depends_on` 순서 | ❌ secondary를 안 쓴다 | ✅ 2개를 연결한다 |
+| 2 primary/secondary 조합 제약 | ❌ 〃 | ✅ |
+| 3 CIDR 겹침 | ⚠️ 서브넷 4개뿐이라 약하다 | ✅ `cidrsubnet()` 파생 20개 |
+| 4 Flow Logs 실제 배달 | 형상 무관 — **apply 후 로그 그룹을 직접 확인**해야 한다 | 〃 |
+| 5 `prevent_destroy` 실동작 | 형상 무관 — **파기를 시도해야** 판정된다 | 〃 |
+| 6 `git tag` 소싱 경로 | ✅ 첫 CI `init` | ✅ |
+
+**첫 이행 인스턴스는 enterprise를 택해 6항목 중 5개를 판정했다.** 판정 결과와 증거는
+소비 repo `docs/deployment-facts.md` §6이 소유한다(D26 — 값은 인스턴스, 규약은 여기).
+
+> ⚠️ **"apply했다"와 "판정했다"는 다르다.** 4번은 apply가 성공해도 **로그가 실제로 도착했는지**를
+> 따로 봐야 하고, 5번은 **파기를 시도해야** 판정된다. 이 구분을 흐리면 "apply로 검증했다"는
+> 과잉 주장이 되고, 그것이 [`reference/poc-findings.md`](../reference/poc-findings.md)가 경계하는 실수다.
+
+> ℹ️ **소비 repo에 무엇을 배포할지 정할 때 이 표를 본다.** 리허설 성격의 repo라면 enterprise가
+> 판정 범위를 크게 넓힌다. 실 고객사 배포는 판정이 아니라 요구사항이 형상을 정한다.
 
 ---
 
@@ -384,11 +523,35 @@ deploy.yml
 5. **[`design/30-gitops-repo.md`](30-gitops-repo.md) 소유권** — D26이 부분 답.
    GitOps hub는 이 결정 범위 밖이다
 6. **plan artifact 암호화** — `retention-days: 1`은 완화이지 해결이 아니다
-7. **실행 Role 권한 축소** — `iamr-ref-dev-an2-gha-exec-01`이 `AdministratorAccess`다(D27-1).
+7. **실행 Role 권한 축소** — 실행 Role이 `AdministratorAccess`다(D27-1).
    공용 계정(F13)이라 축소 이득이 크지만, VPC 하나에 맞춰 도출하면 EKS 단계에서 다시 해야 한다.
    **판단 시점 = 모듈 집합이 안정된 뒤**(최소 EKS 모듈 이식 후). 그때까지는 D27-2의 운영 규칙이 완화책이다
 8. **`AWSAFTExecution`의 깨진 신뢰 정책** — principal이 unique ID로 치환된 상태로 방치된다(F14).
    우리가 안 쓰기로 했으므로(D27-1) **우리 문제가 아니다.** 계정 소유자가 판단할 사안이라 여기 남긴다
+9. **repo 변수가 CI 로그에 평문으로 남는다 (2026-07-31 신설, F19)** — GitHub은 secret만 마스킹한다.
+   D25의 "🙈 비노출"은 **git 안에서만** 보장되고 워크플로 로그에서는 보이지 않는다.
+   완화 후보: 첫 스텝의 `::add-mask::`(⚠️ 그 스텝 자신의 명령·env echo에는 찍혀 완전하지 않다) ·
+   값을 secret으로 이관(⚠️ 이식성이 준다 — D25 §2의 🔁 분류와 상충).
+   **항목 6과 같은 성격**이다 — private repo라는 전제에 기대고 있고, 그 전제가 완화이지 해결이 아니다
+10. **승인 게이트의 플랜 종속 (2026-07-31 신설, F18)** — D27-2가 GitHub Team 이상을 전제한다.
+    Free private repo에서 쓸 수 있는 강제 게이트가 **없다**(branch policy는 브랜치만 제한한다).
+    대체 형태(PR merge)는 merge 권한자와 apply 승인자를 분리하지 못한다.
+    **소비 repo를 세울 때 가장 먼저 확인할 항목**이라 여기 남긴다
+11. **backend 자격증명 경로의 대안 (2026-07-31 신설, D30 기각안)** — `configure-aws-credentials`의
+    role chaining으로 **환경 자격증명 자체를 실행 Role로** 만들면 backend·provider가 한 번에 해결된다.
+    지금은 "입구 Role이 OIDC가 도달하는 유일한 지점"을 지키려고 기각했으나, `assume_role`을
+    두 곳에 중복 선언하는 비용과 견줄 여지가 있다. **재검토 조건**: 배포 루트가 늘어 중복이
+    누락 사고를 내기 시작하면
+12. **이 문서의 F6·F13이 계정 ID를 노출한다 (2026-07-31 신설)** — D25의 연장은
+    *"계정 식별 정보를 git에 두지 않는다"* 이고 D26은 *"인스턴스 값은 소비 repo가 소유한다"* 인데,
+    §1의 실측 표가 **특정 계정 ID를 규약 SSOT에 적어 두었다.** 두 원칙 모두와 어긋난다.
+    - F6이 실제로 뒷받침하는 결정은 *"계정이 **하나**라 stg/prd를 표현할 수 없다"*(D22)이고,
+      F13은 *"그 계정이 **공용**이다"*(D27-1·D27-2)다. **둘 다 값 없이 성립한다.**
+    - ⚠️ 단순 삭제가 아니라 **provenance를 잃지 않는 형태**로 바꿔야 한다 — 실측 표의 값은
+      "언제 무엇을 보고 결정했는가"의 근거다. 소비 repo `docs/deployment-facts.md`를 가리키는
+      포인터로 대체하는 것이 D26에 맞는 방향이다.
+    - 같은 성격의 잔재가 `docs/consumer/dynamic-credentials.md`에 **12곳** 더 있다(D26-1이
+      이미 등재). **D20 기각안의 "모듈 repo public 전환" 선결 과제와 같은 항목**이다
 
 ---
 

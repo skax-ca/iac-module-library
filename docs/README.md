@@ -70,7 +70,7 @@
 | [dynamic-credentials.md](consumer/dynamic-credentials.md) | TFC OIDC 2단 역할 체인 **구성 절차** | 🗄️ **잔재** — 절차 전체 무효. 구조만 유효 |
 
 > ⛔ **소비 규약의 SSOT는 여기가 아니라 [design/50](design/50-reference-consumer-repo.md)(D-CONSUME)이다.**
-> D20~D29가 모듈 소싱 인증·backend 규약·OIDC 체인·plan artifact를 소유한다.
+> D20~D30가 모듈 소싱 인증·backend 규약·OIDC 체인·plan artifact를 소유한다.
 > **두 문서를 확정 규약으로 인용하지 않는다** — `terraform-enterprise-poc` @ `76285f7`의 TFC 전제다.
 >
 > **이관하지 않는다**(D26). 소비 repo에는 그 인스턴스 고유의 배포 **사실**(계정 ID·버킷 GUID·

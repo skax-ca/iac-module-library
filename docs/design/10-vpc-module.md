@@ -646,17 +646,39 @@ assertions:
 
 ### v1.0.0이 보장하지 **않는** 것 (apply 미검증 항목)
 
-이 릴리스의 증거는 전부 `plan` 수준이다. 아래는 **실계정 apply에서만 드러나며 아직 검증되지 않았다** —
-소비 프로젝트의 첫 apply에서 확인해야 한다.
+릴리스 시점의 증거는 전부 `plan` 수준이었다. 아래는 **실계정 apply에서만 드러나는** 항목이다.
 
-| 항목 | 왜 plan으로 안 잡히나 |
-|------|---------------------|
-| secondary CIDR `depends_on` 순서 | association이 `associated` 상태가 되는 타이밍은 apply 시점 문제다 |
-| primary/secondary CIDR 조합 제약 | AWS API가 apply 시 거부한다(§1.2) |
-| CIDR 겹침 | 〃 — `examples/vpc-enterprise`의 파생값은 `tofu console`로 산술만 검증했다 |
-| Flow Logs 배달 | IAM 권한이 부족해도 plan은 통과한다. 로그가 실제로 쌓이는지 봐야 한다 |
-| `prevent_destroy` 실제 차단 | plan 차단은 실측했으나(D12) apply 후 상태에서의 동작은 미확인 |
-| **`git tag` 소싱 경로** | 예제는 상대경로로 소싱한다 — 태그 소싱은 소비 repo에서 처음 돈다 |
+#### ✅ 5/6 판정됨 (2026-07-31, `iac-reference-infra` 첫 apply)
+
+첫 소비 repo가 **enterprise 형상**(9그룹 · secondary CIDR 2개 · 서브넷 20개)으로 apply해
+6항목 중 5개가 판정됐다. `66 added` → 두 번째 apply `No changes`.
+
+| 항목 | 왜 plan으로 안 잡히나 | 판정 |
+|------|---------------------|------|
+| secondary CIDR `depends_on` 순서 | association이 `associated` 상태가 되는 타이밍은 apply 시점 문제다 | ✅ 2개 대역 모두 `associated` |
+| primary/secondary CIDR 조합 제약 | AWS API가 apply 시 거부한다(§1.2) | ✅ API가 수락 |
+| CIDR 겹침 | 〃 — `examples/vpc-enterprise`의 파생값은 `tofu console`로 산술만 검증했다 | ✅ `cidrsubnet()` 파생 서브넷 20개 전부 생성 |
+| Flow Logs 배달 | IAM 권한이 부족해도 plan은 통과한다. 로그가 실제로 쌓이는지 봐야 한다 | ✅ 로그 스트림에 **실제 레코드 도착** 확인 |
+| `prevent_destroy` 실제 차단 | plan 차단은 실측했으나(D12) apply 후 상태에서의 동작은 미확인 | ⏸ **미판정** — 아래 |
+| **`git tag` 소싱 경로** | 예제는 상대경로로 소싱한다 — 태그 소싱은 소비 repo에서 처음 돈다 | ✅ CI `init`이 태그를 받아 배치 |
+
+> **증거와 run ID는 여기 적지 않는다.** 인스턴스의 배포 사실은 소비 repo
+> `docs/deployment-facts.md` §6이 소유한다([`design/50` D26](50-reference-consumer-repo.md)).
+> 이 표는 **모듈 계약이 어디까지 증명됐는가**만 기록한다.
+
+#### ⏸ 남은 1건 — `prevent_destroy`
+
+`deletion_protection = true`로 **걸어 둔 상태로 apply까지 갔다.** 그러나 그것은 "보호가 설정됐다"이지
+"보호가 동작한다"가 아니다 — **파기를 시도해야** 판정된다. teardown이 2단계라는 계약
+(`deletion_protection = false` → `vpc_enabled = false`)도 같은 시점에 확인된다.
+
+⚠️ **소비 repo의 리소스를 실제로 파기할 때가 유일한 판정 기회다.** 그 전에 "D12는 검증됐다"고
+쓰지 않는다.
+
+#### ℹ️ 판정 범위는 **소비 repo의 형상에 의존한다**
+
+minimal(`examples/vpc`)로 배포했다면 위 1·2·3은 판정되지 않았다 — secondary CIDR을 쓰지 않기
+때문이다. 형상별 판정 범위 표는 [`design/50` §4](50-reference-consumer-repo.md)에 있다.
 
 ---
 
@@ -674,12 +696,17 @@ assertions:
 6. ~~**IAM inline policy 약어**~~ ✅ **해소**(2026-07-30): 카탈로그에 **"종속 객체는 부모 이름을 상속한다"**
    규약을 명문화했다 — inline 정책은 약어를 신설하지 않고 `<role 이름>-policy`를 쓴다.
    관리형 정책용 약어 **`iamp`** 는 같은 날 별도 등재했다(독립 자원이므로).
-7. **Flow Logs 역할의 confused deputy 방어 (2026-07-30 신설)**: AWS는 신뢰 정책에
+7. **Flow Logs 역할의 confused deputy 방어 (2026-07-30 신설 · 2026-07-31 갱신)**: AWS는 신뢰 정책에
    `aws:SourceAccount`·`aws:SourceArn` 조건을 **권고**한다([공식](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html)).
    v1.0.0은 **공식 최소 신뢰 정책만** 구현했다 — 조건을 넣으려면 `data.aws_caller_identity`·
    `data.aws_partition`·`data.aws_region` 3개를 추가(각각 D10 게이트 필요)해야 하고, ARN 조건이
-   틀리면 **배달이 조용히 실패**하는데 이 실패는 plan으로 검출되지 않는다. 실계정 apply로 검증할 수
-   있는 시점에 도입한다. 계약 변경이 아니므로 **패치/마이너**로 처리 가능.
+   틀리면 **배달이 조용히 실패**하는데 이 실패는 plan으로 검출되지 않는다. 계약 변경이 아니므로
+   **패치/마이너**로 처리 가능.
+   ✅ **차단 조건이 해소됐다(2026-07-31)**: *"실계정 apply로 검증할 수 있는 시점에 도입한다"* 고
+   미뤄 두었는데, 이제 그 시점이다 — `iac-reference-infra`에 Flow Logs가 **실제로 배달되는 상태**가
+   있고(위 §3), 조건을 넣은 뒤 로그가 계속 오는지로 **음성/양성 판정이 가능**해졌다.
+   ⚠️ 도입 시 **조건을 넣고 로그 도착을 재확인**하는 것이 수용 기준이다. `apply` 성공은 증거가 아니다 —
+   이 실패 모드의 정의가 "조용히 실패"다.
 8. ~~**`aws_flow_log` Name 태그 약어 부재**~~ ✅ **해소**(2026-07-30): 카탈로그에 `fl`을 신규 등재하고
    `Name = fl-<mid>-<purpose>`를 부착했다(§1.3). AWS 실제 리소스 ID 접두사(`fl-`)를 따랐다.
    ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**라 재사용 불가.

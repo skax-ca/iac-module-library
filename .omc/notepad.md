@@ -128,7 +128,8 @@ docs/로 새어 D25가 무의미해진다.
   "고아 Role이 남는다"는 원래 근거는 **비용이 아니라 미관**이었다.
 - **D27-1(확정)**: 실행 Role을 **신설**한다 — `iamr-ref-dev-an2-gha-exec-01`(`AdministratorAccess`,
   신뢰는 입구 Role `iamr-ref-dev-an2-gha-entry-01` **하나만**). `AWSAFTExecution`은 **읽지도 쓰지도
-  않는다** — 소비 repo 실측으로 principal이 `AROAXYPQCDNDOM5Y4T6V3` 그대로임을 확인했다.
+  않는다** — 소비 repo 실측으로 principal이 **깨진 채 그대로**임을 확인했다(값은 적지 않는다 —
+  남의 자산 식별자이고 notepad 는 커밋된다).
 - ⚠️ **"`AWSAFTExecution` assume 불가"는 이제 해결 대상이 아니라 무관한 문제다.** 깨진 채로 둔다 —
   고치는 것도 남의 자산 변경이다.
 - **D27-2**: 공용 계정 운영 규칙(PoC `05` §7.1 승계) — apply 승인 전 **destroy/replace 목록을 사람이

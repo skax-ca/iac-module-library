@@ -367,6 +367,27 @@ run "flow_logs_can_be_disabled_alone" {
   }
 }
 
+# ── D11 confused deputy 방어 (열린 항목 7) ─────────────────────────────────────
+# vpc-flow-logs.amazonaws.com은 전 세계 공용 서비스 principal이라 신뢰 정책에 계정·리소스
+# 조건이 없으면 남의 flow log가 우리 로그 그룹으로 배달된다. 조건의 "존재"만 계약으로 잠근다 —
+# 조건이 실제 배달을 막는지는 mock으로 증명할 수 없고 실계정 로그 도착으로 판정한다.
+run "flow_logs_trust_policy_guards_confused_deputy" {
+  command = plan
+
+  # 신뢰 정책은 data source 값으로 조립되고, mock_provider가 data source 값을 채우므로
+  # plan 시점에 known이다 — resource의 arn·id가 unknown인 것과 다르다(이 파일 상단 주석 참조).
+  assert {
+    condition     = jsondecode(aws_iam_role.flow_logs[0].assume_role_policy).Statement[0].Condition.StringEquals["aws:SourceAccount"] != ""
+    error_message = "flow logs 신뢰 정책에 aws:SourceAccount 조건이 없다 — confused deputy 무방비다."
+  }
+
+  # ID 대신 와일드카드를 쓰되(순환 참조 회피) vpc-flow-log 리소스 구간으로 한정돼야 한다.
+  assert {
+    condition     = can(regex(":vpc-flow-log/[*]$", jsondecode(aws_iam_role.flow_logs[0].assume_role_policy).Statement[0].Condition.ArnLike["aws:SourceArn"]))
+    error_message = "flow logs 신뢰 정책의 aws:SourceArn이 :vpc-flow-log/* 로 끝나지 않는다."
+  }
+}
+
 # ── 계약 위반은 plan에서 차단된다 ───────────────────────────────────────────────
 # D12 — 보호를 켠 상태로는 파기할 수 없다. 우리 변수 이름으로 해법을 알려주는 것이 목적이다.
 run "reject_teardown_while_protected" {

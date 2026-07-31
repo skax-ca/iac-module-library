@@ -13,6 +13,23 @@ locals {
   flow_logs_base_name = "${local.name_mid}-${var.purpose}-flowlog"
 }
 
+# confused deputy 방어(설계 §1.1 D11 · 열린 항목 7)에 쓸 계정·파티션·리전 메타.
+# ⚠️ D10 게이트를 함께 통과한다 — main.tf의 data.aws_availability_zones.this가 선례다.
+#    role(count = flow_logs_enabled)에서만 참조하므로 게이트를 role과 일치시킨다 —
+#    flow_logs_enabled면 반드시 enabled이고, flow logs가 꺼지면 STS/메타 호출도 사라진다.
+data "aws_caller_identity" "flow_logs" {
+  count = local.flow_logs_enabled ? 1 : 0
+}
+
+data "aws_partition" "flow_logs" {
+  count = local.flow_logs_enabled ? 1 : 0
+}
+
+# ⚠️ provider 6.x에서 aws_region의 name·id는 deprecated다 — region 속성을 쓴다.
+data "aws_region" "flow_logs" {
+  count = local.flow_logs_enabled ? 1 : 0
+}
+
 resource "aws_cloudwatch_log_group" "flow_logs" {
   count = local.flow_logs_enabled ? 1 : 0
 
@@ -36,7 +53,11 @@ resource "aws_iam_role" "flow_logs" {
 
   name = "iamr-${local.flow_logs_base_name}"
 
-  # 공식 신뢰 정책(VPC 사용자 가이드 "IAM role for publishing flow logs to CloudWatch Logs").
+  # 공식 신뢰 정책(VPC 사용자 가이드 "IAM role for publishing flow logs to CloudWatch Logs")에
+  # confused deputy 방어를 더한다(설계 §1.1 D11 · 열린 항목 7).
+  # vpc-flow-logs.amazonaws.com은 전 세계 공용 서비스 principal이라, 조건이 없으면 남이 자기 VPC의
+  # flow log에 이 Role ARN을 지정해 우리 로그 그룹으로 트래픽을 흘리고 CloudWatch ingestion 비용을
+  # 우리에게 넘길 수 있다. 피해 방향이 직관과 반대다 — 우리 로그가 새는 게 아니라 남의 로그가 들어온다.
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -46,6 +67,17 @@ resource "aws_iam_role" "flow_logs" {
           Service = "vpc-flow-logs.amazonaws.com"
         }
         Action = "sts:AssumeRole"
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.flow_logs[0].account_id
+          }
+          # ⚠️ flow log ID를 넣으면 Role ↔ flow log 순환 참조가 되어 plan이 실패한다.
+          #    AWS 공식이 와일드카드를 허용한다("If you don't know the flow log ID, you can replace
+          #    that portion of the ARN with a wildcard"). 계정·리전·서비스 구간이 남아 차단은 성립한다.
+          ArnLike = {
+            "aws:SourceArn" = "arn:${data.aws_partition.flow_logs[0].partition}:ec2:${data.aws_region.flow_logs[0].region}:${data.aws_caller_identity.flow_logs[0].account_id}:vpc-flow-log/*"
+          }
+        }
       }
     ]
   })

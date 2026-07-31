@@ -267,7 +267,7 @@ ARN을 주입받고, `null`이면 CloudWatch 기본 암호화(AWS 관리 키)로
 | 리소스 | 역할 |
 |--------|------|
 | `aws_cloudwatch_log_group` | 로그 대상. `retention_in_days`·`kms_key_id` 파라미터화 |
-| `aws_iam_role` | `vpc-flow-logs.amazonaws.com`이 assume. 컴포넌트 전용이므로 **모듈 소유**(`03 §4`) |
+| `aws_iam_role` | `vpc-flow-logs.amazonaws.com`이 assume. 컴포넌트 전용이므로 **모듈 소유**(`03 §4`). 신뢰 정책에 `aws:SourceAccount`·`aws:SourceArn` 조건으로 confused deputy 방어(vpc-v1.1.0, 열린 항목 7) |
 | `aws_iam_role_policy` | `logs:CreateLogStream`·`PutLogEvents`·`DescribeLogStreams` 등 (inline) |
 | `aws_flow_log` | `vpc_id` + `traffic_type` + `log_destination` |
 
@@ -702,11 +702,25 @@ minimal(`examples/vpc`)로 배포했다면 위 1·2·3은 판정되지 않았다
    `data.aws_partition`·`data.aws_region` 3개를 추가(각각 D10 게이트 필요)해야 하고, ARN 조건이
    틀리면 **배달이 조용히 실패**하는데 이 실패는 plan으로 검출되지 않는다. 계약 변경이 아니므로
    **패치/마이너**로 처리 가능.
-   ✅ **차단 조건이 해소됐다(2026-07-31)**: *"실계정 apply로 검증할 수 있는 시점에 도입한다"* 고
-   미뤄 두었는데, 이제 그 시점이다 — `iac-reference-infra`에 Flow Logs가 **실제로 배달되는 상태**가
-   있고(위 §3), 조건을 넣은 뒤 로그가 계속 오는지로 **음성/양성 판정이 가능**해졌다.
-   ⚠️ 도입 시 **조건을 넣고 로그 도착을 재확인**하는 것이 수용 기준이다. `apply` 성공은 증거가 아니다 —
-   이 실패 모드의 정의가 "조용히 실패"다.
+   ✅ **구현됨 — vpc-v1.1.0(2026-07-31)**: v1.0.0의 공식 최소 신뢰 정책에 아래 조건을 더했다.
+   `data.aws_caller_identity`·`data.aws_partition`·`data.aws_region` 3개를 추가했고 각각
+   `flow_logs_enabled` 게이트(D10과 일치)를 통과한다. 변수 추가가 없어 계약은 불변이나 **동작이
+   바뀌므로 마이너**로 릴리스했다.
+   ```json
+   "Condition": {
+     "StringEquals": { "aws:SourceAccount": "<account>" },
+     "ArnLike":      { "aws:SourceArn": "arn:<partition>:ec2:<region>:<account>:vpc-flow-log/*" }
+   }
+   ```
+   ⚠️ **와일드카드가 불가피**하다 — flow log ID를 넣으면 Role ↔ flow log 순환 참조로 plan이 실패한다.
+   AWS 공식이 허용한다(*"you can replace that portion of the ARN with a wildcard"*). 계정·리전·서비스
+   구간이 남아 차단은 성립한다.
+   ⚠️ **provider 6.x에서 `aws_region`의 `name`·`id`는 deprecated** — `region` 속성을 쓴다(실측).
+   🔬 **수용 기준 = 실계정 로그 도착 재확인**이고, 그 판정은 `iac-reference-infra`가 `?ref=vpc-v1.1.0`으로
+   올려 apply한 뒤 `aws logs get-log-events`로 한다(위 §3의 배달 상태를 근거로). `tofu test`는 조건의
+   **존재**만 잠근다(`plan.tftest.hcl` 신규 run) — **조건이 배달을 막지 않는지**는 mock으로 증명 불가하다.
+   ⚠️ `apply` 성공은 증거가 아니다 — 이 실패 모드의 정의가 "조용히 실패"다. **소비 repo 판정 전까지
+   이 항목은 "구현됨·미검증"이다.**
 8. ~~**`aws_flow_log` Name 태그 약어 부재**~~ ✅ **해소**(2026-07-30): 카탈로그에 `fl`을 신규 등재하고
    `Name = fl-<mid>-<purpose>`를 부착했다(§1.3). AWS 실제 리소스 ID 접두사(`fl-`)를 따랐다.
    ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**라 재사용 불가.

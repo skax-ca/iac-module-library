@@ -696,7 +696,7 @@ minimal(`examples/vpc`)로 배포했다면 위 1·2·3은 판정되지 않았다
 6. ~~**IAM inline policy 약어**~~ ✅ **해소**(2026-07-30): 카탈로그에 **"종속 객체는 부모 이름을 상속한다"**
    규약을 명문화했다 — inline 정책은 약어를 신설하지 않고 `<role 이름>-policy`를 쓴다.
    관리형 정책용 약어 **`iamp`** 는 같은 날 별도 등재했다(독립 자원이므로).
-7. **Flow Logs 역할의 confused deputy 방어 (2026-07-30 신설 · 2026-07-31 갱신)**: AWS는 신뢰 정책에
+7. **Flow Logs 역할의 confused deputy 방어** ✅ **검증됨(2026-07-31 · vpc-v1.1.0)**: AWS는 신뢰 정책에
    `aws:SourceAccount`·`aws:SourceArn` 조건을 **권고**한다([공식](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs-iam-role.html)).
    v1.0.0은 **공식 최소 신뢰 정책만** 구현했다 — 조건을 넣으려면 `data.aws_caller_identity`·
    `data.aws_partition`·`data.aws_region` 3개를 추가(각각 D10 게이트 필요)해야 하고, ARN 조건이
@@ -719,8 +719,13 @@ minimal(`examples/vpc`)로 배포했다면 위 1·2·3은 판정되지 않았다
    🔬 **수용 기준 = 실계정 로그 도착 재확인**이고, 그 판정은 `iac-reference-infra`가 `?ref=vpc-v1.1.0`으로
    올려 apply한 뒤 `aws logs get-log-events`로 한다(위 §3의 배달 상태를 근거로). `tofu test`는 조건의
    **존재**만 잠근다(`plan.tftest.hcl` 신규 run) — **조건이 배달을 막지 않는지**는 mock으로 증명 불가하다.
-   ⚠️ `apply` 성공은 증거가 아니다 — 이 실패 모드의 정의가 "조용히 실패"다. **소비 repo 판정 전까지
-   이 항목은 "구현됨·미검증"이다.**
+   ⚠️ `apply` 성공은 증거가 아니다 — 이 실패 모드의 정의가 "조용히 실패"다.
+   ✅ **판정(2026-07-31)**: `iac-reference-infra` PR #8 merge → apply `0 added, 1 changed, 0 destroyed`
+   (IAM 신뢰 정책 **in-place**, replace/destroy 0). apply 완료 시각 이후로 **로그 배달이 계속됐다** —
+   `aws logs filter-log-events --start-time <apply epoch ms>`가 apply 이후 타임스탬프의 `ACCEPT OK`
+   레코드를 돌려줬다(읽힌다 = CloudWatch 배달 성공 = 서비스가 **새 조건 하에서 role assume 성공**).
+   `describe-flow-logs`의 `DeliverLogsStatus=SUCCESS`도 일치. 조용한 실패였다면 apply 이후 레코드가
+   비어야 했다. **음성 근거를 확보한 양성 판정**이다.
 8. ~~**`aws_flow_log` Name 태그 약어 부재**~~ ✅ **해소**(2026-07-30): 카탈로그에 `fl`을 신규 등재하고
    `Name = fl-<mid>-<purpose>`를 부착했다(§1.3). AWS 실제 리소스 ID 접두사(`fl-`)를 따랐다.
    ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**라 재사용 불가.

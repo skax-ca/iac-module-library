@@ -6,7 +6,7 @@
 ## Purpose
 🗄️ **TFC 시절 잔재 — 보관 전용. 이 repo의 규칙도, 소비 규약의 SSOT도 아니다.**
 
-**소비 규약의 SSOT는 `../design/50-reference-consumer-repo.md`(D-CONSUME)다.** D20~D29가
+**소비 규약의 SSOT는 `../design/50-reference-consumer-repo.md`(D-CONSUME)다.** D20~D30가
 모듈 소싱 인증·backend 규약·OIDC 체인·plan artifact를 소유한다. 이 디렉토리가 아니다.
 
 여기 문서는 `terraform-enterprise-poc` @ `76285f7`에서 온 **TFC 전제**다. 이 repo는 모듈만 소유하고

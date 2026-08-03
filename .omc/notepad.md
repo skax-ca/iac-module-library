@@ -274,6 +274,32 @@ tflint 0 · trivy 0 · lock `registry.opentofu.org`.
 **D-ADDON-VERSION-PIN 위반**이다. 지금 `addons.tf`의 `addon_version_pins`는 **전부 null**이며
 그 자리에 ⏸ 주석이 있다. **코드는 main에 있으나 릴리스는 안 됐다** — 이 상태를 "EKS 완료"로 읽지 말 것.
 
+#### 🔁 릴리스 때마다 할 일 — **예제의 소싱 태그 갱신** (2026-08-03 실제로 놓쳤다)
+
+PR [#7](https://github.com/skax-ca/iac-module-library/pull/7)(`4bb9e8c`). `examples/vpc`가 소비 안내로 **`?ref=vpc-v1.0.0`** 을 적고 있었다 —
+그 사이 **v1.1.0은 보안 수정**(Flow Logs confused deputy)이었다. 고객사가 복사하면 방어가 빠진 채로도
+**`apply`는 성공한다** = D13이 지적한 *"apply가 성공하기 때문에 굳는다"* 와 **같은 실패 구조**.
+
+- 🔑 **태그를 발행하면 예제의 소싱 주석·비교표도 같이 올린다.** 숫자만 올리면 다음 릴리스에 또 낡으므로
+  **확인 방법**(`git tag -l 'vpc-v*'`)을 문서에 함께 적어 뒀다.
+- 태그 문자열은 **모듈당 한 곳**에만 둔다 — `vpc-enterprise`는 `examples/vpc/README.md`로 위임한다.
+- ⛔ **최신화하면 안 되는 것**: `design/50 §F2`(당시 clone 로그) · `design/10 §764`(v1.1.0 판정 경로) —
+  안내가 아니라 **사실 기록**이다. 형식 예시 4곳(`README`·`CLAUDE.md`·`modules/AGENTS.md`·`02 §`)은
+  `<org>` 플레이스홀더라 템플릿임이 명확해 **의도적으로 제외**했다(사용자 판단).
+- ⚠️ **`vpc-v1.2.0` 태그가 가리키는 트리에는 이 수정이 없다**(태그 발행 후 고쳤다). 발행된 태그는
+  옮기지 않는다 — 소비 경로는 `//modules/vpc`라 무영향이고, 움직이는 태그가 훨씬 나쁘다.
+
+#### ❓ 확인 완료 — **eks 예제의 `module.vpc.*` 직접 참조는 정상이다** (바꾸지 말 것)
+
+`examples/eks-cluster*/main.tf`가 `module.vpc.subnet_ids_by_group["node-uniq"]`를 쓰는 것은
+D13 이전 방식이 남은 게 **아니다**. `01 §4` self-contained 요건상 예제는 같은 루트에서 VPC를 만든다:
+- 같은 apply에서 만드는 서브넷을 `data.aws_subnets`로 읽으면 **plan 시점에 빈 결과**다
+- `depends_on`을 붙이면 read가 apply로 밀려 **unknown이 EKS 전체로 번진다** → 예제가 보여줄 형상이 사라짐
+
+소비 프로젝트용 태그 조회 경로는 **README 비교표 2종 + `design/20 §2.5-1`** 이 담당한다.
+🔑 이 repo는 **코드로 못 보여주는 것을 README 비교표로 보상**하는 구조다 — "예제를 실사용에 맞추자"는
+제안이 또 나오면 여기를 먼저 읽는다.
+
 #### ⏭️ 다음 = **Task 20.1(d) → 20.8** (AWS 계정 확보가 선행 조건)
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다

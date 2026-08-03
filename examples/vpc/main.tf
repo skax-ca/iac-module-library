@@ -5,7 +5,11 @@
 #
 # ⚠️ 소싱은 **상대경로**다. 이 예제는 현재 코드를 검증해야 하기 때문이다.
 #    소비 프로젝트는 git tag로 소싱한다(CLAUDE.md) — 두 방식을 혼동하지 않는다:
-#      source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"
+#      source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v1.2.0"
+#
+#    ⚠️ **핀은 현행 릴리스로 건다.** 여기 적힌 태그는 복사 시작점이므로 낡으면 그대로 굳는다 —
+#    v1.1.0은 Flow Logs confused deputy 방어(보안)라 v1.0.0을 물려주면 그 방어가 빠진 채
+#    apply가 성공한다. 현행 태그는 `git tag -l 'vpc-v*'`로 확인한다.
 
 module "vpc" {
   source = "../../modules/vpc"

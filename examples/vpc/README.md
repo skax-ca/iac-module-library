@@ -23,7 +23,12 @@ tofu -chdir=examples/vpc validate
 
 | | 이 예제 | 소비 프로젝트(`<project>-infra`) |
 |---|---|---|
-| 소싱 | 상대경로 `../../modules/vpc` | git tag `?ref=vpc-v1.0.0` |
+| 소싱 | 상대경로 `../../modules/vpc` | git tag `?ref=vpc-v1.2.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 자격증명 | 없음(plan/apply 안 함) | GitHub OIDC → 입구 Role → 실행 Role |
 | 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
+
+⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'vpc-v*'`로 확인한다. 이 표의 태그가
+낡은 채 복사되면 그대로 굳는데, 실패 방식이 나쁘다: `vpc-v1.1.0`은 Flow Logs confused deputy
+방어(보안 수정)라 **그것이 빠진 채로도 `apply`는 성공한다.** 릴리스 이력은 각 태그의 annotated
+메시지(`git show vpc-v1.2.0`)와 [`docs/design/10-vpc-module.md §3`](../../docs/design/10-vpc-module.md)에 있다.

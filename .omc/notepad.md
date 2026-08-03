@@ -180,14 +180,40 @@ PR [#3](https://github.com/skax-ca/iac-module-library/pull/3)(`57912fb` 구현) 
   🔑 이 실패 모드의 정의가 "**조용히 실패**"라 `apply` 성공은 증거가 아니었다 — 이 구분을 유지할 것.
 - ⛔ 기각안: opt-in 변수로 두는 안 — 보안 기본값을 끄는 스위치를 계약에 남기게 된다.
 
-#### ⏭️ 다음 = **EKS 모듈** (2026-08-03 세션 착수)
+#### ✅ EKS 설계 개정 완료 (2026-08-03) — `design/20` ✅ · `design/21` 신설
 
-`docs/design/20-eks-module.md`가 `docs/README.md` 상태표에서 ⚠️ **미개정** — PoC/TFC 전제가 남아
-있어 확정 설계로 인용할 수 없다. CLAUDE.md의 **설계 → 검토/승인 → 구현** 순서상 **개정이 선행**이다.
-- 이 모듈은 얇은 모듈이 아니라 **커뮤니티 모듈 wrapper(facade)** 다(`01 §` 계층형 하이브리드).
-  upstream 변수/출력은 `mcp__opentofu__get-module-details`로 실물 확인 후 쓴다 — 추정 금지.
-- VPC에서 확립된 것을 승계한다: D10 kill switch 게이트 · `naming` 객체 · `Name` 태그 assertion ·
-  `required_version` 하한은 **실제로 쓰는 기능을 근거로만**(`02 §2` 하한 대장에 등재).
+커밋 `7183f7f`(브랜치 `docs/eks-design-revision`). `docs/README.md` 상태표: **20 ✅**(= `eks-cluster-v1.0.0`
+계약 SSOT) · **21 ⚠️ 미결정**.
+
+- **21은 "미개정"이 아니라 "미결정"이다** — 구 20 §2.7·§2.8(ArgoCD seam, 446줄)을 분리했다.
+  `01 §3.3`이 *"이 repo는 아직 이 선택을 승계하지 않았다"* 고 명시한 **재결정 대상**이고,
+  구현체가 `live/cicd/gitops-hub`라 `03 §4`상 이 repo 소유가 아니다.
+  ⚠️ **절 번호 §2.7·§2.8을 이관본에서 그대로 유지**했다 — 30·40이 "20 §2.7"로 20곳 넘게 참조하는데
+  둘 다 미개정이라 번호를 바꾸면 링크가 전부 끊긴다. 30·40 개정 시 `21 §2.7`로 함께 정리한다.
+- ⛔ **승계 시 걷어낸 치명 결함**: PoC의 `required_version >= 1.14.0`은 **Terraform 버전**이었다
+  (OpenTofu 최신 1.12.x) — 그대로 두면 **어떤 OpenTofu로도 init 불가**. 승계 문서에서 버전 문자열은
+  항상 어느 엔진의 것인지 확인한다.
+- **신설 결정**: **D-EKS-ENABLED**(kill switch, VPC D10 대응) · **D-EKS-PROTECT**(삭제 보호, VPC D12 대응).
+  ⚠️ **D-EKS-PROTECT는 아직 미확정이다** — VPC는 `aws_vpc`를 직접 선언해 `lifecycle`을 붙였지만
+  **EKS 클러스터는 upstream 모듈 내부 리소스**라 wrapper가 `lifecycle`을 못 붙인다. 구현 경로는
+  **Task 20.1(e)**에서 확정하며, 그 결과가 `required_version` 하한(`>= 1.12.0` vs `>= 1.9.0`)을 좌우한다.
+  → **`02 §2` 하한 대장 등재는 그때** 한다(지금 등재하면 근거 없는 상향이 된다).
+- **열린 항목 2건을 계약으로 승격**: Karpenter **SG** discovery 태그(PoC의 실제 사고 — subnet만 달고
+  node SG를 빠뜨려 프로비저닝 실패) · 컨트롤플레인 로깅(`enabled_log_types`).
+  🔑 재사용 자산에서 **"보류"는 곧 모든 고객사의 기본값**이 된다 — PoC의 보류를 그대로 승계하지 않는다.
+
+**실측 확인(2026-08-03)**: `terraform-aws-modules/eks` OpenTofu registry 최신 **21.24.1**(PoC 핀 21.24.0,
+메이저 churn 없음) · `eks-pod-identity` **2.8.2**(PoC 2.8.1) · EKS k8s standard support **1.36/1.35/1.34/1.33**
+(N-1 기본값 `1.35` 유효) · 약어 `eks`·`eksn`·`eksf`·`iamr`·`vpce` 전부 등재됨(신규 불필요).
+
+#### ⏭️ 다음 = **EKS 모듈 구현** — Task 20.1(리스크 게이트)부터
+
+⚠️ **Task 20.1은 AWS 계정 접근이 필요한 항목(d)을 포함**한다(`describe-addon-versions`로 baseline
+핀 소싱). 계정 없이는 **핀을 확정할 수 없고, 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반**이라
+릴리스할 수 없다 — 착수 전에 이 제약을 먼저 판단한다.
+- upstream 변수/출력은 `mcp__opentofu__get-module-details`로 실물 확인(추정 금지).
+- ⚠️ 커밋 단위: tflint `terraform_unused_declarations` 때문에 20.2~20.4는 **한 커밋**이 될 공산이 크다
+  (VPC 10.1~10.3이 `65d2283` 한 커밋이 된 것과 같은 이유).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 
@@ -234,8 +260,13 @@ PR [#3](https://github.com/skax-ca/iac-module-library/pull/3)(`57912fb` 구현) 
 ### 문서 인용 규칙 (`docs/README.md` 상태표가 판정 근거)
 
 - `docs/architecture/*` ✅ (**04-engine-decision.md 신규**) · **`docs/design/10-vpc-module.md` ✅ (2026-07-29 개정)**
+- **`docs/design/20-eks-module.md` ✅ (2026-08-03 개정 = `eks-cluster-v1.0.0` 계약)**
 - **`docs/design/50-reference-consumer-repo.md` ✅ (2026-07-30 신규 = D-CONSUME)** — 소비 경로 규약의 SSOT
-- `docs/design/{20,30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
+- `docs/design/{30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
+- `docs/design/21-gitops-bootstrap-seam.md` ⚠️ **미결정**(미개정과 다르다) — 판단 자체가 이 repo 것이 아니다.
+  ✅ 살아 있는 것은 **AWS 서비스 동작 실측**(auto-managed Access Entry의 `kubernetesGroups`가 비어 custom
+  ClusterRole bind 불가 · `AmazonEKSArgoCDClusterPolicy`가 cluster-wide read를 주지 않음 · IdC 계정
+  인스턴스는 다중 계정 미지원 · RETAIN 유일값). ⚠️ 무효는 **TFC 러너 전제의 도달성 논증**(V1~V3).
 - `docs/reference/poc-findings.md`는 **외부 스냅샷** — 참조만, 복사·갱신 금지
 - `docs/consumer/*` 🗄️ **TFC 시절 잔재 — 보관 전용**(D26-1, 2026-07-30 사용자 결정).
   ⛔ **확정 규약으로 인용 금지 · 개정하지 않음 · 이관하지 않음 · 삭제하지 않음** — 네 가지 다 결정됐다.

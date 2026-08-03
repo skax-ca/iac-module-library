@@ -34,12 +34,17 @@
   - 실측(1.12.5): `vpc_enabled=false` + `deletion_protection=true` → **plan 차단**. `false`면 통과.
   - ⚠️ **교차변수 validation은 `validate`가 아니라 `plan`에서 평가된다**(실측). `validate`는 Success로
     통과했다 → **`*.tftest.hcl`이 유일한 검출 지점**. `examples`의 `validate`로는 안 잡힌다.
-- **완료**: §6-0 골격 + deepinit · §6-1 설계 승계 · §6-2 1단계 VPC 설계 개정 · MCP 설정 ·
-  **엔진 결정 ADR 04**.
+- **완료**: §6-0 골격 + deepinit · §6-1 설계 승계 · §6-2 VPC 설계·구현·릴리스(**`vpc-v1.1.0`**) ·
+  MCP 설정 · **엔진 결정 ADR 04** · 모듈 CI(`verify.yml` 게이트 6개) · D-CONSUME(`design/50`) Phase 5.
   커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79`
   → `30ea306`(중립안 — **정정됨**) → `86cc91a`(D-ENGINE 확정) → `e89742d`(D12) → `1bd6641`(MCP 교체)
 
-### 🔴 세션 시작 시 가장 먼저 볼 것 (2026-07-29 종료 시점)
+### 🔴 세션 시작 시 가장 먼저 볼 것 (최종 갱신 2026-08-03)
+
+0. ⚠️ **이 파일이 stale해진 전례가 두 번 있다.** ① 2026-07-30 크로스-repo(소비 repo Phase 진행을
+   여기 중복 기록) ② 2026-07-31 **같은 repo 안에서** — 열린 항목 7 구현·종결·6/6 판정 3커밋이
+   PR 브랜치로 나갔는데 notepad 갱신이 거기 실리지 않아, 8/3 세션 시작 시 **이미 끝난 일을 다음
+   태스크로 안내**했다. 🔑 **feature 브랜치에서 작업하면 notepad 갱신도 그 브랜치에 실어라.**
 
 1. ✅ **`modules/vpc/` 커밋 완료**(2026-07-30) — `versions`·`variables`·`main`·`flow-logs`·`outputs.tf`.
    Task 10.1~10.4 종료. 게이트 전부 통과(fmt·validate·tflint·trivy 0건). **재작성하지 말 것.**
@@ -49,7 +54,7 @@
 3. ✅ **원격 repo 생성·push 완료**(2026-07-29): `skax-ca/iac-module-library`(private).
    `gh` 토큰에 **`workflow` 스코프 추가됨**(`.github/workflows/` 파일 push에 필수).
 
-### ✅ §6-2 2단계 완료 — `vpc-v1.0.0` 릴리스됨 (2026-07-30)
+### ✅ §6-2 2단계 완료 — `vpc-v1.0.0` 릴리스됨 (2026-07-30) → **현행 `vpc-v1.1.0`**(07-31)
 
 Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측은 `docs/design/10-vpc-module.md` **§3 릴리스 기록**에 있다.
 
@@ -62,9 +67,10 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 | 10.7 | `27cd26e` + **태그 `vpc-v1.0.0`** |
 
 - 검증 기준: **OpenTofu 1.12.5 · aws 6.57.1**(3개 루트 lock 정렬 완료).
-- ⚠️ **v1.0.0의 증거는 전부 `plan` 수준이다.** apply 미검증 6항목이 설계 §3에 표로 있다 —
-  secondary CIDR `depends_on` 순서 · primary/secondary 조합 제약 · CIDR 겹침 · Flow Logs 배달 ·
-  `prevent_destroy` 실동작 · **`git tag` 소싱 경로**. 소비 repo 첫 apply에서 확인한다.
+- ✅ **apply 미검증 6항목은 2026-07-31에 전부 판정됐다**(아래 Phase 5 절 참조). v1.0.0 시점의
+  *"증거가 전부 plan 수준"* 서술은 **더 이상 유효하지 않다** — 판정표 SSOT는 `design/10` §3이고,
+  **✅가 찍힌 것만 실증했다고 쓴다**(특히 `prevent_destroy`는 validation 가드만 판정).
+- **현재 릴리스는 `vpc-v1.1.0`**(2026-07-31, Flow Logs confused deputy 방어). 소비 시 `?ref=vpc-v1.1.0`.
 - **`examples/vpc-enterprise`의 목적이 재정의됐다**: 검증 자산이 아니라 **고객사 착수 템플릿**이다
   (설계가 든 근거는 10.6 테스트가 이미 커버). `examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**.
 
@@ -146,36 +152,42 @@ PR [#1](https://github.com/skax-ca/iac-module-library/pull/1)(`dec37a9`) · [#2]
 
 - **🆕 D30 신설** — backend도 실행 Role을 체인 assume한다. D-CONSUME 범위가 **D20~D30**.
 - **F16~F19** 추가 · **D27-2에 "승인 게이트는 GitHub Team 이상 요구" 전제** 등재.
-- ⚠️ **아래 "첫 apply로 6번뿐" 서술은 폐기됐다** — 판정 범위는 **형상 의존**이다(50 §4).
-  소비 repo가 enterprise를 택해 **6항목 중 5개가 판정**됐다(`design/10` §3 참조).
-  ⏸ 남은 것은 **`prevent_destroy`(5번)** 하나이고, 파기를 시도해야 판정된다.
+- ✅ **apply 미검증 6항목 전부 판정 완료**(`694708f` — 판정표 SSOT는 `design/10` §3).
+  5개는 소비 repo가 enterprise 형상을 택한 첫 apply로 판정됐고(판정 범위는 **형상 의존** — 50 §4),
+  마지막 `prevent_destroy`(5번)는 별도 검증 PR로 닫았다.
+  ⚠️ **판정된 것은 D12의 교차변수 validation 가드**다. `prevent_destroy` **lifecycle 메타 인자**
+  (`destroy`·replace 차단)는 라이브 destroy-plan을 **실행하지 않았다**(자산 유지 결정, deploy.yml에
+  destroy 경로 없음). 두 가드를 뭉뚱그려 "파기 검증 완료"라고 쓰지 말 것.
 
-#### ⏭️ 다음 = 열린 항목 7 (Flow Logs confused deputy) — **차단 해소됨. 이 repo 작업이다**
+#### ✅ 열린 항목 7 (Flow Logs confused deputy) 종결 — **`vpc-v1.1.0`** (2026-07-31)
 
-`modules/vpc/flow-logs.tf:40-51`의 신뢰 정책에 **`Condition`이 없다.**
-`vpc-flow-logs.amazonaws.com`은 **전 세계 공용 서비스 principal**이라, 남이 자기 flow log의
-`deliver_logs_permission_arn`에 우리 Role ARN을 넣으면 **우리 로그 그룹에 남의 트래픽이 쌓이고
-CloudWatch ingestion 비용이 우리에게 청구**된다(피해 방향이 직관과 반대다).
+PR [#3](https://github.com/skax-ca/iac-module-library/pull/3)(`57912fb` 구현) ·
+[#4](https://github.com/skax-ca/iac-module-library/pull/4)(`04910ce` 문서 종결) · 태그 **`vpc-v1.1.0`**(`4b9bacd`, 원격 push 완료).
 
-**확정 방침** (소비 repo `.omc/notepad.md` 「6-3」에 전문):
-```json
-"Condition": {
-  "StringEquals": { "aws:SourceAccount": "<account>" },
-  "ArnLike": { "aws:SourceArn": "arn:<partition>:ec2:<region>:<account>:vpc-flow-log/*" }
-}
-```
-- ⚠️ **와일드카드가 불가피**하다 — flow log ID를 넣으면 Role ↔ flow log **순환 참조**다.
-  AWS 공식도 인정한다(*"replace that portion of the ARN with a wildcard"*).
-- `data.aws_caller_identity`·`aws_partition`·`aws_region` 3개 추가.
-  **각각 D10 게이트**(`count = local.enabled ? 1 : 0`) — 선례는 `main.tf:90`의 `aws_availability_zones`.
-- 버전 **`vpc-v1.1.0`**(마이너 — 변수 추가는 없으나 **동작 변경**이고 잘못 걸면 배달이 멈춘다).
-- ⛔ 기각: opt-in 변수로 두는 안 — 보안 기본값을 끄는 스위치를 계약에 남기게 된다.
-- ✅ **수용 기준은 `tofu test` 통과가 아니라 실계정 로그 도착 재확인**이다.
-  이 실패 모드의 정의가 "**조용히 실패**"라 `apply` 성공은 증거가 아니다.
+`vpc-flow-logs.amazonaws.com`은 전 세계 공용 서비스 principal이라 v1.0.0의 조건 없는 신뢰 정책은
+남이 우리 Role ARN을 자기 flow log에 걸면 **우리 로그 그룹에 남의 트래픽 + 우리에게 ingestion 청구**
+(피해 방향이 직관과 반대)였다. `aws:SourceAccount` + `aws:SourceArn`(`ArnLike`) 조건을 추가했다.
 
-#### 그 밖에 독립 착수 가능
+- **계약 불변 + 동작 변경 → 마이너**. 변수 추가 없음. `data.aws_caller_identity`·`aws_partition`·
+  `aws_region` 3개를 D10 게이트(`flow_logs_enabled`)와 함께 추가했다.
+- ⚠️ **`aws:SourceArn`의 flow log ID 구간은 와일드카드가 불가피**하다 — ID를 넣으면 Role ↔ flow log
+  순환 참조로 plan이 실패한다. AWS 공식이 허용한다. 계정·리전·서비스 구간이 남아 차단은 성립한다.
+- ⚠️ **provider 6.x에서 `aws_region`의 `name`·`id`는 deprecated** — `region` 속성을 쓴다(실측).
+- ✅ **판정 = 실계정 로그 도착 재확인**(`tofu test` 통과가 아니었다). 소비 repo PR #8 merge → apply
+  `0 added, 1 changed, 0 destroyed`(IAM 신뢰 정책 **in-place**) 후
+  `aws logs filter-log-events --start-time <apply epoch ms>`가 apply **이후** 타임스탬프의 `ACCEPT OK`를
+  돌려줬다 = 서비스가 새 조건 하에서 assume 성공. **음성 근거를 확보한 양성 판정**이다.
+  🔑 이 실패 모드의 정의가 "**조용히 실패**"라 `apply` 성공은 증거가 아니었다 — 이 구분을 유지할 것.
+- ⛔ 기각안: opt-in 변수로 두는 안 — 보안 기본값을 끄는 스위치를 계약에 남기게 된다.
 
-- **EKS 모듈**(`docs/design/20` ⚠️ 미개정 → 개정 필요).
+#### ⏭️ 다음 = **EKS 모듈** (2026-08-03 세션 착수)
+
+`docs/design/20-eks-module.md`가 `docs/README.md` 상태표에서 ⚠️ **미개정** — PoC/TFC 전제가 남아
+있어 확정 설계로 인용할 수 없다. CLAUDE.md의 **설계 → 검토/승인 → 구현** 순서상 **개정이 선행**이다.
+- 이 모듈은 얇은 모듈이 아니라 **커뮤니티 모듈 wrapper(facade)** 다(`01 §` 계층형 하이브리드).
+  upstream 변수/출력은 `mcp__opentofu__get-module-details`로 실물 확인 후 쓴다 — 추정 금지.
+- VPC에서 확립된 것을 승계한다: D10 kill switch 게이트 · `naming` 객체 · `Name` 태그 assertion ·
+  `required_version` 하한은 **실제로 쓰는 기능을 근거로만**(`02 §2` 하한 대장에 등재).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 
@@ -265,5 +277,8 @@ CloudWatch ingestion 비용이 우리에게 청구**된다(피해 방향이 직�
 - CI `init`이 모듈 repo **전체를 clone**한다(실측 F2). 태그·히스토리 증가 시 `?depth=1` 검토
 - plan artifact 암호화 — `retention-days: 1`은 완화이지 해결이 아니다(50 §5)
 - 관리형 ArgoCD 채택 여부 재결정(`docs/architecture/01-module-strategy.md` §3.3)
-- VPC 설계 열린 항목 6건은 `docs/design/10-vpc-module.md` 말미 참조
-  (TGW 리소스 · prefix list 소유권 · IPAM · Flow Logs 대상 확장 · private NAT · IAM policy 약어)
+- VPC 설계 **열린 항목 6건**은 `docs/design/10-vpc-module.md` 말미 참조 —
+  **1** TGW attachment · **2** prefix list 소유권 · **3** IPAM 연계 · **4** Flow Logs 대상 확장(S3/Firehose) ·
+  **5** private NAT 옵션 · **9** per-AZ NAT 개수 기준(호스트 그룹이 넓으면 미사용 NAT가 AZ당 ~$43/월).
+  ✅ 해소됨: **6**(IAM inline 약어 — 부모 이름 상속 규약) · **7**(confused deputy — vpc-v1.1.0) ·
+  **8**(`fl` 약어 등재). ⚠️ 남은 6건은 전부 **수요 발생 시** 착수 성격이라 지금 차단 요인이 아니다.

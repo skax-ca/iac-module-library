@@ -13,7 +13,7 @@
 >   [`../reference/poc-findings.md`](../reference/poc-findings.md). 설계 결정은 **판단 내용만 승계하고
 >   `D-*` ID를 보존**한다(PoC 문서와의 상호 참조 유지).
 > - **재사용 요건 5종 적용**(`01 §4`) — **D-EKS-ENABLED**(kill switch)·**D-EKS-PROTECT**(삭제 보호) 신설,
->   파라미터화, 환경 프로파일, 예제 2종, 출력 계약 안정성.
+>   파라미터화, 환경 프로파일, **예제**(~~2종~~ → 1종, 2026-08-03 Task 20.6), 출력 계약 안정성.
 > - **Task 20.1(a)(b)(c)(e) 실물 확인 반영**(2026-08-03, 같은 날 2차) — upstream 소스 직독으로
 >   **D-EKS-PROTECT를 네이티브 `deletion_protection`으로 확정**(→ 하한 `>= 1.12.0`에서 **`>= 1.9.0`**으로
 >   하향) · **D-EKS-ENABLED를 upstream `create` 토글에 위임** · `eks-pod-identity` 핀 `2.8.2` ·
@@ -149,7 +149,7 @@ node 그룹 `extra_tags`에 `karpenter.sh/discovery=<클러스터명>`으로 넣
 > 여기서 실제로 쓰인다.
 >
 > ⚠️ 대신 **소비자가 두 곳에 같은 값을 넣는다**는 부담이 남는다. 이를 줄이려면 소비자 루트에서
-> `local.cluster_name`을 한 번 정의해 두 모듈에 넘긴다 — 예제(`examples/eks-cluster/`)가 이 패턴을 보인다.
+> `local.cluster_name`을 한 번 정의해 두 모듈에 넘긴다 — 예제(`examples/eks-cluster-enterprise/`)가 이 패턴을 보인다.
 
 ### 2.5-1 소비 프로젝트에서 VPC를 참조하는 법 (2026-08-03 신설)
 
@@ -699,17 +699,21 @@ output "external_dns_iam_role_arn" {}
 `karpenter_discovery_tag = { "karpenter.sh/discovery" = local.cluster_name }`.
 - Commit: `feat(eks-cluster): 출력 계약`
 
-### Task 20.6: 예제 2종 (`examples/`)
+### Task 20.6: 예제 (~~2종~~ → **1종**, 2026-08-03)
 
-`01 §4` "모듈은 예제 없이 릴리스하지 않는다". VPC의 선례를 따른다:
-- **`examples/eks-cluster/`** — 최소 형상. 클러스터 + 시스템 NG 1개 + baseline addon 상속.
-- **`examples/eks-cluster-enterprise/`** — **고객사 착수 템플릿**(검증 자산이 아니다 — VPC에서
-  `examples/vpc-enterprise`의 목적이 재정의된 것과 같은 위치). custom networking + Karpenter +
-  컨트롤러 IAM opt-in + 로깅 활성.
-- ⚠️ 두 예제 모두 **VPC 모듈과의 결선**을 보여야 한다 — 특히 `local.cluster_name`을 한 번 정의해
+`01 §4` "모듈은 예제 없이 릴리스하지 않는다" — 요건은 **예제의 존재**이지 개수가 아니다.
+- **`examples/eks-cluster-enterprise/`** — **고객사 착수 템플릿**(검증 자산이 아니다).
+  custom networking + Karpenter + 컨트롤러 IAM opt-in + 로깅 활성.
+- ⛔ **`examples/eks-cluster/`(최소 형상)는 2026-08-03에 폐기됐다** — VPC와 같은 판단이다
+  (`design/10 §1.5(a)` 상자). 모듈당 예제 2벌의 유지 비용이 minimal이 주는 값보다 컸고,
+  계약 판정은 애초에 Task 20.7의 `tofu test`가 내리고 있었다. **다시 늘리지 않는다.**
+- ⚠️ 예제는 **VPC 모듈과의 결선**을 보여야 한다 — 특히 `local.cluster_name`을 한 번 정의해
   VPC의 `eks_cluster_name`과 EKS 모듈에 **같이 넘기는** 패턴(§2.5).
+- ⚠️ 예제는 self-contained라 VPC를 같은 루트에서 만든다. **소비 프로젝트는 별도 루트**이며
+  그 차이를 README **"소비 프로젝트와 다른 점" 비교표**가 담당한다(§2.5-1). 이 표는 필수다 —
+  코드로 보일 수 없는 것을 문서가 보상하는 지점이다.
 - `aws ~> 6.0`, `.terraform.lock.hcl` 커밋(⚠️ `registry.opentofu.org` 확인).
-- Commit: `feat(examples): eks-cluster 예제 2종`
+- Commit: `feat(examples): eks-cluster 착수 템플릿`
 
 ### Task 20.7: `tests/plan.tftest.hcl`
 

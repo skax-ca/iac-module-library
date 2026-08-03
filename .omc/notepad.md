@@ -54,7 +54,7 @@
 3. ✅ **원격 repo 생성·push 완료**(2026-07-29): `skax-ca/iac-module-library`(private).
    `gh` 토큰에 **`workflow` 스코프 추가됨**(`.github/workflows/` 파일 push에 필수).
 
-### ✅ §6-2 2단계 완료 — `vpc-v1.0.0` 릴리스됨 (2026-07-30) → **현행 `vpc-v1.1.0`**(07-31)
+### ✅ §6-2 2단계 완료 — `vpc-v1.0.0` 릴리스됨 (2026-07-30) → **현행 `vpc-v1.2.0`**(08-03)
 
 Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측은 `docs/design/10-vpc-module.md` **§3 릴리스 기록**에 있다.
 
@@ -70,7 +70,8 @@ Task 10.1~10.7 **전부 종료**. 태그가 원격에 있다. 게이트 실측�
 - ✅ **apply 미검증 6항목은 2026-07-31에 전부 판정됐다**(아래 Phase 5 절 참조). v1.0.0 시점의
   *"증거가 전부 plan 수준"* 서술은 **더 이상 유효하지 않다** — 판정표 SSOT는 `design/10` §3이고,
   **✅가 찍힌 것만 실증했다고 쓴다**(특히 `prevent_destroy`는 validation 가드만 판정).
-- **현재 릴리스는 `vpc-v1.1.0`**(2026-07-31, Flow Logs confused deputy 방어). 소비 시 `?ref=vpc-v1.1.0`.
+- **현재 릴리스는 `vpc-v1.2.0`**(2026-08-03, D13 `SubnetGroup` 태그). 소비 시 `?ref=vpc-v1.2.0`.
+  직전 `vpc-v1.1.0`(07-31, Flow Logs confused deputy 방어)도 유효하다 — 1.2.0은 태그 추가뿐이라 재생성 없음.
 - **`examples/vpc-enterprise`의 목적이 재정의됐다**: 검증 자산이 아니라 **고객사 착수 템플릿**이다
   (설계가 든 근거는 10.6 테스트가 이미 커버). `examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**.
 
@@ -223,14 +224,16 @@ upstream 소스 직독(`v21.24.1`·`v2.8.2`)으로 확인. **설계를 바꾼 �
 ⚠️ **함정**: upstream 출력 fallback이 불일치 — 대부분 `try(…,null)`인데 **`cluster_name`·`cluster_id`만 `""`**.
 facade가 `null`로 정규화한다(안 하면 upstream 구현 디테일이 우리 계약으로 샌다).
 
-#### ✅ Task 20.2~20.7 완료 (2026-08-03) — ⏸ **브랜치 미머지**
+#### ✅ Task 20.2~20.7 완료 (2026-08-03) — ✅ **main 머지됨** (PR #6, `069a87b`)
 
-브랜치 **`feat/eks-cluster-module`** 커밋 4개(main에 아직 없다):
+PR [#6](https://github.com/skax-ca/iac-module-library/pull/6) 머지 커밋 `069a87b`. 브랜치 삭제됨. 커밋 4개:
 `9aa4cb5`(20.2~20.4 모듈 본체) · `52ee220`(20.5 출력 + 20.6 예제 2종) ·
 `bea58aa`(20.7 tests 16 run + 설계 §2.5 정정) · `4f44dd8`(**vpc D13** + design/20 §2.5-1 신설).
 
 **게이트 실측**: vpc test **13 passed** · eks-cluster test **16 passed** · examples 4개 validate ·
 tflint 0 · trivy 0 · lock `registry.opentofu.org`.
+✅ **CI 재확인**: PR run [`30786603865`](https://github.com/skax-ca/iac-module-library/actions/runs/30786603865) 6/6 pass ·
+머지 후 main run [`30786772334`](https://github.com/skax-ca/iac-module-library/actions/runs/30786772334) 6/6 pass.
 
 **🔑 구현이 발견한 것 (설계에 없던 것)**
 1. **테스트가 실제 결함을 잡았다** — upstream이 `iam_role_use_name_prefix` 기본 true로
@@ -247,7 +250,7 @@ tflint 0 · trivy 0 · lock `registry.opentofu.org`.
 4. **`effective_addon_names` 출력 신설** — facade는 계산 결과를 하위 모듈 **입력**으로 넘겨
    `tofu test`가 볼 수 없다. addon merge를 config-time에 검증할 유일한 관측점.
 
-**🆕 D13 (vpc 마이너 — `vpc-v1.2.0` 대상, 태그 미발행)**: `aws_subnet`에 **`SubnetGroup = <그룹 키>`**.
+**🆕 D13 (vpc 마이너 — ✅ **`vpc-v1.2.0` 발행 완료**, `069a87b`)**: `aws_subnet`에 **`SubnetGroup = <그룹 키>`**.
 소비 프로젝트의 eks 루트가 `data.aws_subnets`로 그룹 조회를 하려면 v1.1.0까지는 **`Name` 와일드카드
 문자열 매칭**뿐이었다. 실패 방식이 나쁘다 — 규약이 바뀌면 에러가 아니라 **빈 결과**다.
 🔑 `03 §3.1`이 태그 조회를 2순위로 둔 것은 *"이름이 아니라 태그로 조회하라"*인데 **그 태그를 우리가
@@ -257,14 +260,21 @@ tflint 0 · trivy 0 · lock `registry.opentofu.org`.
 - 예제 README 2종에 *"예제가 VPC를 함께 만드는 것은 **예제라서**"*(01 §4 self-contained 요건)를 명시.
   ⚠️ 안 적으면 고객사가 두 루트를 합치고 **apply가 성공하기 때문에 아무도 지적하지 않은 채 굳는다.**
 
-#### ⏭️ 다음 = **PR 생성 → 머지 → 태그**
+#### ✅ 릴리스 — **`vpc-v1.2.0` 발행 완료 (2026-08-03)** · ⏸ `eks-cluster-v1.0.0` 대기
 
-⚠️ **이 브랜치에 모듈 둘이 섞여 있다** — 태그는 **각각** 나가야 한다:
-`vpc-v1.2.0`(D13, 지금 가능) · `eks-cluster-v1.0.0`(⛔ **AWS 계정 대기**).
+**현행 vpc 릴리스는 `vpc-v1.2.0`**(annotated tag → `069a87b`, 원격 push 완료). 소비 시 `?ref=vpc-v1.2.0`.
 
-⛔ **Task 20.8 릴리스 차단 = (d) addon 핀 소싱**. `aws eks describe-addon-versions`로 실측 버전을
-박아야 하고, 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반이다. 지금 `addons.tf`의
-`addon_version_pins`는 **전부 null**이며 그 자리에 ⏸ 주석이 있다.
+⚠️ **한 브랜치에 모듈 둘이 섞여 있었고, 태그는 각각 나간다** — 그래서 **`vpc-v1.2.0`이 가리키는
+트리에는 아직 릴리스되지 않은 `modules/eks-cluster`가 들어 있다.** 소비자는 `//modules/vpc`
+서브디렉터리만 소싱하므로 실해는 없지만, *"태그 = 그 컴포넌트의 릴리스 지점"* 이라는 의미는
+그만큼 흐려졌다(태그 메시지에 명시해 뒀다). 🔑 **다음부터는 컴포넌트별로 브랜치를 가른다.**
+
+⛔ **`eks-cluster-v1.0.0` 차단 = Task 20.1(d) addon 핀 소싱**(AWS 계정 대기).
+`aws eks describe-addon-versions`로 실측 버전을 박아야 하고, 핀 없는 baseline은
+**D-ADDON-VERSION-PIN 위반**이다. 지금 `addons.tf`의 `addon_version_pins`는 **전부 null**이며
+그 자리에 ⏸ 주석이 있다. **코드는 main에 있으나 릴리스는 안 됐다** — 이 상태를 "EKS 완료"로 읽지 말 것.
+
+#### ⏭️ 다음 = **Task 20.1(d) → 20.8** (AWS 계정 확보가 선행 조건)
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

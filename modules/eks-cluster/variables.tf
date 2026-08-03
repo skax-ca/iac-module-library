@@ -88,8 +88,10 @@ variable "kubernetes_version" {
     컨트롤플레인 k8s 마이너 버전. N-1 전략을 기본값으로 둔다.
     2026-08-03 기준 EKS standard support는 1.36 / 1.35 / 1.34 / 1.33 이고 최신이 1.36이다.
 
-    ⚠️ 이 값을 올릴 때는 addon baseline 핀(addons.tf)도 그 k8s 버전의 호환 버전으로 함께 갱신한다
-    (D-ADDON-VERSION-PIN). 핀이 뒤처지면 호환되지 않는 조합이 apply된다.
+    ⚠️ **cluster_addons로 addon 버전을 고정해 뒀다면 이 값을 올릴 때 그 버전들도 함께 갱신한다**
+    (D-ADDON-VERSION-PIN-1). addon 버전은 f(kubernetes_version, region)이라 k8s만 올리면
+    "그 버전 없음"으로 apply가 죽는다. 특히 kube-proxy는 정의상 k8s 마이너를 따라간다.
+    ⚠️ 버전을 안 고정했다면 upstream이 이 값에 맞는 AWS 기본 버전을 해석하므로 할 일이 없다.
   EOT
   type        = string
   default     = "1.35"

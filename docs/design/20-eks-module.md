@@ -106,9 +106,16 @@ VPC 설계 [`10-vpc-module.md` D9](10-vpc-module.md)의 A안(custom networking)�
 |------|-----|------|
 | 노드·컨트롤플레인 ENI 서브넷 | `subnet_ids_by_group["node-uniq"]` (unique 대역) | D9 — node-SNAT 소스, 온프레미스 방화벽 오픈 단위 |
 | Pod 서브넷 (ENIConfig) | `subnet_ids_by_group["pod-dup"]` (100.64.0.0/10 비라우팅 대역) | D9 — 비라우팅 대량 소모 대역 |
-| Pod ENI 보안그룹 | upstream `node_security_group_id` 재사용 | 노드와 동일 정책 — 별도 SG는 요구 발생 시 |
+| Pod ENI 보안그룹 | **ENIConfig에 지정하지 않는다**(primary ENI SG 상속) | 노드와 동일 정책 — 아래 정정 참조 |
 | SNAT | `AWS_VPC_K8S_CNI_EXTERNALSNAT=false`(기본) 유지 | Pod→온프레미스가 노드 uniq IP로 SNAT되는 D9 전제 |
 | max-pods 감소 대응 | `ENABLE_PREFIX_DELEGATION=true` | custom networking 시 primary ENI 미사용 보상 |
+
+> **⭐ 정정(2026-08-03, 구현이 발견) — Pod ENI SG를 ENIConfig에 지정하지 않는다.**
+> 원 서술은 *"upstream `node_security_group_id` 재사용"* 이었으나 **구현 불가**다:
+> `module.eks.node_security_group_id`를 같은 `module.eks`의 입력(`addons`)에 넣으면 **순환 참조**다.
+> → ENIConfig에서 `securityGroups`를 **생략**한다. 지정하지 않으면 vpc-cni가 **primary ENI의 SG를
+> 상속**하는데 그게 곧 노드 SG이므로, **원 설계의 의도가 생략으로 그대로 달성**된다.
+> 별도 Pod SG 요구가 생기면 그때 변수를 연다(계약 확장이므로 마이너).
 
 > ⚠️ **그룹 키(`node-uniq`·`pod-dup`)는 VPC 모듈이 강제하지 않는다** — `subnet_groups`의 키는 소비자가
 > 정한다(10 §1.3: *"권고하나 모듈이 강제하지는 않는다"*). 따라서 EKS 모듈은 **키 이름을 가정하지 않고**
@@ -139,6 +146,55 @@ node 그룹 `extra_tags`에 `karpenter.sh/discovery=<클러스터명>`으로 넣
 >
 > ⚠️ 대신 **소비자가 두 곳에 같은 값을 넣는다**는 부담이 남는다. 이를 줄이려면 소비자 루트에서
 > `local.cluster_name`을 한 번 정의해 두 모듈에 넘긴다 — 예제(`examples/eks-cluster/`)가 이 패턴을 보인다.
+
+### 2.5-1 소비 프로젝트에서 VPC를 참조하는 법 (2026-08-03 신설)
+
+⚠️ **`examples/`는 이 형태가 아니다.** 예제는 한 루트에서 VPC와 EKS를 함께 만든다 — `01 §4`가
+"예제가 곧 `tofu test` 대상"이라 self-contained해야 `validate`가 돌기 때문이고, CI 게이트 ⑤도 그걸
+요구한다. **소비 프로젝트는 다르다**: networking과 eks-cluster는 **별도 배포 루트**다(`03 §4`).
+이 차이를 적어 두지 않으면 고객사가 예제를 복사해 두 루트를 한 곳에 합치고, **apply가 성공하기 때문에
+아무도 지적하지 않은 채 굳는다.**
+
+**참조 방식은 `03 §3.1`의 2순위 — `data.aws_*` 태그 조회**다.
+⛔ `terraform_remote_state`는 쓰지 않는다(state 전체 접근 — `03 §3.1`이 ❌로 판정).
+
+```hcl
+# live/dev/eks-cluster/main.tf — networking 루트가 이미 apply되어 있다는 전제
+data "aws_vpc" "main" {
+  filter { name = "tag:Name", values = ["vpc-${local.name_mid}-main"] }
+}
+
+data "aws_subnets" "node" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  # ⭐ VPC 모듈 D13이 부여하는 그룹 태그. Name 와일드카드 파싱이 아니다.
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }
+}
+
+data "aws_subnets" "pod" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  filter { name = "tag:SubnetGroup", values = ["pod-dup"] }
+}
+
+module "eks" {
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v1.0.0"
+
+  vpc_id         = data.aws_vpc.main.id
+  subnet_ids     = data.aws_subnets.node.ids
+  pod_subnet_ids = data.aws_subnets.pod.ids
+  # ...
+}
+```
+
+**모듈 계약은 이 방식을 이미 지원한다** — `vpc_id`·`subnet_ids`를 **ID 리스트로** 받으므로 값의
+출처가 무엇이든 무관하다(§3.1). 모듈에 조회 로직을 넣지 않은 것은 의도된 것이다: 조회 키(태그 이름·
+그룹 키)는 **소비자의 명명 정책**이라 모듈이 고정하면 그 정책을 강제하게 된다.
+
+⚠️ **`data.aws_subnets`의 `ids`는 정렬 순서가 보장되지 않는다.** AZ 순서에 의존하는 로직을 소비자
+루트에 두지 않는다 — 이 모듈은 AZ 매핑을 내부에서 `data.aws_subnet`으로 해석하므로(§3.1) 영향이 없다.
+
+⚠️ **networking이 아직 apply되지 않았으면 조회가 빈 결과를 낸다.** 배포 순서(networking → eks-cluster)는
+소비 repo의 워크플로가 강제한다([`50`](50-reference-consumer-repo.md)). 조회 실패를 명시적으로 잡으려면
+`precondition`으로 `length(data.aws_subnets.node.ids) > 0`을 확인한다(`03 §6` 열린 항목 4).
 
 ## 2.6 addon 관리 — baseline 보장 + 명시적 증분 (C′)
 
@@ -627,6 +683,21 @@ output "external_dns_iam_role_arn" {}
 | AC9 | custom networking on → vpc-cni `configuration_values`에 `CUSTOM_NETWORK_CFG` 포함 |
 | AC10 | Karpenter on → node SG에 `karpenter.sh/discovery` 태그 |
 | AC11 | §2.6a 토글 기본 off / opt-in on + role 이름이 카탈로그 준수 |
+
+> **✅ 구현 완료(2026-08-03) — 16 run 전부 pass.** 실제 구성은 위 표와 다소 다르다:
+> `effective_addon_names` 출력을 신설해 addon merge를 관측 가능하게 만들었고(facade는 계산 결과를
+> 하위 모듈 입력으로 넘겨 `tofu test`가 볼 수 없다), NG 형상 검증은 아래 제약으로 빠졌다.
+>
+> **🔑 테스트가 실제 결함을 잡았다** — upstream이 `iam_role_use_name_prefix` 기본 true로
+> `<NG이름>-eks-node-group-`(40자)을 name_prefix로 만드는데 **한도가 38자**라 plan이 죽었다.
+> facade가 `iam_role_name`을 카탈로그 이름으로 직접 지정해 해결했다. **`validate`로는 안 잡힌다.**
+>
+> ⚠️ **`override_module`은 이 모듈에 쓸 수 없다**(실측): override는 모듈 **실행**만 대체하고
+> **입력 표현식은 그대로 평가**한다. `module.eks`를 덮으면 그 안의 `eks_managed_node_group`이
+> 사라진 부모 리소스(`time_sleep.this[0]`)를 참조하다 죽는다. 중첩 모듈을 함께 덮어도 같다.
+> → mock_provider로 가되 **기본 시나리오에서 NG를 비운다**(NG가 있으면 중첩 모듈이 깨어나 upstream
+> 내부 computed 속성을 전부 모킹해야 한다). **잃은 것: NG 경로의 plan-time 회귀 가드** —
+> 위 name_prefix 결함의 재발을 막는 테스트는 없다. NG 형상은 라이브 apply가 판정한다(Task 20.8 표).
 
 ⚠️ **AC4는 `tofu test`에서만 잡힌다** — 교차변수 validation은 `plan` 시점 평가라 `validate`나
 `examples`의 검증으로는 검출되지 않는다(VPC 실측).

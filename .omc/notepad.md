@@ -223,12 +223,48 @@ upstream 소스 직독(`v21.24.1`·`v2.8.2`)으로 확인. **설계를 바꾼 �
 ⚠️ **함정**: upstream 출력 fallback이 불일치 — 대부분 `try(…,null)`인데 **`cluster_name`·`cluster_id`만 `""`**.
 facade가 `null`로 정규화한다(안 하면 upstream 구현 디테일이 우리 계약으로 샌다).
 
-#### ⏭️ 다음 = **Task 20.2~20.4 모듈 본체** (`modules/eks-cluster/`)
+#### ✅ Task 20.2~20.7 완료 (2026-08-03) — ⏸ **브랜치 미머지**
 
-⛔ **(d) addon 핀 소싱은 AWS 계정이 있어야 한다** — 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반이라
-**Task 20.8 릴리스는 불가**. ⚠️ 다만 **20.2~20.7 구현은 (d)에 막히지 않는다**(핀 값만 비고 구조는 결정됨).
-- ⚠️ 커밋 단위: tflint `terraform_unused_declarations` 때문에 20.2~20.4는 **한 커밋**이 될 공산이 크다
-  (VPC 10.1~10.3이 `65d2283` 한 커밋이 된 것과 같은 이유).
+브랜치 **`feat/eks-cluster-module`** 커밋 4개(main에 아직 없다):
+`9aa4cb5`(20.2~20.4 모듈 본체) · `52ee220`(20.5 출력 + 20.6 예제 2종) ·
+`bea58aa`(20.7 tests 16 run + 설계 §2.5 정정) · `4f44dd8`(**vpc D13** + design/20 §2.5-1 신설).
+
+**게이트 실측**: vpc test **13 passed** · eks-cluster test **16 passed** · examples 4개 validate ·
+tflint 0 · trivy 0 · lock `registry.opentofu.org`.
+
+**🔑 구현이 발견한 것 (설계에 없던 것)**
+1. **테스트가 실제 결함을 잡았다** — upstream이 `iam_role_use_name_prefix` 기본 true로
+   `<NG이름>-eks-node-group-`(40자)을 만드는데 **한도가 38자**라 plan이 죽었다. facade가
+   `iam_role_name`을 카탈로그 이름으로 직접 지정해 해결. **`validate`로는 안 잡힌다.**
+2. **⚠️ `override_module`은 facade 모듈에 쓸 수 없다** — override는 모듈 **실행만** 대체하고
+   **입력 표현식은 그대로 평가**한다. `module.eks`를 덮으면 그 안의 `eks_managed_node_group`이
+   사라진 부모 리소스(`time_sleep.this[0]`)를 참조하다 죽는다. 중첩까지 덮어도 같다.
+   → mock_provider 8종 + **기본 시나리오에서 NG 비움**. ⚠️ **잃은 것: NG 경로 회귀 가드**(위 1번 결함의
+   재발을 막는 테스트가 없다). NG 형상은 라이브 apply가 판정한다.
+3. **§2.5 "Pod ENI SG = node SG 재사용"은 구현 불가**였다 — `module.eks.node_security_group_id`를
+   같은 모듈의 입력(`addons`)에 넣으면 순환. → ENIConfig에서 `securityGroups` **생략**하면
+   vpc-cni가 primary ENI SG를 상속해 **의도가 그대로 달성**된다. 설계 정정 완료.
+4. **`effective_addon_names` 출력 신설** — facade는 계산 결과를 하위 모듈 **입력**으로 넘겨
+   `tofu test`가 볼 수 없다. addon merge를 config-time에 검증할 유일한 관측점.
+
+**🆕 D13 (vpc 마이너 — `vpc-v1.2.0` 대상, 태그 미발행)**: `aws_subnet`에 **`SubnetGroup = <그룹 키>`**.
+소비 프로젝트의 eks 루트가 `data.aws_subnets`로 그룹 조회를 하려면 v1.1.0까지는 **`Name` 와일드카드
+문자열 매칭**뿐이었다. 실패 방식이 나쁘다 — 규약이 바뀌면 에러가 아니라 **빈 결과**다.
+🔑 `03 §3.1`이 태그 조회를 2순위로 둔 것은 *"이름이 아니라 태그로 조회하라"*인데 **그 태그를 우리가
+제공하지 않고 있었다**. `Name`(사람용)과 조회 키(기계용)를 분리한다.
+- **`design/20 §2.5-1` 신설** — "소비 프로젝트에서 VPC를 참조하는 법"(원칙은 03에 있었으나 EKS 적용 서술이
+  없었다). ⛔ `terraform_remote_state` 금지 · 배포 순서 networking → eks-cluster.
+- 예제 README 2종에 *"예제가 VPC를 함께 만드는 것은 **예제라서**"*(01 §4 self-contained 요건)를 명시.
+  ⚠️ 안 적으면 고객사가 두 루트를 합치고 **apply가 성공하기 때문에 아무도 지적하지 않은 채 굳는다.**
+
+#### ⏭️ 다음 = **PR 생성 → 머지 → 태그**
+
+⚠️ **이 브랜치에 모듈 둘이 섞여 있다** — 태그는 **각각** 나가야 한다:
+`vpc-v1.2.0`(D13, 지금 가능) · `eks-cluster-v1.0.0`(⛔ **AWS 계정 대기**).
+
+⛔ **Task 20.8 릴리스 차단 = (d) addon 핀 소싱**. `aws eks describe-addon-versions`로 실측 버전을
+박아야 하고, 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반이다. 지금 `addons.tf`의
+`addon_version_pins`는 **전부 null**이며 그 자리에 ⏸ 주석이 있다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

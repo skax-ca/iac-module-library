@@ -271,6 +271,42 @@ ARN을 주입받고, `null`이면 CloudWatch 기본 암호화(AWS 관리 키)로
 | `aws_iam_role_policy` | `logs:CreateLogStream`·`PutLogEvents`·`DescribeLogStreams` 등 (inline) |
 | `aws_flow_log` | `vpc_id` + `traffic_type` + `log_destination` |
 
+**D13. 서브넷 그룹 식별 태그 `SubnetGroup` (신설, 2026-08-03 — 하류 모듈의 조회 경로)**
+
+**문제**: 소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**다(`03 §4`). EKS 루트는
+서브넷 ID를 `data.aws_subnets`로 조회해야 하는데(`03 §3.1` 2순위), v1.1.0까지 서브넷에 붙는 식별
+정보가 **`Name` 태그 하나뿐**이었다. 따라서 "`node-uniq` 그룹의 서브넷 전부"를 얻으려면
+`tag:Name = snet-acme-prd-an2-node-uniq-*` 같은 **와일드카드 문자열 매칭**에 의존해야 했다.
+
+그 방식이 약한 이유는 실패 방식 때문이다 — 네이밍 규약이 바뀌거나 그룹 키에 토큰이 하나 더 들어가면
+조회가 **에러가 아니라 빈 결과**를 돌려주고, EKS는 "서브넷이 없다"가 아니라 **엉뚱한 서브넷에 뜨거나
+plan이 이해하기 어려운 곳에서 죽는다**. `03 §3.1`이 태그 조회를 2순위로 둔 것은 **이름이 아니라
+태그로 조회하라**는 뜻인데, 그 태그를 우리가 제공하지 않았다.
+
+**결정**
+
+| 항목 | 내용 |
+|------|------|
+| 태그 | `SubnetGroup = <그룹 키>` — `aws_subnet`에만 부여 |
+| 부여 조건 | **무조건**(opt-in 아님). 조회 경로는 선택 기능이 아니라 계약의 일부다 |
+| 값 | `subnet_groups`의 맵 키 그대로. `Name`의 purpose 토큰과 같은 값이다 |
+| semver | **계약 확장 → 마이너**(`vpc-v1.2.0`). 기존 소비자에게 태그가 하나 붙을 뿐 재생성은 없다 |
+
+```hcl
+# 소비 프로젝트의 eks-cluster 루트가 이렇게 쓴다 — 와일드카드 없이 정확히 매칭된다.
+data "aws_subnets" "node" {
+  filter { name = "vpc-id",          values = [data.aws_vpc.main.id] }
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }
+}
+```
+
+**왜 `Name` 파싱이 아니라 별도 태그인가**: `Name`은 **사람이 읽는 식별자**이고 그 포맷은 거버넌스가
+바꿀 수 있다(`02 §1.2`). 기계 조회가 사람용 문자열의 내부 구조에 결합하면, 네이밍 개정이 곧 하류
+장애가 된다. 두 관심사를 분리하는 것이 태그를 하나 더 쓰는 비용보다 싸다.
+
+⚠️ **거버넌스 태그가 아니다.** `Environment`·`Workload` 등은 루트의 `default_tags` 소관이고(`02 §1.1`),
+`SubnetGroup`은 **모듈이 자기 구조를 드러내는 태그**다 — `Name`과 같은 층에 있다.
+
 ### 1.2 인터페이스 (variables)
 
 ```hcl
@@ -382,6 +418,11 @@ serial은 동일 용도·대역 조합이 복수일 때만 붙인다.
 | `aws_cloudwatch_log_group` (D11) | `cwlg` | `cwlg-<mid>-<purpose>-flowlog` | cwlg-acme-dev-an2-main-flowlog |
 | `aws_iam_role` (D11) | `iamr` | `iamr-<mid>-<purpose>-flowlog` | iamr-acme-dev-an2-main-flowlog |
 | `aws_flow_log` (D11) | `fl` | `fl-<mid>-<purpose>` | fl-acme-dev-an2-main |
+
+> **D13 — `aws_subnet`은 `Name` 외에 `SubnetGroup = <그룹 키>`를 함께 갖는다.**
+> `Name`은 사람이 읽는 식별자이고 `SubnetGroup`은 **기계가 조회하는 키**다. 하류 루트(eks-cluster)가
+> `data.aws_subnets`로 그룹 단위 조회를 할 수 있게 하는 것이 목적이며, `Name` 문자열을 와일드카드로
+> 파싱하는 취약한 결합을 대체한다(D13 상세 참조).
 
 - 약어는 전부 [카탈로그](../reference/aws-naming-abbreviations.md)에 등재된 것이다(임의 생성 없음).
 - ✅ **`fl`은 2026-07-30에 카탈로그에 신규 등재했다**(Task 10.3에서 필요해짐). 약어가 없을 때의

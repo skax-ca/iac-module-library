@@ -80,6 +80,19 @@ run "naming_contract" {
     error_message = "서브넷 Name이 snet-<mid>-<group>-<az> 포맷이 아니다: ${aws_subnet.this["pub-uniq-a"].tags["Name"]}"
   }
 
+  # D13 — 하류 루트가 data.aws_subnets로 그룹 조회하는 키.
+  # ⚠️ 값은 **그룹 키 그대로**여야 한다(AZ 토큰이 붙지 않는다) — 붙으면 그룹 단위 조회가 깨진다.
+  assert {
+    condition     = aws_subnet.this["pub-uniq-a"].tags["SubnetGroup"] == "pub-uniq"
+    error_message = "SubnetGroup 태그는 AZ 토큰 없이 그룹 키여야 한다: ${aws_subnet.this["pub-uniq-a"].tags["SubnetGroup"]}"
+  }
+
+  # 같은 그룹의 다른 AZ 서브넷도 같은 값을 가져야 조회가 2개를 다 잡는다.
+  assert {
+    condition     = aws_subnet.this["app-uniq-c"].tags["SubnetGroup"] == "app-uniq"
+    error_message = "같은 그룹의 서브넷은 AZ와 무관하게 동일한 SubnetGroup 값을 가져야 한다."
+  }
+
   # public·isolated는 그룹당 공유 RT라 AZ 토큰이 없고, private는 AZ별이라 붙는다.
   assert {
     condition     = aws_route_table.shared["db-uniq"].tags["Name"] == "rtb-acme-dev-an2-db-uniq"

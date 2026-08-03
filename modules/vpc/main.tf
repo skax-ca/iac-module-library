@@ -184,6 +184,11 @@ resource "aws_subnet" "this" {
       #    Load Balancer Controller 2.1.1 이하만 요구한다. eks_cluster_name 기본값 null(opt-in).
       var.eks_cluster_name == null ? {} : { "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared" }
     ),
+    # D13 — 기계가 조회하는 키. 하류 루트(eks-cluster 등)가 data.aws_subnets로 그룹 단위 조회를
+    # 할 수 있게 한다. Name은 사람이 읽는 식별자이고 그 포맷은 거버넌스가 바꿀 수 있으므로,
+    # 기계 조회가 Name 문자열을 와일드카드로 파싱하면 네이밍 개정이 곧 하류 장애가 된다.
+    # ⚠️ 조회 실패는 에러가 아니라 **빈 결과**라 조용히 잘못 동작한다 — 그래서 opt-in이 아니다.
+    { SubnetGroup = each.value.group },
     { Name = "snet-${local.name_mid}-${each.key}" }
   )
 

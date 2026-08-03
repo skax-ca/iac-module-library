@@ -1,0 +1,56 @@
+# examples/eks-cluster-enterprise — 고객사 착수 템플릿
+
+⚠️ **이 예제의 목적은 검증이 아니다.** 계약 검증은 `modules/eks-cluster/tests/`가 이미 커버한다.
+여기는 **고객사가 복사해 착수하는 템플릿**이며, `examples/AGENTS.md`의 "예제는 최소로 유지" 원칙에
+대한 **의도된 예외**다(`examples/vpc-enterprise`와 같은 위치).
+
+그래서 이 파일과 `main.tf`의 주석은 코드만큼 중요하다 — **"왜 이 값인가"** 가 실제 산출물이다.
+
+## 보이는 것
+
+| 축 | 구성 | 근거 |
+|----|------|------|
+| **custom networking** | secondary CIDR `100.64.0.0/16` + `pod-dup` 그룹 | VPC D9 — Pod IP를 대량 소모해도 온프레미스 IP 계획을 잠식하지 않는다 |
+| **Karpenter discovery** | subnet(`extra_tags`) + SG(모듈이 부여) **양쪽** | 한쪽만 붙으면 selector가 빈 결과 → 조용한 실패 |
+| **컨트롤러 IAM** | ALBC · external-dns opt-in | 설계 §2.6a — 정책은 커뮤니티 큐레이션에 위임 |
+| **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
+| **삭제 보호** | `deletion_protection = true` | D-EKS-PROTECT — AWS API 차원 |
+| **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
+
+## ⚠️ 착수 전 반드시 바꿀 것
+
+이 예제는 **계정에 붙지 않으므로** 실계정 값이 필요한 자리를 비워 두었다. 그대로 apply하지 않는다.
+
+| 자리 | 지금 | 실환경 |
+|------|------|--------|
+| `external_dns_hosted_zone_arns` | `[]` | **실제 zone ARN**. 비우면 커뮤니티 정책이 전체 zone(`*`)을 허용한다 — prd 필수 |
+| `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다(D-NODE-AMI-PIN) |
+| addon 버전 핀 | 모듈에서 비어 있음 | `aws eks describe-addon-versions`의 실측 값(D-ADDON-VERSION-PIN) |
+| CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
+
+## 운영상 알아야 할 것
+
+**private 클러스터의 조작 지점을 먼저 설계한다.** `endpoint_public_access = false`이므로 `kubectl`은
+VPC 내부(bastion·VPN·Direct Connect)에서만 도달한다. 이걸 정하지 않고 apply하면 **클러스터를 만들었는데
+만질 수 없는** 상태가 된다.
+
+**teardown은 2단계다.** `deletion_protection = true`인 상태에서는 파기되지 않는다 —
+`deletion_protection = false`로 apply한 뒤 `cluster_enabled = false`로 파기한다.
+이는 결함이 아니라 보호의 정의다. 모듈의 교차변수 `validation`이 이 순서를 plan 시점에 강제한다.
+
+**시스템 노드그룹은 없앨 수 없다.** Karpenter 자신이 뜰 곳이 필요하기 때문이다 —
+Karpenter chart의 affinity가 `karpenter.sh/nodepool DoesNotExist`를 요구해서, Karpenter가 만든 노드에는
+Karpenter가 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
+
+## 비용 주의
+
+이 형상은 **예제 중 가장 비싸다**. NAT 2개(AZ별, 개당 월 ~$43) + EKS 컨트롤플레인 + 노드 2대 +
+CloudWatch 로그(컨트롤플레인 3종 + VPC Flow Logs)가 상시 과금된다.
+비용을 낮추려면 `single_nat_gateway = true`, `enabled_log_types = []`부터 조정한다.
+
+## 실행
+
+```bash
+tofu -chdir=examples/eks-cluster-enterprise init -backend=false
+tofu -chdir=examples/eks-cluster-enterprise validate
+```

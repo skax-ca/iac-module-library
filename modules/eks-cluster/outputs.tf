@@ -1,0 +1,135 @@
+# 출력 계약 — 설계 docs/design/20-eks-module.md §3.2
+#
+# 규약(01 §4):
+#   · 소비자가 의존하는 출력 이름은 **메이저 버전 내에서 안정**하다. 이름 변경은 메이저다.
+#   · kill switch·opt-out 시 **null**을 돌려준다(에러가 아니라). cluster_enabled = false 인 루트에서도
+#     `tofu output`이 성립해야 소비자가 조건 분기를 짜지 않는다.
+#
+# ⚠️ **upstream 출력의 fallback이 일관되지 않다**(Task 20.1 확인, v21.24.1):
+#    대부분 try(…, null) 인데 **cluster_name·cluster_id 만 try(…, "")** 로 빈 문자열을 돌려준다.
+#    여기서 null로 정규화하는 이유는 그것이 facade의 일이기 때문이다 — 정규화하지 않으면 소비자가
+#    `X == null`이 아니라 `X == ""`를 알아야 하고, 그건 upstream 구현 디테일이 우리 계약으로 새는 것이다.
+
+locals {
+  # 빈 문자열을 null로 접는다. 다른 출력과 같은 규약을 갖게 하는 것이 목적이다.
+  cluster_name_out = local.enabled && module.eks.cluster_name != "" ? module.eks.cluster_name : null
+}
+
+# ── 클러스터 정체성 ──────────────────────────────────────────────────────────
+
+output "cluster_name" {
+  description = "EKS 클러스터 이름. 소비자가 VPC 모듈의 eks_cluster_name·Karpenter discovery 태그와 맞출 값이다."
+  value       = local.cluster_name_out
+}
+
+output "cluster_arn" {
+  description = <<-EOT
+    EKS 클러스터 ARN.
+    GitOps 쪽 클러스터 등록이 API URL이 아니라 **ARN**을 요구하므로 계약에 둔다 —
+    부트스트랩 seam이 어떻게 재결정되든(design/21) ARN은 어느 경로에서도 필요하다.
+  EOT
+  value       = module.eks.cluster_arn
+}
+
+output "cluster_endpoint" {
+  description = "kube-apiserver 엔드포인트 URL."
+  value       = module.eks.cluster_endpoint
+}
+
+output "cluster_version" {
+  description = "실제로 기동된 컨트롤플레인 k8s 버전. 입력 kubernetes_version과 대조해 승격 여부를 확인한다."
+  value       = module.eks.cluster_version
+}
+
+output "cluster_certificate_authority_data" {
+  description = "kubeconfig의 certificate-authority-data(base64)."
+  value       = module.eks.cluster_certificate_authority_data
+}
+
+output "cluster_oidc_issuer_url" {
+  description = "OIDC 발급자 URL."
+  value       = module.eks.cluster_oidc_issuer_url
+}
+
+output "oidc_provider_arn" {
+  description = "IAM OIDC 공급자 ARN. IRSA 방식 role의 신뢰 정책이 참조한다(Pod Identity를 쓰면 불필요)."
+  value       = module.eks.oidc_provider_arn
+}
+
+# ── 보안 그룹 ────────────────────────────────────────────────────────────────
+
+output "cluster_security_group_id" {
+  description = "EKS가 만든 클러스터 보안 그룹 ID(컨트롤플레인 ↔ 데이터플레인)."
+  value       = module.eks.cluster_security_group_id
+}
+
+output "node_security_group_id" {
+  description = <<-EOT
+    노드 보안 그룹 ID. Karpenter의 securityGroupSelectorTerms가 이 SG의 discovery 태그를 찾는다.
+    custom networking의 Pod ENI도 이 SG를 상속한다(addons.tf 주석 참조).
+  EOT
+  value       = module.eks.node_security_group_id
+}
+
+# ── Karpenter (GitOps가 소비) ────────────────────────────────────────────────
+#
+# enable_karpenter = false 또는 kill switch면 전부 null이다.
+
+output "karpenter_iam_role_arn" {
+  description = "Karpenter 컨트롤러 role ARN."
+  value       = try(module.karpenter.iam_role_arn, null)
+}
+
+output "karpenter_node_iam_role_arn" {
+  description = "Karpenter가 프로비저닝하는 노드의 IAM role ARN."
+  value       = try(module.karpenter.node_iam_role_arn, null)
+}
+
+output "karpenter_node_iam_role_name" {
+  description = "Karpenter 노드 IAM role 이름. EC2NodeClass의 role 필드가 ARN이 아니라 이름을 받는다."
+  value       = try(module.karpenter.node_iam_role_name, null)
+}
+
+output "karpenter_instance_profile_name" {
+  description = "Karpenter 노드 instance profile 이름."
+  value       = try(module.karpenter.instance_profile_name, null)
+}
+
+output "karpenter_sqs_queue_name" {
+  description = "스팟 중단·헬스 이벤트를 받는 SQS 큐 이름."
+  value       = try(module.karpenter.queue_name, null)
+}
+
+output "karpenter_discovery_tag" {
+  description = <<-EOT
+    Karpenter discovery 태그(맵). NodeClass의 subnetSelectorTerms·securityGroupSelectorTerms가
+    이 값으로 인프라를 찾는다.
+
+    ⚠️ 소비자는 **같은 값을 VPC 모듈의 노드 서브넷 그룹 extra_tags에도** 넣어야 한다.
+    SG 쪽은 이 모듈이 붙이지만 subnet 쪽은 VPC 모듈 소관이라, 한쪽만 붙으면
+    selector가 빈 결과를 내고 프로비저닝이 실패한다(PoC의 실제 사고).
+  EOT
+  value = local.cluster_name_out == null ? null : {
+    "karpenter.sh/discovery" = local.cluster_name_out
+  }
+}
+
+# ── 컨트롤러 IAM (§2.6 / §2.6a) ──────────────────────────────────────────────
+
+output "ebs_csi_iam_role_arn" {
+  description = "EBS CSI Driver의 Pod Identity role ARN. aws-ebs-csi-driver addon을 opt-out하면 null이다."
+  value       = try(aws_iam_role.ebs_csi[0].arn, null)
+}
+
+output "alb_controller_iam_role_arn" {
+  description = <<-EOT
+    AWS Load Balancer Controller의 Pod Identity role ARN(enable_alb_controller_iam = true일 때).
+    ALBC 자체는 GitOps helm으로 설치되므로, GitOps 저장소가 이 값을 참조한다.
+  EOT
+  value       = try(module.alb_controller_pod_identity.iam_role_arn, null)
+}
+
+output "external_dns_iam_role_arn" {
+  description = "external-dns의 Pod Identity role ARN(enable_external_dns_iam = true일 때)."
+  value       = try(module.external_dns_pod_identity.iam_role_arn, null)
+}

@@ -99,6 +99,16 @@ helm provider 불필요, spoke 등록은 Access Entry). 그 과정의 실측은
 RETAIN 삭제 정책 등 제약이 크고, findings §3의 항목 대부분이 재확인 대상이다.
 GitOps 모듈을 설계할 때 **대안(self-managed ArgoCD 포함)과 함께 다시 결정**한다.
 
+> **재결정의 입력값은 [`design/21-gitops-bootstrap-seam.md`](../design/21-gitops-bootstrap-seam.md)에 모아 뒀다**
+> (2026-08-03, 구 `design/20` §2.7·§2.8을 분리). PoC가 실제로 부딪힌 벽 — auto-managed Access Entry의
+> `kubernetesGroups`가 비어 custom ClusterRole을 bind할 수 없다는 것, `AmazonEKSArgoCDClusterPolicy`가
+> cluster-wide read를 주지 않는다는 것 — 은 **어느 안을 택하든 다시 만나므로** 재조사하지 않는다.
+> 반대로 도달성 논증(V1~V3)은 **TFC SaaS 러너 전제**라 무효다. GitHub Actions 기준으로 다시 계산한다.
+>
+> ⚠️ 이 재결정은 **`eks-cluster` 모듈의 계약을 바꾸지 않는다** — 모듈이 seam에 지는 의무는
+> 출력(`cluster_name`·`cluster_arn`·`oidc_provider_arn` 등)뿐이다(`design/20 §3.2`).
+> 따라서 **EKS 모듈 구현은 이 항목의 해소를 기다리지 않는다.**
+
 ---
 
 ## 4. 결정 3 — 재사용 자산으로서의 요건 (PoC에는 없던 것)

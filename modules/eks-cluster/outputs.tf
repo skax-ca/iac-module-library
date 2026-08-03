@@ -114,6 +114,22 @@ output "karpenter_discovery_tag" {
   }
 }
 
+# ── addon (§2.6) ─────────────────────────────────────────────────────────────
+
+output "effective_addon_names" {
+  description = <<-EOT
+    최종적으로 설치되는 addon 이름 목록(baseline merge + enabled 필터 결과).
+
+    소비자가 "내가 넘긴 cluster_addons가 baseline과 어떻게 합쳐졌는가"를 확인하는 지점이다 —
+    merge 규약(누락 != 삭제)은 코드를 읽지 않으면 결과를 예측하기 어렵기 때문이다.
+
+    ⚠️ 이 출력은 **계약 검증의 관측점이기도 하다**. facade 모듈은 계산 결과를 하위 모듈의
+    입력으로 넘기는데 `tofu test`는 하위 모듈에 들어간 값을 볼 수 없다 — 노출하지 않으면
+    baseline 상속·opt-out 동작을 config-time에 검증할 방법이 없다.
+  EOT
+  value       = local.enabled ? sort(keys(local.addons_final)) : []
+}
+
 # ── 컨트롤러 IAM (§2.6 / §2.6a) ──────────────────────────────────────────────
 
 output "ebs_csi_iam_role_arn" {

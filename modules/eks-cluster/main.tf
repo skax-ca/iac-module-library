@@ -41,6 +41,17 @@ locals {
       capacity_type  = ng.capacity_type
       labels         = ng.labels
 
+      # ⚠️ **이 두 줄이 없으면 plan이 죽는다**(tests가 잡은 실제 결함, 2026-08-03).
+      #    upstream은 iam_role_use_name_prefix 기본이 true라 role의 name_prefix를
+      #    "<노드그룹 이름>-eks-node-group-"으로 만든다. name_prefix 한도는 38자인데
+      #    우리 NG 이름(eksn-acme-prd-an2-system = 24자)이면 40자가 되어 초과한다.
+      #    → 카탈로그 이름을 직접 지정해 접미사 자체를 없앤다. IAM role 한도는 64자다.
+      #
+      #    ⚠️ 이것은 §2.6 "IAM 네이밍 이원화"의 예외가 아니라 **카탈로그 준수**다.
+      #       이원화가 허용하는 것은 Karpenter 서브모듈이 만드는 role뿐이다.
+      iam_role_name            = "iamr-${local.name_mid}-${ng_key}-node"
+      iam_role_use_name_prefix = false
+
       # D-NODE-AMI-PIN — 핀이 있으면 최신 조회를 끈다.
       # ⚠️ upstream eks-managed-node-group은 use_latest_ami_release_version 기본이 true라
       #    release_version = use_latest ? SSM최신 : ami_release_version 으로 갈린다.

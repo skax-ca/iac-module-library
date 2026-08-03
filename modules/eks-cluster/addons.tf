@@ -37,35 +37,28 @@ locals {
     "metrics-server",
   ]
 
-  # ── 버전 핀 (D-ADDON-VERSION-PIN) ───────────────────────────────────────────
+  # ── 버전 소유 경계 (D-ADDON-VERSION-PIN-1, 2026-08-03 개정) ──────────────────
   #
-  # ⏸ **값이 비어 있다(Task 20.1(d) 미완 — AWS 계정 필요).** 핀은 임의값이 아니라
-  #      aws eks describe-addon-versions --kubernetes-version <k8s> --addon-name <name>
-  #    의 실측 최신 호환 버전이어야 한다. 추측해서 박으면 도입 plan이 no-op이 아니게 되고,
-  #    그건 이 결정이 막으려던 것 자체다.
+  # ⛔ **이 파일에 버전 상수 표를 만들지 말 것.** 한 번 있었고, 걷어냈다.
   #
-  # ⛔ **핀이 빈 상태로 릴리스하지 않는다** — D-ADDON-VERSION-PIN 위반이다(설계 Task 20.8).
-  #    다만 most_recent = false는 지금도 넘기므로 "매 plan마다 최신을 재해석"하는 동작은 이미 꺼진다.
+  # 모듈이 소유하는 것은 `most_recent = false` 하나다(아래 addons_final). upstream 기본값 true를
+  # 끄는 것은 구조적 결정이라 모듈의 몫이고, 그 한 줄이 "매 plan이 최신을 재해석해 리뷰 없이
+  # in-place 업데이트"하는 동작을 없앤다 — 구 D-ADDON-VERSION-PIN이 막으려던 사고가 이것이다.
   #
-  # k8s 버전을 올릴 때 이 표도 함께 갱신한다. 핀이 뒤처지면 호환되지 않는 조합이 apply된다.
-  addon_version_pins = {
-    # baseline
-    "vpc-cni"                = null
-    "coredns"                = null
-    "kube-proxy"             = null
-    "eks-pod-identity-agent" = null
-    "aws-ebs-csi-driver"     = null
-    "metrics-server"         = null
-
-    # community tier (§2.6 확장 표) — baseline이 아니라 **소비자 opt-in**이다.
-    # 여기에 핀을 두는 이유는 소비자가 cluster_addons로 추가할 때 핀을 상속받게 하기 위해서다.
-    # 핀 정책은 baseline과 동일하다(§2.6-6).
-    "fluent-bit"               = null
-    "kube-state-metrics"       = null
-    "prometheus-node-exporter" = null
-    "cert-manager"             = null
-    "external-dns"             = null
-  }
+  # **버전 값은 소비 루트가 소유한다**(`cluster_addons`의 `addon_version`).
+  #   ① 경계 — addon 상향은 워크로드 운영 주기에 속한다. 공통 모듈이 값을 들면 고객사 A의
+  #      kube-proxy 상향이 모듈 릴리스를 요구하고 그 릴리스가 B·C에게도 간다(CLAUDE.md의
+  #      "upstream cadence와 소비자 cadence를 분리한다"를 모듈이 스스로 깨는 구조).
+  #   ② 정의역 — addon 버전은 상수가 아니라 f(kubernetes_version, region)이고 두 인자 모두
+  #      소비자가 정한다. 2026-08-03 실측으로 두 축 모두 실제 파손이 확인됐다:
+  #        k8s  — 1.35 기준 핀을 1.34/1.33에 쓰면 coredns·kube-proxy·metrics-server가 버전 없음
+  #        리전 — cert-manager가 an2엔 eksbuild.3, us-east-1·eu-west-1엔 eksbuild.2만 존재
+  #
+  # 소비자가 값을 안 주면 upstream이 data.aws_eks_addon_version(most_recent = false)로 **그
+  # 클러스터의 k8s·리전에 맞는 AWS 기본 버전**을 해석한다(upstream main.tf:759-778 실측).
+  # 안전한 기본값이고, 위 두 축 어디에서도 깨지지 않는다.
+  #
+  # 소비 루트에서 값을 얻는 법은 설계 §2.6-6 · examples/eks-cluster-enterprise/README.md 참조.
 
   # vpc-cni는 **노드그룹 생성 전** 적용되어야 초기 노드부터 Pod가 pod 서브넷에 배치된다(§2.5).
   before_compute_addons = ["vpc-cni"]
@@ -121,14 +114,14 @@ locals {
   addons_final = {
     for name, cfg in local.merged_addons : name => merge(
       {
-        # D-ADDON-VERSION-PIN — upstream 기본 true를 명시적으로 끈다.
-        # true면 매 plan이 최신 호환 버전을 조회해 리뷰 없는 in-place 업데이트가 일어난다.
+        # ⭐ **모듈이 소유하는 유일한 버전 결정**(D-ADDON-VERSION-PIN-1). upstream 기본 true를 끈다.
+        # true면 매 plan이 최신 호환 버전을 재조회해 리뷰 없는 in-place 업데이트가 일어난다.
         most_recent = false
 
-        # 소비자가 버전을 주면 그 값이, 안 주면 baseline 핀이 이긴다(§2.6-6).
-        # ⚠️ coalesce는 인자가 전부 null이면 오류다. 핀이 아직 비어 있는 현재는 그 경로를 타므로
-        #    try로 null을 돌려준다 — null이면 upstream이 most_recent=false 기준 기본 버전을 쓴다.
-        addon_version        = try(coalesce(cfg.addon_version, local.addon_version_pins[name]), null)
+        # 버전 **값**은 소비 루트 소유다(위 "버전 소유 경계" 주석).
+        # null이면 upstream이 most_recent = false 기준으로 그 클러스터의 k8s·리전에 맞는
+        # AWS 기본 버전을 해석한다 — 모듈이 상수를 들 때와 달리 어떤 조합에서도 깨지지 않는다.
+        addon_version        = cfg.addon_version
         configuration_values = cfg.configuration
         before_compute       = contains(local.before_compute_addons, name)
 

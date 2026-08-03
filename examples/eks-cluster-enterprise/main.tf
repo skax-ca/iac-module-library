@@ -128,6 +128,11 @@ module "eks" {
   # ── addon ─────────────────────────────────────────────────────────────────
   # 빈 맵이면 baseline 6종을 상속한다. 아래는 **community tier를 opt-in으로 추가**하는 형태다
   # (설계 §2.6 확장 표) — baseline은 merge되므로 사라지지 않는다.
+  #
+  # ⭐ **버전을 안 주면 AWS 기본 버전이 해석된다**(D-ADDON-VERSION-PIN-1). 모듈은 버전을 들지
+  #    않는다 — 업그레이드 주기는 워크로드마다 다르기 때문이다. 프로덕션에서 완전히 고정하려면
+  #    addon_version을 여기 박는다. 값 얻는 법과 갱신 규칙은 README "addon 버전 고정" 절 참조.
+  #    예) "coredns" = { addon_version = "v1.14.3-eksbuild.3" }
   cluster_addons = {
     # 컨트롤러+CRD는 IaC addon, Issuer/Certificate CR은 GitOps다(§1 경계).
     "cert-manager" = {}

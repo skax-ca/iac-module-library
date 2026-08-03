@@ -17,7 +17,10 @@
 > - **Task 20.1(a)(b)(c)(e) 실물 확인 반영**(2026-08-03, 같은 날 2차) — upstream 소스 직독으로
 >   **D-EKS-PROTECT를 네이티브 `deletion_protection`으로 확정**(→ 하한 `>= 1.12.0`에서 **`>= 1.9.0`**으로
 >   하향) · **D-EKS-ENABLED를 upstream `create` 토글에 위임** · `eks-pod-identity` 핀 `2.8.2` ·
->   출력 fallback 불일치 함정 기록. ⏸ **(d) addon 핀 소싱만 미완**(AWS 계정 필요).
+>   출력 fallback 불일치 함정 기록.
+> - **✅ Task 20.1(d) 완료 + ⛔ D-ADDON-VERSION-PIN 개정**(2026-08-03, 3차) — AWS 계정 실측 결과가
+>   *"모듈이 addon 버전을 소유하면 안 된다"* 를 보여, **D-ADDON-VERSION-PIN-1**으로 핀의 소유
+>   주체를 **소비 루트**로 옮겼다(§2.6-6). 모듈은 `most_recent = false`만 소유한다.
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -33,7 +36,8 @@ wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/No
 
 > **승계한 PoC 결정 요약** (판단은 유효, 실증 서술은 findings 소관):
 > **D9 custom networking** 전제(§2.5) · **addon 관리 C′**(§2.6, baseline merge·재주입·EBS CSI IAM) ·
-> **D-ADDON-VERSION-PIN**(§2.6-6, addon 버전 명시 핀) · **D-NODE-AMI-PIN**(§2.6, NG AMI 핀) ·
+> **D-ADDON-VERSION-PIN**(§2.6-6 — ⛔ **2026-08-03 `-1`로 개정됨**, 소유 주체 이전) ·
+> **D-NODE-AMI-PIN**(§2.6, NG AMI 핀) ·
 > **D-ADDON-BOUNDARY**(§1, community addon은 IaC) · **D-ADDON-IAM**(§2.6a, 컨트롤러 IAM 두 갈래).
 > Karpenter 컨트롤러 정책의 `enable_inline_policy = true`는 **관리형 정책 한도(6,144자) 초과 실측**에서
 > 나온 hotfix이며 그대로 승계한다(inline 한도 10,240자, upstream #3563).
@@ -198,7 +202,10 @@ module "eks" {
 
 ## 2.6 addon 관리 — baseline 보장 + 명시적 증분 (C′)
 
-> **D-ADDON-VERSION-PIN**: baseline addon 버전을 **명시적으로 핀**한다(항목 6 신설).
+> **D-ADDON-VERSION-PIN** (2026-07-22, ⛔ **2026-08-03 `-1`로 개정 — 아래 항목 6의 상자를 먼저 읽을 것**):
+> baseline addon 버전을 **명시적으로 핀**한다(항목 6 신설).
+> ⚠️ **결론(“모듈이 값을 고정한다”)은 철회됐고 이 배경 서술은 유효하다** — 원인은 `most_recent = true`였고
+> 그것을 끄는 주체는 지금도 모듈이다. 배경과 결론을 함께 되살리지 말 것.
 > 배경 — 최초 구현은 `addon_version`을 미지정(null)으로 넘겼는데, upstream
 > `terraform-aws-modules/eks` v21의 `addons` 스키마는 **`most_recent = optional(bool, true)`**
 > (기본 true)라, 버전을 안 박으면 매 plan마다 `aws_eks_addon_version`으로 최신 호환 버전을 조회해
@@ -230,18 +237,39 @@ IAM이 필요한 addon(EBS CSI)이 role 없이 설치되면 무용지물인데 f
    role_arn·service_account 주입 — role 생성은 **소비자 소관**(공유 IAM은 foundation 계층 — `03 §4`).
    upstream 스키마 실물 확인(2026-07-18): `pod_identity_association = list(object({
    role_arn, service_account }))` — **namespace 필드 없음**(addon 네임스페이스로 암묵 결정).
-6. **addon 버전은 명시적 핀** (2026-07-22 D-ADDON-VERSION-PIN) — baseline addon마다 버전을
-   모듈이 고정하고 `most_recent = false`를 넘긴다(upstream 기본 true를 명시적으로 끔).
-   - **핀 소싱**: 버전 문자열은 임의값이 아니라 `aws eks describe-addon-versions
-     --kubernetes-version <k8s> --addon-name <name>`으로 **해당 k8s 버전의 실측 최신 호환**을 박는다.
-     클러스터 실물과 일치시켜 도입 시 drift 0(핀 적용 plan은 no-op이어야 한다).
-   - **업그레이드 = 핀 bump**: 버전 상향은 이 모듈에서 문자열을 바꾸는 **명시적 커밋**으로만 일어나고,
-     plan diff로 리뷰된다. AWS의 "when desired" 판단을 사람이 회수한다.
-   - **소비자 override 유지**: `cluster_addons`로 특정 addon의 `addon_version`을 넘기면 그 값이
-     이긴다(§2.6-3 재주입 원칙과 동일). 소비자가 버전을 안 주면 baseline 핀을 상속.
-   - **k8s 버전 승격 시**: `kubernetes_version` bump PR에서 baseline 핀도 새 k8s의 호환 버전으로
-     함께 갱신한다(런북 체크리스트 대상). 핀 누락 addon이 없도록 baseline 표를 SSOT로 유지.
-   - **community tier addon**(아래 확장 표)도 동일 정책 — 버전 핀 + `most_recent=false`.
+6. **addon 버전은 명시적 핀 — 단 핀의 소유자는 소비 루트다**
+   (2026-07-22 D-ADDON-VERSION-PIN → **2026-08-03 D-ADDON-VERSION-PIN-1로 개정**, 아래 상자)
+   - **모듈이 소유**: `most_recent = false`. upstream 기본값 `true`를 끄는 것은 **구조적 결정**이라
+     모듈의 몫이다 — 이 한 줄이 "매 plan이 최신을 재해석"하는 동작을 없앤다.
+   - **소비 루트가 소유**: `addon_version` **값**. `cluster_addons`로 addon별로 넘긴다.
+   - **소비자가 값을 안 주면**: upstream이 `data.aws_eks_addon_version(most_recent = false)`로
+     **그 클러스터의 k8s 버전·리전에 맞는 AWS 기본 버전**을 해석한다(upstream `main.tf:759-778` 실측).
+     안전한 기본값이며, 모듈이 값을 들고 있을 때와 달리 **어떤 k8s·리전 조합에서도 유효**하다.
+   - **업그레이드 = 소비 루트의 커밋**: 버전 상향은 그 워크로드 repo의 명시적 커밋으로만 일어나고
+     plan diff로 리뷰된다. AWS의 "when desired" 판단을 **그 클러스터를 운영하는 사람**이 회수한다.
+   - **community tier addon**(아래 확장 표)도 동일 정책.
+
+> **⛔ D-ADDON-VERSION-PIN-1 (2026-08-03) — 핀의 소유 주체를 모듈에서 소비 루트로 옮긴다.**
+> 구 결정은 *"baseline addon마다 버전을 **모듈이** 고정한다"* 였다. 그 서술을 되살리지 말 것.
+>
+> **철회 근거 ① 경계** — addon 버전은 워크로드 운영 주기에 속하는 값이다. 공통 모듈이 들면
+> **고객사 A의 kube-proxy 상향이 모듈 릴리스를 요구하고, 그 릴리스는 B·C에게도 배송된다.**
+> 반대로 A는 B가 준비될 때까지 못 올린다. CLAUDE.md의 *"upstream cadence와 소비자 cadence를
+> 분리한다"* 를 모듈이 스스로 깨는 구조이며, **D26**(규약 SSOT는 모듈 repo / 배포 사실은 소비 repo)
+> 에 비추면 버전 값은 명백히 **배포 사실** 쪽이다.
+>
+> **철회 근거 ② 정의역** — addon 버전은 상수가 아니라 **`f(kubernetes_version, region)`** 이고,
+> 두 인자 모두 소비자가 정한다. 모듈이 결과값을 상수로 들면 인자가 바뀌는 모든 축에서 깨진다.
+> 2026-08-03 실측으로 두 축 모두 실제 파손이 확인됐다(Task 20.1(d) 참조):
+> - k8s 축: 1.35 기준 핀을 1.34/1.33에 쓰면 `coredns`·`kube-proxy`·`metrics-server`가 **버전 없음**
+> - 리전 축: `cert-manager`가 an2에는 `eksbuild.3`, us-east-1·eu-west-1에는 `eksbuild.2`만 존재
+>
+> ⚠️ **원래 막으려던 사고는 그대로 막힌다.** 구 결정의 배경(위 상자)은 `most_recent = true`가
+> 원인이었고 그것을 끄는 주체는 여전히 모듈이다. **핀을 폐기한 것이 아니라 소유자를 옮겼다** —
+> 완전 결정적 고정을 원하는 소비자는 `cluster_addons`로 값을 박으면 되고, 그 경로는 이미 있다.
+>
+> ⛔ **"모듈이 안전한 기본값을 주는 게 낫지 않나"는 이미 값을 매겨 기각했다**(선택지 4종 비교).
+> 모듈이 k8s 버전별 핀 표를 소유하는 안은 정의역 문제는 풀지만 **경계 문제는 그대로**다.
 
 > **2026-07-27 확장 (D-NODE-AMI-PIN)**: 같은 "리뷰 없는 자동 업데이트 금지" 철학을 **managed 노드그룹
 > AMI**에도 적용한다. facade `managed_node_groups.ami_release_version`(optional)을 신설하고 소비자
@@ -440,7 +468,7 @@ variable "managed_node_groups" {
 variable "cluster_addons" {
   type = map(object({
     enabled       = optional(bool, true)   # 제거는 명시적으로만. core 4종은 validation 차단
-    addon_version = optional(string)       # 미지정이면 baseline 핀 상속(D-ADDON-VERSION-PIN)
+    addon_version = optional(string)       # ⭐ 핀의 소유 지점(D-ADDON-VERSION-PIN-1). 미지정이면 AWS 기본 버전
     configuration = optional(string)
     pod_identity  = optional(object({ role_arn = string, service_account = string }))
   }))
@@ -537,7 +565,7 @@ output "external_dns_iam_role_arn" {}
 **추정 금지**(CLAUDE.md 검증 절). 확인 결과를 `main.tf` 상단 주석에 기록한다.
 
 > **✅ (a)(b)(c)(e) 완료 (2026-08-03)** — GitHub 태그 소스 직독(`v21.24.1`·`v2.8.2`) + provider 문서.
-> **⏸ (d)만 미완**(AWS 계정 필요).
+> **✅ (d) 완료 (2026-08-03)** — AWS 계정 실측(`describe-addon-versions`·`describe-addon-configuration`).
 
 **✅ (a) `terraform-aws-modules/eks` v21.24.1 루트 I/O** — 변수 104개 중 facade가 쓰는 것 전부 실재 확인:
 `create` · `name` · `kubernetes_version` · `vpc_id` · `subnet_ids` · `addons` · `eks_managed_node_groups` ·
@@ -570,13 +598,31 @@ output "external_dns_iam_role_arn" {}
   (`data.aws_eks_addon_version`은 `for_each` 조건에 포함) → `01 §4`의 kill switch data source 요건을
   **upstream이 이미 충족**하므로, D-EKS-ENABLED를 `count`가 아닌 `create` 위임으로 구현한다(§3.0).
 
-**⏸ (d) addon 스키마·가용성** — `aws eks describe-addon-versions` / `describe-addon-configuration`
-- baseline 6종 + community tier 5종이 **대상 리전·`kubernetes_version`에서 가용한지**와 `owner` 값.
-- vpc-cni의 `eniConfig.create`·`AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG`·`ENABLE_PREFIX_DELEGATION` 지원(§2.5).
-- 각 addon의 **호환 최신 버전 문자열**(D-ADDON-VERSION-PIN의 핀 소싱).
-- ⛔ **AWS 계정 접근이 필요하다.** 계정 없이는 baseline 핀을 확정할 수 없고,
-  **핀 없는 baseline은 D-ADDON-VERSION-PIN 위반**이라 릴리스(Task 20.8)할 수 없다.
-  ⚠️ 다만 **20.2~20.7 구현은 (d)에 막히지 않는다** — 핀 값만 비어 있을 뿐 구조는 결정됐다.
+**✅ (d) addon 스키마·가용성 (2026-08-03 실측 완료)** — 계정 `asset` · `describe-addon-versions`
+/ `describe-addon-configuration`. 이 실측이 **D-ADDON-VERSION-PIN-1 개정의 근거**가 됐다.
+
+- **가용성 ✅** — baseline 6종 + community tier 5종 **11종 전부** ap-northeast-2 · us-east-1 ·
+  eu-west-1 × k8s 1.33/1.34/1.35/1.36 카탈로그에 존재. `owner`는 aws 5종(`vpc-cni`·`coredns`·
+  `kube-proxy`·`eks-pod-identity-agent`·`aws-ebs-csi-driver`) / community 6종.
+  ⚠️ `metrics-server`의 `owner`가 **community**다 — 우리 분류의 "baseline vs community tier"는
+  **모듈 소유 vs 소비자 opt-in**을 가르는 축이고 AWS `owner` 필드와 무관하다. 맞추려 하지 말 것.
+- **vpc-cni 구성 스키마 ✅** — 핀 후보(`v1.22.4-eksbuild.3`)의 `configurationSchema`를 `$ref`/
+  `definitions` 해석해 대조. `env.AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG` · `env.ENI_CONFIG_LABEL_DEF` ·
+  `env.ENABLE_PREFIX_DELEGATION` · `eniConfig.{create,region,subnets}` **6개 전부 실재**.
+  - ⭐ `EniConfig.subnets.additionalProperties`에서 **`securityGroups`가 optional**임을 확인 —
+    §2.5 정정(“ENIConfig에서 `securityGroups` 생략 시 primary ENI SG 상속”)의 **스키마 근거**다.
+    Task 20.7에서는 추론이었고 여기서 실물로 확증됐다.
+  - ⚠️ `subnets`에 **`minProperties: 1`** — `enable_custom_networking`인데 `pod_subnet_ids`가
+    비면 무효 구성이 된다. `variables.tf`의 기존 교차변수 validation이 이미 막고 있다(재확인).
+- **⛔ 버전 문자열 — 핀 소싱은 폐기됐다.** 실측이 오히려 *"모듈이 값을 들면 안 된다"* 를 증명했다:
+  | 축 | 실측 |
+  |---|---|
+  | k8s | 1.35 기준 값을 1.34/1.33에 쓰면 `coredns`·`kube-proxy`·`metrics-server` **버전 없음**. 11종 중 3종만 k8s 의존 |
+  | 리전 | `cert-manager`가 an2 `v1.21.0-eksbuild.3` / us-east-1·eu-west-1 `eksbuild.2` |
+  → **D-ADDON-VERSION-PIN-1**(§2.6-6): 값의 소유자를 소비 루트로 옮긴다. 모듈은 `most_recent = false`만 소유.
+- ✅ **Task 20.8의 (d) 차단이 해소됐다** — 모듈이 핀을 갖지 않는 것이 이제 위반이 아니라 **결정**이다.
+  ⚠️ upstream 해석 경로도 실측했다(`main.tf:759-778`): `data.aws_eks_addon_version`에
+  `kubernetes_version`이 그대로 흘러가므로, 값 미지정 시 **k8s·리전 정합이 자동으로 성립**한다.
 
 ### Task 20.2~20.4: 모듈 본체 (`modules/eks-cluster/`)
 

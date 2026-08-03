@@ -65,6 +65,43 @@ VPC 내부(bastion·VPN·Direct Connect)에서만 도달한다. 이걸 정하지
 Karpenter chart의 affinity가 `karpenter.sh/nodepool DoesNotExist`를 요구해서, Karpenter가 만든 노드에는
 Karpenter가 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
 
+## addon 버전 고정 (D-ADDON-VERSION-PIN-1)
+
+**모듈은 addon 버전을 갖지 않는다.** 버전을 안 주면 EKS가 그 클러스터의 k8s 버전·리전에 맞는
+**AWS 기본 버전**을 해석한다 — 안전하고, 어떤 조합에서도 깨지지 않는다.
+
+⚠️ 모듈이 값을 들지 않는 이유는 **업그레이드 주기가 워크로드마다 다르기 때문**이다. 공통 모듈이
+버전을 소유하면 우리 kube-proxy 상향이 모듈 릴리스를 요구하고, 그 릴리스는 **다른 고객사에게도
+배송된다.** 반대로 우리는 남이 준비될 때까지 못 올린다. 버전은 이 루트가 소유한다.
+
+프로덕션에서 완전히 결정적으로 고정하려면 값을 조회해 `cluster_addons`에 박는다:
+
+```bash
+# 이 클러스터의 k8s 버전·리전 기준으로 조회한다 — 둘 다 값에 영향을 준다
+aws eks describe-addon-versions \
+  --kubernetes-version 1.35 --region ap-northeast-2 --addon-name coredns \
+  --query 'addons[].addonVersions[].addonVersion' --output text | tr '\t' '\n' | head -5
+```
+
+```hcl
+cluster_addons = {
+  "coredns"    = { addon_version = "v1.14.3-eksbuild.3" }
+  "kube-proxy" = { addon_version = "v1.35.3-eksbuild.17" }
+}
+```
+
+**갱신 규칙 두 가지.**
+
+1. ⚠️ **`kubernetes_version`을 올리면 고정한 버전도 같이 올린다.** addon 버전은
+   `f(k8s 버전, 리전)`이라 k8s만 올리면 *"그 버전 없음"* 으로 apply가 죽는다.
+   특히 `kube-proxy`는 **정의상** k8s 마이너를 따라간다(`v1.35.3` ↔ k8s 1.35).
+2. ⚠️ **리전마다 가용 버전이 다르다.** 2026-08-03 실측: `cert-manager`가 ap-northeast-2에는
+   `v1.21.0-eksbuild.3`, us-east-1·eu-west-1에는 `eksbuild.2`까지만 있었다.
+   멀티리전 배포에서 버전 문자열을 공유하려면 **리전 공통으로 가용한 값**을 쓴다.
+
+고정하지 않아도 **리뷰 없는 자동 업데이트는 일어나지 않는다** — 모듈이 `most_recent = false`를
+넘기므로 "매 plan이 최신을 재해석"하는 upstream 기본 동작은 꺼져 있다.
+
 ## 비용 주의
 
 이 형상은 **예제 중 가장 비싸다**. NAT 2개(AZ별, 개당 월 ~$43) + EKS 컨트롤플레인 + 노드 2대 +

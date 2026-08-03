@@ -300,7 +300,73 @@ D13 이전 방식이 남은 게 **아니다**. `01 §4` self-contained 요건상
 🔑 이 repo는 **코드로 못 보여주는 것을 README 비교표로 보상**하는 구조다 — "예제를 실사용에 맞추자"는
 제안이 또 나오면 여기를 먼저 읽는다.
 
-#### ⏭️ 다음 = **Task 20.1(d) → 20.8** (AWS 계정 확보가 선행 조건)
+#### ✅ Task 20.1(d) 완료 + ⛔ **D-ADDON-VERSION-PIN → `-1` 개정** (2026-08-03, PR #8 `f2a5c0d`)
+
+**AWS 계정은 이미 있었다** — `aws configure list-profiles`에 `team`(533616270150) · `asset`
+(614054776208). `describe-addon-versions`는 **클러스터 없이 되는 카탈로그 조회**라 선행 조건은
+처음부터 해소돼 있었다. 🔑 "계정 대기"라고 적힌 차단은 **확인해 보니 차단이 아니었다.**
+
+**⛔ 모듈은 addon 버전을 갖지 않는다.** 모듈이 소유하는 건 `most_recent = false` 하나이고,
+버전 **값**은 소비 루트가 `cluster_addons`의 `addon_version`으로 소유한다.
+
+- **철회 근거 ① 경계(사용자 지적, 결정적)** — addon 상향은 워크로드 운영 주기에 속한다. 공통
+  모듈이 값을 들면 **고객사 A의 kube-proxy 상향이 모듈 릴리스를 요구하고 그 릴리스가 B·C에게도
+  배송된다.** CLAUDE.md의 *"upstream cadence와 소비자 cadence를 분리한다"* 를 모듈이 스스로 깨는
+  구조이며, D26에 비추면 버전 값은 **배포 사실** 쪽이다.
+- **철회 근거 ② 정의역(실측)** — addon 버전은 `f(kubernetes_version, region)`이고 두 인자 모두
+  소비자가 정한다. 두 축 모두 실제 파손 확인: k8s(1.35 핀을 1.34/1.33에 → `coredns`·`kube-proxy`·
+  `metrics-server` 버전 없음, 11종 중 **3종만** k8s 의존) · 리전(`cert-manager` an2 `eksbuild.3` /
+  ue1·ew1 `eksbuild.2`).
+- 🔑 **두 결함은 한 뿌리의 두 증상이었다.** 리전 최소공통분모를 찾던 최초 대응은 증상 하나를
+  눌러 담은 것이었지 원인을 건드린 게 아니었다.
+- ⚠️ **막으려던 사고는 그대로 막힌다** — 원인은 upstream `most_recent = optional(bool, true)`였고
+  끄는 주체는 여전히 모듈이다. 값 미지정 시 upstream이 `data.aws_eks_addon_version(most_recent=
+  false)`로 그 클러스터의 k8s·리전에 맞는 AWS 기본 버전을 해석한다(**upstream `main.tf:759-778` 실측**).
+- ⛔ **기각안**: 모듈이 k8s 버전별 핀 표를 소유하는 안 — 정의역은 풀리나 **경계는 그대로**.
+- **(d) 나머지도 닫힘**: 11종 가용성 ✅ · vpc-cni 스키마 6키 ✅ ·
+  ⭐ `EniConfig.subnets.securityGroups`가 **optional**임을 확인해 Task 20.7의 §2.5 정정을
+  **추론에서 스키마 확증으로** 승격 · ⚠️ `metrics-server`의 AWS `owner`는 **community**다
+  (우리 분류는 모듈소유/opt-in 축이라 무관 — **맞추려 하지 말 것**).
+
+#### ✅ minimal 예제 2종 폐기 (2026-08-03, PR #9 `a530b74` — 사용자 결정)
+
+`examples/vpc` · `examples/eks-cluster` 삭제. 남은 건 `*-enterprise` 2개. 사유는 **관리 비용**.
+
+- `01 §4`의 실제 요건은 *"예제 **없이** 릴리스하지 않는다"* 이지 **개수가 아니다**(line 123).
+- 🔑 **minimal이 "검증 자산"으로 보인 건 착시였다** — `validate`는 교차변수 `validation`·
+  `precondition`을 평가하지 못한다(plan 전용). 판정은 처음부터 `modules/*/tests`가 하고 있었다.
+- ⚠️ **폐기 전 이관이 실제 작업량이었다**: `vpc-enterprise`엔 "소비 프로젝트와 다른 점" 비교표가
+  **아예 없었고** minimal README로 위임하고 있었다. 그냥 지웠으면 PR #7의 소싱 태그 안내가 통째로 사라졌다.
+- `examples/AGENTS.md`의 **"최소로 유지"가 반대로 뒤집혔다** → **"모듈당 예제를 늘리지 않는다"** 로 교체.
+- ⚠️ `-enterprise` 접미사는 폐기된 짝 때문에 남은 이름이라 실제와 어긋난다(개명 보류, AGENTS.md에 기록).
+
+#### ✅ D30-1 — PR plan 제거 + apply는 `workflow_dispatch`로만 (2026-08-03)
+
+소비 repo PR [#12](https://github.com/skax-ca/iac-reference-infra/pull/12)(**머지 대기**) + 이 repo `design/50` 개정 `70ad46d`.
+⚠️ **plan/apply 파이프라인은 이 repo에 없다** — `verify.yml`엔 plan이 없고 대상은 소비 repo `deploy.yml`이다.
+
+- **계기는 속도**(사용자): PR plan + merge plan→apply로 같은 계산을 두 번 했다.
+- ⚠️ **실측이 요청의 전제를 바꿨다**: `dev` environment의 `protection_rules`는 `branch_policy`
+  뿐이고 org plan은 **free** → private repo에 required reviewers를 걸 수 없다.
+  **승인 게이트가 아직 없었고**, PR plan 댓글이 사람이 계획을 보는 유일한 지점이었다.
+  그것만 빼면 무검토 계획이 `AdministratorAccess`로 공용 계정에 적용 = **D27-2 "예외 없음" 위반**.
+- → **apply를 dispatch 전용으로.** 누르는 행위가 무료 플랜에서 승인을 대신한다.
+  ⭐ `design/50`이 *"❌ 상실: 읽어야 진행된다는 강제력"* 이라 적은 것을 **되찾았다**.
+  ⚠️ 단 **merge 권한자와 apply 실행자 분리는 여전히 없다**(required reviewers만이 준다).
+- ✅ **IAM 수정 불요를 확인**: 신뢰 정책에 `ref:refs/heads/main` 패턴이 있어 dispatch run이 커버된다.
+  안 봤으면 "merge는 됐는데 dispatch가 인증 실패"를 실행 시점에 만났을 것이다.
+- **열린 항목**: sub 패턴 ①(`:pull_request`) 미사용 → 최소권한상 제거 대상(라이브 IAM이라 별건) ·
+  소비 repo에 **PR CI가 없어졌다**(깨진 HCL은 merge 후 main plan에서 시끄럽게 실패).
+
+#### ⏭️ 다음 = **Task 20.8 릴리스 `eks-cluster-v1.0.0`** (차단 해소됨)
+
+⛔ 이전에 적힌 *"AWS 계정 대기"* 는 **더 이상 유효하지 않다.** (d)가 닫혔고, 모듈이 핀을 갖지
+않는 것이 이제 위반이 아니라 **결정**(D-ADDON-VERSION-PIN-1)이다.
+
+남은 일: 게이트 6개 통과 실측을 `design/20 §4.1 릴리스 기록`에 남기고 · `02 §2` 하한 대장에
+`eks-cluster` 행(`>= 1.9.0`) 추가 · **apply 미검증 항목 표**를 명시(VPC에서 이 표가 6항목을
+추적했고 전부 판정되기까지 별도 세션이 필요했다 — *"plan 통과 = 검증됨"* 으로 쓰지 않는다) ·
+태그 `eks-cluster-v1.0.0`.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

@@ -321,8 +321,11 @@ tofu init \
 
 ### D27-2 · 공용 계정(F13) 운영 규칙 — PoC `05` §7.1 승계
 
-`AdministratorAccess`를 **자동 트리거**에 연결한다는 것이 PoC와의 실질적 차이다.
-PoC에서는 사람이 TFC workspace에서 돌렸다. 이제 `pull_request`가 `plan`을 자동 실행한다.
+`AdministratorAccess`를 **자동 트리거**에 연결한다는 것이 PoC와의 실질적 차이였다.
+PoC에서는 사람이 TFC workspace에서 돌렸다.
+⚠️ **2026-08-03(D30-1) 이후 이 차이가 줄었다** — apply 가 `workflow_dispatch` 전용이 되어
+**적용 자체는 다시 사람의 행위**가 됐다. 자동인 것은 plan 까지다. 다만 실행 Role 이 여전히
+`AdministratorAccess`이므로 아래 규칙은 그대로 유효하다.
 
 | 규칙 | 내용 |
 |------|------|
@@ -345,7 +348,7 @@ PoC에서는 사람이 TFC workspace에서 돌렸다. 이제 `pull_request`가 `
 **소비 repo를 세울 때 가장 먼저 확인할 항목이다.** 실 고객사는 대부분 Team/Enterprise이므로
 정상 경로가 성립하지만, **리허설·PoC·개인 org에서는 성립하지 않는다.**
 
-**Free에서의 대체 운영 형태(열화를 명시한다)**
+**Free에서의 대체 운영 형태 — ⛔ 구 형태(2026-08-03 D30-1로 교체됨, 되살리지 말 것)**
 
 ```
 PR 생성 → plan 자동 실행 → PR 댓글에 destroy/replace 목록 + plan 전문
@@ -357,6 +360,38 @@ PR 생성 → plan 자동 실행 → PR 댓글에 destroy/replace 목록 + plan 
 - ❌ 상실: **"읽어야 진행된다"는 강제력.** merge 권한자와 apply 승인자가 분리되지 않는다
 - 완화: plan job이 `will be destroyed`·`must be replaced`를 **전문 위로 끌어올려** PR 댓글에 남긴다.
   ⚠️ *"읽을 수 있게 한다"* 이지 *"읽어야 진행된다"* 가 아니다 — 이 구분을 흐리지 않는다.
+
+> ### 🆕 D30-1 (2026-08-03) · PR plan 제거 + apply 는 `workflow_dispatch` 로만
+>
+> **계기는 속도였다** — PR 에서 plan, merge 에서 다시 plan→apply 로 같은 계산을 두 번 하고
+> 그만큼 배포가 느렸다. 사용자 결정으로 `pull_request` 트리거를 제거했다.
+>
+> ⚠️ **그런데 PR plan 만 빼면 위 형태에서 마지막 남은 검토 지점까지 사라진다.** 그 지점은
+> 강제력이 없었을 뿐 *"사람이 계획을 보는 유일한 자리"* 였다. 없애면 아무도 읽지 않은 계획이
+> `AdministratorAccess`(D27-1)로 공용 계정(F13)에 적용된다 = **D27-2 "예외 없음" 정면 위반.**
+> → apply 를 `workflow_dispatch` 전용으로 바꿔 **사람의 실행 행위를 승인으로 삼는다.**
+>
+> ```
+> merge → push:main → plan 만 실행 (요약이 run Summary 에)
+>       → 사람이 읽는다
+>       → Run workflow → 같은 run 안에서 plan → apply     ← 누르지 않으면 적용되지 않는다
+> ```
+>
+> **⭐ 위 구 형태가 "❌ 상실"로 적은 것을 되찾았다.** 무료 플랜에서도 **"읽어야 진행된다"** 가
+> 성립한다 — dispatch 를 누르지 않으면 apply 는 일어나지 않기 때문이다. 열화를 감수한 형태가
+> 아니라 **더 강한 형태**이며, 유료 승인 게이트가 없는 것을 사람의 행위로 대체한 구조다.
+> ⚠️ 다만 **merge 권한자와 apply 실행자는 여전히 분리되지 않는다** — 그건 required reviewers 만이 준다.
+>
+> **⚠️ 잔여 간극**: 사람이 읽는 plan(push run)과 적용되는 plan(dispatch run)이 **다른 run** 에서
+> 만들어진다. 그 사이 state 가 바뀌면 갈라질 수 있다. run 경계를 넘어 artifact 를 가져오는 쪽이
+> 더 나쁘므로(§3 "그 조회 지점이 곧 구멍") 이 구조를 택했다.
+> 🔑 **상위 요금제 구독 시 이 간극이 사라진다** — required reviewers 는 승인을 **같은 run 안**으로
+> 들여오므로, `apply` 의 `if:` 를 `(push || workflow_dispatch)` 로 되돌리면 된다.
+>
+> **부수 효과**: 소비 repo 에 `deploy.yml` 외 워크플로가 없어 **PR 에 CI 가 없어졌다.**
+> 깨진 HCL 은 merge 후 main push 의 plan 에서 실패한다 — 시끄럽고 복구 가능하지만 사전 차단은 없다.
+> **열린 항목**: 입구 Role 신뢰 정책의 `sub` 패턴 ①(`...:pull_request`)이 미사용이 됐다.
+> 트리거가 없어 토큰이 발급되지 않으니 무해하나 최소권한 관점에선 제거 대상이다(라이브 IAM 변경).
 
 > ℹ️ **걸린 하나가 D28의 미해결 제약을 메운다.** `environment`가 `sub`의 `ref`를 덮어써
 > **apply job의 브랜치 제한을 `sub`로 걸 수 없는데**(D28 실측), deployment branch policy가
@@ -372,8 +407,9 @@ PR 생성 → plan 자동 실행 → PR 댓글에 destroy/replace 목록 + plan 
 
 | job | 트리거 | 예상 `sub` | 상태 |
 |-----|--------|-----------|------|
-| PR plan | `pull_request` | `...:pull_request` | ⚠️ **실측 예정** |
+| ~~PR plan~~ | ~~`pull_request`~~ | `...:pull_request` | ⛔ **미사용**(D30-1, 2026-08-03) — 신뢰 정책엔 남아 있다 |
 | main plan | `push` → `main` | `...:ref:refs/heads/main` | ⚠️ 동일 |
+| dispatch plan | `workflow_dispatch` → `main` | `...:ref:refs/heads/main` | ✅ **패턴 ②가 커버**(신뢰 정책 실물 확인) — 값 자체는 첫 dispatch run 에서 확인 |
 | apply | `environment: dev` | `...:environment:dev` | ⚠️ 동일 |
 
 - **immutable `sub` 형태를 추정하지 않는다.** repo가 2026-07-15 이후 생성되면 `sub`가 이름이 아니라
@@ -450,9 +486,12 @@ assume_role = {
 [`CLAUDE.md` 실행 기반](../../CLAUDE.md) 요건을 **한 워크플로 두 job**으로 만족시킨다.
 별도 워크플로로 쪼개면 artifact를 run 경계 밖에서 찾아야 하고, **그 조회 지점이 곧 구멍**이다.
 
+> ⛔ **2026-08-03 개정(D30-1)** — 아래 도식의 `pull_request` 줄과 `apply if: push→main`은
+> **더 이상 유효하지 않다.** 개정 후 형태는 이 절 뒤의 D30-1 상자에 있다. 도식은 이력으로 남긴다.
+
 ```
 deploy.yml
-├─ on: pull_request  (paths: live/dev/networking/**)  → plan job 만
+├─ on: pull_request  (paths: live/dev/networking/**)  → plan job 만     ← ⛔ 제거됨(D30-1)
 ├─ on: push → main   (paths: 동일)                     → plan job → apply job
 ├─ concurrency: {group: live-dev-networking, cancel-in-progress: false}
 │

@@ -14,6 +14,10 @@
 >   `D-*` ID를 보존**한다(PoC 문서와의 상호 참조 유지).
 > - **재사용 요건 5종 적용**(`01 §4`) — **D-EKS-ENABLED**(kill switch)·**D-EKS-PROTECT**(삭제 보호) 신설,
 >   파라미터화, 환경 프로파일, 예제 2종, 출력 계약 안정성.
+> - **Task 20.1(a)(b)(c)(e) 실물 확인 반영**(2026-08-03, 같은 날 2차) — upstream 소스 직독으로
+>   **D-EKS-PROTECT를 네이티브 `deletion_protection`으로 확정**(→ 하한 `>= 1.12.0`에서 **`>= 1.9.0`**으로
+>   하향) · **D-EKS-ENABLED를 upstream `create` 토글에 위임** · `eks-pod-identity` 핀 `2.8.2` ·
+>   출력 fallback 불일치 함정 기록. ⏸ **(d) addon 핀 소싱만 미완**(AWS 계정 필요).
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -254,8 +258,8 @@ hand-author 금지** — self-authored·churn이므로 **AWS 관리형 또는 �
 
 > **구현 형태**(PoC에서 검증된 배치를 승계): `module.alb_controller_pod_identity`·
 > `module.external_dns_pod_identity`(`terraform-aws-modules/eks-pod-identity`, 정확 핀) + 토글 + role ARN 출력.
-> ⚠️ **PoC 핀은 `= 2.8.1`이었고 현재 최신은 `2.8.2`다**(2026-08-03 registry 확인) — 구현 시
-> Task 20.1에서 실물 대조 후 확정한다.
+> ✅ **핀은 `= 2.8.2`**(2026-08-03 Task 20.1(c) 확인 — PoC는 2.8.1). `attach_aws_lb_controller_policy`·
+> `attach_external_dns_policy`·`external_dns_hosted_zone_arns`·`name`·`use_name_prefix`·`create` 실재 확인.
 
 > **정책 소싱 우선순위**: AWS 관리형(EBS CSI·external-dns) ≈ 커뮤니티 큐레이션(ALBC via eks-pod-identity) >
 > hand-author(최후). 항상 **버전 핀 + 최소권한(zone ARN) 스코핑**. external-dns 관리형 정책은 광범위
@@ -291,7 +295,7 @@ PoC 모듈에 없었고 이 repo가 반드시 추가하는 것들이다. **이 �
 | 요건 | 이 모듈의 이행 | 결정 |
 |------|--------------|------|
 | **파라미터화** | workload code·계정 ID·리전 하드코딩 없음. `naming` 객체 주입, 클러스터명은 모듈이 합성 | — |
-| **kill switch** | `cluster_enabled = false` → 전 리소스 파기. **data source의 `count`까지 0** | **D-EKS-ENABLED** |
+| **kill switch** | `cluster_enabled = false` → 전 리소스 파기. **data source까지** 꺼져야 한다 | **D-EKS-ENABLED** |
 | **환경 프로파일** | 엔드포인트 노출·NG 크기/capacity·컨트롤플레인 로깅·addon 핀을 변수로 흡수 | §3.1 프로파일 축 |
 | **예제 + 테스트** | `examples/eks-cluster/`(최소) + `examples/eks-cluster-enterprise/`(고객 착수 템플릿) | Task 20.6 |
 | **출력 계약** | §3.2 출력은 **메이저 내 안정**. kill switch 시 `null` 반환(에러 아님) | §3.2 규약 |
@@ -299,20 +303,36 @@ PoC 모듈에 없었고 이 repo가 반드시 추가하는 것들이다. **이 �
 여기에 VPC(D12)와 대칭인 **삭제 보호**를 더한다.
 
 > **⭐ D-EKS-ENABLED (kill switch)** — `cluster_enabled`(기본 `true`). `false`면 모듈이 만드는 모든
-> 리소스가 파기된다. ⚠️ **핵심은 `count`가 리소스뿐 아니라 `data` 블록에도 걸려야 한다는 것**이다
+> 리소스가 파기된다. ⚠️ **핵심은 게이트가 리소스뿐 아니라 `data` 블록에도 걸려야 한다는 것**이다
 > (`01 §4`, findings §6.2): 참조 대상이 사라진 뒤 data source가 살아 있으면 **plan 자체가 실패**해
-> kill switch가 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽이 된다. VPC D10의 선례를 그대로 따른다.
-> 하위 모듈(`module.eks`·`module.karpenter`·`module.*_pod_identity`)도 `count`로 함께 게이트한다.
+> kill switch가 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽이 된다.
 >
-> **⭐ D-EKS-PROTECT (삭제 보호)** — `deletion_protection`(기본 `false`). `true`면 클러스터에
-> **동적 `prevent_destroy`**를 걸고, 교차변수 `validation`이 `deletion_protection = true`인 상태의
-> `cluster_enabled = false`를 **거부**한다. VPC **D12와 동일한 메커니즘**이며 근거도 같다 —
-> Terraform은 `prevent_destroy`에 리터럴만 받아 모듈이 소비자에게 위임할 수 없고, OpenTofu 1.12는 받는다
-> (`04 §5` OpenTofu 고유 기능 사용 근거). EKS 클러스터 파기는 VPC보다 파급이 크므로 대칭 적용이 맞다.
-> ⚠️ **교차변수 validation은 `validate`가 아니라 `plan`에서 평가된다**(VPC에서 실측) —
-> **`*.tftest.hcl`이 유일한 검출 지점**이고 `examples`의 `validate`로는 잡히지 않는다.
+> ✅ **구현은 `count`가 아니라 upstream `create` 토글에 위임한다**(2026-08-03 Task 20.1 확인):
+> `terraform-aws-modules/eks` v21.24.1 · `//modules/karpenter` · `eks-pod-identity` v2.8.2가 **셋 다
+> `create` 변수를 노출**하고, upstream이 **자체 data source까지 `local.create`로 게이트**한다
+> (`data.aws_partition`·`aws_caller_identity`·`aws_iam_session_context`·`aws_iam_policy_document`는
+> `count = local.create ? 1 : 0`, `data.aws_eks_addon_version`은 `for_each`에 `local.create` 조건).
+> 즉 **`01 §4`의 data source 요건을 upstream이 이미 충족**한다.
+> - 이득: `module.eks[0]` 인덱싱이 사라져 출력이 `module.eks.cluster_name`으로 단순해진다.
+> - ⚠️ 모듈이 **직접 선언**하는 리소스·data source(EBS CSI role 등)는 여전히 우리가 `count`로 게이트한다.
+>   위임되는 것은 upstream 내부뿐이다.
 >
-> ⚠️ 이 두 결정이 **`required_version` 하한을 `>= 1.12.0`으로 정한다**(§3.3).
+> **⭐ D-EKS-PROTECT (삭제 보호)** — `deletion_protection`(기본 `false`).
+>
+> ✅ **VPC D12와 메커니즘이 다르다**(2026-08-03 Task 20.1(e)로 확정). `aws_eks_cluster`에는
+> **`deletion_protection` 인자가 있고**(provider 공식: *"When enabled, the cluster cannot be deleted
+> unless deletion protection is first disabled"*), upstream이 `var.deletion_protection`으로 그대로
+> 노출한다. 따라서 facade는 **값을 통과시키기만** 하면 된다.
+> - 🔑 **이것이 VPC D12보다 강한 보호다.** `prevent_destroy`는 **IaC 차원**이라 state 밖(콘솔·CLI)의
+>   삭제를 막지 못한다. `deletion_protection`은 **AWS API 차원**이라 어느 경로로도 막는다.
+>   VPC가 `prevent_destroy`를 쓴 것은 VPC에 이런 네이티브 보호가 **없어서**였지, 그 방식이 더 나아서가 아니다.
+> - 교차변수 `validation`은 그대로 둔다 — `deletion_protection = true`인 상태의 `cluster_enabled = false`를
+>   **plan 시점에 거부**해 "보호를 켠 채 kill switch로 지우는" 경로를 막는다(VPC D12에서 실측된 가드).
+>   ⚠️ 교차변수 validation은 `validate`가 아니라 **`plan`에서 평가**되므로 **`*.tftest.hcl`이 유일한
+>   검출 지점**이다. `examples`의 `validate`로는 잡히지 않는다.
+>
+> ✅ **그 결과 `required_version` 하한이 기준선 `>= 1.9.0`으로 내려간다**(§3.3) — 동적 `prevent_destroy`가
+> 필요 없어졌기 때문이다. **하한이 낮을수록 소비자를 덜 배제한다**(`02 §2`).
 
 ### 3.1 variables
 
@@ -411,21 +431,35 @@ output "external_dns_iam_role_arn" {}
 
 **출력 계약 규약**(`01 §4`):
 - 소비자가 의존하는 출력 이름은 **메이저 버전 내에서 안정**하다. 이름 변경은 메이저.
-- **kill switch·opt-out 시 `null`을 반환한다**(에러가 아니라). `try(module.x[0].attr, null)` 패턴 —
-  `cluster_enabled = false`인 루트에서도 `terraform output`이 성립해야 소비자가 조건 분기를 짜지 않는다.
+- **kill switch·opt-out 시 `null`을 반환한다**(에러가 아니라). `cluster_enabled = false`인 루트에서도
+  `tofu output`이 성립해야 소비자가 조건 분기를 짜지 않는다.
 - ➕ `cluster_arn` 추가: GitOps 쪽 클러스터 등록이 **API URL이 아니라 ARN**을 요구한다(21 §2.8 실측).
   seam 방식이 재결정되어도 ARN은 어느 경로든 필요하므로 계약에 둔다.
 
+> ⚠️ **함정 — upstream 출력의 fallback 값이 일관되지 않다**(2026-08-03 Task 20.1 확인).
+> `create = false`일 때 upstream `outputs.tf`는 대부분 `try(…, null)`이지만
+> **`cluster_name`과 `cluster_id`만 `try(…, "")`(빈 문자열)** 이다.
+> → facade가 **`null`로 정규화**한다. 그러지 않으면 소비자가 `X == null` 대신 `X == ""`를 알아야 하고,
+> 그건 **upstream 구현 디테일이 우리 계약으로 새는 것**이다 — facade가 막으라고 있는 바로 그 종류다.
+> tftest AC3(kill switch)에서 **빈 문자열이 아니라 `null`인지**를 assert한다.
+
 ### 3.3 `required_version` 하한
 
-**`>= 1.12.0`** — 근거는 **D-EKS-PROTECT의 동적 `prevent_destroy`**(입력 변수 참조)다.
-`02 §2` 하한 대장에 `vpc`와 나란히 등재한다.
+**`>= 1.9.0`** (기준선) — 근거는 **교차변수 `validation`**(D-EKS-PROTECT의 파기 차단 가드)이다.
 
-> ⚠️ 하한은 **실제로 쓰는 기능이 정한다**(`02 §2`). 근거 없는 상향은 소비자만 배제한다.
-> D-EKS-PROTECT를 채택하지 않으면 하한은 기준선 `>= 1.9.0`(교차변수 validation)이 된다 —
-> 즉 이 하한은 **위 결정의 귀결이지 관성이 아니다.**
+> ✅ **2026-08-03 확정**: 초안은 `>= 1.12.0`이었다. D-EKS-PROTECT를 VPC D12처럼 **동적 `prevent_destroy`**로
+> 구현할 것이라 보았기 때문이다. Task 20.1(e)에서 `aws_eks_cluster`에 **네이티브 `deletion_protection`이
+> 있음**을 확인해 그 필요가 사라졌고, **하한을 두 마이너 내렸다.**
+>
+> 🔑 이 방향이 옳다. 하한은 **실제로 쓰는 기능이 정하고**(`02 §2`), 근거 없는 상향은 **소비자만 배제**한다.
+> `vpc`가 `>= 1.12.0`인 것은 그 모듈이 실제로 1.12 기능을 쓰기 때문이지 **repo 표준이 아니다** —
+> 모듈마다 하한이 갈리는 것이 `<module>-vX.Y.Z` 컴포넌트별 태그를 쓰는 이유이기도 하다.
+>
 > ⛔ PoC 문서의 `>= 1.14.0`은 **Terraform 버전**이었다. OpenTofu에는 존재하지 않는 버전이라
 > 그대로 두면 **어떤 OpenTofu로도 `init`이 되지 않는다** — 승계 시 반드시 걷어내야 하는 종류의 값이다.
+
+`02 §2` 하한 대장 등재는 **릴리스(Task 20.8) 시점**에 한다. 기준선과 같은 값이지만, "확인한 결과
+기준선이었다"와 "확인하지 않았다"는 다르므로 근거(`교차변수 validation`)와 함께 명시적으로 적는다.
 
 ---
 
@@ -446,38 +480,47 @@ output "external_dns_iam_role_arn" {}
 
 **추정 금지**(CLAUDE.md 검증 절). 확인 결과를 `main.tf` 상단 주석에 기록한다.
 
-**(a) `terraform-aws-modules/eks` 버전 확정 및 I/O**
-- 2026-08-03 시점 OpenTofu registry 최신은 **21.24.1**(PoC 핀은 21.24.0). 착수 시 재조회해 **정확 핀**.
-- `mcp__opentofu__get-module-details`로 루트 변수(`name`·`addons`·`eks_managed_node_groups`·
-  `endpoint_*`·`access_entries`·`enabled_log_types`·`node_security_group_tags`)와 출력명 대조.
-- ⚠️ **`enable_pod_identity`가 v21에 없음을 확인**한다(§3.1에서 facade 변수를 삭제한 근거).
+> **✅ (a)(b)(c)(e) 완료 (2026-08-03)** — GitHub 태그 소스 직독(`v21.24.1`·`v2.8.2`) + provider 문서.
+> **⏸ (d)만 미완**(AWS 계정 필요).
 
-**(b) `//modules/karpenter` 서브모듈 I/O**
-- 컨트롤러 IAM role ARN · node IAM role ARN/name · instance profile name · SQS queue name의 **실제 출력명**.
-- `enable_inline_policy = true` 유지(관리형 정책 6,144자 한도 초과 실측 — upstream #3563).
-- `iam_role_name`·`node_iam_role_name`·`queue_name` override 가능 여부(§2.6 IAM 네이밍 이원화의 가역성 근거).
+**✅ (a) `terraform-aws-modules/eks` v21.24.1 루트 I/O** — 변수 104개 중 facade가 쓰는 것 전부 실재 확인:
+`create` · `name` · `kubernetes_version` · `vpc_id` · `subnet_ids` · `addons` · `eks_managed_node_groups` ·
+`endpoint_private_access` · `endpoint_public_access` · `endpoint_public_access_cidrs` · `access_entries` ·
+`enable_cluster_creator_admin_permissions` · `enabled_log_types` · `node_security_group_tags` ·
+`deletion_protection` · `tags`.
+- ✅ **`enable_pod_identity`는 존재하지 않는다** → §3.1에서 facade 변수를 삭제한 근거가 실물로 확인됐다.
+- ⚠️ 출력 fallback이 일관되지 않다: 대부분 `try(…, null)`인데 **`cluster_name`·`cluster_id`만 `""`** (§3.2 함정).
 
-**(c) `terraform-aws-modules/eks-pod-identity` 버전·변수**
-- 최신 **2.8.2**(2026-08-03 확인, PoC 핀 2.8.1). `attach_aws_lb_controller_policy`·
-  `attach_external_dns_policy`·`external_dns_hosted_zone_arns`·`name`·`use_name_prefix` 실물 확인.
+**✅ (b) `//modules/karpenter` 실제 출력명** — 설계의 예상값과 **전부 일치**:
+`iam_role_arn` · `node_iam_role_arn` · `node_iam_role_name` · `instance_profile_name` · `queue_name`
+(그 외 `iam_role_name`·`queue_arn`·`queue_url`·`instance_profile_arn`·`node_access_entry_arn`·
+`namespace`·`service_account` 등 17개).
+- ✅ `enable_inline_policy` 존재 → 관리형 정책 6,144자 한도 회피 hotfix 승계 가능.
+- ✅ `iam_role_name`·`node_iam_role_name`·`queue_name` + `*_use_name_prefix` override 존재
+  → **§2.6 IAM 네이밍 이원화의 "가역 전환" 근거가 실물로 성립**한다(열린 항목 5.1-6).
+- ✅ `create`·`create_pod_identity_association` 존재.
 
-**(d) addon 스키마·가용성** — `aws eks describe-addon-versions` / `describe-addon-configuration`
+**✅ (c) `eks-pod-identity` v2.8.2** — `create` · `name` · `use_name_prefix` ·
+`attach_aws_lb_controller_policy` · `attach_external_dns_policy` · `external_dns_hosted_zone_arns` ·
+`associations` · `association_defaults` 전부 실재. PoC 핀 2.8.1 → **2.8.2로 올린다**(패치).
+
+**✅ (e) D-EKS-PROTECT 구현 경로 — 확정: upstream `deletion_protection` 통과**
+- `aws_eks_cluster`에 **네이티브 `deletion_protection` 인자**가 있다(provider 문서:
+  *"the cluster cannot be deleted unless deletion protection is first disabled"*, 기본 `false`).
+  upstream `main.tf`가 `deletion_protection = var.deletion_protection`으로 그대로 노출한다.
+- → 후보 ①②③ 중 **②로 확정**. `lifecycle`을 붙일 수 없다는 제약이 **무의미해졌다** — 애초에 필요 없다.
+- → **§3.3 하한이 `>= 1.12.0` → `>= 1.9.0`으로 내려갔다.**
+- 🔑 부수 확인: **upstream이 자체 data source까지 `local.create`로 게이트**한다
+  (`data.aws_eks_addon_version`은 `for_each` 조건에 포함) → `01 §4`의 kill switch data source 요건을
+  **upstream이 이미 충족**하므로, D-EKS-ENABLED를 `count`가 아닌 `create` 위임으로 구현한다(§3.0).
+
+**⏸ (d) addon 스키마·가용성** — `aws eks describe-addon-versions` / `describe-addon-configuration`
 - baseline 6종 + community tier 5종이 **대상 리전·`kubernetes_version`에서 가용한지**와 `owner` 값.
 - vpc-cni의 `eniConfig.create`·`AWS_VPC_K8S_CNI_CUSTOM_NETWORK_CFG`·`ENABLE_PREFIX_DELEGATION` 지원(§2.5).
 - 각 addon의 **호환 최신 버전 문자열**(D-ADDON-VERSION-PIN의 핀 소싱).
-- ⚠️ 이 확인은 **AWS 계정 접근이 필요**하다. 계정이 없는 상태에서는 baseline 핀을 확정할 수 없으므로,
-  그 경우 **핀을 `null`로 두고 릴리스하지 않는다**(핀 없는 baseline은 D-ADDON-VERSION-PIN 위반).
-
-**(e) `prevent_destroy` 동적 참조가 `module.eks`가 만드는 클러스터에 걸리는지**
-- ⚠️ **VPC와 결정적으로 다른 점**: VPC는 `aws_vpc`를 **모듈이 직접 선언**해 `lifecycle`을 붙였지만,
-  EKS 클러스터는 **upstream 모듈 내부 리소스**라 wrapper가 `lifecycle`을 붙일 수 없다.
-  → D-EKS-PROTECT의 구현 경로를 여기서 확정한다. 후보:
-  ① 교차변수 `validation`만으로 파기 차단(계약 수준 보호 — `prevent_destroy` 없이)
-  ② upstream이 노출하는 보호 옵션 사용(있는지 확인)
-  ③ 클러스터를 wrapper가 직접 선언(= facade 포기, 기각 유력)
-  **(e)의 결과에 따라 §3.0 D-EKS-PROTECT와 §3.3 하한(`>= 1.12.0` vs `>= 1.9.0`)을 개정한다.**
-
-- Commit: 없음(문서 갱신만) — 확인 결과를 이 문서 §3.0·§3.3에 반영하는 커밋으로 마무리한다.
+- ⛔ **AWS 계정 접근이 필요하다.** 계정 없이는 baseline 핀을 확정할 수 없고,
+  **핀 없는 baseline은 D-ADDON-VERSION-PIN 위반**이라 릴리스(Task 20.8)할 수 없다.
+  ⚠️ 다만 **20.2~20.7 구현은 (d)에 막히지 않는다** — 핀 값만 비어 있을 뿐 구조는 결정됐다.
 
 ### Task 20.2~20.4: 모듈 본체 (`modules/eks-cluster/`)
 
@@ -494,15 +537,18 @@ output "external_dns_iam_role_arn" {}
   }
 
   module "eks" {
-    count   = local.enabled ? 1 : 0        # D-EKS-ENABLED
     source  = "terraform-aws-modules/eks/aws"
-    version = "21.24.1"                    # 정확 핀 — Task 20.1(a)에서 확정
+    version = "21.24.1"                    # 정확 핀 — Task 20.1(a) 확인
+
+    create = local.enabled                 # D-EKS-ENABLED — upstream이 data source까지 게이트한다
 
     name               = local.cluster_name   # facade: upstream `name`으로 번역
     kubernetes_version = var.kubernetes_version
     vpc_id             = var.vpc_id
     subnet_ids         = var.subnet_ids
     enabled_log_types  = var.enabled_log_types
+
+    deletion_protection = var.deletion_protection   # D-EKS-PROTECT — AWS 네이티브 보호
 
     endpoint_public_access       = var.endpoint_public_access
     endpoint_private_access      = var.endpoint_private_access
@@ -513,7 +559,7 @@ output "external_dns_iam_role_arn" {}
 
     # Karpenter discovery 태그는 subnet(소비자 소관)과 node SG(여기) **둘 다** 필요하다.
     # SG 쪽 누락이 PoC에서 실제 사고였다(구 열린 항목 4) — 계약으로 고정한다.
-    node_security_group_tags = local.enabled && var.enable_karpenter ? {
+    node_security_group_tags = var.enable_karpenter ? {
       "karpenter.sh/discovery" = local.cluster_name
     } : {}
 
@@ -523,14 +569,18 @@ output "external_dns_iam_role_arn" {}
   }
 
   module "karpenter" {
-    count   = local.enabled && var.enable_karpenter ? 1 : 0
     source  = "terraform-aws-modules/eks/aws//modules/karpenter"  # ⚠ registry 주소에 /aws 필수
     version = "21.24.1"
-    cluster_name         = module.eks[0].cluster_name
+
+    create               = local.enabled && var.enable_karpenter
+    cluster_name         = module.eks.cluster_name   # 인덱스 없음 — create 위임의 이득
     enable_inline_policy = true      # 관리형 정책 6,144자 한도 초과 실측
     tags                 = var.tags
   }
   ```
+  ⚠️ **`create = false`여도 모듈 블록은 평가된다** — 입력 표현식이 유효해야 한다. 이는 `count = 0`도
+  마찬가지이므로 손해가 아니지만, `module.eks.cluster_name`을 참조하는 쪽(위 karpenter)이
+  **빈 문자열을 받는다**는 점은 다르다(§3.2 함정). 참조가 이름을 *쓰기* 전에 꺼지는지 확인한다.
   ⚠️ **`ami_release_version` 함정**: upstream `eks-managed-node-group`은 `use_latest_ami_release_version`
   **기본 true**라 `ami_release_version`만 주면 **무시된다**. facade가
   `use_latest_ami_release_version = (ami_release_version == null)`로 파생해야 핀이 실효한다(§2.6).
@@ -567,8 +617,9 @@ output "external_dns_iam_role_arn" {}
 |----|------|
 | AC1 | 네이밍 — `cluster_name == "eks-<workload>-<env>-<rc>-<purpose>-<serial>"` |
 | AC2 | **`Name` 태그 assertion**(CLAUDE.md 필수) — NG·IAM role 등 태그 가능 리소스 |
-| AC3 | kill switch — `cluster_enabled = false` → `module.eks`·`module.karpenter` 길이 0, **data source도 0** |
+| AC3 | kill switch — `cluster_enabled = false` → 리소스 0개 **+ 출력이 `null`**(빈 문자열이 아니라 — §3.2 함정) |
 | AC4 | D-EKS-PROTECT — `deletion_protection = true` + `cluster_enabled = false` → **plan 거부** |
+| AC4b | `deletion_protection = true` → `aws_eks_cluster`에 그 값이 **실제로 전달**되는지(통과 확인) |
 | AC5 | addon 빈 map → baseline 6종 |
 | AC6 | core 4종 `enabled = false` → validation 실패 |
 | AC7 | shallow-merge 회귀 — ebs-csi `addon_version` override에도 `pod_identity_association` 유지 |
@@ -596,14 +647,13 @@ output "external_dns_iam_role_arn" {}
 
 ### 5.1 이 모듈 소관 — 구현·릴리스와 함께 판단한다
 
-1. **⚠️ D-EKS-PROTECT의 구현 경로** (2026-08-03 신설, Task 20.1(e)) — **VPC D12와 결정적으로 다른 점**이
-   있다. VPC는 `aws_vpc`를 **모듈이 직접 선언**해 `lifecycle { prevent_destroy = var.deletion_protection }`을
-   붙일 수 있었지만, **EKS 클러스터는 upstream 모듈 내부 리소스**라 wrapper가 `lifecycle`을 붙일 수 없다
-   (`lifecycle`은 모듈 호출에 쓸 수 없고 리소스 블록 전용이다).
-   → 후보 ① 교차변수 `validation`만으로 파기 차단(계약 수준 보호) ② upstream이 노출하는 보호 옵션
-   ③ 클러스터 직접 선언(= facade 포기, 기각 유력).
-   **①로 확정되면 `required_version` 하한이 `>= 1.9.0`으로 내려간다**(§3.3) — 하한은 실제로 쓰는 기능이
-   정하기 때문이다. 이 항목이 닫히기 전에는 §3.3의 `>= 1.12.0`을 확정으로 인용하지 않는다.
+1. ~~**D-EKS-PROTECT의 구현 경로**~~ ✅ **해소(2026-08-03, Task 20.1(e))** — `aws_eks_cluster`에
+   **네이티브 `deletion_protection` 인자**가 있어 후보 ②로 확정됐다. *"wrapper가 upstream 내부
+   리소스에 `lifecycle`을 붙일 수 없다"*는 제약은 **풀린 게 아니라 무의미해졌다** — 붙일 필요가 없다.
+   결과로 `required_version` 하한이 **`>= 1.12.0` → `>= 1.9.0`**으로 내려갔다(§3.3).
+   🔑 교훈: **"VPC가 이렇게 했으니 EKS도"는 위험한 대칭**이다. VPC가 `prevent_destroy`를 쓴 것은
+   VPC에 네이티브 보호가 **없어서**지 그 방식이 우월해서가 아니었다. 리소스마다 provider가 주는 것을
+   먼저 확인하는 것이 순서다.
 2. **managed NG ↔ Karpenter 역할 분담 상세** — 원칙: 시스템·컨트롤러(Karpenter 자신 포함, chart affinity
    `karpenter.sh/nodepool DoesNotExist`가 강제)는 managed NG, 앱·버스트는 Karpenter 노드.
    taint/label 배선은 NodePool 다양화와 함께 진행한다. **taint 도입 시 시스템 addon toleration이 선결**이다.

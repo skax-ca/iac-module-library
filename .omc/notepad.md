@@ -206,12 +206,27 @@ PR [#3](https://github.com/skax-ca/iac-module-library/pull/3)(`57912fb` 구현) 
 메이저 churn 없음) · `eks-pod-identity` **2.8.2**(PoC 2.8.1) · EKS k8s standard support **1.36/1.35/1.34/1.33**
 (N-1 기본값 `1.35` 유효) · 약어 `eks`·`eksn`·`eksf`·`iamr`·`vpce` 전부 등재됨(신규 불필요).
 
-#### ⏭️ 다음 = **EKS 모듈 구현** — Task 20.1(리스크 게이트)부터
+#### ✅ Task 20.1 (a)(b)(c)(e) 완료 (2026-08-03) — ⏸ (d)만 AWS 계정 대기
 
-⚠️ **Task 20.1은 AWS 계정 접근이 필요한 항목(d)을 포함**한다(`describe-addon-versions`로 baseline
-핀 소싱). 계정 없이는 **핀을 확정할 수 없고, 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반**이라
-릴리스할 수 없다 — 착수 전에 이 제약을 먼저 판단한다.
-- upstream 변수/출력은 `mcp__opentofu__get-module-details`로 실물 확인(추정 금지).
+upstream 소스 직독(`v21.24.1`·`v2.8.2`)으로 확인. **설계를 바꾼 발견 2건**:
+
+1. **⭐ `aws_eks_cluster`에 네이티브 `deletion_protection`이 있다** → D-EKS-PROTECT를
+   `prevent_destroy` 없이 구현. **`required_version` 하한이 `>= 1.12.0` → `>= 1.9.0`으로 내려갔다.**
+   🔑 **"VPC가 이렇게 했으니 EKS도"는 위험한 대칭**이었다 — VPC가 `prevent_destroy`를 쓴 건 VPC에
+   네이티브 보호가 **없어서**지 그 방식이 우월해서가 아니다. **리소스마다 provider가 주는 것을 먼저 본다.**
+   ⚠️ 이 보호가 `prevent_destroy`보다 **강하다**(AWS API 차원 = 콘솔에서도 못 지움 > IaC 차원).
+2. **⭐ upstream 3개 모듈 전부 `create` 토글 보유** + **자체 data source까지 `local.create`로 게이트**
+   → D-EKS-ENABLED를 `count`가 아니라 `create` 위임으로 구현. `module.eks[0]` 인덱싱이 사라진다.
+
+기타: `enable_pod_identity` v21에 **없음** 확인(facade 삭제 근거) · karpenter 출력 5종 예상과 **일치** ·
+`iam_role_name` 등 override 실재(§2.6 가역성 근거) · `eks-pod-identity` 핀 **2.8.2**.
+⚠️ **함정**: upstream 출력 fallback이 불일치 — 대부분 `try(…,null)`인데 **`cluster_name`·`cluster_id`만 `""`**.
+facade가 `null`로 정규화한다(안 하면 upstream 구현 디테일이 우리 계약으로 샌다).
+
+#### ⏭️ 다음 = **Task 20.2~20.4 모듈 본체** (`modules/eks-cluster/`)
+
+⛔ **(d) addon 핀 소싱은 AWS 계정이 있어야 한다** — 핀 없는 baseline은 D-ADDON-VERSION-PIN 위반이라
+**Task 20.8 릴리스는 불가**. ⚠️ 다만 **20.2~20.7 구현은 (d)에 막히지 않는다**(핀 값만 비고 구조는 결정됨).
 - ⚠️ 커밋 단위: tflint `terraform_unused_declarations` 때문에 20.2~20.4는 **한 커밋**이 될 공산이 크다
   (VPC 10.1~10.3이 `65d2283` 한 커밋이 된 것과 같은 이유).
 

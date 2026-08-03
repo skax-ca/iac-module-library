@@ -17,6 +17,29 @@
 | **삭제 보호** | `deletion_protection = true` | D-EKS-PROTECT — AWS API 차원 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
 
+## ⚠️ 구조부터 다르다 — 실제로는 **VPC를 여기서 만들지 않는다**
+
+이 예제는 VPC와 EKS를 한 루트에서 만든다. **예제라서 그렇다**(self-contained해야 `validate`가 돈다).
+소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**이며(`03 §4`), eks 루트는 이미
+apply된 VPC를 **태그로 조회**한다:
+
+```hcl
+data "aws_subnets" "node" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }   # VPC 모듈 D13 (vpc-v1.2.0+)
+}
+data "aws_subnets" "pod" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  filter { name = "tag:SubnetGroup", values = ["pod-dup"] }
+}
+```
+
+⛔ `terraform_remote_state`는 쓰지 않는다 — state 전체 접근을 요구해 `03 §3.1`이 ❌로 판정했다.
+상세는 [`docs/design/20-eks-module.md §2.5-1`](../../docs/design/20-eks-module.md).
+
+⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
+에러가 아니라 **빈 결과**를 낸다 — 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
+
 ## ⚠️ 착수 전 반드시 바꿀 것
 
 이 예제는 **계정에 붙지 않으므로** 실계정 값이 필요한 자리를 비워 두었다. 그대로 apply하지 않는다.

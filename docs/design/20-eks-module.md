@@ -147,6 +147,55 @@ node 그룹 `extra_tags`에 `karpenter.sh/discovery=<클러스터명>`으로 넣
 > ⚠️ 대신 **소비자가 두 곳에 같은 값을 넣는다**는 부담이 남는다. 이를 줄이려면 소비자 루트에서
 > `local.cluster_name`을 한 번 정의해 두 모듈에 넘긴다 — 예제(`examples/eks-cluster/`)가 이 패턴을 보인다.
 
+### 2.5-1 소비 프로젝트에서 VPC를 참조하는 법 (2026-08-03 신설)
+
+⚠️ **`examples/`는 이 형태가 아니다.** 예제는 한 루트에서 VPC와 EKS를 함께 만든다 — `01 §4`가
+"예제가 곧 `tofu test` 대상"이라 self-contained해야 `validate`가 돌기 때문이고, CI 게이트 ⑤도 그걸
+요구한다. **소비 프로젝트는 다르다**: networking과 eks-cluster는 **별도 배포 루트**다(`03 §4`).
+이 차이를 적어 두지 않으면 고객사가 예제를 복사해 두 루트를 한 곳에 합치고, **apply가 성공하기 때문에
+아무도 지적하지 않은 채 굳는다.**
+
+**참조 방식은 `03 §3.1`의 2순위 — `data.aws_*` 태그 조회**다.
+⛔ `terraform_remote_state`는 쓰지 않는다(state 전체 접근 — `03 §3.1`이 ❌로 판정).
+
+```hcl
+# live/dev/eks-cluster/main.tf — networking 루트가 이미 apply되어 있다는 전제
+data "aws_vpc" "main" {
+  filter { name = "tag:Name", values = ["vpc-${local.name_mid}-main"] }
+}
+
+data "aws_subnets" "node" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  # ⭐ VPC 모듈 D13이 부여하는 그룹 태그. Name 와일드카드 파싱이 아니다.
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }
+}
+
+data "aws_subnets" "pod" {
+  filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
+  filter { name = "tag:SubnetGroup", values = ["pod-dup"] }
+}
+
+module "eks" {
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v1.0.0"
+
+  vpc_id         = data.aws_vpc.main.id
+  subnet_ids     = data.aws_subnets.node.ids
+  pod_subnet_ids = data.aws_subnets.pod.ids
+  # ...
+}
+```
+
+**모듈 계약은 이 방식을 이미 지원한다** — `vpc_id`·`subnet_ids`를 **ID 리스트로** 받으므로 값의
+출처가 무엇이든 무관하다(§3.1). 모듈에 조회 로직을 넣지 않은 것은 의도된 것이다: 조회 키(태그 이름·
+그룹 키)는 **소비자의 명명 정책**이라 모듈이 고정하면 그 정책을 강제하게 된다.
+
+⚠️ **`data.aws_subnets`의 `ids`는 정렬 순서가 보장되지 않는다.** AZ 순서에 의존하는 로직을 소비자
+루트에 두지 않는다 — 이 모듈은 AZ 매핑을 내부에서 `data.aws_subnet`으로 해석하므로(§3.1) 영향이 없다.
+
+⚠️ **networking이 아직 apply되지 않았으면 조회가 빈 결과를 낸다.** 배포 순서(networking → eks-cluster)는
+소비 repo의 워크플로가 강제한다([`50`](50-reference-consumer-repo.md)). 조회 실패를 명시적으로 잡으려면
+`precondition`으로 `length(data.aws_subnets.node.ids) > 0`을 확인한다(`03 §6` 열린 항목 4).
+
 ## 2.6 addon 관리 — baseline 보장 + 명시적 증분 (C′)
 
 > **D-ADDON-VERSION-PIN**: baseline addon 버전을 **명시적으로 핀**한다(항목 6 신설).

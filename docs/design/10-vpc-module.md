@@ -9,7 +9,7 @@
 > - **배포 루트 소유권 이전** — 구 `§1.5 live/dev/networking` 프리셋을 **`examples/`**로 이전.
 >   이 repo는 배포 루트를 소유하지 않는다(`03 §4` 각주).
 > - **재사용 요건 5종 적용**(`01 §4`) — **D10(kill switch)** 신설, 파라미터화(`poc` 하드코딩 제거),
->   환경 프로파일, 예제 2종, 출력 계약 안정성 규약.
+>   환경 프로파일, **예제**(~~2종~~ → 1종, 2026-08-03 Task 10.5), 출력 계약 안정성 규약.
 > - **D11(VPC Flow Logs) 신설** — 구 "열린 항목 1"의 보류를 해소해 v1.0.0 스코프에 포함.
 > - **D12(삭제 보호) 신설**(2026-07-29 2차 개정) — OpenTofu 1.12 동적 `prevent_destroy` 채택.
 >   `required_version`을 **`>= 1.12.0`으로 상향**한다(`02 §2`). D-ENGINE(단일 엔진) 확정으로 가능해진 선택이다.
@@ -465,7 +465,14 @@ output "flow_log_group_name"      {}   # string      — D11. 비활성 시 null
 > 아래는 `tofu test`가 실행되는 검증 대상이자 소비자에게 보여줄 사용 예시다.
 > 디렉토리 명명은 `examples/AGENTS.md`의 `<module>-<scenario>/` 규약을 따른다.
 
-#### (a) `examples/vpc/` — minimal
+#### (a) `examples/vpc/` — minimal ⛔ **2026-08-03 폐기**
+
+> **폐기 사유**: 모듈당 예제 2벌의 유지 비용이 minimal이 주는 값보다 컸다. 계약이 바뀔 때마다
+> 같은 수정을 두 곳에 하고, 두 README가 같은 설명을 다르게 낡아간다.
+> 🔑 **아래 "최소 비용으로 검증한다"는 서술이 착시였다** — 교차변수 `validation`·`precondition`은
+> `validate`가 평가하지 못하므로(plan 전용), 실제 계약 판정은 처음부터 **Task 10.6의 `tofu test`**
+> 가 내리고 있었다. 예제가 검증 자산인 적이 없다. `examples/vpc-enterprise`가 유일한 예제다.
+> 아래 표는 **이력 기록**으로 남긴다 — 되살리지 말 것.
 
 모듈 계약의 **핵심 경로**를 최소 비용으로 검증한다. 소비자의 복사 시작점이기도 하다.
 
@@ -620,10 +627,10 @@ module "vpc" {
 - §1.4대로. **null-safe**: `vpc_enabled = false`에서 스칼라 null / map·list 빈 값(D10)
 - Commit: `feat(vpc): 출력 계약 정의 (설계 §1.4)`
 
-### Task 10.5: 예제 2종
-**Files:** `examples/vpc/{main,variables,outputs}.tf` + `README.md`,
-`examples/vpc-enterprise/{main,variables,outputs}.tf` + `README.md`
-- §1.5(a)/(b). enterprise는 `cidrsubnet()` 파생 locals 포함(D2)
+### Task 10.5: 예제 (~~2종~~ → **1종**, 2026-08-03)
+**Files:** ~~`examples/vpc/`~~(폐기) · `examples/vpc-enterprise/{main,variables,outputs}.tf` + `README.md`
+- §1.5(b). enterprise는 `cidrsubnet()` 파생 locals 포함(D2)
+- ⛔ **minimal은 폐기됐다**(§1.5(a) 상자) — 예제를 다시 2벌로 늘리지 않는다
 - `outputs.tf`에서 모듈 출력을 실제로 소비해 계약이 동작함을 보인다(`examples/AGENTS.md`)
 - 인자 없이 `tofu validate`가 도는 상태로 둔다(`examples/AGENTS.md`)
 - 검증: `tofu -chdir=examples/<dir> init -backend=false && validate`
@@ -722,8 +729,11 @@ teardown 2단계 계약(`deletion_protection = false` → `vpc_enabled = false`)
 
 #### ℹ️ 판정 범위는 **소비 repo의 형상에 의존한다**
 
-minimal(`examples/vpc`)로 배포했다면 위 1·2·3은 판정되지 않았다 — secondary CIDR을 쓰지 않기
-때문이다. 형상별 판정 범위 표는 [`design/50` §4](50-reference-consumer-repo.md)에 있다.
+minimal 형상(당시 `examples/vpc`, **2026-08-03 폐기**)으로 배포했다면 위 1·2·3은 판정되지 않았다 —
+secondary CIDR을 쓰지 않기 때문이다. 형상별 판정 범위 표는
+[`design/50` §4](50-reference-consumer-repo.md)에 있다.
+> ℹ️ 예제가 하나로 줄어든 지금은 이 갈래가 사라졌다 — 소비 repo가 enterprise 형상을 택했고
+> 그것이 유일한 템플릿이 됐다. **이 문단은 판정이 이뤄진 시점의 조건 기록으로 남긴다.**
 
 ---
 

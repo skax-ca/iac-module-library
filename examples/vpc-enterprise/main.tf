@@ -1,11 +1,14 @@
-# enterprise 프리셋 예제 — 설계 docs/design/10-vpc-module.md §1.5(b)
+# vpc 모듈의 **유일한** 예제 — 설계 docs/design/10-vpc-module.md §1.5
 #
 # **이 예제의 목적은 검증이 아니라 소비자 착수 템플릿이다.**
 # 설계가 처음 이 예제를 요구한 근거(isolated 라우팅·secondary CIDR·AZ 커버리지 precondition이
 # minimal에서는 실행되지 않는다)는 Task 10.6의 tofu test가 이미 커버한다. 남은 값은
 # **D6~D9의 설계 판단을 그대로 옮긴 9그룹 프리셋**이며, 고객사 착수 시간을 가장 크게 줄이는 자산이다.
 #
-# ⚠️ 소싱은 상대경로다. 소비 프로젝트는 git tag를 쓴다(examples/vpc/README.md 비교표 참조).
+# ⚠️ 짝이던 minimal 예제(`examples/vpc`)는 2026-08-03에 폐기됐다 — 예제 2벌의 유지 비용이
+#    minimal이 주는 값보다 컸다. 계약 검증은 modules/vpc/tests가 하고, 이 예제는 착수를 돕는다.
+#
+# ⚠️ 소싱은 상대경로다. 소비 프로젝트는 git tag를 쓴다(README.md "소비 프로젝트와 다른 점" 참조).
 
 locals {
   # ── CIDR 3계층 (설계 §1.5(b)) ──────────────────────────────────────────────

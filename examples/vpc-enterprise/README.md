@@ -49,6 +49,28 @@ primary를 소형으로 최소화하고 워크로드는 secondary에 배치한�
 | prefix list | 공유 리소스 | foundation — 네이밍으로 data source 조회 |
 | KMS 키 | 보안 거버넌스 대상 | foundation. `flow_logs_kms_key_id`로 ARN 주입 |
 
+## 소비 프로젝트와 다른 점
+
+| | 이 예제 | 소비 프로젝트(`<project>-infra`) |
+|---|---|---|
+| 소싱 | 상대경로 `../../modules/vpc` | git tag `?ref=vpc-v1.2.0` (**현행 릴리스**) |
+| backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
+| 자격증명 | 없음(plan/apply 안 함) | GitHub OIDC → 입구 Role → 실행 Role |
+| 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
+| `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
+
+**소싱이 다른 이유**: 이 예제는 **현재 코드**를 검증해야 하므로 상대경로를 쓴다. 소비 프로젝트는
+릴리스된 태그를 핀한다 — 두 방식을 혼동하지 않는다.
+
+```hcl
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v1.2.0"
+```
+
+⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'vpc-v*'`로 확인한다. 위 표의 태그가
+낡은 채 복사되면 그대로 굳는데, 실패 방식이 나쁘다: `vpc-v1.1.0`은 Flow Logs confused deputy
+방어(보안 수정)라 **그것이 빠진 채로도 `apply`는 성공한다.** 릴리스 이력은 각 태그의 annotated
+메시지(`git show vpc-v1.2.0`)와 [`docs/design/10-vpc-module.md §3`](../../docs/design/10-vpc-module.md)에 있다.
+
 ## 실행
 
 ```bash

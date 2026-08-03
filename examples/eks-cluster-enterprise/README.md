@@ -19,7 +19,19 @@
 
 ## ⚠️ 구조부터 다르다 — 실제로는 **VPC를 여기서 만들지 않는다**
 
-이 예제는 VPC와 EKS를 한 루트에서 만든다. **예제라서 그렇다**(self-contained해야 `validate`가 돈다).
+| | 이 예제 | 소비 프로젝트(`<project>-infra`) |
+|---|---|---|
+| **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
+| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v1.0.0` |
+| backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
+| 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
+| `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
+
+**첫 행이 가장 중요하다.** 이 예제는 VPC와 EKS를 한 루트에서 만든다 — **예제라서 그렇다**
+(`01 §4`가 "예제가 곧 `tofu test` 대상"이라 self-contained해야 `validate`가 돌고, CI 게이트 ⑤도
+그걸 요구한다). 이 구조를 그대로 복사하면 두 컴포넌트가 한 state에 묶여, **네트워크를 건드릴
+때마다 클러스터가 plan 범위에 들어온다.**
+
 소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**이며(`03 §4`), eks 루트는 이미
 apply된 VPC를 **태그로 조회**한다:
 
@@ -48,7 +60,7 @@ data "aws_subnets" "pod" {
 |------|------|--------|
 | `external_dns_hosted_zone_arns` | `[]` | **실제 zone ARN**. 비우면 커뮤니티 정책이 전체 zone(`*`)을 허용한다 — prd 필수 |
 | `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다(D-NODE-AMI-PIN) |
-| addon 버전 핀 | 모듈에서 비어 있음 | `aws eks describe-addon-versions`의 실측 값(D-ADDON-VERSION-PIN) |
+| `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다 — 아래 **"addon 버전 고정"** 절(D-ADDON-VERSION-PIN-1). ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
 
 ## 운영상 알아야 할 것

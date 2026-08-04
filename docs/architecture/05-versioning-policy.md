@@ -149,18 +149,26 @@ it should probably already be 1.0.0."* — `eks-cluster-v1.0.0`은 실제 AWS �
 | 새 태그 원격 존재 | `git ls-remote --tags origin` | ✅ 4개 push 완료 |
 | 소비 repo 소싱(인증 포함) | `tofu init -backend=false` (양 루트) | ✅ `Downloading …?ref=vpc-v0.3.0&depth=1` · `…?ref=eks-cluster-v0.1.0&depth=1` |
 | 소비 repo 문법·인터페이스 | `tofu validate` (양 루트) | ✅ `Success!` (OpenTofu **1.12.5**) |
-| **live `plan` = `No changes`** | — | ⏸ **미실행** |
+| **live `plan` = `No changes`** | 소비 repo CI (`81d6349` push) | ✅ **양 루트 통과** — 아래 |
 
-> ⛔ **`plan` 미실행을 "통과"로 읽지 말 것.** §3.2 순서 2가 요구한 라이브 판정은 아직 없다.
-> 실행하지 않은 이유는 둘이다: ① `backend.hcl`이 로컬에 없다(D25로 gitignore되며, 이 작업은
-> 모듈 repo 소유자 머신에서 수행됐다) ② `tofu plan`도 **state lock을 잡는다**
-> ([`design/50`](../design/50-reference-consumer-repo.md) D28 열린 항목) — 라이브 dev state에
-> 로컬에서 lock을 걸었다가 중단되면 잠금 잔재가 남는다.
+> ✅ **라이브 판정 완료.** 소비 repo `iac-reference-infra`에 재핀 커밋을 push하자
+> `deploy-*.yml`의 **plan job이 실제 state 대비로 돌았다**(D30-1로 push는 plan까지만,
+> apply는 dispatch 전용이라 자동 적용 위험이 없다 — 이 구조가 게이트를 **안전하게** 돌릴 수 있게 했다).
 >
-> 🔑 **그럼에도 태그 삭제를 진행한 근거**: 모듈 source 문자열은 **state에 저장되지 않는다**
-> (state가 갖는 것은 `module.eks.module.eks.aws_eks_cluster.this[0]` 같은 주소와 속성이다).
-> 서브트리 SHA가 동일하므로 내려받는 소스가 바이트 동일이고, 따라서 **diff가 생길 경로 자체가
-> 없다.** 이것은 논증이지 실측이 아니며, **다음 `deploy.yml` 실행이 최종 확인**이다.
+> | 루트 | run | 소싱 | 결과 |
+> |------|-----|------|------|
+> | `live/dev/networking` | `30961419570` | `Downloading …?ref=vpc-v0.3.0&depth=1` | **`No changes. Your infrastructure matches the configuration.`** |
+> | `live/dev/eks` | `30961419575` | `Downloading …?ref=eks-cluster-v0.1.0&depth=1` | **〃** |
+>
+> 🔑 **`success` 상태가 아니라 로그 본문으로 판정했다.** 워크플로 성공은 plan이 비었다는 뜻이
+> 아니다 — 변경이 있어도 plan job은 성공한다. `No changes` 문자열이 판정 근거다.
+> ([`design/10`](../design/10-vpc-module.md) 열린 항목 7이 *"조용히 실패하는 것은 apply 성공이
+> 증거가 아니다"* 로 세운 구분과 같은 종류의 주의다.)
+>
+> ⚠️ **로컬에서는 돌릴 수 없었다** — `backend.hcl`이 없고(D25로 gitignore), `tofu plan`도
+> **state lock을 잡는다**([`design/50`](../design/50-reference-consumer-repo.md) D28).
+> 🔑 **라이브 판정은 소비 repo CI가 하는 것이 맞다**(D26의 소유권 경계와 일치) —
+> 모듈 repo 소유자 머신에서 라이브 state를 건드리는 것이 오히려 규약 위반에 가까웠다.
 
 ⚠️ **부수 발견 — 게이트 도구는 머신마다 따로 갖춰야 한다.** 이 작업을 수행한 머신에는
 `tofu`가 없었고 `core.hooksPath`도 미설정이었다(`tflint`·`trivy`만 있었다). `brew`와

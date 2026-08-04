@@ -39,7 +39,16 @@
   커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79`
   → `30ea306`(중립안 — **정정됨**) → `86cc91a`(D-ENGINE 확정) → `e89742d`(D12) → `1bd6641`(MCP 교체)
 
-### 🔴 세션 시작 시 가장 먼저 볼 것 (최종 갱신 2026-08-04)
+### 🔢 현행 릴리스 (2026-08-05 D-VERSION 이후)
+
+**`vpc-v0.3.0` · `eks-cluster-v0.1.0`** — 전 모듈이 **`0.y.z`(개발 단계)**다.
+구 `1.x` 태그 4개는 **같은 커밋의 `0.x` 로 재매핑된 뒤 삭제**됐다(원격 포함).
+- ⛔ 아래 본문에 남은 `vpc-v1.x`·`eks-cluster-v1.0.0` 표기는 **그때의 사실 기록**이다.
+  현행 태그로 읽지 말 것. 매핑: `v1.0.0/1.1.0/1.2.0` → `v0.1.0/v0.2.0/v0.3.0` · `eks v1.0.0` → `v0.1.0`.
+- **마이너/메이저 판정을 하지 않는다** — `0.y.z` 에서는 전부 마이너다(`docs/architecture/05`).
+- 상세는 아래 「🔢 D-VERSION」 절.
+
+### 🔴 세션 시작 시 가장 먼저 볼 것 (최종 갱신 2026-08-05)
 
 0. ⚠️ **이 파일이 stale해진 전례가 세 번 있다.** ① 2026-07-30 크로스-repo(소비 repo Phase 진행을
    여기 중복 기록) ② 2026-07-31 **같은 repo 안에서** — 열린 항목 7 구현·종결·6/6 판정 3커밋이
@@ -403,16 +412,19 @@ addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인.
   §3.2 표에만 없었다) · tftest **16→17 run** · `taints.value` `optional` · `docs/README` 상태표
   (`vpc-v1.1.0`→**`v1.2.0`**, 20 문서 개정일).
 
-#### ⏭️ 다음 = **D-EXTDNS-ZONE 교차변수 validation → `eks-cluster-v1.1.0`**
+#### ⏭️ 다음 = **D-EXTDNS-ZONE 교차변수 validation → `eks-cluster-v0.2.0`**
 
 `design/20 §5.1-8` 에 전문이 있다. **`.tf` 변경이므로 브랜치 → PR**(문서와 경로가 다르다).
+⚠️ **버전이 `v1.1.0` 이 아니라 `v0.2.0` 이다** — 2026-08-05 D-VERSION 전환(아래 절).
+⭐ 그리고 **마이너/메이저 판정을 하지 않는다** — `0.y.z` 에서는 전부 마이너다. 아래 "마이너인 이유"
+문단은 이제 불필요하며 `design/20 §5.1-8` 에서 이미 제거했다.
 - 넣을 것: `!(var.enable_external_dns_iam && length(var.external_dns_hosted_zone_arns) == 0)`
   — D-EKS-PROTECT 가드와 **완전히 같은 형태**다. + `variables.tf` 의 틀린 주석 정정 + tftest 1 run.
 - **마이너인 이유**: 이 조합은 이미 apply 에서 죽는다. 새로 막는 것은 **성공하던 경로가 아니라
   이미 깨져 있던 경로의 plan** 뿐이다.
 - ⛔ **upstream fix 를 기다리지 않는다** — upstream 버그가 아니라 **AWS IAM 제약**이고,
   조합을 막는 것은 facade 의 일이다.
-- ⚠️ 태그는 **옮기지 않는다**(apply 됐다). `eks-cluster-v1.1.0` 을 새로 컷한다.
+- ⚠️ 태그는 **옮기지 않는다**(apply 됐다). `eks-cluster-v0.2.0` 을 새로 컷한다.
 
 #### ✅ D-DAY2-PROFILE — `design/22-day2-operations.md` 신설 (2026-08-04)
 
@@ -463,8 +475,54 @@ addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인.
 - ⚠️ **`40` 개정 때 "bastion 역할 범위"를 함께 정한다** — self-hosted runner 겸용 여부(22 §4-2).
   나중에 붙이면 인스턴스 타입·SG·IAM 이 전부 바뀐다.
 
+#### 🔢 D-VERSION — **전 모듈 `0.y.z` 전환 완료** (2026-08-05, 사용자 결정)
+
+**현행 태그는 `vpc-v0.3.0` · `eks-cluster-v0.1.0` 이다.** 구 `1.x` 4개는 **원격까지 삭제**됐다.
+SSOT = `docs/architecture/05-versioning-policy.md`. 커밋 `b30b12b`(ADR) · `2d21dd1`(문서 40곳) ·
+`34796eb`(게이트 실측). 소비 repo `81d6349`.
+
+- **재매핑(같은 커밋, 내용 무변경)**: `vpc-v1.0.0/1.1.0/1.2.0` → `v0.1.0/v0.2.0/v0.3.0` ·
+  `eks-cluster-v1.0.0` → `v0.1.0`.
+- **발단**: 사용자 지적 — *"개발 단계인데 왜 버전이 계속 오르나."* 전제(*"1.0.0 미출시"*)는
+  사실이 아니었지만(태그 4개 발행 + apply 완료) **직관은 옳았다.** 근거 2건이 repo 안에 있었다:
+  ① `eks-cluster-v1.0.0` 태그를 옮겨야 했다(semver 가 금지하는 것 — **예외를 발명해야 했다는 것
+  자체가 신호**) ② D-EXTDNS-ZONE 하나로 마이너/메이저를 문단으로 논증해야 했다.
+- ⛔ **"개발 완료 후 전 모듈 1.0.0 일괄" 은 기각했다**(05 §4). 소비 경로가 태그뿐이라 태그를 안 달면
+  `ref=main`(움직이는 참조)을 강요하고, 일괄 컷은 컴포넌트별 cadence 분리를 깬다.
+- **`1.0.0` 컷 기준 5개를 05 §2 에 체크리스트로 박았다**(사용자 선택 = 모듈별 계약 안정 선언).
+  ⭐ 기준 2가 이 repo 고유: **apply 판정표에 `❌`·`⏸` 가 없을 것** — `tofu test` 로 대체 불가.
+  ⚠️ **`vpc` 가 첫 1.0.0 후보다**(05 §5-3) — 열린 항목 6건의 계약 영향 판정만 남았다.
+- **신규 모듈은 `0.1.0` 시작**(D-VER-NEW). 다음 적용 = `bastion`.
+- ⚠️ **버전 혼재는 결함이 아니라 정보다** — *"보기 안 좋으니 맞추자"* 제안이 나오면 05 §4를 읽는다.
+- 🔑 **사실 기록은 번호를 유지하고 각주만 달았다.** `design/10 §3`·`20 §4.1`·`50 F2` 등은
+  *"어느 릴리스에서 무엇이 판정됐는가"* 의 추적점이라 덮어쓰면 증거 연결이 끊긴다.
+  안내(복사되면 굳는 것)만 갱신했다 — **40곳을 일괄 치환하지 않았다.**
+
+**✅ 게이트 = 소비 repo CI plan 실측**: run [`30961419570`](https://github.com/skax-ca/iac-reference-infra/actions/runs/30961419570)(networking) ·
+[`30961419575`](https://github.com/skax-ca/iac-reference-infra/actions/runs/30961419575)(eks) 둘 다 **`No changes.`**
+- 🔑 **워크플로 `success` 가 아니라 로그 본문으로 판정했다** — 변경이 있어도 plan job 은 성공한다.
+- 🔑 **D30-1(push=plan, apply=dispatch)이 이 게이트를 안전하게 돌릴 수 있게 했다.** push 가 apply 를
+  트리거하는 구조였다면 핀 커밋 하나가 라이브 인프라를 건드렸을 것이다.
+- 근거 보강: 모듈 **서브트리 SHA 동일**(`vpc` `753790d7…` · `eks-cluster` `761b0a62…`) +
+  모듈 source 문자열은 **state 에 저장되지 않는다** → diff 가 생길 경로 자체가 없었다.
+
+#### ⚠️ 이 머신(`/Users/born2k/…`)은 게이트 도구가 없었다 — 새 머신마다 확인할 것
+
+notepad 이 *"hook 활성화됨"* 이라고 적고 있었지만 **이 머신에서는 거짓이었다.** 경로도 다르다
+(notepad: `/Users/a07326/…`). `brew` 설치와 `git config` 는 **clone·머신 단위**라 dotfiles 동기화로
+따라오지 않는다.
+
+```
+brew install opentofu                  # 설치됨 = 1.12.5 (파리티 기준과 일치)
+git config core.hooksPath .githooks    # 양쪽 repo 에 설정 완료
+```
+- ⚠️ **`trivy` 가 0.69.3 이다 — 파리티 기준은 0.72.0.** 이 머신에서 `.tf` 작업 시 CI 와 결과가
+  갈릴 수 있다. `brew upgrade trivy` 로 맞춘 뒤 착수하는 것이 안전하다.
+- 소비 repo 경로도 다르다: **`/Users/born2k/silverte/ai/iac-reference-infra`**.
+
 **대기 중 태스크 2개** (착수는 다음 세션 — 사용자 결정):
-1. **D-EXTDNS-ZONE validation → `eks-cluster-v1.1.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
+1. **D-EXTDNS-ZONE validation → `eks-cluster-v0.2.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
+   ⚠️ 착수 전 `trivy` 버전 정렬(위 절).
 2. **`40` 개정** — 위 로드맵의 출발점. 끝나면 public 엔드포인트를 닫는다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다

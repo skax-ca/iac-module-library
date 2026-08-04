@@ -159,6 +159,7 @@ locals {
 |------|------|-----------|
 | 기준선(근거 없을 때) | `>= 1.9.0` | 교차변수 `validation` — 대부분의 모듈이 인터페이스 검증에 쓴다 |
 | `vpc` | **`>= 1.12.0`** | **동적 `prevent_destroy`**(입력 변수 참조) — [`design/10` D12](../design/10-vpc-module.md) |
+| `eks-cluster` | **`>= 1.9.0`** | 기준선과 같다 — 교차변수 `validation`(D-EKS-PROTECT). **1.12 기능을 쓰지 않는다**: `aws_eks_cluster`에 네이티브 `deletion_protection`이 있어 동적 `prevent_destroy`가 불필요하다 — [`design/20` §3.3](../design/20-eks-module.md) |
 
 > 하한이 모듈마다 갈리는 것은 의도된 것이다. 한 모듈이 쓰는 신기능 때문에 **전 모듈의 소비자를
 > 끌어올리지 않는다** — 그것이 `<module>-vX.Y.Z` 컴포넌트별 태그(§3)를 쓰는 이유이기도 하다.

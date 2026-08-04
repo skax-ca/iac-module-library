@@ -39,12 +39,16 @@
   커밋 `95e41dd` → `a6146ca` → `5abcb84` → `22ff67a` → `f5080f2` → `0754aa6` → `860da79`
   → `30ea306`(중립안 — **정정됨**) → `86cc91a`(D-ENGINE 확정) → `e89742d`(D12) → `1bd6641`(MCP 교체)
 
-### 🔴 세션 시작 시 가장 먼저 볼 것 (최종 갱신 2026-08-03)
+### 🔴 세션 시작 시 가장 먼저 볼 것 (최종 갱신 2026-08-04)
 
-0. ⚠️ **이 파일이 stale해진 전례가 두 번 있다.** ① 2026-07-30 크로스-repo(소비 repo Phase 진행을
+0. ⚠️ **이 파일이 stale해진 전례가 세 번 있다.** ① 2026-07-30 크로스-repo(소비 repo Phase 진행을
    여기 중복 기록) ② 2026-07-31 **같은 repo 안에서** — 열린 항목 7 구현·종결·6/6 판정 3커밋이
    PR 브랜치로 나갔는데 notepad 갱신이 거기 실리지 않아, 8/3 세션 시작 시 **이미 끝난 일을 다음
    태스크로 안내**했다. 🔑 **feature 브랜치에서 작업하면 notepad 갱신도 그 브랜치에 실어라.**
+   ③ 2026-08-04 — **머지 뒤 notepad 커밋을 아예 안 냈다**(D-NODE-ARCH `74bbf51` + 작업 원칙
+   `401b920`). ②의 교훈("브랜치에 실어라")으로는 **못 막는 유형**이다.
+   🔑 그래서 **세션 시작 때 이 파일을 읽되 믿지는 않는다** — 판정 근거는 `git log` · `git tag` ·
+   설계 문서 실물이다. 실제로 8/4 세션이 그렇게 교차 검증해서 "다음 태스크"가 이미 끝난 일임을 잡았다.
 
 1. ✅ **`modules/vpc/` 커밋 완료**(2026-07-30) — `versions`·`variables`·`main`·`flow-logs`·`outputs.tf`.
    Task 10.1~10.4 종료. 게이트 전부 통과(fmt·validate·tflint·trivy 0건). **재작성하지 말 것.**
@@ -358,15 +362,57 @@ D13 이전 방식이 남은 게 **아니다**. `01 §4` self-contained 요건상
 - **열린 항목**: sub 패턴 ①(`:pull_request`) 미사용 → 최소권한상 제거 대상(라이브 IAM이라 별건) ·
   소비 repo에 **PR CI가 없어졌다**(깨진 HCL은 merge 후 main plan에서 시끄럽게 실패).
 
-#### ⏭️ 다음 = **Task 20.8 릴리스 `eks-cluster-v1.0.0`** (차단 해소됨)
+#### ✅ D-NODE-ARCH — `ami_type` 노출 (2026-08-04, PR #10 `b1241c6` → `74bbf51`)
 
-⛔ 이전에 적힌 *"AWS 계정 대기"* 는 **더 이상 유효하지 않다.** (d)가 닫혔고, 모듈이 핀을 갖지
-않는 것이 이제 위반이 아니라 **결정**(D-ADDON-VERSION-PIN-1)이다.
+facade 가 `ami_type` 을 통과시키지 않아 graviton 이 막혀 있었다. **upstream v21.24.1 엔 처음부터
+있었다** — "upstream 미지원"이 아니라 wrapper 가 가리고 있었을 뿐이다(CLAUDE.md 작업 원칙의 실측 사례).
+- 닫힌 열거 validation 을 `ami_type` 에만 걸었다(오타 대가가 비대칭: 클러스터 생성 후 실패 vs 몇 초).
+  ⚠️ 그 대가로 유지보수 부채가 늘었다 → `design/20 §5.1-9` 로 등재.
+- 예제 addon 버전 핀도 같은 PR 에 실렸다.
+- 🏷️ **태그 `eks-cluster-v1.0.0` 을 `74bbf51` 로 옮겼다.** 당시 소비 repo 는 plan 만 돌아
+  **소비자 0** 이었다 — CLAUDE.md 가 인정하는 유일한 예외. **아래 apply 로 그 예외는 닫혔다.**
 
-남은 일: 게이트 6개 통과 실측을 `design/20 §4.1 릴리스 기록`에 남기고 · `02 §2` 하한 대장에
-`eks-cluster` 행(`>= 1.9.0`) 추가 · **apply 미검증 항목 표**를 명시(VPC에서 이 표가 6항목을
-추적했고 전부 판정되기까지 별도 세션이 필요했다 — *"plan 통과 = 검증됨"* 으로 쓰지 않는다) ·
-태그 `eks-cluster-v1.0.0`.
+#### ✅ CLAUDE.md 작업 원칙 4종 채택 (2026-08-04, `401b920`)
+
+발명 전 확인 · 죽은 경로 · 단순함 · 레이어. 대부분 실천하던 것의 규칙 승격이고,
+**이 repo 에서 뜻이 달라지는 것만 번역**해 뒀다(산출물이 고객사 계약이라 일반 앱 규칙이 안 맞는다).
+
+#### 🎉 EKS **apply 완료** (2026-08-04, 소비 repo `iac-reference-infra` `live/dev/eks`)
+
+dispatch 2회. 클러스터 `eks-ref-dev-an2-main-01` ACTIVE · graviton NG `t4g.medium`×2 running ·
+addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인. 비용 ~$165/월(networking 포함).
+- ⛔ **이 순간부터 `eks-cluster-v1.0.0` 태그는 고정이다.** 다음 변경은 **마이너를 컷한다.**
+- 🔴 **`external_dns_iam` 이 실패했다 → D-EXTDNS-ZONE.** `external_dns_hosted_zone_arns = []` 면
+  upstream 이 `Resource="*"` 정책을 만들고 AWS 가 **400 MalformedPolicyDocument** 로 거부한다
+  (`route53:ChangeResourceRecordSets` 는 리소스 수준 권한). 소비 repo 는 `c33c87a` 로 일시 중단.
+  ⚠️ **설계 문서가 반대로 적고 있었다** — *"비워 두면 전체 zone(`*`)이 **허용**된다, prd 필수"*.
+  실제는 허용이 아니라 **거부**이고 dev·prd 를 가리지 않는 **차단 조건**이다. `§2.6a` 정정 완료.
+- 🔑 **첫 apply 가 실패해도 클러스터는 이미 생성된다**(부분 적용). "실패 = 아무 일 없음"이 아니다 —
+  비용은 그 시점부터 난다.
+
+#### ✅ Task 20.8 문서 산출물 완료 (2026-08-04) — **태그가 문서를 앞서 있던 상태를 해소**
+
+태그는 08-04 에 이미 나가 있었는데 설계가 요구한 산출물 3건이 비어 있었다. 전부 채웠다:
+- `design/20 §4.1 릴리스 기록` **신설** — 게이트 8행 실측(OpenTofu 1.12.5 · aws 6.57.1 ·
+  **`tofu test` 17 passed**) + **apply 판정 표**(✅8 / ❌1 / ⏸2, 판정 형상 명시).
+- `02 §2` 하한 대장에 **`eks-cluster` `>= 1.9.0`** 행 — "확인했더니 기준선"과 "확인 안 함"은 다르다.
+- ⚠️ **`trivy` 는 게이트 명령 그대로 돌려야 한다.** `--skip-dirs '**/.terraform'
+  --tf-exclude-downloaded-modules` 를 빼면 upstream 소스가 스캔돼 `AVD-AWS-0104` 로 exit 1 이 난다.
+  플래그 빠뜨린 측정은 **게이트 실패가 아니라 잘못 잰 것**이다(이 세션에서 실제로 한 번 헛짚었다).
+- 설계↔실물 대조에서 나온 정정: `effective_addon_names` **계약 등재**(구현은 처음부터 있었고
+  §3.2 표에만 없었다) · tftest **16→17 run** · `taints.value` `optional` · `docs/README` 상태표
+  (`vpc-v1.1.0`→**`v1.2.0`**, 20 문서 개정일).
+
+#### ⏭️ 다음 = **D-EXTDNS-ZONE 교차변수 validation → `eks-cluster-v1.1.0`**
+
+`design/20 §5.1-8` 에 전문이 있다. **`.tf` 변경이므로 브랜치 → PR**(문서와 경로가 다르다).
+- 넣을 것: `!(var.enable_external_dns_iam && length(var.external_dns_hosted_zone_arns) == 0)`
+  — D-EKS-PROTECT 가드와 **완전히 같은 형태**다. + `variables.tf` 의 틀린 주석 정정 + tftest 1 run.
+- **마이너인 이유**: 이 조합은 이미 apply 에서 죽는다. 새로 막는 것은 **성공하던 경로가 아니라
+  이미 깨져 있던 경로의 plan** 뿐이다.
+- ⛔ **upstream fix 를 기다리지 않는다** — upstream 버그가 아니라 **AWS IAM 제약**이고,
+  조합을 막는 것은 facade 의 일이다.
+- ⚠️ 태그는 **옮기지 않는다**(apply 됐다). `eks-cluster-v1.1.0` 을 새로 컷한다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

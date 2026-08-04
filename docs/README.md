@@ -38,8 +38,8 @@
 
 | # | 문서 | 상태 |
 |---|------|------|
-| 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-07-29 개정 — 현행 `vpc-v1.1.0` 계약) |
-| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-03 개정 — `eks-cluster-v1.0.0` 계약) |
+| 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-08-03 개정 — 현행 **`vpc-v1.2.0`** 계약, D13 SubnetGroup 태그 포함) |
+| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-04 개정 — **`eks-cluster-v1.0.0`** 계약 + §4.1 릴리스·apply 판정 기록) |
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
 | 40 | [40-bastion.md](design/40-bastion.md) | ⚠️ 미개정 |

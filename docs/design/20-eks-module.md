@@ -361,8 +361,20 @@ hand-author 금지** — self-authored·churn이므로 **AWS 관리형 또는 �
 > `attach_external_dns_policy`·`external_dns_hosted_zone_arns`·`name`·`use_name_prefix`·`create` 실재 확인.
 
 > **정책 소싱 우선순위**: AWS 관리형(EBS CSI·external-dns) ≈ 커뮤니티 큐레이션(ALBC via eks-pod-identity) >
-> hand-author(최후). 항상 **버전 핀 + 최소권한(zone ARN) 스코핑**. external-dns 관리형 정책은 광범위
-> (`Route53FullAccess`)하므로 **zone ARN 축소가 prd 필수**.
+> hand-author(최후). 항상 **버전 핀 + 최소권한(zone ARN) 스코핑**.
+
+> **⛔ 정정 (2026-08-04, apply 실측) — `external_dns_hosted_zone_arns`는 "prd 권고"가 아니라
+> `enable_external_dns_iam = true`의 필수 입력이다.**
+>
+> 이 문서는 *"external-dns 관리형 정책은 광범위(`Route53FullAccess`)하므로 zone ARN 축소가 **prd
+> 필수**"* 라고 적었다. 그 서술은 **빈 값이면 넓게 열린다**를 전제하는데, 실물은 그렇지 않다 —
+> zone ARN이 비면 upstream이 `Resource = "*"` 정책을 만들고 **AWS가 400으로 거부해 apply가 죽는다**
+> (`route53:ChangeResourceRecordSets`는 리소스 수준 권한을 요구한다). 실패는 dev·prd를 가리지 않는다.
+>
+> 🔑 **틀린 방향이 나빴다.** "넓게 열려서 위험하다"는 서술은 소비자에게 *"급하면 비워 두고 나중에
+> 좁혀라"* 로 읽힌다. 실제로는 **비워 두면 아예 뜨지 않는다** — 위험 경고가 아니라 **차단 조건**이다.
+> 판정 근거와 모듈 측 가드는 [§4.1의 D-EXTDNS-ZONE 상자](#41-릴리스-기록--eks-cluster-v100-2026-08-04)와
+> §5.1-8에 있다.
 
 ## 2.7 · 2.8 GitOps 부트스트랩 seam → **[`21-gitops-bootstrap-seam.md`](21-gitops-bootstrap-seam.md)로 이관**
 
@@ -475,7 +487,8 @@ variable "managed_node_groups" {
     ami_type             = optional(string, "AL2023_x86_64_STANDARD") # D-NODE-ARCH. arm은 AL2023_ARM_64_STANDARD
     ami_release_version  = optional(string)      # D-NODE-AMI-PIN. null이면 최신 해석(하위호환)
     labels               = optional(map(string), {})
-    taints               = optional(list(object({ key = string, value = string, effect = string })), [])
+    # value는 optional이다 — k8s의 NoValue taint(값 없는 key:effect)가 유효한 형태이기 때문이다.
+    taints               = optional(list(object({ key = string, value = optional(string), effect = string })), [])
   }))
   default = {}
 }
@@ -526,6 +539,9 @@ output "karpenter_iam_role_arn" {}              output "karpenter_node_iam_role_
 output "karpenter_node_iam_role_name" {}        output "karpenter_instance_profile_name" {}
 output "karpenter_sqs_queue_name" {}            output "karpenter_discovery_tag" {}
 
+# addon (§2.6) — merge 결과의 관측점
+output "effective_addon_names" {}
+
 # 컨트롤러 IAM (§2.6 / §2.6a)
 output "ebs_csi_iam_role_arn" {}                output "alb_controller_iam_role_arn" {}
 output "external_dns_iam_role_arn" {}
@@ -537,6 +553,15 @@ output "external_dns_iam_role_arn" {}
   `tofu output`이 성립해야 소비자가 조건 분기를 짜지 않는다.
 - ➕ `cluster_arn` 추가: GitOps 쪽 클러스터 등록이 **API URL이 아니라 ARN**을 요구한다(21 §2.8 실측).
   seam 방식이 재결정되어도 ARN은 어느 경로든 필요하므로 계약에 둔다.
+- ➕ `effective_addon_names` (**2026-08-04 계약 등재** — 구현은 Task 20.7 때부터 있었다):
+  baseline merge + `enabled` 필터를 거친 **최종 addon 이름 목록**(정렬). kill switch 시 `[]`.
+  - **소비자에게 주는 값**: merge 규약(**누락 ≠ 삭제**, §2.6-1)은 코드를 읽지 않으면 결과를 예측하기
+    어렵다. *"내가 넘긴 `cluster_addons`가 baseline과 어떻게 합쳐졌는가"* 를 `tofu output`으로 본다.
+  - **모듈에게 주는 값**: facade는 계산 결과를 **하위 모듈의 입력**으로 넘기는데 `tofu test`는 하위
+    모듈에 들어간 값을 볼 수 없다. 노출하지 않으면 baseline 상속·opt-out을 config-time에 검증할
+    방법이 자체가 없다 — AC5·AC8이 이 출력에 의존한다.
+  - ⚠️ 계약에 늦게 올린 것이지 **새로 만든 것이 아니다.** 출력은 릴리스 시점부터 존재했고, 계약표에만
+    빠져 있었다. `01 §4`상 소비자가 의존할 수 있는 출력은 전부 §3.2에 있어야 한다.
 
 > ⚠️ **함정 — upstream 출력의 fallback 값이 일관되지 않다**(2026-08-03 Task 20.1 확인).
 > `create = false`일 때 upstream `outputs.tf`는 대부분 `try(…, null)`이지만
@@ -752,7 +777,8 @@ output "external_dns_iam_role_arn" {}
 | AC10 | Karpenter on → node SG에 `karpenter.sh/discovery` 태그 |
 | AC11 | §2.6a 토글 기본 off / opt-in on + role 이름이 카탈로그 준수 |
 
-> **✅ 구현 완료(2026-08-03) — 16 run 전부 pass.** 실제 구성은 위 표와 다소 다르다:
+> **✅ 구현 완료(2026-08-03) — 현행 17 run 전부 pass.** 최초 16 run이었고, D-NODE-ARCH가
+> `invalid_ami_type_is_rejected`를 더해 17이 됐다(2026-08-04). 실제 구성은 위 표와 다소 다르다:
 > `effective_addon_names` 출력을 신설해 addon merge를 관측 가능하게 만들었고(facade는 계산 결과를
 > 하위 모듈 입력으로 넘겨 `tofu test`가 볼 수 없다), NG 형상 검증은 아래 제약으로 빠졌다.
 >
@@ -782,6 +808,87 @@ output "external_dns_iam_role_arn" {}
   전부 판정되기까지 별도 세션이 필요했다 — **"plan 통과 = 검증됨"으로 쓰지 않는다.**
 - Commit: `release(eks-cluster): v1.0.0` + 태그 `eks-cluster-v1.0.0`
 
+### 4.1 릴리스 기록 — `eks-cluster-v1.0.0` (2026-08-04)
+
+`02 §4` 게이트 실측 결과. **OpenTofu 1.12.5 · aws provider 6.57.1** 기준이다
+(모듈 lock과 예제 lock이 같은 버전이다 — `design/10 §3`이 정렬한 이유와 같다).
+
+| # | 게이트 항목 | 결과 |
+|---|------------|------|
+| 1 | `tofu fmt -recursive -check` | exit 0 |
+| 2 | `modules/eks-cluster`: `validate` + `test` | Success · **17 passed, 0 failed** |
+| 3 | `examples/*`: `validate` | `eks-cluster-enterprise`·`vpc-enterprise` 양쪽 Success |
+| 4 | `.terraform.lock.hcl` 커밋 + registry | 전부 `registry.opentofu.org/hashicorp/aws` |
+| 5 | `Name` 태그 §1.2 포맷 + 카탈로그 약어 | `naming_and_name_tag` run이 클러스터·NG·IAM role 검증 |
+| 6 | 커뮤니티 모듈 정확 핀 | `eks` **21.24.1** · `//modules/karpenter` **21.24.1** · `eks-pod-identity` **2.8.2** |
+| 7 | `<component>_enabled` kill switch | `cluster_enabled`(D-EKS-ENABLED — upstream `create` 위임) |
+| 8 | `tflint --recursive` · `trivy config` | 0건 · 0건 |
+
+> ⚠️ **`trivy`는 게이트 명령 그대로 돌려야 의미가 있다.** `--skip-dirs '**/.terraform'
+> --tf-exclude-downloaded-modules`를 빼면 `.terraform/modules/` 안의 **upstream 소스**가 스캔되어
+> `AVD-AWS-0104`(node SG egress `0.0.0.0/0`)가 잡히고 exit 1이 된다. 우리가 고칠 수 없는 코드이며,
+> 그래서 훅과 CI가 둘 다 같은 두 플래그를 단다(`.githooks/pre-commit` · `verify.yml` 게이트 3/6).
+> 이 플래그를 뺀 측정은 게이트 실패가 아니라 **잘못 잰 것**이다.
+
+> ⚠️ **이 태그는 한 번 옮겨졌다** — 컷 직후 D-NODE-ARCH(`ami_type`)를 흡수하며 `74bbf51`로 이동했다.
+> 당시 소비 repo는 `plan`만 돌던 상태라 **소비자가 0이었고**, 그것이 CLAUDE.md가 인정하는 유일한
+> 예외였다. **2026-08-04 apply로 그 예외는 닫혔다** — 이후 변경은 마이너를 컷한다.
+
+#### v1.0.0의 apply 판정 (2026-08-04, `iac-reference-infra` `live/dev/eks`)
+
+VPC와 달리 이 표는 **릴리스와 같은 날 채워졌다.** 소비 repo가 `deploy-eks.yml` dispatch 2회로
+apply했기 때문이다. 판정 형상은 다음과 같다 — **표의 유효 범위가 곧 이 형상의 범위**다.
+
+| 축 | 값 |
+|---|---|
+| custom networking | on (`pod-dup` 서브넷, prefix delegation) |
+| 노드그룹 | `t4g.medium` × 2 = **graviton**, `ami_type = AL2023_ARM_64_STANDARD`, `ami_release_version` 핀 |
+| addon | 8종 = baseline 6 + community tier 2(`cert-manager`·`external-dns`), 버전 전부 소비 루트가 핀 |
+| 보호·노출 | `deletion_protection = true` · public 엔드포인트(단일 CIDR) · 로깅 3종 |
+| IAM | Karpenter on · ALBC IAM on · **external-dns IAM off**(아래 ❌) |
+
+| 항목 | 왜 `plan`으로 안 잡히나 | 판정 |
+|------|---------------------|------|
+| 클러스터·NG 네이밍 합성 | 이름 충돌·길이 초과는 AWS API가 생성 시점에 거부한다 | ✅ `eks-ref-dev-an2-main-01` · `eksn-ref-dev-an2-system` ACTIVE |
+| NG IAM role name_prefix 38자 한도 | `validate`로는 안 잡히고, facade가 `iam_role_name`을 직접 지정해 푼 경로다 | ✅ NG role 생성됨 |
+| **`ami_type` × `instance_types` 아키텍처 짝** | plan은 통과한다 — AWS도 **노드그룹 생성 시점에야** 거부한다(D-NODE-ARCH) | ✅ arm 노드 2대 running |
+| `ami_release_version` 핀 실효 | `use_latest_ami_release_version` 파생이 실제로 그 AMI를 쓰는지는 apply가 판정한다 | ✅ 핀한 `1.35.6-20260728`로 기동 |
+| Karpenter inline 정책 6,144자 한도 | 관리형 정책이면 `LimitExceeded`가 apply에서 난다(PoC 실측) | ✅ `enable_inline_policy = true`로 통과 |
+| addon 버전 `f(k8s, region)` 해석 | 존재하지 않는 조합은 apply에서 죽는다(D-ADDON-VERSION-PIN-1의 근거) | ✅ 8종 전부 등록 |
+| §2.6 재주입(merge 뒤 모듈 소유 필드) | 소비자가 8종 전부 `addon_version`을 override한 형상이다 | ✅ vpc-cni 구성·ebs-csi association 생존 |
+| **`deletion_protection` 실제 차단** | AWS API 차원 보호는 리소스가 존재해야 확인된다 | ✅ **콘솔에서도 삭제 불가** |
+| **external-dns IAM (zone ARN 미지정)** | upstream이 `Resource="*"` 정책을 만들고 AWS가 **400**으로 거부한다 | ❌ **실패 — 아래 상자** |
+| kill switch(`cluster_enabled = false`) | — | ⏸ 미판정(라이브 teardown 미실행) |
+| teardown 2단계 완주 | — | ⏸ 미판정(〃) |
+
+> **❌ D-EXTDNS-ZONE — `enable_external_dns_iam = true` + `external_dns_hosted_zone_arns = []`는
+> apply가 실패한다**(2026-08-04 실측, run `30877358485`).
+>
+> `route53:ChangeResourceRecordSets`는 **리소스 수준 권한을 요구**하는 액션이라 `Resource = "*"`
+> 정책을 IAM이 받지 않는다(`400 MalformedPolicyDocument`). upstream `eks-pod-identity` v2.8.2는
+> `external_dns_hosted_zone_arns`가 비면 정확히 그 정책을 만든다.
+>
+> ⛔ **§2.6a와 `variables.tf`의 서술이 실물과 다르다.** 양쪽 다 *"비워 두면 전체 zone(`*`)이
+> **허용**된다 — prd에서는 반드시 좁힌다"* 라고 적었다. 실제로는 허용이 아니라 **거부**이고,
+> 따라서 이것은 "prd 권고"가 아니라 **모든 환경의 apply 차단 조건**이다.
+> → **§2.6a 정정은 이 개정에 포함**했다. `variables.tf`의 같은 서술과 **plan 시점에 막는
+> 교차변수 validation**은 `.tf` 변경이라 §5.1-8 열린 항목에서 함께 처리한다
+> (브랜치 → PR + 마이너 릴리스 판단이 필요하다 — CLAUDE.md 브랜치 규칙).
+>
+> 🔑 **이 결함은 `tofu test`로 잡을 수 없었다.** mock provider는 IAM 정책 문서를 AWS에 제출하지
+> 않기 때문이다 — 정책의 **문법**이 아니라 **AWS의 수용 여부**가 쟁점인 항목은 apply만이 판정한다.
+> 이 표를 릴리스마다 유지하는 이유가 정확히 이것이다.
+
+> **🔑 실측 — 첫 apply가 실패해도 클러스터는 이미 생성된다.**
+> 첫 dispatch는 external-dns IAM에서 죽었지만, 그 **전에** 클러스터·노드그룹·addon이 state에
+> 기록됐다. 두 번째 dispatch는 `0 add / 0 change / 2 destroy`(external-dns IAM 2개 파기)였다.
+> `tofu apply`는 원자적이지 않다 — 부분 적용 상태가 정상적으로 남는다.
+> ⚠️ 그래서 **apply 실패를 "아무 일도 없었다"로 읽으면 안 된다.** 비용은 그 시점부터 발생한다.
+
+> **증거와 run ID는 여기 적지 않는다.** 인스턴스의 배포 사실은 소비 repo
+> `docs/deployment-facts.md`가 소유한다([`design/50` D26](50-reference-consumer-repo.md)).
+> 이 표는 **모듈 계약이 어디까지 증명됐는가**만 기록한다.
+
 ## 5. 열린 항목
 
 ### 5.1 이 모듈 소관 — 구현·릴리스와 함께 판단한다
@@ -806,6 +913,24 @@ output "external_dns_iam_role_arn" {}
    prd 확산 단계에서 판단한다.
 7. **관측성 스택 중복** — kube-state-metrics·prometheus-node-exporter는 `kube-prometheus-stack`
    (GitOps helm)에 번들되는 경우가 많다. AMP 직결 vs self-managed 스택이 정해지면 community tier에서 뺀다.
+8. 🔴 **D-EXTDNS-ZONE — `enable_external_dns_iam` × `external_dns_hosted_zone_arns` 교차변수 validation**
+   (2026-08-04 apply가 발견, §4.1 ❌ 상자). 둘의 조합 중 하나가 **apply를 확정적으로 실패**시키는데
+   지금은 plan이 통과한다. `condition = !(var.enable_external_dns_iam && length(var.external_dns_hosted_zone_arns) == 0)`
+   이면 몇 초 만에 잡힌다 — D-EKS-PROTECT 가드와 **완전히 같은 형태**다.
+   - ⚠️ **계약 변경이다.** 지금 apply에 실패하는 구성이라도 `plan`은 통과하므로, validation을 넣으면
+     그 구성의 plan이 **거부**된다. `01 §4` semver 규약상 **마이너**로 본다(깨지는 것은 이미 깨져
+     있던 경로뿐이고, 성공하던 apply는 하나도 막지 않는다). 릴리스는 `eks-cluster-v1.1.0`.
+   - ⛔ **upstream 수정을 기다리지 않는다.** 이건 upstream의 버그가 아니라 **AWS IAM의 제약**이고
+     (`route53:ChangeResourceRecordSets`는 리소스 수준 권한), upstream은 "zone을 안 주면 `*`"라는
+     합리적 기본값을 낸 것뿐이다. 조합을 막는 것은 **facade의 일**이다.
+   - 재개 조건: 소비 repo가 dev hosted zone을 bootstrap하면 `enable_external_dns_iam`을 되켠다.
+     그때 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 실패를 반복한다.
+9. **닫힌 열거(`validation`)의 유지보수 부채** — `ami_type`(D-NODE-ARCH)·`capacity_type`·
+   `enabled_log_types`·taint `effect`는 값 목록을 모듈이 소유한다. **AWS가 값을 추가하면 그때까지
+   신형 값이 막힌다.** 실증: `capacity_type`이 AWS가 나중에 추가한 `CAPACITY_BLOCK`을 아직 담지 못한다.
+   ⚠️ 이건 "고쳐야 할 결함"이 아니라 **의식적으로 낸 값**이다(오타의 대가가 비대칭이라 넣었다).
+   정책 판단이 필요한 지점은 *"어느 열거를 계속 닫아 둘 것인가"* 이고, 소비자가 신형 값에 막히는
+   사건이 실제로 발생하면 그 변수부터 연다.
 
 ### 5.2 ✅ 해소 — 2026-08-03 개정에서 **계약으로 승격**
 

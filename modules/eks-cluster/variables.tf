@@ -192,6 +192,14 @@ variable "managed_node_groups" {
     ⚠️ upstream 서브모듈은 use_latest_ami_release_version 기본이 true라 ami_release_version만
     주면 무시된다. 이 모듈이 use_latest = (ami_release_version == null)로 파생해 핀을 실효화한다.
 
+    ami_type(D-NODE-ARCH): 노드 AMI 계열이자 **CPU 아키텍처의 결정 지점**이다.
+    ⚠️ **instance_types와 아키텍처가 반드시 일치해야 한다.** graviton(t4g·m7g·c7g…)을 쓰려면
+    ami_type = "AL2023_ARM_64_STANDARD"를 함께 지정한다 — 기본값이 x86이라 arm 인스턴스만 바꾸면
+    **AMI와 CPU가 어긋나 노드가 부팅되지 않는다.** 이 조합은 plan에서 잡히지 않는다(AWS도 nodegroup
+    생성 시점에야 실패한다) → 아키텍처 짝은 소비자가 맞춘다.
+    ⚠️ ami_release_version도 **아키텍처별로 값이 다르다.** arm으로 바꾸면 핀도 arm SSM 경로에서
+    다시 얻는다(README "AMI 버전 고정" 절).
+
     taints는 리스트로 받아 모듈이 upstream의 map 스키마로 변환한다(facade 번역).
   EOT
   type = map(object({
@@ -200,6 +208,7 @@ variable "managed_node_groups" {
     max_size            = number
     desired_size        = number
     capacity_type       = optional(string, "ON_DEMAND")
+    ami_type            = optional(string, "AL2023_x86_64_STANDARD")
     ami_release_version = optional(string)
     labels              = optional(map(string), {})
     taints = optional(list(object({
@@ -215,6 +224,34 @@ variable "managed_node_groups" {
       for ng in var.managed_node_groups : contains(["ON_DEMAND", "SPOT"], ng.capacity_type)
     ])
     error_message = "managed_node_groups의 capacity_type은 ON_DEMAND 또는 SPOT이어야 한다."
+  }
+
+  # ami_type을 **닫힌 목록으로** 검증하는 이유: 오타의 대가가 비대칭이다.
+  # "AL2023_ARM64_STANDARD"(밑줄 누락) 같은 값은 plan을 통과해 **클러스터 생성까지 끝난 뒤**
+  # 노드그룹 단계에서 AWS API가 거부한다 — 10분을 버리고 부분 생성 상태가 남는다.
+  # 여기서 막으면 몇 초 만에 잡힌다.
+  #
+  # ⚠️ **이 목록은 낡는다.** 출처: EKS API Reference `Nodegroup.amiType` Valid Values(2026-08-04 확인).
+  #    AWS가 계열을 추가하면 이 목록을 갱신한다 — 갱신 전까지 신형 ami_type이 막힌다는 것이 비용이다.
+  #    실제 증거: 위 capacity_type 목록은 AWS가 나중에 추가한 `CAPACITY_BLOCK`을 아직 담고 있지 않다.
+  #    (닫힌 검증을 늘릴 때마다 이 유지보수 부채가 함께 늘어난다는 뜻이다.)
+  validation {
+    condition = alltrue([
+      for ng in var.managed_node_groups : contains([
+        "AL2023_x86_64_STANDARD", "AL2023_ARM_64_STANDARD",
+        "AL2023_x86_64_NEURON", "AL2023_x86_64_NVIDIA", "AL2023_ARM_64_NVIDIA",
+        "AL2_x86_64", "AL2_x86_64_GPU", "AL2_ARM_64",
+        "BOTTLEROCKET_ARM_64", "BOTTLEROCKET_x86_64",
+        "BOTTLEROCKET_ARM_64_FIPS", "BOTTLEROCKET_x86_64_FIPS",
+        "BOTTLEROCKET_ARM_64_NVIDIA", "BOTTLEROCKET_x86_64_NVIDIA",
+        "BOTTLEROCKET_ARM_64_NVIDIA_FIPS", "BOTTLEROCKET_x86_64_NVIDIA_FIPS",
+        "WINDOWS_CORE_2019_x86_64", "WINDOWS_FULL_2019_x86_64",
+        "WINDOWS_CORE_2022_x86_64", "WINDOWS_FULL_2022_x86_64",
+        "WINDOWS_CORE_2025_x86_64", "WINDOWS_FULL_2025_x86_64",
+        "CUSTOM",
+      ], ng.ami_type)
+    ])
+    error_message = "managed_node_groups의 ami_type이 EKS API의 유효값이 아니다. graviton은 AL2023_ARM_64_STANDARD 다(AL2023_ARM64_STANDARD 아님)."
   }
 
   validation {

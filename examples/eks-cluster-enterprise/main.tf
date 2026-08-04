@@ -118,6 +118,14 @@ module "eks" {
       max_size       = 4
       desired_size   = 2
 
+      # ⭐ D-NODE-ARCH — 아키텍처의 결정 지점. 기본값이 x86 이라 이 예제는 생략해도 같지만,
+      #    **노브가 있다는 것을 템플릿에서 보이게** 명시한다.
+      #    ⚠️ graviton(t4g·m7g·c7g…)으로 바꾸려면 **두 줄을 함께** 고친다:
+      #         instance_types = ["m7g.large"] · ami_type = "AL2023_ARM_64_STANDARD"
+      #       한쪽만 바꾸면 AMI 와 CPU 가 어긋나 **노드가 부팅되지 않는다** — plan 은 통과한다.
+      #       ami_release_version 도 아키텍처별로 값이 다르다(arm SSM 경로에서 다시 얻는다).
+      ami_type = "AL2023_x86_64_STANDARD"
+
       # ⏸ D-NODE-AMI-PIN — 실환경에서는 concrete 버전을 박는다(예: "1.35.6-20260724").
       #    null이면 upstream이 매 plan마다 최신을 해석해 apply 시 **노드 롤링 교체**를 유발한다.
       #    예제는 계정에 붙지 않아 유효한 버전 문자열을 확인할 수 없으므로 null로 둔다.
@@ -126,18 +134,38 @@ module "eks" {
   }
 
   # ── addon ─────────────────────────────────────────────────────────────────
-  # 빈 맵이면 baseline 6종을 상속한다. 아래는 **community tier를 opt-in으로 추가**하는 형태다
-  # (설계 §2.6 확장 표) — baseline은 merge되므로 사라지지 않는다.
+  # 빈 맵이면 baseline 6종을 상속한다. 아래는 baseline 6종의 **버전을 override** 하고
+  # community tier 2종을 **opt-in으로 추가**한 형태다(설계 §2.6 확장 표).
+  # ⚠️ **누락 != 삭제**다 — baseline은 merge되므로 여기 안 적어도 사라지지 않는다.
+  #    제거는 enabled = false 명시로만 한다. core 4종은 그것도 차단된다.
+  # ℹ️ addon_version만 적어도 모듈 소유 필드(vpc-cni의 custom networking 구성, ebs-csi의 pod
+  #    identity association)는 **merge 뒤에 재주입**되므로 사라지지 않는다(addons.tf §4).
   #
-  # ⭐ **버전을 안 주면 AWS 기본 버전이 해석된다**(D-ADDON-VERSION-PIN-1). 모듈은 버전을 들지
-  #    않는다 — 업그레이드 주기는 워크로드마다 다르기 때문이다. 프로덕션에서 완전히 고정하려면
-  #    addon_version을 여기 박는다. 값 얻는 법과 갱신 규칙은 README "addon 버전 고정" 절 참조.
-  #    예) "coredns" = { addon_version = "v1.14.3-eksbuild.3" }
+  # ⭐ **버전 값은 소비 루트가 소유한다**(D-ADDON-VERSION-PIN-1). 모듈은 버전을 들지 않는다 —
+  #    업그레이드 주기가 워크로드마다 다르기 때문이다.
+  #
+  # 🔴 **아래 값을 그대로 복사하지 말 것.** addon 버전은 `f(kubernetes_version, region)`이다.
+  #    이 값들은 **k8s 1.35 · ap-northeast-2 의 AWS 기본 버전**(2026-08-04 실측)이고,
+  #    다른 k8s 버전이나 리전에서는 *"그 버전 없음"* 으로 apply가 죽는다.
+  #    값 얻는 법과 갱신 규칙은 README "addon 버전 고정" 절.
+  #
+  # 🔑 **왜 최신이 아니라 기본(default) 버전을 박았나**: 기본 버전을 박으면 핀 전후 동작이
+  #    같다(무변경). 최신을 박으면 "핀을 추가한다"는 작업에 **업그레이드 결정이 섞여 들어간다** —
+  #    상향은 값을 올리는 별도 커밋이어야 plan diff로 리뷰된다.
   cluster_addons = {
+    # ── baseline 6종 (버전만 override) ──────────────────────────────────────
+    "vpc-cni"                = { addon_version = "v1.22.3-eksbuild.1" }
+    "coredns"                = { addon_version = "v1.13.2-eksbuild.11" }
+    "kube-proxy"             = { addon_version = "v1.35.3-eksbuild.17" }
+    "eks-pod-identity-agent" = { addon_version = "v1.3.10-eksbuild.3" }
+    "aws-ebs-csi-driver"     = { addon_version = "v1.63.1-eksbuild.1" }
+    "metrics-server"         = { addon_version = "v0.9.0-eksbuild.5" }
+
+    # ── community tier (opt-in 추가) ────────────────────────────────────────
     # 컨트롤러+CRD는 IaC addon, Issuer/Certificate CR은 GitOps다(§1 경계).
-    "cert-manager" = {}
+    "cert-manager" = { addon_version = "v1.21.0-eksbuild.3" }
     # 관리형 Route53. 애노테이션은 GitOps 소관이고 IAM은 아래 enable_external_dns_iam이 만든다.
-    "external-dns" = {}
+    "external-dns" = { addon_version = "v0.21.0-eksbuild.6" }
   }
 
   # ── Karpenter · 컨트롤러 IAM ──────────────────────────────────────────────

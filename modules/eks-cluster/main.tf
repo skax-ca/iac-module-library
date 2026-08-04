@@ -52,6 +52,13 @@ locals {
       iam_role_name            = "iamr-${local.name_mid}-${ng_key}-node"
       iam_role_use_name_prefix = false
 
+      # D-NODE-ARCH — 노드 AMI 계열(=CPU 아키텍처). upstream 서브모듈의 ami_type은 nullable = false
+      # (기본 AL2023_x86_64_STANDARD)이고 루트가 each.value.ami_type을 **그대로 넘긴다**(실측).
+      # 그래서 facade가 optional의 기본값으로 항상 non-null 문자열을 보장한다 — null을 흘리면
+      # 하위 모듈에서 "must not be null"로 죽는다.
+      # ⚠️ instance_types와 아키텍처를 맞추는 것은 소비자 몫이다(변수 문서). 어긋나도 plan은 통과한다.
+      ami_type = ng.ami_type
+
       # D-NODE-AMI-PIN — 핀이 있으면 최신 조회를 끈다.
       # ⚠️ upstream eks-managed-node-group은 use_latest_ami_release_version 기본이 true라
       #    release_version = use_latest ? SSM최신 : ami_release_version 으로 갈린다.

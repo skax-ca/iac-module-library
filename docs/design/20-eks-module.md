@@ -283,6 +283,21 @@ IAM이 필요한 addon(EBS CSI)이 role 없이 설치되면 무용지물인데 f
 > — `ami_release_version`만 주면 **무시된다**(addon `most_recent=true` 함정의 판박이). facade가
 > `use_latest_ami_release_version = (ami_release_version == null)`로 파생해 핀이 있으면 최신 조회를 끈다.
 
+> **2026-08-04 신설 (D-NODE-ARCH)**: facade `managed_node_groups.ami_type`(optional, 기본
+> `AL2023_x86_64_STANDARD`)을 노출한다. **배경**: 소비 루트가 graviton 노드를 요구했는데 계약에
+> 아키텍처 결정 지점이 없었다 — `instance_types`만 arm(t4g·m7g)으로 바꾸면 AMI 는 x86 그대로라
+> **노드가 부팅되지 않는다.** upstream 서브모듈의 `ami_type`은 `nullable = false`(기본 x86)이고 루트가
+> `each.value.ami_type`을 그대로 넘기므로(v21.24.1 실측), facade 는 optional 기본값으로 **항상 non-null
+> 문자열**을 보장한다 — null 을 흘리면 하위 모듈에서 죽는다.
+> **⚠️ 아키텍처 짝은 소비자 책임이다.** `ami_type` × `instance_types` 불일치는 **plan 에서 잡히지 않고**
+> (AWS 도 노드그룹 생성 시점에야 거부한다) `ami_release_version` 값도 **아키텍처별로 다르다**(arm SSM 경로).
+> 모듈이 대신 판정하지 않는 이유: 인스턴스 타입 → 아키텍처 매핑을 모듈이 소유하면 신형 인스턴스가
+> 나올 때마다 모듈 릴리스가 필요해진다(D-ADDON-VERSION-PIN-1의 "경계" 논리와 동형).
+> **닫힌 검증은 `ami_type` 값 자체에만 건다** — 오타(`AL2023_ARM64_STANDARD`)의 대가가 비대칭이기
+> 때문이다(클러스터 생성 후 실패 vs 몇 초). 목록 출처는 EKS API Reference `Nodegroup.amiType`
+> (2026-08-04). ⚠️ 이 목록은 낡는다 — 실제로 기존 `capacity_type` 검증은 AWS 가 나중에 추가한
+> `CAPACITY_BLOCK`을 아직 담고 있지 않다(**열린 항목**: 닫힌 검증의 유지보수 부채).
+
 | baseline addon | 분류 | 보호 | IAM |
 |---------------|------|------|-----|
 | vpc-cni | core | enabled=false 금지 | — (§2.5 configuration은 모듈 소유) |
@@ -457,6 +472,7 @@ variable "managed_node_groups" {
     max_size             = number
     desired_size         = number
     capacity_type        = optional(string, "ON_DEMAND")
+    ami_type             = optional(string, "AL2023_x86_64_STANDARD") # D-NODE-ARCH. arm은 AL2023_ARM_64_STANDARD
     ami_release_version  = optional(string)      # D-NODE-AMI-PIN. null이면 최신 해석(하위호환)
     labels               = optional(map(string), {})
     taints               = optional(list(object({ key = string, value = string, effect = string })), [])
@@ -489,6 +505,8 @@ variable "external_dns_hosted_zone_arns" { type = list(string), default = [] }  
   비용 때문에 보류했는데, 재사용 자산에서는 **보류가 곧 모든 고객사에 대한 기본값**이 된다.
   기본 `[]`로 PoC 동작을 유지하되 **소비자가 켤 수 있게** 노출하는 것이 옳은 처리다(VPC Flow Logs와 동일 취급).
 - ➕ `managed_node_groups.ami_release_version` — D-NODE-AMI-PIN을 계약에 명시
+- ➕ `managed_node_groups.ami_type` — **D-NODE-ARCH**(2026-08-04). graviton 등 아키텍처 선택 지점.
+  없으면 arm 인스턴스를 넣어도 AMI가 x86이라 노드가 부팅되지 않는다(계약에 결정 지점이 없던 빈틈)
 - ➕ `enable_alb_controller_iam`·`enable_external_dns_iam`·`external_dns_hosted_zone_arns` (§2.6a)
 - ➖ `enable_pod_identity` — **삭제**. upstream v21은 Pod Identity가 기본이고 이 변수가 없다.
   facade에 남기면 소비자에게 **끌 수 있다는 거짓 계약**을 노출한다(Task 20.1에서 실물 재확인).

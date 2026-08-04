@@ -93,14 +93,29 @@ Karpenter가 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
 aws eks describe-addon-versions \
   --kubernetes-version 1.35 --region ap-northeast-2 --addon-name coredns \
   --query 'addons[].addonVersions[].addonVersion' --output text | tr '\t' '\n' | head -5
+
+# ⭐ **AWS 기본 버전만** 뽑는다 — 위 명령의 첫 줄은 기본이 아니라 '최신'이다(둘은 다르다)
+aws eks describe-addon-versions \
+  --kubernetes-version 1.35 --region ap-northeast-2 --addon-name coredns \
+  --query 'addons[0].addonVersions[?compatibilities[0].defaultVersion==`true`].addonVersion | [0]' \
+  --output text
 ```
 
 ```hcl
 cluster_addons = {
-  "coredns"    = { addon_version = "v1.14.3-eksbuild.3" }
+  "coredns"    = { addon_version = "v1.13.2-eksbuild.11" }
   "kube-proxy" = { addon_version = "v1.35.3-eksbuild.17" }
 }
 ```
+
+> 🔑 **최신이 아니라 기본(default) 버전을 박는다.** 기본 버전을 박으면 **핀 전후 동작이 같다** —
+> 핀은 "지금 상태를 고정"하는 일이다. 최신을 박으면 "핀을 추가한다"는 작업에 **업그레이드 결정이
+> 섞여 들어간다.** 상향은 값을 올리는 **별도 커밋**이어야 plan diff 로 리뷰된다.
+> 실측(1.35 · an2, 2026-08-04): `coredns` 기본 `v1.13.2-eksbuild.11` ≠ 최신 `v1.14.3-eksbuild.3`.
+>
+> ℹ️ `addon_version`만 적어도 **모듈 소유 필드는 살아남는다** — vpc-cni 의 custom networking 구성과
+> ebs-csi 의 pod identity association 은 merge **뒤에** 재주입된다(`addons.tf` §4). shallow merge 로
+> 엔트리가 통째로 교체되는 문제는 모듈이 이미 처리했다.
 
 **갱신 규칙 두 가지.**
 

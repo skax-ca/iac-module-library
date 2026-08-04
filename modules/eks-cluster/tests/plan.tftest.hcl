@@ -448,3 +448,29 @@ run "invalid_capacity_type_is_rejected" {
 
   expect_failures = [var.managed_node_groups]
 }
+
+# D-NODE-ARCH — graviton 전환에서 가장 흔한 오타를 plan 시점에 잡는지 확인한다.
+# ⚠️ 이 검증이 없으면 클러스터가 다 만들어진 뒤 노드그룹 단계에서 AWS API 가 거부한다(시간 손실 + 부분 생성).
+#
+# ℹ️ **정상 경로(arm 조합이 plan 을 통과한다)는 여기서 잠그지 않는다.** 이 파일 머리말의 결정대로
+#    NG 를 실제로 plan 하면 중첩 모듈이 깨어나 upstream 내부 computed 속성을 전부 모킹해야 한다
+#    (실측: mock 이 launch_template.id 에 랜덤 문자열을 넣어 provider 의 'lt-' 형식 검증에서 죽는다).
+#    그건 우리 계약이 아니다 — arm 형상 검증은 라이브 apply 가 담당한다(Task 20.8 미검증 표).
+#    expect_failures 는 변수 validation 단계에서 끝나 중첩 모듈을 깨우지 않으므로 이 run 은 성립한다.
+run "invalid_ami_type_is_rejected" {
+  command = plan
+
+  variables {
+    managed_node_groups = {
+      system = {
+        instance_types = ["t4g.medium"]
+        min_size       = 1
+        max_size       = 2
+        desired_size   = 1
+        ami_type       = "AL2023_ARM64_STANDARD" # 밑줄 누락 — 올바른 값은 AL2023_ARM_64_STANDARD
+      }
+    }
+  }
+
+  expect_failures = [var.managed_node_groups]
+}

@@ -445,6 +445,28 @@ addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인.
 - ⚠️ **§2 런북은 연역이지 실측이 아니다.** 1.35→1.36 업그레이드를 아직 아무도 안 해봤다.
   첫 수행(소비 repo)에서 §2.4 표를 갱신한다.
 
+#### 🧭 도달성 방향 확정 + **다음 세션 로드맵** (2026-08-04, 사용자 결정)
+
+**도달 지점을 bastion 하나로 통일한다.** 22 §3.4 의 미결정이 방향까지 정해졌다(실행은 `40` 개정).
+
+- 🔑 **bastion 은 프로파일 B 용 타협이 아니다 — `40` 이 이미 GitOps 의 전제였다.**
+  그 문서가 bastion 을 **"GitOps seed 수행 지점"**(D-SEED-KUBECTL)으로 확정했고,
+  `argocd_endpoint_access = private` 을 넘기려면 VPC 내부 조작 지점이 필요하다고 적었다.
+  게다가 `40` 은 **SSM 기반**이라 SSH 키·인바운드 SG·public IP 가 없다 — 관리 표면이 원래 작다.
+- **의존 순서(선택이 아니라 의존)**: `40` → `21` → `22 §3.4` 갱신.
+  ⭐ **`40` 하나만 끝나도 값이 난다** — 소비 repo 가 *"bastion 이 없어 private-only 면 kubectl
+  도달 지점이 없다"* 는 주석과 함께 **public 엔드포인트를 열어 둔 상태**다. 그걸 닫을 수 있다.
+- ⚠️ **`21` 개정은 번역이 아니라 재결정이다**(01 §3.3). 관리형 Capability vs self-managed ArgoCD 를
+  먼저 가른다. self-managed 를 택해도 helm 실행 지점이 필요해서 **어느 쪽이든 `40` 이 먼저**다.
+  - ✅ **provider 리스크 없음**: `awscc` 가 registry.opentofu.org 에 있다(실측, 188개 버전).
+    ⚠️ `awscc_eks_capability` **리소스 스키마는 착수 시 재조회**(21 이 v1.93.0 기준).
+- ⚠️ **`40` 개정 때 "bastion 역할 범위"를 함께 정한다** — self-hosted runner 겸용 여부(22 §4-2).
+  나중에 붙이면 인스턴스 타입·SG·IAM 이 전부 바뀐다.
+
+**대기 중 태스크 2개** (착수는 다음 세션 — 사용자 결정):
+1. **D-EXTDNS-ZONE validation → `eks-cluster-v1.1.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
+2. **`40` 개정** — 위 로드맵의 출발점. 끝나면 public 엔드포인트를 닫는다.
+
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 
 `backend.tf`는 **`terraform { backend "s3" {} }` 뿐**이다. 버킷명이 **git에 없다**(계정 ID 노출 방지).

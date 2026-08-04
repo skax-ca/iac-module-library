@@ -68,6 +68,13 @@ wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/No
 > 🔑 **경계표의 마지막 두 행은 이 모듈 밖이다.** 모듈이 그쪽에 지는 의무는 **출력 계약**(§3.2)뿐이며,
 > 부트스트랩 seam이 무엇으로 재결정되든(관리형 Capability / self-managed ArgoCD / 제3안) 바뀌지 않는다.
 >
+> ⭐ **"Day 2 GitOps" 행은 고객사마다 갈린다**([`22`](22-day2-operations.md) **D-DAY2-PROFILE**).
+> 플랫폼 엔지니어링 팀이 없는 고객사는 이 행을 GitOps 없이 수행하며, 그때 helm 대상은
+> **ALBC·Karpenter 둘뿐**이다 — D-ADDON-BOUNDARY가 나머지를 IaC로 당겨 놨기 때문이다.
+> **양쪽 프로파일이 쓰는 출력→설치 입력 매핑표는 [`22 §3.3`](22-day2-operations.md)에 있다.**
+> ⚠️ **버전 업그레이드는 프로파일과 무관하다** — 클러스터·노드·addon 세 손잡이의 갱신 순서는
+> [`22 §2`](22-day2-operations.md) 런북이 소유한다(AWS 권장 순서상 **3개의 apply로 나뉜다**).
+>
 > **CR 소유 정밀화(D-CR-OWNERSHIP, [`30-gitops-repo.md §0.1`](30-gitops-repo.md))**: 이 §1 규칙은 컨트롤러↔
 > CR을 가르지만, 그 CR을 **플랫폼(계층 2)이 갖나 앱팀(계층 3)이 갖나**는 별개 질문이다. 판별자는 (1) CR이
 > IAM·비용·용량 같은 **인프라 정체성**을 인코딩하는가, (2) 규칙이 **제약하는 대상**이 소유자와 같은가이며,

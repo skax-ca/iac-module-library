@@ -414,6 +414,37 @@ addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인.
   조합을 막는 것은 facade 의 일이다.
 - ⚠️ 태그는 **옮기지 않는다**(apply 됐다). `eks-cluster-v1.1.0` 을 새로 컷한다.
 
+#### ✅ D-DAY2-PROFILE — `design/22-day2-operations.md` 신설 (2026-08-04)
+
+발단: *"플랫폼팀 없는 고객사를 위해 helm·eksctl·bash 업그레이드 경로를 따로 주자"*(사용자).
+**검토 결과 그 갈래가 서로 다른 두 축을 묶고 있었다** — 축을 나눴다.
+
+- **축 A 버전 업그레이드 = 프로파일 무관 IaC 단일 경로.** 손잡이 셋
+  (`kubernetes_version`·`ami_release_version`·`addon_version`)은 이미 소비 루트에 있다.
+  ⭐ **없던 것은 도구가 아니라 런북**이었다. ArgoCD 도 클러스터 버전은 안 올려준다.
+- **축 B Day 2 워크로드 배포 = 여기만 프로파일이 갈린다**(판별 4문항).
+- ⛔ **eksctl 기각** — 자체 CloudFormation 스택이라 한 클러스터를 두 IaC 가 나눠 갖는다.
+  게다가 `Name` 태그·카탈로그·tftest 계약이 그 경로엔 **하나도 안 걸린다**.
+  bash `update-addon` 도 기각 — `most_recent=false`+핀 때문에 **다음 plan 이 되돌린다**(의도된 동작).
+  04 §3(두 엔진 기각)과 같은 구조다.
+- 🔴 **AWS 공식 순서 확인이 설계를 바꿨다**(`update-cluster.html`): 컨트롤플레인 → 노드 → **addon(마지막)**,
+  **마이너 1단계씩**, 그리고 **올리기 전에 노드 kubelet 이 컨트롤플레인과 같아야** 한다.
+  → **한 커밋에 셋을 다 바꾸면 안 된다. apply 3개로 나눈다.** 이 모듈은 vpc-cni 에
+  `before_compute=true` 를 소유해 순서가 이미 심겨 있는데, 그건 **최초 생성** 기준이지 업그레이드가 아니다.
+- ⭐ **§3.3 매핑표가 이 문서의 실질** — 모듈 출력 → helm/manifest 입력. **양쪽 프로파일이 같은 값**을
+  쓰므로 미결정에 의존하지 않는다. upstream v21.24.1 소스 + 실제 GitOps 매니페스트로 실측:
+  - Karpenter SA/ns 는 **자유값이 아니다**(`karpenter`/`kube-system`) — 모듈이 그 이름으로
+    Pod Identity association 을 이미 만든다(`create_pod_identity_association` 기본 true).
+    바꾸면 IAM 은 있는데 자격증명을 못 받는 **조용한 파손**.
+  - EC2NodeClass `spec.role` 은 **파생 불가**(`node_iam_role_use_name_prefix` 기본 true → hash 접미사)
+    → 출력 `karpenter_node_iam_role_name` 을 **반드시** 쓴다.
+- ⭐ 부수 발견: **프로파일 B 의 helm 대상은 ALBC·Karpenter 둘뿐이다.** D-ADDON-BOUNDARY 가
+  community addon 을 IaC 로 당겨 놓은 결정이 **GitOps 미보유 고객사의 진입 장벽을 부수적으로 낮췄다.**
+- ⏸ **도달성(누가 클러스터 API 에 닿나)은 확정하지 않았다** — 21(미결정)·40(미개정) 소관.
+  미결정 위에 확정을 쌓지 않는다. 나머지(런북·판별·매핑표)는 도달성과 무관하게 성립한다.
+- ⚠️ **§2 런북은 연역이지 실측이 아니다.** 1.35→1.36 업그레이드를 아직 아무도 안 해봤다.
+  첫 수행(소비 repo)에서 §2.4 표를 갱신한다.
+
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 
 `backend.tf`는 **`terraform { backend "s3" {} }` 뿐**이다. 버킷명이 **git에 없다**(계정 ID 노출 방지).
@@ -461,6 +492,7 @@ addon 8종 등록 · `deletion_protection` 콘솔에서도 삭제 불가 확인.
 - `docs/architecture/*` ✅ (**04-engine-decision.md 신규**) · **`docs/design/10-vpc-module.md` ✅ (2026-07-29 개정)**
 - **`docs/design/20-eks-module.md` ✅ (2026-08-03 개정 = `eks-cluster-v1.0.0` 계약)**
 - **`docs/design/50-reference-consumer-repo.md` ✅ (2026-07-30 신규 = D-CONSUME)** — 소비 경로 규약의 SSOT
+- **`docs/design/22-day2-operations.md` ✅ (2026-08-04 신규 = D-DAY2-PROFILE)** — 업그레이드 런북 + 운영 프로파일
 - `docs/design/{30,40}-*.md` ⚠️ **미개정** — 확정 설계로 인용 금지
 - `docs/design/21-gitops-bootstrap-seam.md` ⚠️ **미결정**(미개정과 다르다) — 판단 자체가 이 repo 것이 아니다.
   ✅ 살아 있는 것은 **AWS 서비스 동작 실측**(auto-managed Access Entry의 `kubernetesGroups`가 비어 custom

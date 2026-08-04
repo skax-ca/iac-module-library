@@ -5,6 +5,13 @@
 > **범위**: 소비 경로 규약(모듈 소싱 인증 · state backend · OIDC 체인 · plan artifact)의 결정과 근거.
 > 실행 계획(Phase·태스크·수용 기준)은 `.omc/plans/reference-consumer-repo.md`에 있다.
 
+> ⚠️ **2026-08-05 D-VERSION 재매핑** — `vpc-v1.0.0`·`v1.1.0`·`v1.2.0` → **같은 커밋의**
+> `v0.1.0`·`v0.2.0`·`v0.3.0`, `eks-cluster-v1.0.0` → `v0.1.0`. 구 태그는 삭제됐다
+> ([`architecture/05`](../architecture/05-versioning-policy.md)).
+> **이 문서의 §1 배경·F계열 실측 로그·§4 판정 대상에 남은 `v1.x` 번호는 그때의 사실 기록이라
+> 그대로 둔다** — 특히 `F2`는 당시 `init` 로그 원문이고, `§4`는 *"어느 릴리스의 미검증 항목을
+> 판정했는가"* 를 기록한다. 번호를 덮어쓰면 그 추적이 끊긴다.
+
 > ### 🔄 2026-07-31 개정 — 첫 이행 인스턴스가 **apply까지 통과했다**
 >
 > `skax-ca/iac-reference-infra`가 §3의 파이프라인으로 실제 계정에 apply를 완료했다
@@ -104,7 +111,7 @@ org 소유 GitHub App으로 1시간 만료 토큰을 발급하고, `git config -
 ```hcl
 # 소비 repo 코드 — 인증 방식을 모른다
 module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 }
 ```
 

@@ -40,12 +40,24 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
   # ...
 }
 ```
 
-태그는 **컴포넌트별 semver**: `vpc-v1.0.0` · `eks-cluster-v1.0.0`.
+태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.1.0`.
+
+## 🔢 버전 정책: 전 모듈 `0.y.z` (D-VERSION, 2026-08-05)
+
+번호 체계의 SSOT는 **`docs/architecture/05-versioning-policy.md`**다.
+
+- **모든 모듈이 개발 단계(`0.y.z`)다.** 이 구간에서는 **파괴적 변경도 마이너로 흡수**하고
+  소비자에게 계약 안정을 약속하지 않는다 — semver가 `0.y.z`에 부여한 뜻 그대로다.
+  ⭐ 그래서 *"이 변경이 마이너인가 메이저인가"* 를 **판정하지 않는다.** 전부 마이너다.
+- **`1.0.0`은 모듈별로** 컷한다(05 §2의 기준 5개 충족 시). ⛔ **전 모듈 일괄 컷은 05 §4가 기각했다** —
+  `vpc`와 `eks-cluster`는 churn 속도가 달라 묶으면 소비자가 매번 "뭐가 바뀌었지"를 확인해야 한다.
+- **신규 모듈은 `0.1.0`에서 시작**한다(다음 적용: `bastion`). `1.0.0`으로 시작하지 않는다.
+- ⚠️ 버전 혼재(`vpc-v0.3.0` + `bastion-v0.1.0` + 훗날 `vpc-v1.0.0`)는 **결함이 아니라 정보**다.
 
 ---
 
@@ -221,6 +233,10 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 - 🔴 **릴리스된 태그를 덮어쓰지 않는다.** 예외는 **소비자가 0일 때뿐**이다.
   실측(2026-08-04): `eks-cluster-v1.0.0` 은 컷 직후 apply 된 인프라가 하나도 없어(소비 repo 는
   plan 만) 태그를 옮겼다. **한 번이라도 apply 된 뒤에는 마이너를 컷한다.**
+  - ⚠️ **번호는 당시 기록이다** — 그 태그는 2026-08-05 D-VERSION 재매핑으로 **`eks-cluster-v0.1.0`** 이 됐다.
+  - 🔑 **D-VERSION 이 이 사건을 다시 읽었다**(05 §0): *"예외를 발명해야 했다"* 는 것 자체가
+    **1.0.0 이 이른 약속이었다**는 신호였다. `0.x` 에서는 태그를 옮길 이유가 애초에 없다 —
+    다음 마이너를 내면 된다. 규칙은 유효하되, **규칙을 자주 시험하게 만드는 번호 체계를 고친 것**이다.
 
 ### 지금 요구를 채우는 가장 단순한 형태로 만든다
 

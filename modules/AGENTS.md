@@ -8,7 +8,7 @@
 소비 프로젝트는 여기의 모듈을 **git tag로 소싱**한다:
 
 ```hcl
-source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"
+source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 ```
 
 **현재 비어 있다.** PoC 모듈(vpc·eks-cluster·bastion) 이식이 다음 작업이다(D-OSS-STACK §6-2).

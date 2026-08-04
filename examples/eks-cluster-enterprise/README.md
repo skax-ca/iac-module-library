@@ -22,7 +22,7 @@
 | | 이 예제 | 소비 프로젝트(`<project>-infra`) |
 |---|---|---|
 | **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
-| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v1.0.0` |
+| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.1.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
@@ -38,7 +38,7 @@ apply된 VPC를 **태그로 조회**한다:
 ```hcl
 data "aws_subnets" "node" {
   filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
-  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }   # VPC 모듈 D13 (vpc-v1.2.0+)
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }   # VPC 모듈 D13 (vpc-v0.3.0+)
 }
 data "aws_subnets" "pod" {
   filter { name = "vpc-id", values = [data.aws_vpc.main.id] }

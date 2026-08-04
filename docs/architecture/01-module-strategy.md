@@ -32,7 +32,7 @@
 ```
 Consumer 계층 (프로젝트 repo의 live/<account>/<component>/)
   module "eks" {
-    source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v1.0.0"
+    source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.1.0"
   }
         │  (소비자는 upstream을 절대 직접 참조하지 않는다)
         ▼

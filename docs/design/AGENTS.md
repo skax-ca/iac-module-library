@@ -14,7 +14,7 @@ PoC(Terraform 1.15 + HCP Terraform) 전제와 실증 서술이 그대로 남아 
 ## Key Files
 | File | Description | 상태 |
 |------|-------------|------|
-| `10-vpc-module.md` | 스크래치 VPC 모듈 — `subnet_groups` 계약, EKS-aware 태깅, custom networking용 100.64 대역, kill switch(D10), Flow Logs(D11) | ✅ 개정 완료 (`vpc-v1.0.0`) |
+| `10-vpc-module.md` | 스크래치 VPC 모듈 — `subnet_groups` 계약, EKS-aware 태깅, custom networking용 100.64 대역, kill switch(D10), Flow Logs(D11) | ✅ 개정 완료 (현행 `vpc-v0.3.0`) |
 | `20-eks-module.md` | EKS wrapper(facade) — addon 경계(D-ADDON-BOUNDARY), Karpenter, Access Entry, 관리형 ArgoCD seam(§2.7) | ⚠️ 미개정 |
 | `30-gitops-repo.md` | GitOps 저장소 구조 — App-of-Apps + ApplicationSet, AppProject 테넌시, addon 3분류 | ⚠️ 미개정 |
 | `40-bastion.md` | SSM 기반 bastion — private 클러스터의 유일 조작 지점, `bastion_enabled` kill switch | ⚠️ 미개정 |

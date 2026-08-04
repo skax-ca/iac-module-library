@@ -37,7 +37,7 @@ Cloud Architect 팀의 **재사용 IaC 모듈 자산 라이브러리**.
 
 ```
 iac-module-library  (이 repo — 모듈·설계 SSOT)
-   │  git tag 소싱 (vpc-v1.0.0 …)
+   │  git tag 소싱 (vpc-v0.3.0 …)
    ▼
 <project>-infra × N  (프로젝트/고객별 배포 루트)
 
@@ -57,7 +57,7 @@ docs/        # architecture(전략·규약) · design(모듈) · reference · co
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 
   naming = { workload = "acme", env = "dev", region_code = "an2" }
   # ...

@@ -141,7 +141,36 @@ it should probably already be 1.0.0."* — `eks-cluster-v1.0.0`은 실제 AWS �
 **소비 repo `iac-reference-infra`** — 재핀 2곳(`live/dev/{networking,eks}/main.tf`) +
 `AGENTS.md` 2곳 + `docs/deployment-facts.md`(사실 기록 → 각주) + `CLAUDE.md` 예시 1곳.
 
-### 3.4 D-EXTDNS-ZONE에 미치는 영향
+### 3.4 실행 기록 (2026-08-05)
+
+| 검증 | 명령/근거 | 결과 |
+|------|-----------|------|
+| 모듈 서브트리 동일성 | `git rev-parse <tag>:modules/<m>` | ✅ `vpc` 구·신 모두 `753790d7…` · `eks-cluster` 구·신 모두 `761b0a62…` |
+| 새 태그 원격 존재 | `git ls-remote --tags origin` | ✅ 4개 push 완료 |
+| 소비 repo 소싱(인증 포함) | `tofu init -backend=false` (양 루트) | ✅ `Downloading …?ref=vpc-v0.3.0&depth=1` · `…?ref=eks-cluster-v0.1.0&depth=1` |
+| 소비 repo 문법·인터페이스 | `tofu validate` (양 루트) | ✅ `Success!` (OpenTofu **1.12.5**) |
+| **live `plan` = `No changes`** | — | ⏸ **미실행** |
+
+> ⛔ **`plan` 미실행을 "통과"로 읽지 말 것.** §3.2 순서 2가 요구한 라이브 판정은 아직 없다.
+> 실행하지 않은 이유는 둘이다: ① `backend.hcl`이 로컬에 없다(D25로 gitignore되며, 이 작업은
+> 모듈 repo 소유자 머신에서 수행됐다) ② `tofu plan`도 **state lock을 잡는다**
+> ([`design/50`](../design/50-reference-consumer-repo.md) D28 열린 항목) — 라이브 dev state에
+> 로컬에서 lock을 걸었다가 중단되면 잠금 잔재가 남는다.
+>
+> 🔑 **그럼에도 태그 삭제를 진행한 근거**: 모듈 source 문자열은 **state에 저장되지 않는다**
+> (state가 갖는 것은 `module.eks.module.eks.aws_eks_cluster.this[0]` 같은 주소와 속성이다).
+> 서브트리 SHA가 동일하므로 내려받는 소스가 바이트 동일이고, 따라서 **diff가 생길 경로 자체가
+> 없다.** 이것은 논증이지 실측이 아니며, **다음 `deploy.yml` 실행이 최종 확인**이다.
+
+⚠️ **부수 발견 — 게이트 도구는 머신마다 따로 갖춰야 한다.** 이 작업을 수행한 머신에는
+`tofu`가 없었고 `core.hooksPath`도 미설정이었다(`tflint`·`trivy`만 있었다). `brew`와
+`git config`는 **clone·머신 단위**라 dotfiles 동기화로 따라오지 않는다. 새 머신에서 착수할 때:
+```
+brew install opentofu            # 파리티 기준 1.12.5 확인
+git config core.hooksPath .githooks   # clone마다 1회 — 양쪽 repo 모두
+```
+
+### 3.5 D-EXTDNS-ZONE에 미치는 영향
 
 [`design/20 §5.1-8`](../design/20-eks-module.md)의 다음 릴리스는 **`eks-cluster-v1.1.0`이 아니라
 `eks-cluster-v0.2.0`** 이 된다.

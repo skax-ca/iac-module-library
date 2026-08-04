@@ -147,7 +147,7 @@ locals {
 | OpenTofu | **모듈마다 다르다** — 하한은 그 모듈이 **실제로 쓰는 기능**이 정한다 / 실행 최신 1.12.x | 아래 표 |
 | aws provider | 모듈 `>= 6.0` / 소비 루트 `~> 6.0` + lock 커밋 | 상한은 소비자가 통제 |
 | 커뮤니티 모듈 | **정확 핀**(`= x.y.z`), wrapper 내부에서만 | churn 격리 |
-| 내부 모듈 소비 | git tag `<module>-vX.Y.Z` | §3 |
+| 내부 모듈 소비 | git tag `<module>-vX.Y.Z` (현재 전 모듈 **`0.y.z`** — [05](05-versioning-policy.md)) | §3 |
 
 - `.terraform.lock.hcl`은 **커밋**한다. ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인 —
   다른 스택의 lock을 복사하면 안 된다.
@@ -176,9 +176,12 @@ locals {
 | 단계 | 방식 |
 |------|------|
 | 이 repo 내부 개발·테스트 | `examples/<module>/`에서 상대경로 `source = "../../modules/vpc"` |
-| 소비 프로젝트 | **git tag** `source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v1.0.0"` |
+| 소비 프로젝트 | **git tag** `source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"` |
 
-- 태그는 **컴포넌트별 semver**: `vpc-v1.0.0` · `eks-cluster-v1.0.0`.
+- 태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.1.0`.
+  ⚠️ **번호 체계는 [`05-versioning-policy.md`](05-versioning-policy.md)(D-VERSION)가 소유한다** —
+  현재 전 모듈이 **`0.y.z`**(개발 단계)이고, `1.0.0`은 05 §2의 기준을 충족할 때 **모듈별로** 컷한다.
+  이 절은 *어떻게 소싱하는가*만 정한다.
 - git 소싱은 `~>` 같은 버전 제약이 동작하지 않는다 — 소비자가 **정확 태그**를 지정하고,
   업그레이드는 태그를 올리는 명시적 커밋으로 한다. 이것이 오히려 승격 게이트로 작동한다.
 - 사설 registry(예: 조직 내부 registry)를 도입하면 `~>` 제약이 가능해진다 → 확산 단계의 검토 항목.

@@ -31,8 +31,15 @@
 **전략 위치**: 고속 churn·지식밀도 높음·정확성 비직관적 → **커뮤니티 `terraform-aws-modules/eks` +
 wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/NodePool은 GitOps.
 
-**릴리스 스코프**: 이 문서의 §1~§3이 `eks-cluster-v1.0.0`의 계약이다.
-계약 확장은 마이너, 계약 변경은 메이저(`02 §3`).
+**릴리스 스코프**: 이 문서의 §1~§3이 현행 **`eks-cluster-v0.1.0`** 의 계약이다.
+
+> ⚠️ **2026-08-05 D-VERSION 재매핑** — `eks-cluster-v1.0.0`은 **같은 커밋(`74bbf51`)의**
+> `eks-cluster-v0.1.0`으로 바뀌었고 구 태그는 삭제됐다
+> ([`architecture/05`](../architecture/05-versioning-policy.md)).
+> **§4.1 릴리스 기록과 §5 열린 항목의 번호는 그때의 사실 기록이라 그대로 둔다.**
+>
+> **`0.y.z` 구간이므로 계약 변경도 마이너**다(05 §1) — 이 문서에서 *"이것이 마이너인가 메이저인가"*
+> 를 판정하던 서술은 더 이상 필요 없다. 메이저는 `1.0.0` 이후에 의미를 갖는다(판정 기준 05 §2).
 
 > **승계한 PoC 결정 요약** (판단은 유효, 실증 서술은 findings 소관):
 > **D9 custom networking** 전제(§2.5) · **addon 관리 C′**(§2.6, baseline merge·재주입·EBS CSI IAM) ·
@@ -187,7 +194,7 @@ data "aws_subnets" "pod" {
 }
 
 module "eks" {
-  source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v1.0.0"
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.1.0"
 
   vpc_id         = data.aws_vpc.main.id
   subnet_ids     = data.aws_subnets.node.ids
@@ -403,7 +410,7 @@ seam 재결정이 모듈 인터페이스를 바꾸지 않는다는 것이, 두 �
 ---
 
 
-## 3. 인터페이스 — `eks-cluster-v1.0.0` 계약
+## 3. 인터페이스 — `eks-cluster-v0.1.0` 계약
 
 ### 3.0 재사용 자산 요건 5종의 이행 (`01 §4`)
 
@@ -815,7 +822,7 @@ output "external_dns_iam_role_arn" {}
   전부 판정되기까지 별도 세션이 필요했다 — **"plan 통과 = 검증됨"으로 쓰지 않는다.**
 - Commit: `release(eks-cluster): v1.0.0` + 태그 `eks-cluster-v1.0.0`
 
-### 4.1 릴리스 기록 — `eks-cluster-v1.0.0` (2026-08-04)
+### 4.1 릴리스 기록 — `eks-cluster-v1.0.0` (2026-08-04) → 현 **`eks-cluster-v0.1.0`**
 
 `02 §4` 게이트 실측 결과. **OpenTofu 1.12.5 · aws provider 6.57.1** 기준이다
 (모듈 lock과 예제 lock이 같은 버전이다 — `design/10 §3`이 정렬한 이유와 같다).
@@ -925,8 +932,12 @@ apply했기 때문이다. 판정 형상은 다음과 같다 — **표의 유효 
    지금은 plan이 통과한다. `condition = !(var.enable_external_dns_iam && length(var.external_dns_hosted_zone_arns) == 0)`
    이면 몇 초 만에 잡힌다 — D-EKS-PROTECT 가드와 **완전히 같은 형태**다.
    - ⚠️ **계약 변경이다.** 지금 apply에 실패하는 구성이라도 `plan`은 통과하므로, validation을 넣으면
-     그 구성의 plan이 **거부**된다. `01 §4` semver 규약상 **마이너**로 본다(깨지는 것은 이미 깨져
-     있던 경로뿐이고, 성공하던 apply는 하나도 막지 않는다). 릴리스는 `eks-cluster-v1.1.0`.
+     그 구성의 plan이 **거부**된다. 릴리스는 **`eks-cluster-v0.2.0`**.
+     - ⭐ **판정이 필요 없어졌다**(2026-08-05 D-VERSION). `0.y.z` 구간에서는 계약 파괴 여부와
+       무관하게 마이너다([`architecture/05 §1`](../architecture/05-versioning-policy.md)).
+       원래 여기에는 *"깨지는 것은 이미 깨져 있던 경로뿐이므로 마이너"* 라는 논증이 있었다 —
+       결론은 같지만, **그 논증을 세워야 했다는 것이 `1.x`가 이르다는 신호**였다(05 §0-②).
+       이 항목이 D-VERSION의 직접적 계기이며, **전환의 첫 실익이 여기서 회수된다.**
    - ⛔ **upstream 수정을 기다리지 않는다.** 이건 upstream의 버그가 아니라 **AWS IAM의 제약**이고
      (`route53:ChangeResourceRecordSets`는 리소스 수준 권한), upstream은 "zone을 안 주면 `*`"라는
      합리적 기본값을 낸 것뿐이다. 조합을 막는 것은 **facade의 일**이다.

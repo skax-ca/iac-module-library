@@ -41,8 +41,8 @@
 
 ### 🔢 현행 릴리스 (2026-08-05 D-VERSION 이후)
 
-> **최신**: `vpc-v0.3.0` · **`eks-cluster-v0.2.0`**. 🔜 `bastion-v0.1.0` · `eks-cluster-v0.3.0`
-> 은 브랜치 `feat/bastion-module` 에서 **PR 대기**(아래 §40 개정 절).
+> **최신**: `vpc-v0.3.0` · **`eks-cluster-v0.3.0`** · **`bastion-v0.1.0`**(신규, 2026-08-05 발행).
+> PR [#12](https://github.com/skax-ca/iac-module-library/pull/12) 머지 `417154b`.
 > ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
 > 모듈별 하한 대장은 **폐지**됐다. *"근거로만 올린다"* 는 이제 **1.13 이상에만** 적용된다.
 
@@ -613,8 +613,27 @@ PR [#11](https://github.com/skax-ca/iac-module-library/pull/11) 머지 `91cd7f9`
 - ⚠️ **trivy 0.72 는 `.trivyignore.yaml` 을 자동 탐지하지 않는다**(실측). `--ignorefile` 을
   pre-commit 과 verify.yml **양쪽**에 넣었다. 평면 `.trivyignore` 는 삭제(죽은 경로).
 
-**남은 것**: PR 생성 → CI 6/6 → 머지 → 태그 **2개**(`bastion-v0.1.0` · `eks-cluster-v0.3.0`).
-⛔ `eks-cluster-v0.2.0` 은 소비자가 apply 완료라 **옮길 수 없다**.
+**✅ 완결**: PR [#12](https://github.com/skax-ca/iac-module-library/pull/12) 머지 `417154b` ·
+CI run [`30981984588`](https://github.com/skax-ca/iac-module-library/actions/runs/30981984588) **6/6 pass**
+(로그 본문 확인 — bastion **10** · eks **20** · vpc **13 passed**, validate 5건, lock 5개 전부
+`registry.opentofu.org`) · 태그 **2개 원격 push 완료**.
+⛔ `eks-cluster-v0.2.0` 은 소비자가 apply 완료라 **옮기지 않았다** — v0.3.0 은 새 마이너다.
+
+> ### 🔧 재발 방지 — **`git tag -m` 에 백틱을 쓰지 않는다. `-F <파일>` 을 쓴다.**
+>
+> 2026-08-05 실제 사고: 태그 메시지의 `` `bastion_enabled` ``·`` `ami_id` `` 가 **셸 명령 치환으로
+> 해석**되어 (`command not found` 후 빈 문자열로) **그 자리가 통째로 사라진 채 발행**됐다.
+> 커밋 메시지는 `-F -` + quoted heredoc(`<<'EOF'`)이라 멀쩡했는데 태그만 `-m` 을 썼다.
+> - **소비자 0인 시점이라 같은 커밋에 메시지만 고쳐 재발행**했다(CLAUDE.md 가 인정하는 유일한 예외).
+>   `git rev-list -n1 <tag>` 로 **전후 대상 커밋이 같음을 확인**한 뒤 `--force` push 했다.
+> - 🔑 **릴리스 메시지는 장식이 아니다** — 예제 README 가 소싱 태그를 고를 때 `git show <tag>` 를
+>   읽으라고 안내한다. 그것이 깨지면 계약 문서가 깨진 것이다.
+>
+> ### ℹ️ IDE(terraform-ls)의 "Unexpected attribute" 는 **오탐**이다
+>
+> 로컬 모듈에 변수를 추가하면 언어 서버가 **옛 스키마 캐시로 호출자를 검사**해 빨간 줄이 뜬다
+> (실측: `cluster_security_group_additional_rules`). **판정 근거는 `tofu validate` 와 CI 다** —
+> IDE 진단은 이 repo 게이트 정의에 없다. 해소: `Terraform: Restart Language Server`.
 
 **그다음 태스크**:
 1. **`21` 개정** — 이제 40 이 닫혔으므로 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3):

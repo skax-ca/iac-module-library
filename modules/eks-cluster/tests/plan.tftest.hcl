@@ -12,6 +12,13 @@
 #    upstream에 넘어간 addon의 configuration_values 같은 내부는 **여기서 볼 수 없다** —
 #    그 층은 라이브 apply에서 확인한다(설계 Task 20.8의 apply 미검증 표 대상).
 #
+# ⚠️ **cluster_security_group_additional_rules(D-BASTION-SEAM 3층)도 그 한계에 걸린다**(2026-08-05).
+#    값이 upstream의 aws_security_group_rule로 흘러가므로 여기서 규칙 내용을 볼 수 없다.
+#    ⛔ 억지로 통과하는 assertion을 만들지 않는다 — bastion 모듈에서 세운 기준과 같다
+#       ("통과하는 가짜 테스트는 없는 것보다 나쁘다", modules/bastion/tests 참조).
+#    ⇒ 이 변수의 회귀 방지는 **examples/bastion-enterprise**가 실제로 소비하고 CI 게이트 ⑤
+#      (예제 init + validate)가 도는 것이다. 변수명·타입이 깨지면 그 예제가 먼저 죽는다.
+#
 # provider 모킹: command = plan도 data source를 실제 조회한다. 이 repo는 배포하지 않아 CI에
 # 자격증명이 없으므로 모킹 없이는 plan이 죽는다.
 

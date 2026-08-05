@@ -178,7 +178,7 @@ locals {
 | 이 repo 내부 개발·테스트 | `examples/<module>/`에서 상대경로 `source = "../../modules/vpc"` |
 | 소비 프로젝트 | **git tag** `source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"` |
 
-- 태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.1.0`.
+- 태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.2.0`.
   ⚠️ **번호 체계는 [`05-versioning-policy.md`](05-versioning-policy.md)(D-VERSION)가 소유한다** —
   현재 전 모듈이 **`0.y.z`**(개발 단계)이고, `1.0.0`은 05 §2의 기준을 충족할 때 **모듈별로** 컷한다.
   이 절은 *어떻게 소싱하는가*만 정한다.

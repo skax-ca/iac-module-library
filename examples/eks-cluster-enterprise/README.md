@@ -22,7 +22,8 @@
 | | 이 예제 | 소비 프로젝트(`<project>-infra`) |
 |---|---|---|
 | **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
-| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.1.0` (**현행 릴리스**) |
+| **Route53 zone** | **같은 루트에서 함께 생성**(`aws_route53_zone.internal`) | **만들지 않는다.** external-dns를 끄거나(기본), 기존 zone을 `data`로 **조회만** — 아래 **"external-dns"** 절 |
+| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.2.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
@@ -52,16 +53,78 @@ data "aws_subnets" "pod" {
 ⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
 에러가 아니라 **빈 결과**를 낸다 — 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
 
+### 소싱 태그를 어떻게 고르나
+
+```hcl
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.2.0"
+```
+
+⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'`로 확인한다. 위 표의 태그가
+낡은 채 복사되면 그대로 굳는데, 이 모듈은 실패 방식이 특히 나쁘다: `eks-cluster-v0.2.0`이 넣은
+external-dns 가드가 빠지면 **문제 조합의 `plan`이 통과하고 `apply`가 죽는다**(D-EXTDNS-ZONE).
+릴리스 이력은 각 태그의 annotated 메시지(`git show eks-cluster-v0.2.0`)와
+[`docs/design/20-eks-module.md §4.1·§4.2`](../../docs/design/20-eks-module.md)에 있다.
+
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/architecture/05`](../../docs/architecture/05-versioning-policy.md)) —
+이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
+
 ## ⚠️ 착수 전 반드시 바꿀 것
 
 이 예제는 **계정에 붙지 않으므로** 실계정 값이 필요한 자리를 비워 두었다. 그대로 apply하지 않는다.
 
 | 자리 | 지금 | 실환경 |
 |------|------|--------|
-| `external_dns_hosted_zone_arns` | `[]` | **실제 zone ARN**. 비우면 커뮤니티 정책이 전체 zone(`*`)을 허용한다 — prd 필수 |
+| `external_dns_hosted_zone_arns` | 예제가 만든 `aws_route53_zone.internal.arn` | **운영 중인 zone의 ARN**. 아래 **"external-dns"** 절 참조 |
 | `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다(D-NODE-AMI-PIN) |
 | `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다 — 아래 **"addon 버전 고정"** 절(D-ADDON-VERSION-PIN-1). ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
+
+## external-dns — 예제와 소비 프로젝트가 다른 지점
+
+**예제는 Route53 private zone까지 직접 만든다**(`aws_route53_zone.internal`). `01 §4`의 self-contained
+요건 때문이기도 하지만, 더 직접적인 이유는 **`enable_external_dns_iam = true`가 zone ARN 없이는
+성립하지 않기 때문**이다 — `external_dns_hosted_zone_arns`를 비우면 upstream이 `Resource = "*"`
+정책을 만들고 AWS가 `400 MalformedPolicyDocument`로 거부한다(**D-EXTDNS-ZONE**, 2026-08-04 실측).
+모듈의 교차변수 validation이 그 조합을 **plan에서** 막는다.
+
+> ⚠️ 더미 ARN을 적어 두는 선택지도 있었으나 기각했다. 고객사가 그대로 복사해 apply하면
+> **존재하지 않는 zone을 가리키는 IAM role이 조용히 만들어진다** — apply가 성공하기 때문에
+> 아무도 지적하지 않은 채 굳는다.
+
+### 소비 프로젝트에서는 어떻게 하나
+
+**⛔ 이 zone 리소스를 복사하지 않는다.** DNS zone은 워크로드 수명주기보다 오래 살고 보통 이미
+존재한다 — 클러스터 루트가 zone을 소유하면 클러스터를 지울 때 zone이 함께 지워진다.
+
+**기본값은 external-dns를 끄고 가는 것이다.**
+
+```hcl
+# cluster_addons 에서 external-dns 항목을 넣지 않는다
+enable_external_dns_iam = false   # zone ARN 없이 true 로 두면 plan 이 거부된다
+```
+
+되켤 때는 **zone을 먼저 확보한 뒤** 그 ARN을 넘긴다. zone은 별도 루트(또는 수동 생성)가 소유하고
+클러스터 루트는 `data.aws_route53_zone`으로 **조회만** 한다 — 03 §3.1의 "이름이 아니라 조회로
+느슨하게 결합" 원칙이 여기에도 적용된다.
+
+```hcl
+data "aws_route53_zone" "this" {
+  name         = "example.internal"
+  private_zone = true
+}
+
+enable_external_dns_iam       = true
+external_dns_hosted_zone_arns = [data.aws_route53_zone.this.arn]
+```
+
+> 🔑 그때 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 2026-08-04와 같은
+> apply 실패를 반복하는데, 이제는 몇 초 만에 plan에서 잡힌다.
+
+### `force_destroy = true`는 예제에서만
+
+예제 zone은 `force_destroy = true`다. external-dns는 클러스터 안에서 돌며 **IaC 밖에서** 레코드를
+쓰기 때문에, 그 레코드가 남으면 zone 삭제가 실패해 teardown이 막힌다.
+⛔ **실제 프로젝트에서는 켜지 않는다** — IaC가 모르는 레코드를 말없이 지우는 스위치다.
 
 ## 운영상 알아야 할 것
 

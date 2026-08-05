@@ -95,7 +95,8 @@ module "external_dns_pod_identity" {
   use_name_prefix = false
 
   attach_external_dns_policy = true
-  # ⚠️ 비워 두면 전체 zone(*)이 허용된다. prd에서는 반드시 좁힌다(§2.6a).
+  # ⛔ 이 목록이 비면 upstream이 Resource = "*" 정책을 만들고 AWS가 400으로 거부한다(D-EXTDNS-ZONE).
+  #    variables.tf의 교차변수 validation이 그 조합을 plan에서 먼저 막는다.
   external_dns_hosted_zone_arns = var.external_dns_hosted_zone_arns
 
   associations = {

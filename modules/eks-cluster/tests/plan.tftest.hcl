@@ -404,6 +404,10 @@ run "controller_iam_opt_in_creates_roles" {
   variables {
     enable_alb_controller_iam = true
     enable_external_dns_iam   = true
+    # ⚠️ zone ARN은 선택 사항이 아니다 — 비우면 D-EXTDNS-ZONE 가드가 거부한다.
+    #    이 run은 v0.1.0까지 zone ARN 없이 통과했는데, 그것이 곧 2026-08-04 apply를
+    #    죽인 형상이었다(설계 §4.1 ❌ 상자). 가드가 생기며 테스트도 실효 형상으로 바뀐다.
+    external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"]
   }
 
   assert {
@@ -414,6 +418,56 @@ run "controller_iam_opt_in_creates_roles" {
   assert {
     condition     = output.external_dns_iam_role_arn != null
     error_message = "opt-in하면 external-dns role이 생성되어야 한다."
+  }
+}
+
+# ── D-EXTDNS-ZONE: external-dns zone ARN 전제 (§5.1-8) ───────────────────────
+
+run "external_dns_iam_requires_hosted_zone_arns" {
+  command = plan
+
+  variables {
+    enable_external_dns_iam       = true
+    external_dns_hosted_zone_arns = []
+  }
+
+  # route53:ChangeResourceRecordSets는 리소스 수준 권한을 요구해 Resource = "*" 정책을
+  # AWS가 400으로 거부한다. 2026-08-04 apply가 실제로 여기서 죽었고, 그때는 plan이 통과했다.
+  # 🔑 mock provider는 정책을 AWS에 제출하지 않으므로 assert로는 잡을 수 없다 —
+  #    조합 자체를 계약에서 배제하는 것이 유일한 plan-time 검출 경로다.
+  expect_failures = [var.external_dns_hosted_zone_arns]
+}
+
+run "external_dns_iam_allowed_with_hosted_zone_arns" {
+  command = plan
+
+  variables {
+    enable_external_dns_iam       = true
+    external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"]
+  }
+
+  # 위 거부가 과하게 넓지 않은지 확인하는 음성 테스트다(deletion_protection 쌍과 같은 구조).
+  assert {
+    condition     = output.external_dns_iam_role_arn != null
+    error_message = "zone ARN을 주면 external-dns role이 정상 생성되어야 한다."
+  }
+}
+
+run "external_dns_zone_guard_does_not_block_kill_switch" {
+  command = plan
+
+  variables {
+    cluster_enabled               = false
+    enable_external_dns_iam       = true
+    external_dns_hosted_zone_arns = []
+  }
+
+  # 🔑 파기 경로는 막지 않는다. iam.tf의 create = local.enabled && var.enable_external_dns_iam
+  # 이라 kill switch가 꺼진 상태에서는 IAM 정책이 애초에 만들어지지 않는다 —
+  # 여기서 거부하면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다(D-EKS-ENABLED).
+  assert {
+    condition     = output.external_dns_iam_role_arn == null
+    error_message = "cluster_enabled = false면 external-dns role이 없어야 하고, 가드가 그 계획을 막아서도 안 된다."
   }
 }
 

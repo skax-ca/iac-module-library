@@ -533,10 +533,31 @@ OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.
   `--tf-exclude-downloaded-modules` 는 평가에서 빼는 것이지 리포트 행을 지우지 않는다.
   게이트 실패 신호는 **행의 존재가 아니라 종료 코드**다.
 
+#### ✅ D-EXTDNS-ZONE 종결 → **`eks-cluster-v0.2.0`** (2026-08-05)
+
+브랜치 `feat/eks-extdns-zone-validation` → PR. 전문은 `design/20 §4.2`(릴리스 기록 신설).
+
+- **가드**: `!(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0`
+  — ⭐ **`&& var.cluster_enabled` 는 설계 §5.1-8 조건식에 없던 것**이다. 같은 "토글 × 리스트" 구조인
+  `pod_subnet_ids` 선례를 먼저 찾아 붙였다. 없으면 **파기 경로 plan 이 거부**되어 반쪽 kill switch 가 된다.
+  🔑 **설계 조건식을 그대로 옮기지 않은 것이 차이를 만들었다.**
+- **test 17 → 20**(양성 1 + 음성 2). ⚠️ **기존 `controller_iam_opt_in_creates_roles` 가 apply 불가능한
+  형상을 통과시키고 있었다** — zone ARN 없이 `enable_external_dns_iam = true`. 가드가 그걸 먼저 깼다.
+  → §4.1 의 *"이 결함은 `tofu test` 로 잡을 수 없었다"* 는 **판정 대상을 바꾸면 뒤집힌다**:
+  "AWS 가 이 정책을 받는가"(불가) → "이 조합이 우리 계약에 있는가"(가능).
+- **예제가 Route53 private zone 을 직접 만든다**(사용자 결정). 약어 `hz` 는 카탈로그 기존 등재.
+  ⛔ **더미 ARN 기각** — 복사해 apply 하면 존재하지 않는 zone 을 가리키는 IAM 이 **조용히** 생긴다.
+  `force_destroy = true` 는 **예제에서만**(external-dns 가 IaC 밖에서 쓴 레코드가 teardown 을 막는다).
+- **소비 프로젝트 기본값 = `enable_external_dns_iam = false`** + addon 미탑재(사용자 결정).
+  되켤 땐 `data.aws_route53_zone` 으로 조회만 — zone 은 워크로드보다 오래 산다. 안내는 예제 README.
+- ✅ **실측**: `[aws_route53_zone.internal.arn]` 처럼 **요소가 unknown 이어도 `length()` 는 확정적**이다
+  (격리 재현). 이 확인이 없었다면 예제가 **CI `validate` 를 통과하고 고객사 plan 에서 죽었을 것**이다.
+- 🔁 **eks 예제에 소싱 태그 확인 방법이 없었다** — PR #7 이 `examples/vpc/README.md` 에 둔 장치가
+  PR #9(minimal 폐기) 때 eks 쪽으로 승계되지 않았다. 이번에 보완(`git tag -l 'eks-cluster-v*'`).
+
 **대기 중 태스크**:
-1. ⏳ **D-EXTDNS-ZONE validation → `eks-cluster-v0.2.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
-   ✅ 선행 조건(도구 파리티) 해소됨.
-2. **`40` 개정** — 위 로드맵의 출발점. 끝나면 public 엔드포인트를 닫는다.
+1. **`40` 개정** — 로드맵의 출발점. 끝나면 소비 repo 의 public 엔드포인트를 닫는다.
+   의존 순서 `40` → `21` → `22 §3.4`. 착수 시 "bastion 역할 범위"(self-hosted runner 겸용)를 함께 정한다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

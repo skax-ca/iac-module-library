@@ -21,6 +21,9 @@
 > - **✅ Task 20.1(d) 완료 + ⛔ D-ADDON-VERSION-PIN 개정**(2026-08-03, 3차) — AWS 계정 실측 결과가
 >   *"모듈이 addon 버전을 소유하면 안 된다"* 를 보여, **D-ADDON-VERSION-PIN-1**으로 핀의 소유
 >   주체를 **소비 루트**로 옮겼다(§2.6-6). 모듈은 `most_recent = false`만 소유한다.
+> - **✅ D-EXTDNS-ZONE 해소**(2026-08-05 = **`eks-cluster-v0.2.0`**, §4.2) — 2026-08-04 apply가
+>   발견한 조합(`enable_external_dns_iam = true` + zone ARN 비움)을 **교차변수 validation**으로
+>   plan에서 배제했다. §5.1-8 종결. 예제는 Route53 private zone을 직접 만들어 실효 형상이 됐다.
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -31,7 +34,7 @@
 **전략 위치**: 고속 churn·지식밀도 높음·정확성 비직관적 → **커뮤니티 `terraform-aws-modules/eks` +
 wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/NodePool은 GitOps.
 
-**릴리스 스코프**: 이 문서의 §1~§3이 현행 **`eks-cluster-v0.1.0`** 의 계약이다.
+**릴리스 스코프**: 이 문서의 §1~§3이 현행 **`eks-cluster-v0.2.0`** 의 계약이다.
 
 > ⚠️ **2026-08-05 D-VERSION 재매핑** — `eks-cluster-v1.0.0`은 **같은 커밋(`74bbf51`)의**
 > `eks-cluster-v0.1.0`으로 바뀌었고 구 태그는 삭제됐다
@@ -387,8 +390,10 @@ hand-author 금지** — self-authored·churn이므로 **AWS 관리형 또는 �
 >
 > 🔑 **틀린 방향이 나빴다.** "넓게 열려서 위험하다"는 서술은 소비자에게 *"급하면 비워 두고 나중에
 > 좁혀라"* 로 읽힌다. 실제로는 **비워 두면 아예 뜨지 않는다** — 위험 경고가 아니라 **차단 조건**이다.
-> 판정 근거와 모듈 측 가드는 [§4.1의 D-EXTDNS-ZONE 상자](#41-릴리스-기록--eks-cluster-v100-2026-08-04)와
-> §5.1-8에 있다.
+>
+> ✅ **모듈 측 가드는 `eks-cluster-v0.2.0`이 넣었다**(2026-08-05, §4.2). 이제 이 조합은 apply가
+> 아니라 **plan에서** 거부된다. 판정 근거는 §4.1의 D-EXTDNS-ZONE 상자(apply 실측)에 있고,
+> §5.1-8은 종결됐다.
 
 ## 2.7 · 2.8 GitOps 부트스트랩 seam → **[`21-gitops-bootstrap-seam.md`](21-gitops-bootstrap-seam.md)로 이관**
 
@@ -523,7 +528,7 @@ variable "access_entries"   { type = any,  default = {} }   # aws-auth 대체
 variable "enable_karpenter" { type = bool, default = true }
 variable "enable_alb_controller_iam" { type = bool, default = false }  # §2.6a opt-in
 variable "enable_external_dns_iam"   { type = bool, default = false }  # §2.6a opt-in
-variable "external_dns_hosted_zone_arns" { type = list(string), default = [] }  # zone 스코핑(prd 필수)
+variable "external_dns_hosted_zone_arns" { type = list(string), default = [] }  # ⛔ IAM on이면 비울 수 없다(D-EXTDNS-ZONE)
 ```
 
 **PoC 대비 변경점**:
@@ -892,6 +897,11 @@ apply했기 때문이다. 판정 형상은 다음과 같다 — **표의 유효 
 > 🔑 **이 결함은 `tofu test`로 잡을 수 없었다.** mock provider는 IAM 정책 문서를 AWS에 제출하지
 > 않기 때문이다 — 정책의 **문법**이 아니라 **AWS의 수용 여부**가 쟁점인 항목은 apply만이 판정한다.
 > 이 표를 릴리스마다 유지하는 이유가 정확히 이것이다.
+>
+> ✅ **해소: `eks-cluster-v0.2.0`**(2026-08-05, §4.2). 위 서술은 **v0.1.0 시점의 사실 기록**이라
+> 그대로 둔다. ⭐ 다만 결론 하나는 뒤집혔다 — *"`tofu test`로 잡을 수 없다"* 는 **AWS의 수용 여부를
+> 물었을 때**의 이야기이고, **조합 자체를 계약에서 배제하면 `tofu test`가 잡는다.**
+> 판정 대상을 "이 정책을 AWS가 받는가"에서 "이 조합이 우리 계약에 있는가"로 바꾼 것이 해법이었다.
 
 > **🔑 실측 — 첫 apply가 실패해도 클러스터는 이미 생성된다.**
 > 첫 dispatch는 external-dns IAM에서 죽었지만, 그 **전에** 클러스터·노드그룹·addon이 state에
@@ -902,6 +912,62 @@ apply했기 때문이다. 판정 형상은 다음과 같다 — **표의 유효 
 > **증거와 run ID는 여기 적지 않는다.** 인스턴스의 배포 사실은 소비 repo
 > `docs/deployment-facts.md`가 소유한다([`design/50` D26](50-reference-consumer-repo.md)).
 > 이 표는 **모듈 계약이 어디까지 증명됐는가**만 기록한다.
+
+### 4.2 릴리스 기록 — `eks-cluster-v0.2.0` (2026-08-05, D-EXTDNS-ZONE)
+
+§5.1-8을 닫는 릴리스다. **변수 추가 없음** — `external_dns_hosted_zone_arns`에 교차변수
+`validation`을 붙여 2026-08-04 apply를 죽인 조합을 plan에서 배제했다.
+
+```hcl
+condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0
+```
+
+> ⭐ **`&& var.cluster_enabled` 게이트는 설계 §5.1-8의 조건식에 없던 것이다.** 구현 중
+> `pod_subnet_ids`(같은 "토글 × 리스트" 구조)의 선례를 확인하며 추가했다 — 게이트가 없으면
+> **파기 경로의 plan이 거부**되어 D-EKS-ENABLED가 경고한 *"끌 수는 있으나 끈 상태를 유지할 수
+> 없는 반쪽 kill switch"* 가 된다. `iam.tf`의 `create = local.enabled && var.enable_external_dns_iam`
+> 때문에 kill switch가 꺼진 상태에서는 문제의 IAM 정책이 **애초에 만들어지지 않으므로** 막을 이유도 없다.
+> 🔑 **설계가 제시한 조건식을 그대로 옮기지 않고 같은 형태의 선례를 먼저 찾은 것이 이 차이를 만들었다.**
+
+| # | 게이트 항목 | 결과 |
+|---|------------|------|
+| 1 | `tofu fmt -recursive -check` | exit 0 |
+| 2 | `modules/eks-cluster`: `validate` + `test` | Success · **20 passed, 0 failed**(17 → +3) |
+| 3 | `examples/*`: `validate` | 양쪽 Success |
+| 4 | `tflint --recursive` · `trivy config` | exit 0 · exit 0 |
+
+**추가된 test 3종** — 양성 1 + 음성 2다.
+
+| run | 검증 |
+|-----|------|
+| `external_dns_iam_requires_hosted_zone_arns` | 문제의 조합을 plan이 거부한다(`expect_failures`) |
+| `external_dns_iam_allowed_with_hosted_zone_arns` | 거부가 과하게 넓지 않다 |
+| `external_dns_zone_guard_does_not_block_kill_switch` | **파기 경로를 막지 않는다**(위 게이트의 회귀 가드) |
+
+> 🔑 **기존 test가 apply 불가능한 형상을 통과시키고 있었다.** `controller_iam_opt_in_creates_roles`는
+> `enable_external_dns_iam = true`만 켜고 zone ARN은 기본값 `[]`로 두었다 — 정확히 apply를 죽인
+> 조합이다. 가드를 넣자 **이 기존 test가 먼저 깨졌고**, 실효 형상으로 고쳤다.
+> §4.1이 *"이 결함은 `tofu test`로 잡을 수 없었다"* 고 적은 항목이, 가드와 함께
+> **test가 잡는 항목으로 바뀐 것**을 보여주는 증거다.
+
+**예제도 함께 바뀌었다** — `examples/eks-cluster-enterprise`가 Route53 **private hosted zone**을
+직접 만들고(`hz-<workload>-<env>-<region>-internal`, 약어 `hz`는 카탈로그 기존 등재) 그 ARN을 넘긴다.
+
+- ⛔ **더미 ARN은 기각했다.** 고객사가 복사해 apply하면 **존재하지 않는 zone을 가리키는 IAM role이
+  조용히 만들어진다** — apply가 성공하기 때문에 아무도 지적하지 않은 채 굳는다(D13과 같은 실패 구조).
+- private zone인 이유: 예제 VPC 안에서만 해석되면 되므로 도메인 소유·위임이 불필요하다.
+  public zone은 소유 검증 없이 만들어지지만 실제 위임이 없어 허공에 뜨고 과금만 남는다.
+- `force_destroy = true`는 **예제에서만**이다. external-dns가 IaC 밖에서 쓴 레코드가 남으면
+  zone 삭제가 실패해 teardown이 막힌다. 실제 프로젝트에서는 켜지 않는다(README에 명시).
+- **소비 프로젝트의 기본값은 `enable_external_dns_iam = false`**(+ addon 미탑재)다. zone은 워크로드
+  수명주기보다 오래 살므로 클러스터 루트가 소유하지 않는다 — 되켤 때는 `data.aws_route53_zone`으로
+  **조회만** 한다(`03 §3.1` 원칙). 안내는 예제 README의 **"external-dns"** 절이 소유한다.
+
+> ✅ **실측 — 예제의 unknown ARN은 가드를 통과한다.** `[aws_route53_zone.internal.arn]`은 plan
+> 시점에 **요소 값이 unknown**이라 `length(...) > 0`이 unknown으로 전파될 위험이 있었다.
+> 격리 재현(mock provider + 하위 모듈)으로 **리스트 리터럴의 길이는 확정적(1)** 임을 확인했다.
+> ⚠️ 이 확인이 없었다면 예제는 **CI `validate`를 통과하고 고객사 plan에서 죽었을 것이다** —
+> `validate`는 교차변수 validation을 평가하지 않기 때문이다(이 문서가 반복해 경고하는 지점).
 
 ## 5. 열린 항목
 
@@ -927,22 +993,18 @@ apply했기 때문이다. 판정 형상은 다음과 같다 — **표의 유효 
    prd 확산 단계에서 판단한다.
 7. **관측성 스택 중복** — kube-state-metrics·prometheus-node-exporter는 `kube-prometheus-stack`
    (GitOps helm)에 번들되는 경우가 많다. AMP 직결 vs self-managed 스택이 정해지면 community tier에서 뺀다.
-8. 🔴 **D-EXTDNS-ZONE — `enable_external_dns_iam` × `external_dns_hosted_zone_arns` 교차변수 validation**
-   (2026-08-04 apply가 발견, §4.1 ❌ 상자). 둘의 조합 중 하나가 **apply를 확정적으로 실패**시키는데
-   지금은 plan이 통과한다. `condition = !(var.enable_external_dns_iam && length(var.external_dns_hosted_zone_arns) == 0)`
-   이면 몇 초 만에 잡힌다 — D-EKS-PROTECT 가드와 **완전히 같은 형태**다.
-   - ⚠️ **계약 변경이다.** 지금 apply에 실패하는 구성이라도 `plan`은 통과하므로, validation을 넣으면
-     그 구성의 plan이 **거부**된다. 릴리스는 **`eks-cluster-v0.2.0`**.
-     - ⭐ **판정이 필요 없어졌다**(2026-08-05 D-VERSION). `0.y.z` 구간에서는 계약 파괴 여부와
-       무관하게 마이너다([`architecture/05 §1`](../architecture/05-versioning-policy.md)).
-       원래 여기에는 *"깨지는 것은 이미 깨져 있던 경로뿐이므로 마이너"* 라는 논증이 있었다 —
-       결론은 같지만, **그 논증을 세워야 했다는 것이 `1.x`가 이르다는 신호**였다(05 §0-②).
-       이 항목이 D-VERSION의 직접적 계기이며, **전환의 첫 실익이 여기서 회수된다.**
-   - ⛔ **upstream 수정을 기다리지 않는다.** 이건 upstream의 버그가 아니라 **AWS IAM의 제약**이고
+8. ~~🔴 **D-EXTDNS-ZONE — 교차변수 validation**~~ ✅ **해소(2026-08-05, `eks-cluster-v0.2.0`)** —
+   §4.2 릴리스 기록 참조. 2026-08-04 apply가 발견한 결함(§4.1 ❌ 상자)을 plan 가드로 닫았다.
+   - ⛔ **upstream 수정을 기다리지 않았다.** upstream의 버그가 아니라 **AWS IAM의 제약**이고
      (`route53:ChangeResourceRecordSets`는 리소스 수준 권한), upstream은 "zone을 안 주면 `*`"라는
      합리적 기본값을 낸 것뿐이다. 조합을 막는 것은 **facade의 일**이다.
-   - 재개 조건: 소비 repo가 dev hosted zone을 bootstrap하면 `enable_external_dns_iam`을 되켠다.
-     그때 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 실패를 반복한다.
+   - ⭐ **`0.y.z` 전환의 첫 실익을 여기서 회수했다.** 원래 이 항목에는 *"깨지는 것은 이미 깨져 있던
+     경로뿐이므로 마이너"* 라는 논증이 붙어 있었다. D-VERSION 이후에는 **판정 자체가 불필요**하다
+     ([`architecture/05 §1`](../architecture/05-versioning-policy.md)) — 그 논증을 세워야 했다는 것이
+     `1.x`가 이르다는 신호였고(05 §0-②), 이 항목이 D-VERSION의 직접적 계기였다.
+   - ✅ **재개 조건도 함께 해소됐다**: 소비 repo가 dev hosted zone을 bootstrap해 `enable_external_dns_iam`을
+     되켤 때, 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 apply 실패를
+     반복하는데 이제는 plan에서 몇 초 만에 잡힌다.
 9. **닫힌 열거(`validation`)의 유지보수 부채** — `ami_type`(D-NODE-ARCH)·`capacity_type`·
    `enabled_log_types`·taint `effect`는 값 목록을 모듈이 소유한다. **AWS가 값을 추가하면 그때까지
    신형 값이 막힌다.** 실증: `capacity_type`이 AWS가 나중에 추가한 `CAPACITY_BLOCK`을 아직 담지 못한다.

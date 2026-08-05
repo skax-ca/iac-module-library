@@ -543,6 +543,15 @@ PR [#11](https://github.com/skax-ca/iac-module-library/pull/11) 머지 `91cd7f9`
 ✅ CI PR run [`30967422884`](https://github.com/skax-ca/iac-module-library/actions/runs/30967422884) **6/6 pass** —
 로그 본문도 확인(eks 20 passed · vpc 13 passed · examples 2개 Success).
 
+> 🔒 **`eks-cluster-v0.2.0` 은 이미 소비자가 있다 — 태그를 옮길 수 없다.**
+> 소비 repo 가 같은 날 핀을 올리고 **apply 까지 마쳤다**. CLAUDE.md 가 인정하는 유일한 예외
+> (*"소비자가 0일 때"*)는 **닫혔다** — 다음 변경은 `v0.3.0` 을 컷한다.
+> ⭐ **핀 상향의 plan diff 가 0이었다**(`0 add / 0 change / 1 destroy`, destroy 는 addon 제거분).
+> validation 만 추가한 릴리스는 리소스에 영향이 없어야 하고, 그것이 실측으로 확인됐다 —
+> **`0.y.z` 구간에서 태그를 올릴 때마다 확인할 가치가 있는 지점**이다.
+> ⛔ 소비 repo 의 Phase·진행 상태는 여기서 추적하지 않는다(위 §"Phase 1 이후" 규칙).
+> 위 두 줄은 진행 기록이 아니라 **모듈 계약의 상태**(태그 고정 여부)라서 적는다.
+
 - **가드**: `!(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0`
   — ⭐ **`&& var.cluster_enabled` 는 설계 §5.1-8 조건식에 없던 것**이다. 같은 "토글 × 리스트" 구조인
   `pod_subnet_ids` 선례를 먼저 찾아 붙였다. 없으면 **파기 경로 plan 이 거부**되어 반쪽 kill switch 가 된다.

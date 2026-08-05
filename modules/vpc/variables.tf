@@ -100,7 +100,9 @@ variable "az_selection" {
   default     = null
 
   validation {
-    # az_count 참조 = 교차 변수 validation. required_version >= 1.9.0의 근거다(versions.tf).
+    # az_count 참조 = 교차 변수 validation(OpenTofu 1.9+ 기능).
+    # ⚠️ 이 모듈의 required_version 은 1.12.0 이고 그 값을 정하는 것은 D-TOFU-FLOOR 다 —
+    #    이 validation 은 하한의 근거가 아니라 "1.9 이상이면 되는 기능"의 사용처일 뿐이다(versions.tf).
     condition     = var.az_selection == null || length(coalesce(var.az_selection, [])) == var.az_count
     error_message = "az_selection을 지정하면 그 길이가 az_count와 같아야 한다."
   }

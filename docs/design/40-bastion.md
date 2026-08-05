@@ -358,6 +358,37 @@ bastion이 apiserver에 닿으려면 세 층이 **모두** 성립해야 한다. 
 → **예제가 둘을 같은 루트에 두어** `bastion_enabled = false`가 양쪽을 함께 비우는 형태를 보여준다.
 이것이 §4.4가 출력을 `null`로 내려 보내는 이유다.
 
+### 5.1-1 ⚠️ 이 배치는 **모듈 간 순환**을 만든다 — 결정적 네이밍이 끊는다
+
+소유를 가르고 나면 참조가 양방향이 된다(2026-08-05 예제 작성 중 발견).
+
+```
+bastion.eks_cluster_arn        ← eks-cluster 의 클러스터 ARN
+eks-cluster.access_entries     ← bastion 의 role ARN        ⟲ 순환
+```
+
+**해법은 [`03 §3.1`](../architecture/03-dependencies.md)의 1순위** — *"결정적 네이밍으로 값 구성"*
+(결합도 **없음**). 클러스터 ARN은 이름·리전·계정으로 유도되므로 소비 루트가 **직접 합성**한다.
+
+```hcl
+locals {
+  cluster_name = "eks-${var.workload}-${var.env}-${var.region_code}-main-01"
+  cluster_arn  = "arn:${data.aws_partition.current.partition}:eks:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${local.cluster_name}"
+}
+# bastion → local 만 참조 (eks 출력 참조 없음)
+# eks     → module.bastion 출력 참조
+# ⇒ 단방향. 순환 없음.
+```
+
+🔑 **`03`의 조회 우선순위는 "느슨한 결합"만을 위한 것이 아니라 순환 해소 장치이기도 하다** —
+SG rule을 별도 리소스로 분리해 순환을 푸는 §2.2와 **같은 역할을 값 층위에서** 한다.
+소비 루트는 이미 같은 이유로 `cluster_name`을 local에 두고 VPC·EKS 두 모듈에 넘기고 있었다
+([`20 §2.5`](20-eks-module.md)) — 그 패턴을 ARN으로 한 칸 넓힌 것뿐이다.
+
+⛔ **bastion 모듈이 클러스터 이름에서 ARN을 스스로 합성하게 만들지 않는다.** 그러면 모듈이
+계정·파티션을 조회해야 하고(`data.aws_caller_identity`·`aws_partition`), 무엇보다 **"이 bastion이
+어느 클러스터를 보는가"가 모듈 내부 규칙에 숨는다.** 입력으로 받으면 소비 루트의 코드에 드러난다.
+
 ### 5.2 파급 — `eks-cluster` 계약이 늘어난다
 
 ②는 기존 `access_entries`로 **이미 가능**하다. **③에는 통과 경로가 없다.**
@@ -425,7 +456,7 @@ aws ssm start-session --target <id> --region <region> \
 | T-2 | **`Name` 태그 규약** | `ec2-`·`sgr-`·`iamr-`·`vol-` 접두 + `naming` 3요소 조합 일치(CLAUDE.md 강제 5) |
 | T-3 | **kill switch** | `bastion_enabled = false` → 리소스 0개, 출력 전부 `null` |
 | T-4 | **인바운드 0** | ingress rule 리소스가 계획에 **없을 것** |
-| T-5 | **하드닝 4종** | `http_tokens = "required"` · `encrypted = true` · `key_name` 미설정 · public IP 미할당 |
+| T-5 | **하드닝 — 검증 가능한 2종** | `http_tokens = "required"` · hop limit 1 · `encrypted = true` · `gp3` |
 | T-6 | EKS 연동 **양성** | `eks_cluster_name` + `eks_cluster_arn` 지정 시 인라인 정책이 **그 ARN으로 한정**되어 계획됨 |
 | T-7 | EKS 연동 **음성** ×2 | 한쪽만 지정 → **plan 거부**(§4.1 가드) |
 | T-8 | 음성 — kill switch × 가드 | `bastion_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
@@ -433,12 +464,33 @@ aws ssm start-session --target <id> --region <region> \
 > ⭐ **T-8이 D-EXTDNS-ZONE에서 배운 것의 회수 지점이다.** 가드에 `&& var.bastion_enabled`를 넣지 않으면
 > 이 케이스가 실패하고, 그것이 곧 **파기 불가능한 kill switch**를 뜻한다.
 
-### 7.2 예제
+> 🔴 **하드닝 4종 중 2종은 plan 테스트로 지킬 수 없다**(2026-08-05 구현 중 실측).
+> `key_name` 미지정·`associate_public_ip_address` 미지정은 **인자를 선언하지 않는 것** 자체가
+> 계약인데, 둘 다 optional + computed 라 `mock_provider`가 임의 값을 채운다
+> (실측: `key_name = "Wb0Vk"`). 실제 apply에서는 `null`이지만 plan 모킹에서는 볼 수 없다.
+>
+> ⛔ `mock_resource`로 `null`을 강제해 통과시키지 않았다 — 그러면 assertion이 모듈이 아니라
+> **자기 자신의 모킹 설정**을 검증하게 된다. 통과하는 가짜 테스트는 없는 것보다 나쁘다.
+>
+> 🔑 **일반화: "미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.** 이 둘의 회귀 방지는
+> 코드 리뷰와 §4.2의 하드닝 목록에 남는다. 공인 IP는 추가로 서브넷의 `map_public_ip_on_launch`에도
+> 달려 있어 **모듈 단독 판정이 애초에 불가능**하다 — 소비 repo의 apply 판정 몫이다(§7.3).
 
-`examples/bastion-enterprise` — VPC + EKS + bastion을 **한 루트에 조립**해 §5의 3층 배선을 보여준다.
-CI 게이트 ⑤(`init -lockfile=readonly` + `validate`)가 검증한다.
+### 7.2 예제 — **기존 `examples/eks-cluster-enterprise`에 넣는다**(신규 예제를 만들지 않는다)
 
-⚠️ 예제는 **EKS 접근 3층 전체**를 보여야 의미가 있다. bastion만 있는 예제는 §5의 요점을 놓친다.
+⚠️ 최초 계획은 `examples/bastion-enterprise` 신설이었다. **2026-08-05 구현 중 철회했다.**
+
+- **그 예제는 기존 eks 예제와 90% 중복**이 된다(VPC + EKS 전체를 다시 써야 §5의 3층을 보일 수 있다).
+  둘이 갈리면 drift이고, 이 repo는 **예제를 늘리지 않는 문화**다 — PR #9에서 minimal 예제 2종을
+  실제로 폐기했다.
+- ⭐ **결정적 이유**: `examples/eks-cluster-enterprise`는 이미 `endpoint_public_access = false`이면서
+  *"private 클러스터의 kubectl은 VPC 내부(bastion·VPN·DX)에서만 도달한다. 조작 지점을 먼저
+  설계하지 않으면 apply 후 클러스터를 만질 수 없다"* 는 주석을 달고 있다.
+  **그 예제 자체가 조작 지점이 없는 상태**였다 — bastion을 넣는 것이 그 미해결을 닫는다.
+
+CI 게이트 ⑤(`init -lockfile=readonly` + `validate`)가 검증한다. 이 예제는 `cluster_security_group_
+additional_rules`(§5.2)의 **유일한 회귀 방지 장치**이기도 하다 — facade 모듈의 `tofu test`는
+upstream에 넘어간 값을 볼 수 없다.
 
 ### 7.3 소비 repo가 판정할 것 (이 repo 밖)
 
@@ -465,10 +517,19 @@ CI 게이트 ⑤(`init -lockfile=readonly` + `validate`)가 검증한다.
 > 🔁 **릴리스 때마다 할 일**: 예제의 소싱 태그(`?ref=`)를 갱신한다. 2026-08-03에 실제로 놓쳤던 항목이다.
 > 40.5 README에 `git tag -l 'bastion-v*'` 확인 장치를 둔다(eks 예제에 이번에 보완한 것과 같은 형태).
 
-> ⚠️ **40.4는 별도 PR로 분리한다.** `eks-cluster`는 **이미 apply된 소비자가 있는 모듈**이고,
-> bastion 모듈의 미완성 상태와 릴리스 주기를 묶으면 소비 repo가 bastion을 안 쓰면서도
-> `v0.3.0` 대기에 걸린다. 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
-> ([`../architecture/05 §4`](../architecture/05-versioning-policy.md)).
+> ⚠️ **분리해야 할 축은 PR이 아니라 릴리스다** — 이 문단은 2026-08-05 구현 중 정정됐다.
+>
+> 최초 서술은 *"40.4를 별도 PR로 분리한다"* 였다. 근거는 `eks-cluster`가 **이미 apply된 소비자가
+> 있는 모듈**이라 bastion의 미완성 상태와 릴리스 주기를 묶으면 소비 repo가 bastion을 안 쓰면서도
+> `v0.3.0` 대기에 걸린다는 것이었다 — 그 걱정 자체는 유효하다.
+>
+> 🔑 **그런데 40.5(예제)가 40.4를 선행 의존한다.** 예제는 §5의 3층 배선을 보여야 의미가 있고,
+> 3층은 `eks-cluster`의 새 변수를 쓴다. PR을 쪼개면 **예제가 반쪽이 되는 새 문제**가 생긴다.
+>
+> ⇒ **한 PR로 가되 태그를 따로 단다**(`bastion-v0.1.0` · `eks-cluster-v0.3.0`). 컴포넌트별 cadence
+> 분리는 태그가 소유하는 것이지 PR이 소유하는 것이 아니다
+> ([`../architecture/05 §4`](../architecture/05-versioning-policy.md)) — 소비 repo는 각자 필요한
+> 태그만 올리면 되고, 한쪽을 올리지 않는 선택이 그대로 성립한다.
 
 ---
 

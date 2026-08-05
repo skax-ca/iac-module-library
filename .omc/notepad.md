@@ -41,6 +41,11 @@
 
 ### 🔢 현행 릴리스 (2026-08-05 D-VERSION 이후)
 
+> **최신**: `vpc-v0.3.0` · **`eks-cluster-v0.2.0`**. 🔜 `bastion-v0.1.0` · `eks-cluster-v0.3.0`
+> 은 브랜치 `feat/bastion-module` 에서 **PR 대기**(아래 §40 개정 절).
+> ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
+> 모듈별 하한 대장은 **폐지**됐다. *"근거로만 올린다"* 는 이제 **1.13 이상에만** 적용된다.
+
 **`vpc-v0.3.0` · `eks-cluster-v0.1.0`** — 전 모듈이 **`0.y.z`(개발 단계)**다.
 구 `1.x` 태그 4개는 **같은 커밋의 `0.x` 로 재매핑된 뒤 삭제**됐다(원격 포함).
 - ⛔ 아래 본문에 남은 `vpc-v1.x`·`eks-cluster-v1.0.0` 표기는 **그때의 사실 기록**이다.
@@ -570,9 +575,52 @@ PR [#11](https://github.com/skax-ca/iac-module-library/pull/11) 머지 `91cd7f9`
 - 🔁 **eks 예제에 소싱 태그 확인 방법이 없었다** — PR #7 이 `examples/vpc/README.md` 에 둔 장치가
   PR #9(minimal 폐기) 때 eks 쪽으로 승계되지 않았다. 이번에 보완(`git tag -l 'eks-cluster-v*'`).
 
-**대기 중 태스크**:
-1. **`40` 개정** — 로드맵의 출발점. 끝나면 소비 repo 의 public 엔드포인트를 닫는다.
-   의존 순서 `40` → `21` → `22 §3.4`. 착수 시 "bastion 역할 범위"(self-hosted runner 겸용)를 함께 정한다.
+#### ✅ `40` 개정 + `modules/bastion` 구현 완료 (2026-08-05) — 브랜치 `feat/bastion-module`
+
+**설계 개정은 main 에 있다**(`b323fa5`, push 완료). 구현은 브랜치 → PR.
+
+- **40 이 21 과의 의존을 끊었다.** 개정 전 제목이 *"ArgoCD private 전환의 선결 과제"* 라
+  **미결정(21) 위에 서 있었다.** *"엔드포인트를 닫은 클러스터에 누가 닿는가"* 로 일반화하니
+  21 이 뒤집혀도 40 은 흔들리지 않는다. 🔑 **미개정 문서 개정은 번역이 아니다 — 의존 방향을 먼저 본다**
+  (이 교훈을 `docs/design/AGENTS.md` 개정 절차에 박았다).
+- **사용자 결정 3건**: D-BASTION-MODULE(⛔ 인라인 철회) · D-BASTION-SCOPE(runner 겸용 안 함,
+  22 §4-2 종결) · D-BASTION-SEAM(EKS 접근 3층을 **주체/대상**으로 분할).
+- **22 §3.4 도달성 미결정 종결.** 원문은 `<details>` 로 보존(후보 비교 논증이 40 §1.1 의 입력).
+
+**구현 커밋 3개**(전부 게이트 통과 — fmt·tflint·trivy 0건·bastion 10 passed·eks 20 passed):
+- `fae555c` **D-TOFU-FLOOR** — `required_version` 전 모듈 `>= 1.12.0` 통일(아래 절)
+- `c4c8447` `modules/bastion` 신설
+- `e7237d8` eks 계약 확장 + 예제 3층 배선
+
+**구현 중 발견 4건 — 전부 설계에 반영했다**:
+1. ⭐ **모듈 간 순환**(40 §5.1-1 신설): bastion↔eks 가 서로의 ARN 을 참조한다.
+   해법은 **03 §3.1 1순위**(결정적 네이밍) — 루트가 `local.cluster_arn` 을 합성해 단방향으로 만든다.
+   🔑 **03 의 조회 우선순위는 순환 해소 장치이기도 하다** — SG rule 분리(§2.2)의 값 층위 대응.
+2. 🔴 **하드닝 2종은 plan 테스트로 지킬 수 없다**: `key_name`·`associate_public_ip_address` 는
+   **미지정 자체가 계약**인데 optional+computed 라 mock 이 임의 값을 채운다(실측 `"Wb0Vk"`).
+   ⛔ mock_resource 로 null 을 강제해 통과시키지 않았다 — **assertion 이 자기 모킹 설정을 검증**하게 된다.
+   🔑 일반화: *"미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.*
+3. **facade 가 upstream 을 가린 사례 또 발견**: upstream v21 에 `security_group_additional_rules` 가
+   처음부터 있었다(ami_type/D-NODE-ARCH 와 같은 형태). → `cluster_security_group_additional_rules` 신설.
+   ⚠️ 함께 정정: `cluster_security_group_id` 출력 설명이 **값과 다른 SG**(EKS 자동 생성분)를 가리키고 있었다.
+4. **예제를 신설하지 않았다**(설계 §7.2 정정): `examples/eks-cluster-enterprise` 가 이미
+   `endpoint_public_access = false` 인데 **조작 지점이 없는 상태**였다 — 거기에 넣는 것이 그 미해결을 닫는다.
+   신설하면 90% 중복 → drift. 또한 **40.4 를 별도 PR 로 쪼개지 않았다**(예제가 선행 의존) —
+   분리해야 할 축은 PR 이 아니라 **태그**였다.
+
+**⚠️ trivy 첫 예외**(사용자 승인): `AVD-AWS-0104`(무제한 egress). **경로 한정**(`.trivyignore.yaml`)으로
+`modules/bastion/main.tf` 에서만 끈다 — 평면 `.trivyignore` 에 ID 를 적으면 **repo 전체에서** 그 룰이 꺼진다.
+- ⚠️ **trivy 0.72 는 `.trivyignore.yaml` 을 자동 탐지하지 않는다**(실측). `--ignorefile` 을
+  pre-commit 과 verify.yml **양쪽**에 넣었다. 평면 `.trivyignore` 는 삭제(죽은 경로).
+
+**남은 것**: PR 생성 → CI 6/6 → 머지 → 태그 **2개**(`bastion-v0.1.0` · `eks-cluster-v0.3.0`).
+⛔ `eks-cluster-v0.2.0` 은 소비자가 apply 완료라 **옮길 수 없다**.
+
+**그다음 태스크**:
+1. **`21` 개정** — 이제 40 이 닫혔으므로 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3):
+   관리형 Capability vs self-managed ArgoCD. `awscc_eks_capability` 스키마는 착수 시 재조회.
+2. **소비 repo `live/dev/eks` 의 public 엔드포인트를 닫는다** — 40 이 그 이유를 없앴다.
+   ⚠️ 소비 repo 소관이라 여기서 진행을 추적하지 않는다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

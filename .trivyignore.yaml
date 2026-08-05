@@ -1,0 +1,30 @@
+# trivy config 예외 목록 — 각 항목은 **사유 · 승인된 설계 · 백로그**가 필수다(무단 추가 금지, CLAUDE.md).
+#
+# ⭐ 평면 `.trivyignore`(ID만 나열)가 아니라 이 YAML 형식을 쓰는 이유는 **경로 한정**이다.
+#    평면 파일에 ID를 적으면 그 룰이 **repo 전체에서** 꺼져, 다른 모듈이 같은 실수를 해도 잡히지 않는다.
+#    예외는 "이 리소스에서 이 판단을 했다"이지 "이 룰은 우리에게 해당 없다"가 아니다.
+#
+# ⚠️ **trivy 0.72는 이 파일을 자동 탐지하지 않는다**(2026-08-05 실측). `--ignorefile .trivyignore.yaml`
+#    을 명시해야 적용된다 — 평면 `.trivyignore`는 자동 탐지되지만 YAML은 아니다.
+#    그래서 `.githooks/pre-commit` 과 `.github/workflows/verify.yml` **양쪽**에 그 플래그가 있다.
+#    한쪽만 고치면 "로컬은 통과했는데 CI가 막는다"가 생긴다(CLAUDE.md 게이트 일치 규칙).
+#
+# ⚠️ 평면 `.trivyignore`는 **삭제했다**(2026-08-05). `--ignorefile` 을 명시하는 순간 그 파일은
+#    읽히지 않아 죽은 경로가 되기 때문이다. 그 파일에 예외는 0건이었고, 담고 있던 결정은 아래에 옮겼다:
+#    ⛔ **PoC repo(terraform-enterprise-poc)의 예외 2건을 복사하지 않는다** — 그 근거는 그 repo의
+#       설계 문서다. 해당 모듈을 이식·재검토한 뒤 이 repo의 설계 문서를 근거로 다시 판단한다.
+#
+# 형식: id / paths / statement(사유) — statement 없이 추가하지 않는다.
+
+misconfigurations:
+  - id: AVD-AWS-0104
+    paths:
+      - "modules/bastion/main.tf"
+    statement: >-
+      D-BASTION-EGRESS(docs/design/40-bastion.md §2)가 판정한 값이다.
+      bastion 은 SSM 제어 평면 · AL2023 패키지 저장소 · dl.k8s.io/get.helm.sh 로 나가야 하는데
+      AWS managed prefix list 는 S3/DynamoDB 만 제공하므로 CIDR 로 좁히는 것이 실질적으로 불가능하다.
+      대신 (a) 규칙은 443/tcp 하나뿐이고 (b) **인바운드가 0개**라 이 경로가 유일한 통신 수단이며
+      (c) 소비자가 egress_cidr_blocks 로 좁힐 수 있다.
+      백로그: 40-bastion.md §10-2 — SSM VPCE 3종(ssm·ssmmessages·ec2messages)을 신설하면
+      VPC CIDR 로 좁힐 수 있다. NAT 가 이미 있는 VPC 에서는 중복 지출이라 지금은 채택하지 않았다.

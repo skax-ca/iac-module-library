@@ -311,6 +311,34 @@ variable "access_entries" {
   default     = {}
 }
 
+variable "cluster_security_group_additional_rules" {
+  description = <<-EOT
+    cluster SG에 추가할 규칙. **D-BASTION-SEAM 3층**의 소유 지점이다(설계 40 §5).
+
+    "클러스터가 누구를 네트워크로 받아들이는가"는 클러스터 쪽 결정이므로 이 모듈이 소유한다 —
+    03 §2.3이 *"소유 모듈이 허용 소스 목록을 변수로 파라미터화해 owner가 rule을 생성한다"* 고
+    이미 정했다. 외부 모듈이 이 SG에 직접 rule을 붙이면 소유자가 쪼개져 drift·충돌이 생긴다.
+
+    upstream 스키마를 그대로 통과시킨다(access_entries와 같은 판단):
+      { <키> = { from_port, to_port, protocol = "tcp", type = "ingress",
+                 description, source_security_group_id | cidr_blocks | source_node_security_group } }
+
+    예 — bastion 에서 apiserver 443:
+      { bastion = { from_port = 443, to_port = 443, description = "kubectl from bastion",
+                    source_security_group_id = module.bastion.bastion_security_group_id } }
+
+    ⚠️ 이 규칙이 붙는 SG는 **upstream이 만든 cluster SG**이며 EKS가 자동 생성하는
+       primary cluster SG와 다르다. 전자가 vpc_config.security_group_ids 로 클러스터에 붙어
+       apiserver ENI 에 적용되므로 도달 경로로 성립한다(outputs.tf의 경고 참조).
+
+    ⚠️ upstream 은 이 규칙을 **구형 `aws_security_group_rule`** 로 만든다 — 03 §2.1이 신규 코드에서
+       금지한 리소스지만 upstream 내부라 통제 밖이다(40 §10-4). 같은 SG 에 우리가 신형 rule 을
+       직접 붙이지 않는 이유이기도 하다.
+  EOT
+  type        = any
+  default     = {}
+}
+
 variable "enable_karpenter" {
   description = <<-EOT
     Karpenter IAM 전제조건(컨트롤러 role · 노드 role · instance profile · 중단 SQS) 생성 여부.

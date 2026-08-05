@@ -59,7 +59,15 @@ output "oidc_provider_arn" {
 # ── 보안 그룹 ────────────────────────────────────────────────────────────────
 
 output "cluster_security_group_id" {
-  description = "EKS가 만든 클러스터 보안 그룹 ID(컨트롤플레인 ↔ 데이터플레인)."
+  description = <<-EOT
+    **upstream 모듈이 만든** cluster SG ID. vpc_config.security_group_ids 로 클러스터에 붙어
+    apiserver ENI 에 적용된다 — cluster_security_group_additional_rules 가 규칙을 붙이는 대상이다.
+
+    ⚠️ **EKS 서비스가 자동 생성하는 primary cluster SG 와 다르다**(그쪽은 upstream 출력
+    `cluster_primary_security_group_id` 이며 이 모듈은 노출하지 않는다).
+    🔑 2026-08-05까지 이 설명이 *"EKS가 만든 클러스터 보안 그룹"* 이라고 적고 있었다 — 값과 다른 SG 를
+       가리키는 서술이었고, bastion 규칙을 어디에 붙일지 판단할 때 정확히 오도하는 지점이었다(40 §5.2).
+  EOT
   value       = module.eks.cluster_security_group_id
 }
 

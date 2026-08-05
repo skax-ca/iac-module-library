@@ -506,23 +506,36 @@ SSOT = `docs/architecture/05-versioning-policy.md`. 커밋 `b30b12b`(ADR) · `2d
 - 근거 보강: 모듈 **서브트리 SHA 동일**(`vpc` `753790d7…` · `eks-cluster` `761b0a62…`) +
   모듈 source 문자열은 **state 에 저장되지 않는다** → diff 가 생길 경로 자체가 없었다.
 
-#### ⚠️ 이 머신(`/Users/born2k/…`)은 게이트 도구가 없었다 — 새 머신마다 확인할 것
+#### ✅ 이 머신(`/Users/born2k/…`) 게이트 도구 파리티 완료 (2026-08-05) — 새 머신마다 확인할 것
 
 notepad 이 *"hook 활성화됨"* 이라고 적고 있었지만 **이 머신에서는 거짓이었다.** 경로도 다르다
 (notepad: `/Users/a07326/…`). `brew` 설치와 `git config` 는 **clone·머신 단위**라 dotfiles 동기화로
-따라오지 않는다.
+따라오지 않는다. 소비 repo 경로도 다르다: **`/Users/born2k/silverte/ai/iac-reference-infra`**.
 
-```
-brew install opentofu                  # 설치됨 = 1.12.5 (파리티 기준과 일치)
-git config core.hooksPath .githooks    # 양쪽 repo 에 설정 완료
-```
-- ⚠️ **`trivy` 가 0.69.3 이다 — 파리티 기준은 0.72.0.** 이 머신에서 `.tf` 작업 시 CI 와 결과가
-  갈릴 수 있다. `brew upgrade trivy` 로 맞춘 뒤 착수하는 것이 안전하다.
-- 소비 repo 경로도 다르다: **`/Users/born2k/silverte/ai/iac-reference-infra`**.
+**현재 상태 — CI(`verify.yml`)와 완전 일치**:
+OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.48.0** ·
+`git config core.hooksPath .githooks` (양쪽 repo 설정 완료)
 
-**대기 중 태스크 2개** (착수는 다음 세션 — 사용자 결정):
-1. **D-EXTDNS-ZONE validation → `eks-cluster-v0.2.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
-   ⚠️ 착수 전 `trivy` 버전 정렬(위 절).
+- 🔑 **`brew` 로는 파리티를 맞출 수 없다 — 정확 핀 도구는 릴리스 바이너리로 받는다.**
+  실측(2026-08-05): brew 최신 trivy 는 **0.73.0** 이라 `brew upgrade` 했으면 기준(0.72.0)에서
+  **더 멀어졌다.** brew 는 "항상 최신" 모델이고 이 repo 요건은 "**같음**"이다.
+  ```
+  brew uninstall trivy   # Cellar 심볼릭 링크 제거 후 아래 바이너리로 교체
+  curl -sSL .../trivy/releases/download/v0.72.0/trivy_0.72.0_macOS-ARM64.tar.gz
+  curl -sSL .../tflint/releases/download/v0.63.1/tflint_darwin_arm64.zip
+  install -m 0755 <bin> /opt/homebrew/bin/<name>
+  ```
+- ⚠️ **tflint 는 다운그레이드였다**(0.64.0 → 0.63.1). `setup-tflint` 와 `tflint --version` 둘 다
+  *"out of date"* 경고를 내지만 **의도된 핀**이다. 올릴 땐 CI 와 **양쪽 같이**.
+- ✅ **교체 후 게이트 전량 실측 통과**: `fmt` · `tflint --recursive` · `trivy config` **0건** ·
+  `vpc` **13 passed** · `eks-cluster` **17 passed** (전부 exit 0).
+- ⚠️ trivy 리포트에 `terraform-aws-modules/eks/aws/*.tf` **행이 보이는 것은 정상**이다(0건).
+  `--tf-exclude-downloaded-modules` 는 평가에서 빼는 것이지 리포트 행을 지우지 않는다.
+  게이트 실패 신호는 **행의 존재가 아니라 종료 코드**다.
+
+**대기 중 태스크**:
+1. ⏳ **D-EXTDNS-ZONE validation → `eks-cluster-v0.2.0`** — 작고 독립적. `.tf` 라 **브랜치 → PR**.
+   ✅ 선행 조건(도구 파리티) 해소됨.
 2. **`40` 개정** — 위 로드맵의 출발점. 끝나면 public 엔드포인트를 닫는다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다

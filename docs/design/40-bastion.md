@@ -425,13 +425,25 @@ aws ssm start-session --target <id> --region <region> \
 | T-2 | **`Name` 태그 규약** | `ec2-`·`sgr-`·`iamr-`·`vol-` 접두 + `naming` 3요소 조합 일치(CLAUDE.md 강제 5) |
 | T-3 | **kill switch** | `bastion_enabled = false` → 리소스 0개, 출력 전부 `null` |
 | T-4 | **인바운드 0** | ingress rule 리소스가 계획에 **없을 것** |
-| T-5 | **하드닝 4종** | `http_tokens = "required"` · `encrypted = true` · `key_name` 미설정 · public IP 미할당 |
+| T-5 | **하드닝 — 검증 가능한 2종** | `http_tokens = "required"` · hop limit 1 · `encrypted = true` · `gp3` |
 | T-6 | EKS 연동 **양성** | `eks_cluster_name` + `eks_cluster_arn` 지정 시 인라인 정책이 **그 ARN으로 한정**되어 계획됨 |
 | T-7 | EKS 연동 **음성** ×2 | 한쪽만 지정 → **plan 거부**(§4.1 가드) |
 | T-8 | 음성 — kill switch × 가드 | `bastion_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
 
 > ⭐ **T-8이 D-EXTDNS-ZONE에서 배운 것의 회수 지점이다.** 가드에 `&& var.bastion_enabled`를 넣지 않으면
 > 이 케이스가 실패하고, 그것이 곧 **파기 불가능한 kill switch**를 뜻한다.
+
+> 🔴 **하드닝 4종 중 2종은 plan 테스트로 지킬 수 없다**(2026-08-05 구현 중 실측).
+> `key_name` 미지정·`associate_public_ip_address` 미지정은 **인자를 선언하지 않는 것** 자체가
+> 계약인데, 둘 다 optional + computed 라 `mock_provider`가 임의 값을 채운다
+> (실측: `key_name = "Wb0Vk"`). 실제 apply에서는 `null`이지만 plan 모킹에서는 볼 수 없다.
+>
+> ⛔ `mock_resource`로 `null`을 강제해 통과시키지 않았다 — 그러면 assertion이 모듈이 아니라
+> **자기 자신의 모킹 설정**을 검증하게 된다. 통과하는 가짜 테스트는 없는 것보다 나쁘다.
+>
+> 🔑 **일반화: "미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.** 이 둘의 회귀 방지는
+> 코드 리뷰와 §4.2의 하드닝 목록에 남는다. 공인 IP는 추가로 서브넷의 `map_public_ip_on_launch`에도
+> 달려 있어 **모듈 단독 판정이 애초에 불가능**하다 — 소비 repo의 apply 판정 몫이다(§7.3).
 
 ### 7.2 예제
 

@@ -1,0 +1,86 @@
+#!/bin/bash
+# bastion 부팅 스크립트 — 설계 docs/design/40-bastion.md §4.3
+#
+# AL2023은 SSM Agent가 기본 탑재라 별도 설치가 없다. 이 스크립트가 하는 일은 도구 설치와
+# kubeconfig 생성뿐이며, 둘 다 실패해도 **SSM 접속 자체는 살아 있어야 한다** — 그래야 들어가서
+# 진단할 수 있다. 그래서 `set -e`를 쓰지 않는다(부팅 중단이 곧 진단 불가다).
+set -uo pipefail
+
+exec > >(tee /var/log/bastion-bootstrap.log) 2>&1
+echo "[bastion] bootstrap start $(date -Is)"
+
+# ⚠️ 다운로드 경로는 /tmp 가 아니라 /var/tmp 다.
+#    t4g.nano(RAM 512MB)의 tmpfs 는 210MB 라서 바이너리를 연속으로 받으면 공간이 소진되고
+#    curl 이 (23) Failure writing output to destination 으로 죽는다. HTTP 는 200 인데도 실패하며,
+#    "먼저 받은 것이 공간을 먹는 순서 의존"이라 수동 재시도도 실패한다(PoC 실측).
+#    /var/tmp 는 루트 EBS 라 root_volume_size 만큼 여유가 있다.
+DL_DIR=/var/tmp/bastion-tools
+mkdir -p "$DL_DIR"
+
+ARCH_RAW="$(uname -m)"
+case "$ARCH_RAW" in
+  aarch64) ARCH=arm64 ;;
+  x86_64)  ARCH=amd64 ;;
+  *) echo "[bastion] 지원하지 않는 아키텍처: $ARCH_RAW — 도구 설치를 건너뛴다"; ARCH= ;;
+esac
+
+# curl --retry 는 연결 실패만 재시도하고 HTTP 오류·DNS 실패는 재시도하지 않는다.
+# --retry-all-errors 가 부팅 초기의 일시적 네트워크 실패를 흡수한다.
+# ⚠️ 이것은 위 tmpfs 문제의 해법이 아니다 — 그 해법은 /var/tmp 경로다.
+CURL="curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors"
+
+%{ if kubectl_version != null ~}
+if [ -n "$ARCH" ]; then
+  echo "[bastion] kubectl ${kubectl_version} ($ARCH) 설치"
+  if $CURL -o "$DL_DIR/kubectl" "https://dl.k8s.io/release/${kubectl_version}/bin/linux/$ARCH/kubectl"; then
+    install -m 0755 "$DL_DIR/kubectl" /usr/local/bin/kubectl
+    rm -f "$DL_DIR/kubectl"   # 원본을 즉시 지운다 — 다음 다운로드의 여유를 남긴다
+    kubectl version --client || true
+  else
+    echo "[bastion] ⚠️ kubectl 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+  fi
+fi
+%{ endif ~}
+
+%{ if helm_version != null ~}
+if [ -n "$ARCH" ]; then
+  echo "[bastion] helm ${helm_version} ($ARCH) 설치"
+  if $CURL -o "$DL_DIR/helm.tar.gz" "https://get.helm.sh/helm-${helm_version}-linux-$ARCH.tar.gz"; then
+    tar -xzf "$DL_DIR/helm.tar.gz" -C "$DL_DIR"
+    install -m 0755 "$DL_DIR/linux-$ARCH/helm" /usr/local/bin/helm
+    rm -rf "$DL_DIR/helm.tar.gz" "$DL_DIR/linux-$ARCH"
+    helm version --short || true
+  else
+    echo "[bastion] ⚠️ helm 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+  fi
+fi
+%{ endif ~}
+
+%{ if eks_cluster_name != null ~}
+# ── kubeconfig (설계 §5 1층의 사용처) ────────────────────────────────────────
+#
+# ⚠️ IAM 전파 race: 인라인 정책 생성 직후 인스턴스가 부팅하면 eks:DescribeCluster 가 아직
+#    전파되지 않아 실패할 수 있다. Terraform 쪽에 time_sleep 을 넣기보다 **부팅 스크립트가 스스로
+#    견디게** 한다 — 인스턴스는 재생성될 때마다 이 상황을 다시 만나기 때문이다(설계 §4.3).
+KUBECONFIG_PATH=/etc/kubernetes/kubeconfig
+mkdir -p "$(dirname "$KUBECONFIG_PATH")"
+
+for attempt in 1 2 3 4 5; do
+  echo "[bastion] update-kubeconfig 시도 $attempt"
+  if aws eks update-kubeconfig \
+       --name "${eks_cluster_name}" \
+       --region "${region}" \
+       --kubeconfig "$KUBECONFIG_PATH"; then
+    chmod 0644 "$KUBECONFIG_PATH"
+    # 로그인 셸 전역에 노출한다 — 세션마다 export 를 치게 하지 않는다.
+    echo "export KUBECONFIG=$KUBECONFIG_PATH" > /etc/profile.d/kubeconfig.sh
+    chmod 0644 /etc/profile.d/kubeconfig.sh
+    echo "[bastion] kubeconfig 생성 완료"
+    break
+  fi
+  echo "[bastion] 실패 — IAM 전파 대기 후 재시도"
+  sleep $((attempt * 10))
+done
+%{ endif ~}
+
+echo "[bastion] bootstrap end $(date -Is)"

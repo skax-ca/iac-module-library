@@ -66,8 +66,10 @@ jobs:
             | sh -s -- -b /usr/local/bin "${TRIVY_VERSION}"
           trivy --version
           # ↓ .githooks/pre-commit 의 명령과 한 글자도 다르지 않아야 한다
+          # ⚠️ --ignorefile 생략 금지: trivy 0.72는 .trivyignore.yaml 을 자동 탐지하지 않는다.
           trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
-            --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules .
+            --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules \
+            --ignorefile .trivyignore.yaml .
 
       - name: "게이트 4/6 — modules: validate + test"
         run: |

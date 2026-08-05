@@ -650,13 +650,50 @@ CI run [`30981984588`](https://github.com/skax-ca/iac-module-library/actions/run
   `cluster_security_group_id` 는 이름·값이 맞고 **설명만 다른 SG 를 가리켰다.**
 
 **그다음 태스크**:
-1. 🔵 **진행 중 — 소비 repo 에서 bastion 실제 배포**(2026-08-06 사용자 결정으로 21 보다 먼저).
-   `/Users/born2k/silverte/ai/iac-reference-infra` 소관. 목표는 **`live/dev/eks` 의 public 엔드포인트를
-   닫는 것** — 40 이 그 이유(도달 지점 부재)를 없앴다. ⚠️ 진행 상태는 여기서 추적하지 않는다.
-   - 🔑 **이 repo 쪽 관여 지점**: 배포가 `bastion-v0.1.0` 계약의 **첫 apply 판정**을 낸다.
-     `40` 의 apply 미검증 항목이 판정되면 그때 `40` 에 기록한다(`tofu test` 로 대체 불가한 것들).
-2. **`21` 개정** — 40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3):
-   관리형 Capability vs self-managed ArgoCD. `awscc_eks_capability` 스키마는 착수 시 재조회.
+
+#### ⏭️ 1순위 — **소비 repo 에서 bastion 실제 배포** (2026-08-06 사용자 결정, `21` 보다 먼저)
+
+⚠️ **아직 착수하지 않았다**(2026-08-06 세션은 위 문서 정리까지만 하고 종료). 아래는 **착수 준비 조사**다.
+
+**작업 위치**: `/Users/born2k/silverte/ai/iac-reference-infra` — ⛔ **소비 repo 소관이라 Phase·진행
+상태는 여기서 추적하지 않는다**(위 §"Phase 1 이후" 규칙). 그쪽 `.omc/notepad.md` 를 먼저 읽는다.
+
+**목표**: `live/dev/eks` 의 **public 엔드포인트를 닫는다.** `main.tf:96-98` 이 지금
+`endpoint_public_access = true` 이고 주석이 *"bastion(design/40)이 아직 없어 private-only 면 kubectl
+도달 지점이 없다 — 그래서 public 을 켠다"* 라고 적혀 있다. **40 이 그 전제를 없앴다.**
+
+**실측 현황**(2026-08-06 조사):
+| 지점 | 현재 값 | 해야 할 일 |
+|------|---------|-----------|
+| `live/dev/eks/main.tf:75` | `?ref=eks-cluster-v0.2.0` | **`v0.3.0` 으로 상향**(3층 변수가 v0.3.0 계약) |
+| bastion 모듈 | 없음 | `?ref=bastion-v0.1.0` 신규 추가 |
+| `main.tf:96-98` | `endpoint_public_access = true` | **마지막에** false + 주석 제거 |
+
+**조립 레퍼런스는 `examples/eks-cluster-enterprise/main.tf`** — 이미 3층을 다 보여준다:
+`module "bastion"`(L129) · `access_entries`(L196, 2층) · `cluster_security_group_additional_rules`(L209, 3층) ·
+**순환 해소 `local.cluster_arn`**(L128 주석). ⚠️ **`module.eks.cluster_arn` 으로 바꾸면 plan 이 순환으로 죽는다.**
+
+> 🔴 **순서가 안전에 직결된다 — public 을 먼저 닫으면 안 된다.**
+> ① bastion 배포 → ② **SSM 접속 실증**(`bastion_ssm_command` 출력) → ③ 그 세션에서 `kubectl` 도달 확인
+> → ④ 그때 public 을 닫는다. 순서를 뒤집으면 bastion 이 안 될 때 **클러스터에 닿을 방법이 없다.**
+
+**착수 전 확인할 것 2개**:
+- **AMI ID** — 예제는 자리표시자 `ami-00000000000000000` 이다(*그대로 apply 하면 즉시 실패하도록* 낸
+  의도된 값, 40 §구현 4). 실 배포는 **실제 AL2023 AMI** 가 필요하다. ⚠️ `40 §127` 이 *"SSM 최신 파라미터를
+  직접 물리면 새 AMI 릴리스마다 리뷰 없이 인스턴스가 재생성된다"* 고 경고하므로 **핀을 뜬다.**
+- **서브넷** — 예제는 `vm-uniq`(private)를 `node-uniq` 와 **분리**한다(그 대역엔 `karpenter.sh/discovery`
+  태그가 있어 섞으면 소유가 흐려진다). 소비 repo `networking` 에 해당 그룹이 있는지 확인.
+
+**환경**: AWS 프로파일 **`team`**(이 머신엔 `asset` 없음) · apply 는 **`workflow_dispatch` 로만**(D30-1).
+
+🔑 **이 repo 쪽 관여 지점**: 이 배포가 **`bastion-v0.1.0` 계약의 첫 apply 판정**을 낸다.
+`tofu test` 로 지킬 수 없다고 40 §5.1 이 적은 항목들(`key_name`·`associate_public_ip_address` 미지정)이
+여기서 처음 실증된다. **판정이 나면 `40` 에 기록한다.**
+
+#### ⏭️ 2순위 — **`21` 개정**
+
+40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3): 관리형 Capability vs self-managed ArgoCD.
+`awscc_eks_capability` 스키마는 착수 시 재조회(21 이 v1.93.0 기준).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

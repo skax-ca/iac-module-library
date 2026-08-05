@@ -160,10 +160,19 @@ it should probably already be 1.0.0."* — `eks-cluster-v1.0.0`은 실제 AWS �
 > | `live/dev/networking` | `30961419570` | `Downloading …?ref=vpc-v0.3.0&depth=1` | **`No changes. Your infrastructure matches the configuration.`** |
 > | `live/dev/eks` | `30961419575` | `Downloading …?ref=eks-cluster-v0.1.0&depth=1` | **〃** |
 >
-> 🔑 **`success` 상태가 아니라 로그 본문으로 판정했다.** 워크플로 성공은 plan이 비었다는 뜻이
-> 아니다 — 변경이 있어도 plan job은 성공한다. `No changes` 문자열이 판정 근거다.
-> ([`design/10`](../design/10-vpc-module.md) 열린 항목 7이 *"조용히 실패하는 것은 apply 성공이
-> 증거가 아니다"* 로 세운 구분과 같은 종류의 주의다.)
+> 🔑 **`success` 상태를 판정으로 쓰지 않았다.** 워크플로 성공은 plan이 비었다는 뜻이 아니다 —
+> 변경이 있어도 plan job은 성공한다. ([`design/10`](../design/10-vpc-module.md) 열린 항목 7이
+> *"조용히 실패하는 것은 apply 성공이 증거가 아니다"* 로 세운 구분과 같은 종류의 주의다.)
+>
+> ⭐ **판정 근거는 종료 코드다** — 소비 repo 워크플로가 `tofu plan -detailed-exitcode`
+> (`0=변경없음 · 1=오류 · 2=변경있음`)를 쓰고 그 값을 `steps.plan.outputs.changes`로 내보낸다.
+> 두 run 모두 **`changes=false`**(= exit 0)였고, 이는 로그의 `No changes` 문자열보다 **강한 증거**다
+> (문자열 파싱이 아니라 도구 자신의 판정이다). 소비 repo가 *"사람 눈이 아니라 종료 코드로 받는다"* 는
+> 의도로 설계해 둔 것이 여기서 값을 냈다.
+>
+> ⚠️ **plan 요약 스텝의 job 로그는 비어 있는 것이 정상이다** — 출력 전체가 `{ … } > summary.md`로
+> 리디렉트된 뒤 `$GITHUB_STEP_SUMMARY`(**파일 경로**)에 append된다. stdout으로 나가는 것이 없다.
+> 렌더링된 요약은 **run의 `Summary` 탭**에서 읽는다. 이것을 "요약이 안 나왔다"로 오독하지 말 것.
 >
 > ⚠️ **로컬에서는 돌릴 수 없었다** — `backend.hcl`이 없고(D25로 gitignore), `tofu plan`도
 > **state lock을 잡는다**([`design/50`](../design/50-reference-consumer-repo.md) D28).

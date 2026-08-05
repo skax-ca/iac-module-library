@@ -533,9 +533,12 @@ OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.
   `--tf-exclude-downloaded-modules` 는 평가에서 빼는 것이지 리포트 행을 지우지 않는다.
   게이트 실패 신호는 **행의 존재가 아니라 종료 코드**다.
 
-#### ✅ D-EXTDNS-ZONE 종결 → **`eks-cluster-v0.2.0`** (2026-08-05)
+#### ✅ D-EXTDNS-ZONE 종결 → **`eks-cluster-v0.2.0` 발행 완료** (2026-08-05)
 
-브랜치 `feat/eks-extdns-zone-validation` → PR. 전문은 `design/20 §4.2`(릴리스 기록 신설).
+PR [#11](https://github.com/skax-ca/iac-module-library/pull/11) 머지 `91cd7f9`(구현 `e2c2c73`) ·
+**태그 `eks-cluster-v0.2.0` 원격 push 완료**. 전문은 `design/20 §4.2`(릴리스 기록 신설).
+✅ CI PR run [`30967422884`](https://github.com/skax-ca/iac-module-library/actions/runs/30967422884) **6/6 pass** —
+로그 본문도 확인(eks 20 passed · vpc 13 passed · examples 2개 Success).
 
 - **가드**: `!(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0`
   — ⭐ **`&& var.cluster_enabled` 는 설계 §5.1-8 조건식에 없던 것**이다. 같은 "토글 × 리스트" 구조인

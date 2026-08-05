@@ -101,7 +101,7 @@ module "eks" {
   enable_cluster_creator_admin_permissions = true
   access_entries                           = var.access_entries
 
-  # D-BASTION-SEAM 3층(설계 40 §5) — "클러스터가 누구를 네트워크로 받아들이는가".
+  # D-WORKBENCH-SEAM 3층(설계 40 §5) — "클러스터가 누구를 네트워크로 받아들이는가".
   # 이 SG는 upstream이 만들어 vpc_config.security_group_ids 에 넣으므로 apiserver ENI 에 적용된다.
   # ⚠️ EKS 가 자동 생성하는 primary cluster SG 와 **다른 SG** 다(outputs.tf 참조).
   security_group_additional_rules = var.cluster_security_group_additional_rules

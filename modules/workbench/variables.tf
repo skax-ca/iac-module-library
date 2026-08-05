@@ -1,4 +1,4 @@
-# bastion 모듈 인터페이스 — 설계 docs/design/40-bastion.md §4.1
+# workbench 모듈 인터페이스 — 설계 docs/design/40-workbench.md §4.1
 #
 # 변수는 설계 §4.1의 관심사 그룹 순서를 따른다
 # (정체성 → kill switch → 배치 → 인스턴스 → 도구 → EKS 연동 → egress).
@@ -10,7 +10,7 @@ variable "naming" {
   description = <<-EOT
     Name 합성용 네이밍 요소. 모듈이 리소스 타입별 약어를 조합하므로
     소비자는 약어를 직접 타이핑하지 않는다(02 §1.4(b)).
-    예: {workload = "acme", env = "prd", region_code = "an2"} → ec2-acme-prd-an2-bastion-01
+    예: {workload = "acme", env = "prd", region_code = "an2"} → ec2-acme-prd-an2-workbench-01
   EOT
   type = object({
     workload    = string
@@ -22,7 +22,7 @@ variable "naming" {
 variable "purpose" {
   description = "Name 태그의 purpose 토큰."
   type        = string
-  default     = "bastion"
+  default     = "workbench"
 }
 
 variable "serial" {
@@ -41,30 +41,30 @@ variable "tags" {
   default     = {}
 }
 
-# ── kill switch (D-BASTION-LIFECYCLE) ─────────────────────────────────────────
+# ── kill switch (D-WORKBENCH-LIFECYCLE) ─────────────────────────────────────────
 
-variable "bastion_enabled" {
+variable "workbench_enabled" {
   description = <<-EOT
     kill switch(파괴 방향). false면 이 모듈의 전 리소스를 파기한다.
     false일 때 스칼라 출력은 전부 null이 된다(01 §4).
 
-    ⚠️ bastion은 삭제 보호(deletion_protection) 대상이 아니다 — 수시 생성·파기가 정상 운용이고
-    상태를 담지 않는다. vpc의 D12와 대칭으로 만들지 않는 것이 의도된 차이다(설계 §2 D-BASTION-LIFECYCLE).
+    ⚠️ workbench는 삭제 보호(deletion_protection) 대상이 아니다 — 수시 생성·파기가 정상 운용이고
+    상태를 담지 않는다. vpc의 D12와 대칭으로 만들지 않는 것이 의도된 차이다(설계 §2 D-WORKBENCH-LIFECYCLE).
   EOT
   type        = bool
   default     = true
 }
 
-# ── 배치 (D-BASTION-PLACEMENT) ────────────────────────────────────────────────
+# ── 배치 (D-WORKBENCH-PLACEMENT) ────────────────────────────────────────────────
 
 variable "vpc_id" {
-  description = "bastion SG를 만들 VPC."
+  description = "workbench SG를 만들 VPC."
   type        = string
 }
 
 variable "subnet_id" {
   description = <<-EOT
-    bastion을 놓을 서브넷 **하나**. bastion은 1대이므로 AZ 분산이 의미가 없다 —
+    workbench를 놓을 서브넷 **하나**. workbench는 1대이므로 AZ 분산이 의미가 없다 —
     리스트를 받아 내부에서 고르면 "어느 AZ에 떴는지"가 모듈 내부 규칙에 숨는다(설계 §2.2).
 
     ⚠️ **private 서브넷 전제**다. 인바운드가 0이므로 public 서브넷은 이득 없이 공격면만 늘린다.
@@ -74,11 +74,11 @@ variable "subnet_id" {
   type        = string
 }
 
-# ── 인스턴스 (D-BASTION-AMI-PIN) ──────────────────────────────────────────────
+# ── 인스턴스 (D-WORKBENCH-AMI-PIN) ──────────────────────────────────────────────
 
 variable "ami_id" {
   description = <<-EOT
-    AMI ID. **기본값이 없다 = 필수 입력**(D-BASTION-AMI-PIN).
+    AMI ID. **기본값이 없다 = 필수 입력**(D-WORKBENCH-AMI-PIN).
 
     ⛔ `.../al2023-ami-latest/...` SSM 파라미터나 most_recent 조회를 쓰지 않는다.
     latest는 AWS 릴리스마다 값이 바뀌어 **리뷰 없이 인스턴스가 재생성**된다.
@@ -91,7 +91,7 @@ variable "ami_id" {
 
 variable "instance_type" {
   description = <<-EOT
-    인스턴스 타입. 기본 t4g.nano(arm64)는 조작 지점 용도에 충분하다(D-BASTION-SCOPE —
+    인스턴스 타입. 기본 t4g.nano(arm64)는 조작 지점 용도에 충분하다(D-WORKBENCH-SCOPE —
     self-hosted runner로 겸용하지 않으므로 빌드 부하를 고려하지 않는다).
 
     ⚠️ **ami_id의 아키텍처와 정합해야 한다.** 모듈은 검증하지 않는다 — 검증하려면 AMI를
@@ -140,11 +140,11 @@ variable "helm_version" {
   default     = null
 }
 
-# ── EKS 연동 — 3층 중 1층만 (D-BASTION-SEAM) ──────────────────────────────────
+# ── EKS 연동 — 3층 중 1층만 (D-WORKBENCH-SEAM) ──────────────────────────────────
 #
 # ⛔ 이 모듈은 Access Entry(2층)도 cluster SG ingress(3층)도 만들지 않는다.
 #    그 둘은 "클러스터가 누구를 받아들이는가"라서 eks-cluster 모듈이 소유한다(설계 §5).
-#    여기 있는 것은 bastion **자신의 권한**뿐이다.
+#    여기 있는 것은 workbench **자신의 권한**뿐이다.
 
 variable "eks_cluster_name" {
   description = <<-EOT
@@ -158,7 +158,7 @@ variable "eks_cluster_name" {
 
 variable "eks_cluster_arn" {
   description = <<-EOT
-    bastion role의 eks:DescribeCluster 권한을 한정할 클러스터 ARN.
+    workbench role의 eks:DescribeCluster 권한을 한정할 클러스터 ARN.
     null이면 인라인 정책을 만들지 않는다 — 쓰지 않는 권한을 남기지 않는다.
 
     ⚠️ eks_cluster_name과 **함께 주거나 함께 비운다**(아래 validation).
@@ -171,15 +171,15 @@ variable "eks_cluster_arn" {
     # update-kubeconfig가 실패하고, ARN만 주면 권한은 있는데 kubeconfig가 없다.
     # 둘 다 apply 후에야 드러나므로 plan에서 막는다(D-EXTDNS-ZONE과 같은 형태, 설계 §4.1).
     #
-    # ⚠️ bastion_enabled 게이트가 필수다: 파기 경로에서는 IAM도 인스턴스도 생성되지 않으므로
+    # ⚠️ workbench_enabled 게이트가 필수다: 파기 경로에서는 IAM도 인스턴스도 생성되지 않으므로
     #    막을 이유가 없고, 막으면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다.
     #    eks-cluster의 external_dns_hosted_zone_arns·pod_subnet_ids 가드가 같은 이유로 같은 형태다.
-    condition     = !var.bastion_enabled || (var.eks_cluster_name == null) == (var.eks_cluster_arn == null)
+    condition     = !var.workbench_enabled || (var.eks_cluster_name == null) == (var.eks_cluster_arn == null)
     error_message = "eks_cluster_name과 eks_cluster_arn은 함께 지정하거나 함께 비워야 한다. 한쪽만 주면 kubeconfig와 권한 중 하나가 빠져 apply 후에야 드러난다."
   }
 }
 
-# ── egress (D-BASTION-EGRESS) ─────────────────────────────────────────────────
+# ── egress (D-WORKBENCH-EGRESS) ─────────────────────────────────────────────────
 
 variable "egress_cidr_blocks" {
   description = <<-EOT

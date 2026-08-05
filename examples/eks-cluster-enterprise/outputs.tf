@@ -71,14 +71,14 @@ output "pod_subnet_ids" {
   value       = module.vpc.subnet_ids_by_group["pod-dup"]
 }
 
-# ── bastion (설계 40) ─────────────────────────────────────────────────────────
+# ── workbench (설계 40) ─────────────────────────────────────────────────────────
 
-output "bastion_instance_id" {
+output "workbench_instance_id" {
   description = "SSM 접속 대상. `aws ssm start-session --target <id> --region <region>`"
-  value       = module.bastion.bastion_instance_id
+  value       = module.workbench.workbench_instance_id
 }
 
-output "bastion_ssm_command" {
-  description = "복사해서 바로 쓰는 접속 명령. 인바운드 규칙 0개로 셸에 진입한다(D-BASTION-ACCESS)."
-  value       = "aws ssm start-session --target ${module.bastion.bastion_instance_id} --region ${var.aws_region}"
+output "workbench_ssm_command" {
+  description = "복사해서 바로 쓰는 접속 명령. 인바운드 규칙 0개로 셸에 진입한다(D-WORKBENCH-ACCESS)."
+  value       = "aws ssm start-session --target ${module.workbench.workbench_instance_id} --region ${var.aws_region}"
 }

@@ -39,10 +39,10 @@
 |----|------|------|
 | **D-VER-ZERO** | 계약이 굳기 전의 모듈은 **`0.y.z`** 를 쓴다. 이 구간에서는 **파괴적 변경도 마이너로 흡수**하고, 소비자에게 안정성을 약속하지 않는다 | [semver.org](https://semver.org/): *"Major version zero (0.y.z) is for initial development. **Anything MAY change at any time.** The public API SHOULD NOT be considered stable."* — 지금 이 repo의 실제 상태를 정확히 서술하는 유일한 번호 체계다. 위 §0의 두 사건이 전부 이 구간에서 소멸한다 |
 | **D-VER-RESET** | 기존 `1.x` 태그 4개를 **같은 커밋에 `0.x`로 재매핑**하고 `1.x`는 삭제한다 | 이력을 버리지 않으면서 번호 체계를 정정하는 유일한 방법. 안전성은 §3.1에서 실측으로 확인했다 |
-| **D-VER-NEW** | **신규 모듈은 `0.1.0`에서 시작**한다. `1.0.0`으로 시작하지 않는다 | [Cloud Posse](https://docs.cloudposse.com/best-practices/developer/semver/)(대규모 Terraform 모듈 라이브러리 운영사)의 실제 방침과 동일: *"We always start projects off at `0.1.0`."* 다음 적용 대상은 `bastion`([`design/40`](../design/40-bastion.md)) |
+| **D-VER-NEW** | **신규 모듈은 `0.1.0`에서 시작**한다. `1.0.0`으로 시작하지 않는다 | [Cloud Posse](https://docs.cloudposse.com/best-practices/developer/semver/)(대규모 Terraform 모듈 라이브러리 운영사)의 실제 방침과 동일: *"We always start projects off at `0.1.0`."* 다음 적용 대상은 `workbench`([`design/40`](../design/40-workbench.md)) |
 | **D-VER-ONE** | `1.0.0`은 **모듈별 계약 안정 선언**으로 컷한다. 판정 기준은 §2의 체크리스트이며, **전 모듈 일괄 컷을 하지 않는다** | 컴포넌트별 semver([`01 §2.1`](01-module-strategy.md))의 귀결. `vpc`(얇은 스크래치)와 `eks-cluster`(upstream 21.x facade)는 churn 속도가 근본적으로 다르다 — 묶으면 vpc가 한 줄도 안 바뀌었는데 eks 때문에 번호가 오르고, 소비자는 매번 "vpc는 뭐가 바뀌었지"를 확인해야 한다(monorepo lockstep versioning의 고전적 실패) |
 
-> ⛔ **버전 혼재(`vpc-v0.3.0` + `bastion-v0.1.0` + 훗날 `vpc-v1.0.0`)는 결함이 아니라 정보다.**
+> ⛔ **버전 혼재(`vpc-v0.3.0` + `workbench-v0.1.0` + 훗날 `vpc-v1.0.0`)는 결함이 아니라 정보다.**
 > 어느 모듈의 계약이 굳었고 어느 것이 아직인지를 **번호가 스스로 말한다.** Cloud Posse가
 > 모듈 fleet 전체에서 실제로 이렇게 운영한다. "보기 안 좋으니 맞추자"는 제안이 나오면
 > D-VER-ONE의 근거를 먼저 읽는다.

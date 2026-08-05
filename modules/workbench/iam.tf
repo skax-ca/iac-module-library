@@ -1,4 +1,4 @@
-# bastion IAM — 설계 docs/design/40-bastion.md §4.2 · §5 (D-BASTION-SEAM 1층)
+# workbench IAM — 설계 docs/design/40-workbench.md §4.2 · §5 (D-WORKBENCH-SEAM 1층)
 #
 # ⛔ 이 파일은 EKS 접근 3층 중 **1층(주체의 권한)만** 소유한다.
 #    2층(Access Entry)·3층(cluster SG ingress)은 eks-cluster 모듈이 소유한다(설계 §5.1) —
@@ -14,7 +14,7 @@
 resource "aws_iam_role" "this" {
   count = local.enabled ? 1 : 0
 
-  # 카탈로그 `iamr`. purpose 토큰이 곧 용도(bastion)다.
+  # 카탈로그 `iamr`. purpose 토큰이 곧 용도(workbench)다.
   name = local.role_name
 
   assume_role_policy = jsonencode({
@@ -31,7 +31,7 @@ resource "aws_iam_role" "this" {
   })
 }
 
-# SSM Session Manager의 전제(D-BASTION-ACCESS). Agent가 아웃바운드로 제어 평면에 연결하는 데
+# SSM Session Manager의 전제(D-WORKBENCH-ACCESS). Agent가 아웃바운드로 제어 평면에 연결하는 데
 # 필요한 최소 권한이며 **AWS 관리형**이다 — 이 계열 정책을 self-author하면 churn을 우리가 떠안는다.
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   count = local.enabled ? 1 : 0
@@ -46,8 +46,8 @@ data "aws_partition" "current" {}
 # ── EKS 1층 — eks:DescribeCluster (설계 §5) ───────────────────────────────────
 #
 # `aws eks update-kubeconfig`가 요구하는 유일한 API다. 클러스터 ARN으로 한정해
-# "이 bastion은 이 클러스터의 kubeconfig만 만들 수 있다"를 IAM으로 표현한다.
-# ⭐ Resource = "*" 였다면 bastion이 계정의 모든 클러스터에 kubeconfig를 만들 수 있다.
+# "이 workbench는 이 클러스터의 kubeconfig만 만들 수 있다"를 IAM으로 표현한다.
+# ⭐ Resource = "*" 였다면 workbench가 계정의 모든 클러스터에 kubeconfig를 만들 수 있다.
 resource "aws_iam_role_policy" "eks_describe" {
   count = local.eks_integration_enabled ? 1 : 0
 

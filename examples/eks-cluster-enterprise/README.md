@@ -16,23 +16,23 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | D-EKS-PROTECT — AWS API 차원 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.bastion` + **EKS 접근 3층 배선** | 설계 [40](../../docs/design/40-bastion.md) — private 클러스터를 조작할 유일한 지점 |
+| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 배선** | 설계 [40](../../docs/design/40-workbench.md) — private 클러스터를 조작할 유일한 지점 |
 
-### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선 (D-BASTION-SEAM)
+### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선 (D-WORKBENCH-SEAM)
 
 `endpoint_public_access = false`인 클러스터에 kubectl이 닿으려면 **세 층이 모두** 있어야 한다.
 소유가 두 모듈로 갈리는 기준은 **주체냐 대상이냐**다.
 
 | 층 | 무엇을 결정하나 | 빠뜨렸을 때 증상 | 소유 |
 |----|----------------|------------------|------|
-| ① `eks:DescribeCluster` | kubeconfig를 **만들 수 있는가** | `update-kubeconfig` 권한 오류 | `module.bastion` (자기 권한) |
+| ① `eks:DescribeCluster` | kubeconfig를 **만들 수 있는가** | `update-kubeconfig` 권한 오류 | `module.workbench` (자기 권한) |
 | ② Access Entry | 클러스터 **안에서** 무엇을 하는가 | `401 Unauthorized` | `module.eks` (`access_entries`) |
 | ③ cluster SG ingress 443 | apiserver에 **네트워크로 닿는가** | **`dial tcp …: i/o timeout`** | `module.eks` (`cluster_security_group_additional_rules`) |
 
 > 🔑 **증상의 계층이 다르다는 것이 진단의 단서다.** PoC는 ①②만 갖추고 timeout을 만났는데,
 > 인증 오류가 아니라 **타임아웃**이었다는 것이 "인증 계층에 닿지도 못했다"를 뜻했다.
 >
-> ⚠️ **`local.cluster_arn`을 지우지 말 것.** bastion은 클러스터 ARN을 받고 eks는 bastion role ARN을
+> ⚠️ **`local.cluster_arn`을 지우지 말 것.** workbench는 클러스터 ARN을 받고 eks는 workbench role ARN을
 > 받아 **양방향 참조**가 된다. ARN을 루트에서 합성해 끊는다 — `03 §3.1`의 1순위(결정적 네이밍,
 > 결합도 없음). `module.eks.cluster_arn`으로 바꾸면 **순환으로 plan이 죽는다**.
 
@@ -76,16 +76,16 @@ data "aws_subnets" "pod" {
 
 ```hcl
 source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.3.0"
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/bastion?ref=bastion-v0.1.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.1.0"
 ```
 
-⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'bastion-v*'`로
+⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로
 확인한다. 위 표의 태그가 낡은 채 복사되면 그대로 굳는데, 이 모듈은 실패 방식이 특히 나쁘다:
 `eks-cluster-v0.2.0`이 넣은 external-dns 가드가 빠지면 **문제 조합의 `plan`이 통과하고 `apply`가
 죽는다**(D-EXTDNS-ZONE). 릴리스 이력은 각 태그의 annotated 메시지(`git show eks-cluster-v0.3.0`)와
 [`docs/design/20-eks-module.md §4.1·§4.2`](../../docs/design/20-eks-module.md)에 있다.
 
-> 🔑 **두 모듈의 태그는 따로 움직인다.** `bastion`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
+> 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다 — 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
 > ([`05 §4`](../../docs/architecture/05-versioning-policy.md)).
 > ⚠️ 단 **3층 배선(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다 —
@@ -100,15 +100,15 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/bastio
 
 | 자리 | 지금 | 실환경 |
 |------|------|--------|
-| 🔴 **`bastion_ami_id`** | **자리표시자 `ami-00000000000000000`** | **조회한 실제 AMI ID.** 아래 **"bastion AMI"** 절 — 그대로 apply하면 즉시 실패한다(의도된 것) |
+| 🔴 **`workbench_ami_id`** | **자리표시자 `ami-00000000000000000`** | **조회한 실제 AMI ID.** 아래 **"workbench AMI"** 절 — 그대로 apply하면 즉시 실패한다(의도된 것) |
 | `external_dns_hosted_zone_arns` | 예제가 만든 `aws_route53_zone.internal.arn` | **운영 중인 zone의 ARN**. 아래 **"external-dns"** 절 참조 |
 | `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다(D-NODE-AMI-PIN) |
 | `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다 — 아래 **"addon 버전 고정"** 절(D-ADDON-VERSION-PIN-1). ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
 
-## bastion AMI — 핀의 소유자는 소비 루트다 (D-BASTION-AMI-PIN)
+## workbench AMI — 핀의 소유자는 소비 루트다 (D-WORKBENCH-AMI-PIN)
 
-`modules/bastion`의 `ami_id`에는 **기본값이 없다.** AMI ID는 리전 종속이라 재사용 자산의
+`modules/workbench`의 `ami_id`에는 **기본값이 없다.** AMI ID는 리전 종속이라 재사용 자산의
 기본값이 될 수 없기 때문이다 — `addon_version`과 같은 구조다(D-ADDON-VERSION-PIN-1).
 
 ```bash
@@ -122,7 +122,7 @@ aws ssm get-parameter --region ap-northeast-2 \
 ```
 
 ⛔ **조회한 값을 커밋한다. 조회를 코드에 넣지 않는다.** `resolve:ssm:` 이나 `most_recent = true`를
-쓰면 AWS가 새 AMI를 낼 때마다 **리뷰 없이 인스턴스가 재생성**된다. 업그레이드는 `bastion_ami_id`를
+쓰면 AWS가 새 AMI를 낼 때마다 **리뷰 없이 인스턴스가 재생성**된다. 업그레이드는 `workbench_ami_id`를
 bump하는 **명시적 커밋**으로만 하고, plan diff에서 재생성이 보이는 것을 확인한 뒤 apply한다.
 
 > 🔑 **자리표시자가 존재하지 않는 ID인 것은 의도된 선택이다.** 그대로 apply하면 즉시 실패해
@@ -133,11 +133,11 @@ bump하는 **명시적 커밋**으로만 하고, plan diff에서 재생성이 �
 않는다 — 검증하려면 AMI를 조회해야 하고 그건 핀의 취지와 충돌한다(40 §2.3).
 `ami_type`/`instance_types`를 함께 고쳐야 하는 노드 그룹과 같은 성격의 함정이다.
 
-## bastion 접속
+## workbench 접속
 
 ```bash
-# 인바운드 규칙 0개로 셸에 진입한다 — IAM 인증만으로 성립한다(D-BASTION-ACCESS)
-aws ssm start-session --target $(tofu output -raw bastion_instance_id) --region ap-northeast-2
+# 인바운드 규칙 0개로 셸에 진입한다 — IAM 인증만으로 성립한다(D-WORKBENCH-ACCESS)
+aws ssm start-session --target $(tofu output -raw workbench_instance_id) --region ap-northeast-2
 
 # 접속 후 (kubeconfig 는 user_data 가 /etc/kubernetes 에 전역 생성)
 kubectl get nodes
@@ -196,7 +196,7 @@ external_dns_hosted_zone_arns = [data.aws_route53_zone.this.arn]
 ## 운영상 알아야 할 것
 
 **private 클러스터의 조작 지점을 먼저 설계한다.** `endpoint_public_access = false`이므로 `kubectl`은
-VPC 내부(bastion·VPN·Direct Connect)에서만 도달한다. 이걸 정하지 않고 apply하면 **클러스터를 만들었는데
+VPC 내부(workbench·VPN·Direct Connect)에서만 도달한다. 이걸 정하지 않고 apply하면 **클러스터를 만들었는데
 만질 수 없는** 상태가 된다.
 
 **teardown은 2단계다.** `deletion_protection = true`인 상태에서는 파기되지 않는다 —

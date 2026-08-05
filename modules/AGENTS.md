@@ -11,7 +11,7 @@
 source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 ```
 
-**현재 비어 있다.** PoC 모듈(vpc·eks-cluster·bastion) 이식이 다음 작업이다(D-OSS-STACK §6-2).
+**현재 비어 있다.** PoC 모듈(vpc·eks-cluster·workbench) 이식이 다음 작업이다(D-OSS-STACK §6-2).
 
 ## Key Files
 아직 없음. 모듈 하나의 표준 구성:
@@ -30,7 +30,7 @@ source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=
 |-----------|---------|
 | (예정) `vpc/` | 스크래치 얇은 모듈, EKS-aware 태깅 (설계: `../docs/design/10-vpc-module.md`) |
 | (예정) `eks-cluster/` | `terraform-aws-modules/eks` wrapper(facade) (설계: `../docs/design/20-eks-module.md`) |
-| (예정) `bastion/` | SSM 기반 관리 호스트 (설계: `../docs/design/40-bastion.md`) |
+| (예정) `workbench/` | SSM 기반 관리 호스트 (설계: `../docs/design/40-workbench.md`) |
 
 ## For AI Agents
 

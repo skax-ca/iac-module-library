@@ -8,7 +8,7 @@
 >
 > **이 문서가 소유하지 않는 것**: 모듈 계약(→ [`20`](20-eks-module.md)) · 소비 repo 배포 경로
 > (→ [`50`](50-reference-consumer-repo.md)) · GitOps 부트스트랩 seam(→ [`21`](21-gitops-bootstrap-seam.md) **미결정**) ·
-> bastion/도달성(→ [`40`](40-bastion.md) — **2026-08-05 개정 완료, §3.4가 그 결론을 반영**).
+> workbench/도달성(→ [`40`](40-workbench.md) — **2026-08-05 개정 완료, §3.4가 그 결론을 반영**).
 >
 > ⛔ **이 문서는 `eks-cluster` 모듈의 계약을 바꾸지 않는다.** `.tf` 변경이 없다 —
 > [`20 §1`](20-eks-module.md)이 *"seam이 무엇으로 재결정되든 모듈이 지는 의무는 출력 계약뿐"*
@@ -266,11 +266,11 @@ mock provider는 AWS 카탈로그를 모른다. 런북이 유일한 방어선이
 
 ### 3.4 ✅ 도달성 — **`40` 개정으로 확정됨** (2026-08-05)
 
-> **결론: bastion(SSM 기반) 하나로 통일한다.** 설계 실물은 [`40-bastion.md`](40-bastion.md)이며
+> **결론: workbench(SSM 기반) 하나로 통일한다.** 설계 실물은 [`40-workbench.md`](40-workbench.md)이며
 > **상태표가 ✅ 개정 완료**로 바뀌었다([`../README.md`](../README.md)) — 이제 확정 설계로 인용할 수 있다.
 >
-> - **프로파일 B**: bastion에서 helm/kubectl을 **사람이** 실행한다(`D-BASTION-SCOPE`).
-> - **프로파일 A**: bastion에서 seed를 1회 수행한 뒤 pull로 넘어간다 — 단 **seed의 형태는 여전히
+> - **프로파일 B**: workbench에서 helm/kubectl을 **사람이** 실행한다(`D-WORKBENCH-SCOPE`).
+> - **프로파일 A**: workbench에서 seed를 1회 수행한 뒤 pull로 넘어간다 — 단 **seed의 형태는 여전히
 >   [`21`](21-gitops-bootstrap-seam.md) 소관**이다(미결정).
 > - ⭐ **40은 21과 무관하게 완결됐다.** 개정이 40에서 ArgoCD 종속부를 걷어냈기 때문이다(40 §0).
 >   21이 self-managed ArgoCD로 뒤집혀도 helm 실행 지점은 여전히 필요하므로 40은 흔들리지 않는다.
@@ -287,32 +287,32 @@ mock provider는 AWS 카탈로그를 모른다. 런북이 유일한 방어선이
 
 GitOps(pull)를 택하는 이유 자체가 *"엔드포인트 private 유지"* 였다([`01 §3.1`](../architecture/01-module-strategy.md)).
 프로파일 B에서 helm/kubectl을 돌리려면 **push 주체가 API에 도달**해야 하고, private endpoint면
-GitHub Actions의 공용 runner는 닿지 못한다. 후보는 self-hosted runner · bastion · public
+GitHub Actions의 공용 runner는 닿지 못한다. 후보는 self-hosted runner · workbench · public
 endpoint + CIDR 제한이며, 각각 비용과 노출이 다르다.
 
 ⛔ **이 결정을 이 문서가 내리지 않는다.** [`21`](21-gitops-bootstrap-seam.md)은 **미결정**,
-[`40`](40-bastion.md)은 **미개정**이다. 미결정 위에 확정을 쌓으면 CLAUDE.md의
+[`40`](40-workbench.md)은 **미개정**이다. 미결정 위에 확정을 쌓으면 CLAUDE.md의
 *"미개정 문서를 확정 설계로 인용 금지"* 를 이 문서가 스스로 어긴다.
 
-> ### 🧭 방향은 정해졌다 — **bastion** (2026-08-04, 사용자 결정). 실행은 `40` 개정에서.
+> ### 🧭 방향은 정해졌다 — **workbench** (2026-08-04, 사용자 결정). 실행은 `40` 개정에서.
 >
-> **도달 지점을 bastion 하나로 통일한다.** 프로파일 B는 bastion에서 helm/kubectl을 실행하고,
-> 프로파일 A는 bastion에서 seed를 1회 수행한 뒤 pull로 넘어간다.
+> **도달 지점을 workbench 하나로 통일한다.** 프로파일 B는 workbench에서 helm/kubectl을 실행하고,
+> 프로파일 A는 workbench에서 seed를 1회 수행한 뒤 pull로 넘어간다.
 >
 > 🔑 **이건 프로파일 B를 위한 타협이 아니다 — `40`이 이미 GitOps의 전제였다.**
-> 그 문서는 bastion을 **"GitOps seed 수행 지점"**(D-SEED-KUBECTL)으로 확정했고,
+> 그 문서는 workbench를 **"GitOps seed 수행 지점"**(D-SEED-KUBECTL)으로 확정했고,
 > [`20 §2.7`](20-eks-module.md)의 `argocd_endpoint_access`를 `private`으로 넘기려면
 > **VPC 내부에 조작 지점이 있어야 한다**고 적었다. 그리고 `40`은 **SSM 기반**이라
-> SSH 키·인바운드 SG·public IP가 필요 없다 — bastion의 관리 표면이 설계 단계에서 이미 작다.
+> SSH 키·인바운드 SG·public IP가 필요 없다 — workbench의 관리 표면이 설계 단계에서 이미 작다.
 >
 > **그래서 의존 순서는 `40` → `21`이다**(이 순서는 선택이 아니라 의존이다):
 > ```
-> 40 (bastion) ──┬─→ 프로파일 B 완성
+> 40 (workbench) ──┬─→ 프로파일 B 완성
 >                └─→ 21 (seed 수행 지점) ─→ 프로파일 A 완성
 > ```
-> ⭐ **`40` 하나만 끝나도 독립적으로 값이 난다.** 소비 repo가 지금 *"bastion이 아직 없어
+> ⭐ **`40` 하나만 끝나도 독립적으로 값이 난다.** 소비 repo가 지금 *"workbench가 아직 없어
 > private-only면 kubectl 도달 지점이 없다 — 그래서 public을 켠다"* 라는 주석과 함께
-> **public 엔드포인트를 열어 두고 있다.** bastion이 생기면 그 이유가 사라지고 닫을 수 있다.
+> **public 엔드포인트를 열어 두고 있다.** workbench가 생기면 그 이유가 사라지고 닫을 수 있다.
 >
 > ⚠️ **여전히 `40` 개정 전까지 확정 설계가 아니다.** 위는 방향이고, 리소스 구성·역할 범위·
 > 네이밍은 개정에서 정한다. 특히 **§4-2(자동화 수준)를 그때 함께 결정한다** — 나중에 붙이면
@@ -331,7 +331,7 @@ endpoint + CIDR 제한이며, 각각 비용과 노출이 다르다.
 
 ## 4. 열린 항목
 
-1. ~~**도달성 결정**~~ ✅ **해소(2026-08-05)** — [`40`](40-bastion.md) 개정 완료. bastion(SSM)으로 확정되고
+1. ~~**도달성 결정**~~ ✅ **해소(2026-08-05)** — [`40`](40-workbench.md) 개정 완료. workbench(SSM)으로 확정되고
    모듈 계약·소유 경계까지 정해졌다(§3.4). **남은 것은 `21`뿐이며, 그것은 도달성이 아니라 seed의 형태다.**
    ⚠️ **`21`의 개정은 번역이 아니라 재결정이다.** [`01 §3.3`](../architecture/01-module-strategy.md)이
    *"관리형 Capability는 IdC 필수·cross-region 계정 인스턴스·RETAIN 등 제약이 크고 **대안
@@ -340,9 +340,9 @@ endpoint + CIDR 제한이며, 각각 비용과 노출이 다르다.
      단 `awscc_eks_capability` **리소스 스키마는 착수 시 재조회**한다(`21`이 v1.93.0 기준이라 적어 뒀다).
    - 재결정의 입력은 `21`의 살아 있는 실측 4종(IdC 계정 인스턴스 다중계정 미지원 · Access Entry
      `kubernetesGroups` 공백 · `AmazonEKSArgoCDClusterPolicy`의 read 범위 · RETAIN 유일값)이다.
-   - ⚠️ self-managed ArgoCD를 택해도 **helm을 돌릴 지점이 필요**하다 → 역시 bastion. 어느 쪽이든 `40`이 먼저다.
-2. ~~**프로파일 B의 배포 자동화 수준**~~ ✅ **해소(2026-08-05, `D-BASTION-SCOPE`)** — 후보 (b) 채택.
-   **helm은 사람이 bastion에서 실행한다.** self-hosted runner 겸용은 기각했다([`40 §2.4`](40-bastion.md)에
+   - ⚠️ self-managed ArgoCD를 택해도 **helm을 돌릴 지점이 필요**하다 → 역시 workbench. 어느 쪽이든 `40`이 먼저다.
+2. ~~**프로파일 B의 배포 자동화 수준**~~ ✅ **해소(2026-08-05, `D-WORKBENCH-SCOPE`)** — 후보 (b) 채택.
+   **helm은 사람이 workbench에서 실행한다.** self-hosted runner 겸용은 기각했다([`40 §2.4`](40-workbench.md)에
    축별 대가 비교표).
    - 🔴 **그 대가를 여기 명시한다**: 프로파일 B의 helm 경로에는 [`50`](50-reference-consumer-repo.md)의
      plan artifact 규약(*"승인한 계획을 그대로 apply한다"*)에 **대응하는 장치가 없다.**

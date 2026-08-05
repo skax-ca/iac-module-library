@@ -24,7 +24,7 @@ PoC(Terraform 1.15 + HCP Terraform) 전제와 실증 서술이 그대로 남아 
 | `21-gitops-bootstrap-seam.md` | 20에서 분리한 ArgoCD seam(§2.7·§2.8) | 🔴 **미결정** — "미개정"과 다르다. 판단 자체가 이 repo의 것이 아니다(`../architecture/01 §3.3`) |
 | `22-day2-operations.md` | 업그레이드 런북 + Day 2 운영 프로파일(D-DAY2-PROFILE) | ✅ 신규 작성 |
 | `30-gitops-repo.md` | GitOps 저장소 구조 — App-of-Apps + ApplicationSet, AppProject 테넌시, addon 3분류 | ⚠️ 미개정 |
-| `40-bastion.md` | SSM 기반 bastion **모듈** — 도달 지점, `bastion_enabled` kill switch, EKS 접근 3층 소유 분할(D-BASTION-SEAM) | ✅ 개정 완료 (2026-08-05) |
+| `40-workbench.md` | SSM 기반 workbench **모듈** — 도달 지점, `workbench_enabled` kill switch, EKS 접근 3층 소유 분할(D-WORKBENCH-SEAM) | ✅ 개정 완료 (2026-08-05) |
 | `50-reference-consumer-repo.md` | 소비 경로 규약(D-CONSUME) — 이 repo에서 새로 쓴 설계 | ✅ 신규 작성 |
 
 ## For AI Agents

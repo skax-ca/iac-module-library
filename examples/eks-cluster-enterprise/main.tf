@@ -17,11 +17,11 @@ locals {
   cluster_serial  = "01"
   cluster_name    = "eks-${var.workload}-${var.env}-${var.region_code}-${local.cluster_purpose}-${local.cluster_serial}"
 
-  # ⭐ **이 한 줄이 bastion ↔ eks 순환을 끊는다**(40 §5.1-1).
-  #    bastion 은 eks_cluster_arn 을 받고, eks 는 access_entries 에 bastion role ARN 을 받는다 —
+  # ⭐ **이 한 줄이 workbench ↔ eks 순환을 끊는다**(40 §5.1-1).
+  #    workbench 은 eks_cluster_arn 을 받고, eks 는 access_entries 에 workbench role ARN 을 받는다 —
   #    양쪽이 서로의 출력을 참조하면 순환이다. 클러스터 ARN 은 이름·리전·계정으로 **유도되므로**
   #    루트가 직접 합성한다: 03 §3.1의 1순위("결정적 네이밍으로 값 구성", 결합도 없음).
-  #    ⇒ bastion 은 local 만 참조하고, eks 만 module.bastion 을 참조한다. 단방향.
+  #    ⇒ workbench 은 local 만 참조하고, eks 만 module.workbench 을 참조한다. 단방향.
   cluster_arn = "arn:${data.aws_partition.current.partition}:eks:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${local.cluster_name}"
 }
 
@@ -71,11 +71,11 @@ module "vpc" {
       cidrs = ["100.64.0.0/18", "100.64.64.0/18"]
     }
 
-    # 관리 호스트(bastion) 전용. 40 §2.2 — 노드 서브넷과 **분리**하는 이유는 둘이다:
+    # 관리 호스트(workbench) 전용. 40 §2.2 — 노드 서브넷과 **분리**하는 이유는 둘이다:
     #   ① node-uniq 에는 karpenter.sh/discovery 태그가 있어 Karpenter 가 그 대역에 노드를 띄운다.
-    #      bastion 을 섞으면 "이 대역은 무엇의 것인가"가 흐려진다.
+    #      workbench 을 섞으면 "이 대역은 무엇의 것인가"가 흐려진다.
     #   ② 온프레미스 방화벽·보안 그룹 정책을 대역 단위로 쓰는 조직에서 관리 접근을 분리해 기술한다.
-    # /24 하나면 bastion 1대에 충분하다 — 넓게 잡을 이유가 없다.
+    # /24 하나면 workbench 1대에 충분하다 — 넓게 잡을 이유가 없다.
     "vm-uniq" = {
       type  = "private"
       cidrs = ["10.0.20.0/24", "10.0.21.0/24"]
@@ -119,15 +119,15 @@ resource "aws_route53_zone" "internal" {
   }
 }
 
-# ── bastion — private 클러스터의 도달 지점 (설계 40) ──────────────────────────
+# ── workbench — private 클러스터의 도달 지점 (설계 40) ──────────────────────────
 #
 # ⭐ **이 예제가 endpoint_public_access = false 이면서 조작 지점이 없던 상태를 닫는다.**
 #    아래 eks 블록의 주석이 "조작 지점을 먼저 설계하지 않으면 apply 후 클러스터를 만질 수 없다"고
 #    적고 있었는데, 2026-08-05 40 개정 전까지 실제로 그 상태였다.
 #
-# ⚠️ bastion 은 eks 모듈의 **출력을 참조하지 않는다** — local.cluster_arn(위 순환 해소)만 쓴다.
-module "bastion" {
-  source = "../../modules/bastion"
+# ⚠️ workbench 은 eks 모듈의 **출력을 참조하지 않는다** — local.cluster_arn(위 순환 해소)만 쓴다.
+module "workbench" {
+  source = "../../modules/workbench"
 
   naming = {
     workload    = var.workload
@@ -136,19 +136,19 @@ module "bastion" {
   }
 
   vpc_id = module.vpc.vpc_id
-  # 관리 호스트 전용 대역의 첫 AZ. bastion 은 1대이므로 AZ 분산이 의미 없다(40 §2.2).
+  # 관리 호스트 전용 대역의 첫 AZ. workbench 은 1대이므로 AZ 분산이 의미 없다(40 §2.2).
   subnet_id = module.vpc.subnet_ids_by_group["vm-uniq"][0]
 
-  # ⛔ D-BASTION-AMI-PIN — 모듈에 기본값이 **없다**. 리전 종속이라 재사용 자산의 기본값이 될 수 없다.
+  # ⛔ D-WORKBENCH-AMI-PIN — 모듈에 기본값이 **없다**. 리전 종속이라 재사용 자산의 기본값이 될 수 없다.
   #    변수 설명의 조회 명령으로 실제 값을 얻어 커밋한다.
-  ami_id = var.bastion_ami_id
+  ami_id = var.workbench_ami_id
 
   # 도구는 명시 핀. kubectl 은 클러스터 마이너와 맞춘다(1.35 → v1.35.x).
   kubectl_version = "v1.35.7"
   # 프로파일 B(helm 직접 운영, 22 §3)를 쓰는 고객사는 여기서 helm 을 받는다.
   helm_version = "v3.16.4"
 
-  # EKS 접근 3층 중 **1층만** 여기서 성립한다(D-BASTION-SEAM).
+  # EKS 접근 3층 중 **1층만** 여기서 성립한다(D-WORKBENCH-SEAM).
   # 2층(Access Entry)·3층(SG ingress)은 아래 eks 블록이 소유한다.
   eks_cluster_name = local.cluster_name
   eks_cluster_arn  = local.cluster_arn
@@ -173,16 +173,16 @@ module "eks" {
   pod_subnet_ids           = module.vpc.subnet_ids_by_group["pod-dup"]
 
   # ── 엔드포인트 — GitOps(pull) 전제이므로 private ────────────────────────────
-  # ⚠️ private 클러스터의 kubectl은 VPC 내부(bastion·VPN·DX)에서만 도달한다.
+  # ⚠️ private 클러스터의 kubectl은 VPC 내부(workbench·VPN·DX)에서만 도달한다.
   #    조작 지점을 먼저 설계하지 않으면 apply 후 클러스터를 만질 수 없다.
-  #    ✅ 위 module.bastion 이 그 지점이다(설계 40). 아래 3층 배선이 도달을 완성한다.
+  #    ✅ 위 module.workbench 이 그 지점이다(설계 40). 아래 3층 배선이 도달을 완성한다.
   endpoint_private_access = true
   endpoint_public_access  = false
 
-  # ── EKS 접근 3층 중 2·3층 — D-BASTION-SEAM (설계 40 §5) ─────────────────────
+  # ── EKS 접근 3층 중 2·3층 — D-WORKBENCH-SEAM (설계 40 §5) ─────────────────────
   #
-  # 🔑 소유가 갈리는 기준은 **주체냐 대상이냐**다. 1층(eks:DescribeCluster)은 bastion 자신의
-  #    권한이라 bastion 모듈이, 2·3층은 "클러스터가 누구를 받아들이는가"라 이 모듈이 소유한다.
+  # 🔑 소유가 갈리는 기준은 **주체냐 대상이냐**다. 1층(eks:DescribeCluster)은 workbench 자신의
+  #    권한이라 workbench 모듈이, 2·3층은 "클러스터가 누구를 받아들이는가"라 이 모듈이 소유한다.
   #    03 §2.3이 *"소유 모듈이 허용 소스를 변수로 파라미터화해 owner 가 rule 을 생성한다"* 고 정했다.
   #
   # ⚠️ 세 층이 **모두** 있어야 kubectl 이 닿는다. 빠뜨렸을 때의 증상이 층마다 다르다:
@@ -194,8 +194,8 @@ module "eks" {
   # ⚠️ ClusterAdmin 은 넓다. SSM 접근 통제가 곧 클러스터 보안이 된다(40 §10-1 세션 로깅).
   #    프로파일 B 의 helm 이 실제로 요구하는 최소 권한은 첫 수행 후 좁힌다(40 §10-3).
   access_entries = {
-    bastion = {
-      principal_arn = module.bastion.bastion_iam_role_arn
+    workbench = {
+      principal_arn = module.workbench.workbench_iam_role_arn
       policy_associations = {
         admin = {
           policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
@@ -207,11 +207,11 @@ module "eks" {
 
   # 3층 — apiserver 에 네트워크로 닿는가.
   cluster_security_group_additional_rules = {
-    bastion_kubectl = {
+    workbench_kubectl = {
       from_port                = 443
       to_port                  = 443
-      description              = "kubectl/helm from bastion"
-      source_security_group_id = module.bastion.bastion_security_group_id
+      description              = "kubectl/helm from workbench"
+      source_security_group_id = module.workbench.workbench_security_group_id
     }
   }
 

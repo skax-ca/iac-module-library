@@ -1,4 +1,4 @@
-# 계약 검증 — 설계 docs/design/40-bastion.md §7.1 (T-1 ~ T-8)
+# 계약 검증 — 설계 docs/design/40-workbench.md §7.1 (T-1 ~ T-8)
 #
 # ⚠️ 이 파일이 계약의 **유일한 검출 지점**이다. 교차변수 validation은 validate가 아니라 plan 시점에
 #    평가되므로, examples를 validate까지만 도는 규약으로는 §4.1의 가드가 전혀 잡히지 않는다.
@@ -7,7 +7,7 @@
 #    여기서 증명하는 것은 "계획이 계약대로 나오는가"까지다.
 #
 # provider 모킹: command = plan도 data source를 실제 조회한다. 이 repo는 CI에 자격증명이 없으므로
-# 모킹 없이는 plan이 죽는다. bastion은 upstream 모듈을 감싸지 않는 스크래치 모듈이라
+# 모킹 없이는 plan이 죽는다. workbench는 upstream 모듈을 감싸지 않는 스크래치 모듈이라
 # eks-cluster가 겪은 override_module 문제(중첩 모듈 입력 표현식)가 없다 — 검증이 훨씬 직접적이다.
 
 mock_provider "aws" {
@@ -46,23 +46,23 @@ run "naming_contract" {
   command = plan
 
   assert {
-    condition     = aws_instance.this[0].tags["Name"] == "ec2-acme-prd-an2-bastion-01"
+    condition     = aws_instance.this[0].tags["Name"] == "ec2-acme-prd-an2-workbench-01"
     error_message = "인스턴스 Name 태그가 규약과 다르다: ${aws_instance.this[0].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_security_group.this[0].tags["Name"] == "sgr-acme-prd-an2-bastion-01"
+    condition     = aws_security_group.this[0].tags["Name"] == "sgr-acme-prd-an2-workbench-01"
     error_message = "SG Name 태그가 규약과 다르다: ${aws_security_group.this[0].tags["Name"]}"
   }
 
   assert {
     # SG는 이름이 곧 식별자인 제약 리소스다(02 §1.5) — 태그와 name 인자가 함께 맞아야 한다.
-    condition     = aws_security_group.this[0].name == "sgr-acme-prd-an2-bastion-01"
+    condition     = aws_security_group.this[0].name == "sgr-acme-prd-an2-workbench-01"
     error_message = "SG name 인자가 Name 태그와 다르다: ${aws_security_group.this[0].name}"
   }
 
   assert {
-    condition     = aws_iam_role.this[0].name == "iamr-acme-prd-an2-bastion-01"
+    condition     = aws_iam_role.this[0].name == "iamr-acme-prd-an2-workbench-01"
     error_message = "IAM role 이름이 규약과 다르다: ${aws_iam_role.this[0].name}"
   }
 
@@ -74,12 +74,12 @@ run "naming_contract" {
 
   assert {
     # 볼륨 태그는 root_block_device.tags가 아니라 volume_tags로 붙인다(SCP·ABAC 대응, main.tf 주석).
-    condition     = aws_instance.this[0].volume_tags["Name"] == "vol-acme-prd-an2-bastion-01"
+    condition     = aws_instance.this[0].volume_tags["Name"] == "vol-acme-prd-an2-workbench-01"
     error_message = "볼륨 Name 태그가 규약과 다르다: ${aws_instance.this[0].volume_tags["Name"]}"
   }
 }
 
-# ── T-4 — 인바운드 0 (D-BASTION-ACCESS의 실물) ────────────────────────────────
+# ── T-4 — 인바운드 0 (D-WORKBENCH-ACCESS의 실물) ────────────────────────────────
 #
 # ⭐ 이 모듈의 존재 이유에 가장 가까운 테스트다. ingress 규칙이 하나라도 생기면 SSM 전용이라는
 #    전제가 깨지고, "경계를 IAM 하나로 수렴시킨다"는 §1.1의 논증이 무효가 된다.
@@ -146,42 +146,42 @@ run "hardening_contract" {
 #       이 둘의 회귀 방지는 코드 리뷰와 설계 §4.2의 하드닝 목록에 남는다.
 #       (공인 IP는 추가로 서브넷의 map_public_ip_on_launch에도 달려 있어 모듈 단독 판정이 애초에 불가능하다.)
 
-# ── T-3 — kill switch (D-BASTION-LIFECYCLE) ───────────────────────────────────
+# ── T-3 — kill switch (D-WORKBENCH-LIFECYCLE) ───────────────────────────────────
 run "kill_switch_disables_everything" {
   command = plan
 
   variables {
-    bastion_enabled = false
+    workbench_enabled = false
   }
 
   assert {
     condition     = length(aws_instance.this) == 0
-    error_message = "bastion_enabled = false인데 인스턴스가 계획됐다."
+    error_message = "workbench_enabled = false인데 인스턴스가 계획됐다."
   }
 
   assert {
     condition     = length(aws_security_group.this) == 0
-    error_message = "bastion_enabled = false인데 SG가 계획됐다."
+    error_message = "workbench_enabled = false인데 SG가 계획됐다."
   }
 
   assert {
     condition     = length(aws_vpc_security_group_egress_rule.https) == 0
-    error_message = "bastion_enabled = false인데 egress 규칙이 계획됐다."
+    error_message = "workbench_enabled = false인데 egress 규칙이 계획됐다."
   }
 
   assert {
     condition     = length(aws_iam_role.this) == 0 && length(aws_iam_instance_profile.this) == 0
-    error_message = "bastion_enabled = false인데 IAM 리소스가 계획됐다."
+    error_message = "workbench_enabled = false인데 IAM 리소스가 계획됐다."
   }
 
   assert {
     # 출력이 null이어야 소비 루트가 try() 없이 eks-cluster에 그대로 넘겨도 깨지지 않는다(설계 §5.1).
-    condition     = output.bastion_instance_id == null && output.bastion_security_group_id == null && output.bastion_iam_role_arn == null
+    condition     = output.workbench_instance_id == null && output.workbench_security_group_id == null && output.workbench_iam_role_arn == null
     error_message = "kill switch 상태에서 출력이 null이 아니다 — 소비 루트의 조립이 깨진다."
   }
 }
 
-# ── T-6 — EKS 연동 양성 (D-BASTION-SEAM 1층) ──────────────────────────────────
+# ── T-6 — EKS 연동 양성 (D-WORKBENCH-SEAM 1층) ──────────────────────────────────
 run "eks_integration_creates_scoped_policy" {
   command = plan
 
@@ -198,13 +198,13 @@ run "eks_integration_creates_scoped_policy" {
 
   assert {
     # 종속 객체 이름은 부모(role) 이름을 상속한다.
-    condition     = aws_iam_role_policy.eks_describe[0].name == "iamr-acme-prd-an2-bastion-01-eks-policy"
+    condition     = aws_iam_role_policy.eks_describe[0].name == "iamr-acme-prd-an2-workbench-01-eks-policy"
     error_message = "인라인 정책 이름이 부모 role 이름을 상속하지 않았다: ${aws_iam_role_policy.eks_describe[0].name}"
   }
 
   assert {
     # ⭐ 권한이 **그 클러스터 ARN으로 한정**되는 것이 1층의 핵심이다.
-    #    Resource = "*"였다면 bastion이 계정의 모든 클러스터 kubeconfig를 만들 수 있다.
+    #    Resource = "*"였다면 workbench가 계정의 모든 클러스터 kubeconfig를 만들 수 있다.
     condition     = strcontains(aws_iam_role_policy.eks_describe[0].policy, "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01")
     error_message = "인라인 정책이 클러스터 ARN으로 한정되지 않았다."
   }
@@ -257,14 +257,14 @@ run "reject_cluster_arn_without_name" {
 # ── T-8 — ⭐ kill switch × 가드 (파기 경로 보호) ──────────────────────────────
 #
 # D-EXTDNS-ZONE에서 배운 것의 회수 지점이다(설계 §7.1).
-# 가드에 `!var.bastion_enabled ||` 가 없으면 이 케이스가 **거부되고**, 그것은 곧
+# 가드에 `!var.workbench_enabled ||` 가 없으면 이 케이스가 **거부되고**, 그것은 곧
 # "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch를 뜻한다.
 run "guard_does_not_block_kill_switch" {
   command = plan
 
   variables {
-    bastion_enabled  = false
-    eks_cluster_name = "eks-acme-prd-an2-main-01"
+    workbench_enabled = false
+    eks_cluster_name  = "eks-acme-prd-an2-main-01"
     # ARN 없음 — 켜져 있었다면 위 T-7이 거부했을 조합이다
   }
 

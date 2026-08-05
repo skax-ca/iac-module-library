@@ -24,7 +24,7 @@
 > - **✅ D-EXTDNS-ZONE 해소**(2026-08-05 = **`eks-cluster-v0.2.0`**, §4.2) — 2026-08-04 apply가
 >   발견한 조합(`enable_external_dns_iam = true` + zone ARN 비움)을 **교차변수 validation**으로
 >   plan에서 배제했다. §5.1-8 종결. 예제는 Route53 private zone을 직접 만들어 실효 형상이 됐다.
-> - **✅ D-BASTION-SEAM 3층 + D-TOFU-FLOOR**(2026-08-05 = **`eks-cluster-v0.3.0`**, §4.3) —
+> - **✅ D-WORKBENCH-SEAM 3층 + D-TOFU-FLOOR**(2026-08-05 = **`eks-cluster-v0.3.0`**, §4.3) —
 >   `cluster_security_group_additional_rules` 신설(§3.1)로 *"클러스터가 누구를 네트워크로
 >   받아들이는가"* 의 소유 지점을 이 모듈에 뒀다. §5.1-9 종결. `required_version` 하한도 함께
 >   `>= 1.9.0` → **`>= 1.12.0`** 으로 통일됐다(§3.3).
@@ -527,7 +527,7 @@ variable "cluster_addons" {
   default = {}                             # 빈 map = baseline 6종 상속
 }
 
-# ── 네트워크 도달 (D-BASTION-SEAM 3층 / 설계 40 §5) ────────────────────
+# ── 네트워크 도달 (D-WORKBENCH-SEAM 3층 / 설계 40 §5) ────────────────────
 # "클러스터가 누구를 네트워크로 받아들이는가" = 클러스터 쪽 결정 → 이 모듈이 소유한다(03 §2.3).
 variable "cluster_security_group_additional_rules" { type = any, default = {} }
 
@@ -548,14 +548,14 @@ variable "external_dns_hosted_zone_arns" { type = list(string), default = [] }  
 - ➕ `managed_node_groups.ami_type` — **D-NODE-ARCH**(2026-08-04). graviton 등 아키텍처 선택 지점.
   없으면 arm 인스턴스를 넣어도 AMI가 x86이라 노드가 부팅되지 않는다(계약에 결정 지점이 없던 빈틈)
 - ➕ `enable_alb_controller_iam`·`enable_external_dns_iam`·`external_dns_hosted_zone_arns` (§2.6a)
-- ➕ `cluster_security_group_additional_rules` — **D-BASTION-SEAM**(2026-08-05, `v0.3.0`).
+- ➕ `cluster_security_group_additional_rules` — **D-WORKBENCH-SEAM**(2026-08-05, `v0.3.0`).
   upstream v21의 `security_group_additional_rules`를 통과시킨다. **`cluster_` 접두는 의도적**이다 —
   node SG 쪽(`node_security_group_additional_rules`)과 이름으로 구분되지 않으면 규칙을 엉뚱한 SG에 붙인다.
   - 🔑 **또 하나의 "facade가 upstream을 가린" 사례**였다(→ `ami_type`/D-NODE-ARCH와 같은 형태).
     upstream엔 **처음부터 있었고** wrapper가 안 넘기고 있었을 뿐이다.
   - ⛔ **이 변수에는 `tofu test`를 만들지 않았다.** facade 한계로 하위 모듈에 넘어간 값을 볼 수 없어
     억지 assertion은 **자기 모킹 설정을 검증**하게 된다. 회귀 방지는 **예제가 실제로 소비하고
-    CI 게이트 ⑤(examples validate)가 도는 것**이다(같은 기준을 `bastion` tests 헤더에도 적었다).
+    CI 게이트 ⑤(examples validate)가 도는 것**이다(같은 기준을 `workbench` tests 헤더에도 적었다).
 - ➖ `enable_pod_identity` — **삭제**. upstream v21은 Pod Identity가 기본이고 이 변수가 없다.
   facade에 남기면 소비자에게 **끌 수 있다는 거짓 계약**을 노출한다(Task 20.1에서 실물 재확인).
 
@@ -602,7 +602,7 @@ output "external_dns_iam_role_arn" {}
 > 이 출력의 값은 **upstream 모듈이 만든 SG**이고(`vpc_config.security_group_ids`로 붙어 apiserver ENI에
 > 적용된다 = `cluster_security_group_additional_rules`의 대상), **EKS 서비스가 자동 생성하는 primary
 > cluster SG는 다른 것**이다(upstream `cluster_primary_security_group_id`, 이 모듈은 노출하지 않는다).
-> 🔑 **이름이 아니라 설명이 틀린 결함이라 계약 표에서는 보이지 않았다** — bastion 규칙을 어디에 붙일지
+> 🔑 **이름이 아니라 설명이 틀린 결함이라 계약 표에서는 보이지 않았다** — workbench 규칙을 어디에 붙일지
 > 판단하는 순간에야 드러났다. 출력 **설명도 계약의 일부**임을 보여주는 사례다(`01 §4` 출력 계약 안정성).
 
 > ⚠️ **함정 — upstream 출력의 fallback 값이 일관되지 않다**(2026-08-03 Task 20.1 확인).
@@ -1012,12 +1012,13 @@ condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.
 > ⚠️ 이 확인이 없었다면 예제는 **CI `validate`를 통과하고 고객사 plan에서 죽었을 것이다** —
 > `validate`는 교차변수 validation을 평가하지 않기 때문이다(이 문서가 반복해 경고하는 지점).
 
-### 4.3 릴리스 기록 — `eks-cluster-v0.3.0` (2026-08-05, D-BASTION-SEAM + D-TOFU-FLOOR)
+### 4.3 릴리스 기록 — `eks-cluster-v0.3.0` (2026-08-05, D-WORKBENCH-SEAM + D-TOFU-FLOOR)
 
-§5.1-9를 닫는 릴리스다. **`bastion-v0.1.0`과 같은 PR([#12](https://github.com/skax-ca/iac-module-library/pull/12),
+§5.1-9를 닫는 릴리스다. **`bastion-v0.1.0`(→ 2026-08-06 `workbench-v0.1.0`으로 대체, D-WORKBENCH-RENAME)과
+같은 PR([#12](https://github.com/skax-ca/iac-module-library/pull/12),
 머지 `417154b`)에서 나왔지만 태그는 따로 달았다** — 컴포넌트별 cadence 분리
 ([`../architecture/05 §4`](../architecture/05-versioning-policy.md))를 지키기 위해서다.
-설계 SSOT는 [`40 §5`](40-bastion.md)이고, 이 절은 **eks-cluster 계약이 어떻게 늘었는가**만 기록한다.
+설계 SSOT는 [`40 §5`](40-workbench.md)이고, 이 절은 **eks-cluster 계약이 어떻게 늘었는가**만 기록한다.
 
 **계약 변경 3건**
 
@@ -1035,14 +1036,14 @@ condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.
 
 facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock_resource`로 값을 강제해 assert하면
 **테스트가 자기 모킹 설정을 검증**하게 되므로 만들지 않았고, 대신 **한계를 `tests/plan.tftest.hcl`
-헤더에 적었다**(같은 판단을 `bastion` 하드닝 2종에서도 했다 — [`40 §5.1`](40-bastion.md)).
+헤더에 적었다**(같은 판단을 `workbench` 하드닝 2종에서도 했다 — [`40 §5.1`](40-workbench.md)).
 회귀 방지는 **예제가 실제로 이 변수를 소비하고 CI 게이트 ⑤(examples `validate`)가 도는 것**이다.
 
 | # | 게이트 항목 | 결과 |
 |---|------------|------|
 | 1 | `tofu fmt -recursive -check` | exit 0 |
 | 2 | `modules/eks-cluster`: `validate` + `test` | Success · **20 passed, 0 failed** |
-| 3 | `modules/bastion`: `validate` + `test` | Success · **10 passed, 0 failed** |
+| 3 | `modules/workbench`: `validate` + `test` | Success · **10 passed, 0 failed** |
 | 4 | `modules/vpc`: `test`(회귀) | **13 passed, 0 failed** |
 | 5 | `examples/*`: `validate` | 전부 Success |
 | 6 | `tflint --recursive` · `trivy config` | exit 0 · exit 0 |
@@ -1053,8 +1054,8 @@ facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock
 **예제가 이 릴리스의 실질적 검증 지점이다** — `examples/eks-cluster-enterprise`는
 `endpoint_public_access = false`이면서 **조작 지점이 없는 상태**였다. 이 릴리스가 그 미해결을 닫는다.
 
-> ⭐ **모듈 간 순환을 발견하고 결정적 네이밍으로 끊었다**([`40 §5.1-1`](40-bastion.md) 신설).
-> 소유를 3층으로 가르면 참조가 양방향이 된다 — bastion은 클러스터 ARN을, eks는 bastion role ARN을
+> ⭐ **모듈 간 순환을 발견하고 결정적 네이밍으로 끊었다**([`40 §5.1-1`](40-workbench.md) 신설).
+> 소유를 3층으로 가르면 참조가 양방향이 된다 — workbench는 클러스터 ARN을, eks는 workbench role ARN을
 > (`access_entries`) 원한다. 해법은 [`03 §3.1`](../architecture/03-dependencies.md) **1순위**:
 > 루트가 `local.cluster_arn`을 직접 합성해 **단방향**으로 만든다.
 > 🔑 **`03`의 조회 우선순위는 "느슨한 결합"만이 아니라 순환 해소 장치이기도 하다** —
@@ -1101,12 +1102,12 @@ facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock
    - ✅ **재개 조건도 함께 해소됐다**: 소비 repo가 dev hosted zone을 bootstrap해 `enable_external_dns_iam`을
      되켤 때, 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 apply 실패를
      반복하는데 이제는 plan에서 몇 초 만에 잡힌다.
-9. ~~🔴 **cluster SG 추가 규칙 통과 변수 — `D-BASTION-SEAM`이 낸 요구**~~
+9. ~~🔴 **cluster SG 추가 규칙 통과 변수 — `D-WORKBENCH-SEAM`이 낸 요구**~~
    ✅ **해소(2026-08-05, `eks-cluster-v0.3.0`, §4.3)** — 아래는 그때의 판단 기록이다
-   (설계 근거는 [`40 §5.2`](40-bastion.md)).
-   - **왜 이 모듈인가**: bastion → apiserver 443은 **클러스터가 누구를 받아들이는가**의 문제이고,
+   (설계 근거는 [`40 §5.2`](40-workbench.md)).
+   - **왜 이 모듈인가**: workbench → apiserver 443은 **클러스터가 누구를 받아들이는가**의 문제이고,
      [`03 §2.3`](../architecture/03-dependencies.md)이 *"소유 모듈이 허용 소스 목록을 변수로
-     파라미터화해 owner가 rule을 생성한다"* 고 이미 정했다. bastion 모듈이 남의 SG에 rule을 붙이면
+     파라미터화해 owner가 rule을 생성한다"* 고 이미 정했다. workbench 모듈이 남의 SG에 rule을 붙이면
      소유자가 쪼개진다.
    - 🔑 **또 하나의 "facade가 upstream을 가린" 사례다.** upstream v21에 `security_group_additional_rules`가
      **처음부터 있다**(`source_security_group_id` 지원). 우리 wrapper가 안 넘기고 있을 뿐 —
@@ -1118,7 +1119,7 @@ facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock
      규칙을 어디에 붙일지 판단할 때 정확히 오도하는 지점이다.
    - ✅ 경로 성립 확인: upstream은 자신이 만든 SG를 `vpc_config.security_group_ids`에 넣으므로
      **apiserver ENI에 적용**된다. ⚠️ 단 그 규칙을 **구형 `aws_security_group_rule`** 로 만든다 —
-     `03 §2.1`이 신규 코드에서 금지한 리소스이나 **upstream 내부라 통제 밖**이다([`40 §10-4`](40-bastion.md)).
+     `03 §2.1`이 신규 코드에서 금지한 리소스이나 **upstream 내부라 통제 밖**이다([`40 §10-4`](40-workbench.md)).
    - ⛔ **`v0.2.0` 태그를 옮기지 않는다** — 이미 소비자가 apply까지 마쳤다.
    - 🔗 **`v0.3.0`에 함께 실리는 것**: `required_version` 하한 `>= 1.9.0` → **`>= 1.12.0`**
      (D-TOFU-FLOOR, §3.3 상자). 소비 루트가 이미 `>= 1.12.0`이라 **소비자 영향은 없다**.

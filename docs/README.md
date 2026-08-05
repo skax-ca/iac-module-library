@@ -50,7 +50,7 @@
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-04 신규 — **D-DAY2-PROFILE**, 업그레이드 런북 + 운영 프로파일) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
-| **40** | [40-bastion.md](design/40-bastion.md) | ✅ (2026-08-05 개정 — **D-BASTION-MODULE**(인라인 철회) · **D-BASTION-SCOPE** · **D-BASTION-SEAM**) |
+| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-05 개정 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM**) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 
 > ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30)는 *판단은 섰으나
@@ -67,6 +67,8 @@
 > ✅ 파급 처리 완료: `eks-cluster` 계약이 늘어났다(40 §5.2 — cluster SG 추가 규칙 통과).
 > **`bastion-v0.1.0` · `eks-cluster-v0.3.0` 발행 완료**(2026-08-05, PR #12 `417154b` · [20 §4.3](design/20-eks-module.md)).
 > ⭐ **한 PR에 태그를 둘 달았다** — 컴포넌트별 cadence 분리(`architecture/05 §4`)를 릴리스 단위로 지킨 것이다.
+> ⚠️ **`bastion-v0.1.0`은 2026-08-06에 `workbench-v0.1.0`으로 대체·삭제됐다**(D-WORKBENCH-RENAME,
+> [40 §2.0](design/40-workbench.md)). 위 날짜의 이름은 **그때의 사실**이므로 고치지 않는다.
 
 > ⚠️ **50은 승계 문서가 아니라 이 repo에서 새로 쓴 설계다.** 모듈이 아니라 **소비 경로**를 다루므로
 > `design/`에 있으면서도 다른 문서들과 성격이 다르다 — 산출물은 `.tf`가 아니라 별도 repo

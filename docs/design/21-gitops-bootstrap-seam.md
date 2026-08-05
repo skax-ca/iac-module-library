@@ -28,7 +28,7 @@
 
 ### 절 번호를 §2.7·§2.8로 유지하는 이유
 
-[`30-gitops-repo.md`](30-gitops-repo.md)와 [`40-bastion.md`](40-bastion.md)가 이 내용을
+[`30-gitops-repo.md`](30-gitops-repo.md)와 [`40-workbench.md`](40-workbench.md)가 이 내용을
 **"20 §2.7"·"20 §2.8"로 20곳 넘게 참조**한다. 두 문서 모두 ⚠️ 미개정이라 이번 개정에서 손대지 않으므로,
 번호를 바꾸면 그 참조가 전부 끊긴다. **번호는 구 20 문서의 것을 보존**하고, 20에는 이 문서를 가리키는
 포인터만 남겼다. 30·40을 개정할 때 참조를 `21 §2.7` 형태로 함께 정리한다.
@@ -225,7 +225,7 @@ Secret)와 addon 팬아웃이 **부재**하다. 무엇을 어떻게 확장하는
 
 > **⭐⭐ 2026-07-24 seed 실행 실증 — 예측 정정 + D-ARGOCD-CLUSTER-READ (열린 항목 신설)**
 >
-> bastion kubectl로 seed 3종을 실제 apply(sha256 바이트 동일 확인 후)하고 root App 상태를 조회한 결과,
+> workbench kubectl로 seed 3종을 실제 apply(sha256 바이트 동일 확인 후)하고 root App 상태를 조회한 결과,
 > **위 "addon 증분에서 터진다"는 예측이 틀렸다.** 벽은 addon(쓰기)이 아니라 **cluster 등록 즉시(읽기)**
 > 발현됐다:
 >
@@ -318,7 +318,7 @@ Secret)와 addon 팬아웃이 **부재**하다. 무엇을 어떻게 확장하는
 > | 안 | 방식 | 스코프 | 평가 |
 > |---|---|---|---|
 > | **✅ A1** | `AmazonEKSClusterAdminPolicy` association | cluster | 사전정의 유일 커버·TF 1줄·GitOps 소유 온전. 과대권한(`*/*/*` write) |
-> | A2 | `EKSEditPolicy`@kube-system + cluster 스코프 리소스는 Terraform/bastion 선설치(helm `rbac.create=false`) | ns | 최소권한이나 GitOps 소유 분절·CRD 버전 드리프트를 TF가 떠안음 |
+> | A2 | `EKSEditPolicy`@kube-system + cluster 스코프 리소스는 Terraform/workbench 선설치(helm `rbac.create=false`) | ns | 최소권한이나 GitOps 소유 분절·CRD 버전 드리프트를 TF가 떠안음 |
 >
 > **A1 채택 사유(PoC)**: read 선례와 대칭이고 GitOps 소유를 분절하지 않는다. 과대권한은 PoC 수용.
 >
@@ -386,7 +386,7 @@ cluster Secret이 GitOps 소유여도, **그 Secret들을 담은 저장소를 �
 
 > **⭐ 2026-07-24 V2·V3 재판정 — 후보 (1) 기각, (3) 채택 (D-SEED-KUBECTL)**
 >
-> 위 우선순위는 **"apiserver에 도달할 수 없다"는 전제** 위에 세워졌다. 40-bastion(2026-07-23 배포)이
+> 위 우선순위는 **"apiserver에 도달할 수 없다"는 전제** 위에 세워졌다. 40-workbench(2026-07-23 배포)이
 > 그 전제를 없앴다 — 전제가 바뀌었으므로 결론도 바뀐다. 순위가 **역전**된다.
 >
 > **V2 확정 — kubectl 경로가 정식 경로다**(공식 문서 근거):
@@ -399,24 +399,24 @@ cluster Secret이 GitOps 소유여도, **그 Secret들을 담은 저장소를 �
 > **후보 (1)(ArgoCD API/CLI) 기각 — 인증이 UI에 종속**: 관리형 Capability의 CLI 인증은 `--sso`가 아니라
 > **JWT 토큰**뿐이고, 발급 경로가 둘 다 UI를 선행 요구한다 — ① AppProject role JWT(UI Settings →
 > Projects → Roles → JWT Tokens), ② admin account token(동시 5개·만료 12시간 권장). private 전환 후
-> UI는 bastion 포트포워딩 없이 도달 불가(40 §9-3)이므로 **"UI를 보려면 seed가 필요한데 seed하려면
+> UI는 workbench 포트포워딩 없이 도달 불가(40 §9-3)이므로 **"UI를 보려면 seed가 필요한데 seed하려면
 > UI가 필요한"** 새 치킨-에그가 생긴다. 게다가 토큰 발급은 자격증명 생성이라 승인 대상이다(40 §9-4).
 >
-> **채택 (3) 수동 kubectl 런북 — 다만 "수동"의 성격이 다르다**: bastion은 임시방편이 아니라 설계된
+> **채택 (3) 수동 kubectl 런북 — 다만 "수동"의 성격이 다르다**: workbench는 임시방편이 아니라 설계된
 > 상시 관리 지점이고(40 §1), IAM(Access Entry)만으로 인증된다 — ArgoCD 자체 인증 체계(IdC→UI→JWT)를
 > **통째로 우회**한다. 신규 자격증명이 생기지 않는 것이 이 경로의 가장 큰 이점이다.
 >
 > **V3 무의미화**: V3는 "TFC 러너 → 대상 도달성"을 묻는다. seed 수행자가 TFC 러너가 아니라
-> **bastion(사람)** 으로 확정되었으므로 이 게이트는 성립하지 않는다. Cloud Agent 도입 검토도 함께 종결한다.
+> **workbench(사람)** 으로 확정되었으므로 이 게이트는 성립하지 않는다. Cloud Agent 도입 검토도 함께 종결한다.
 > 후보 (2)(1회성 kubernetes provider)는 §2.7 provider 격리를 되살려야 하는데, 그 예외를 허용할 이유가
 > 사라졌으므로 **함께 기각**한다 — 위 "provider 격리 문장 정정"의 예외 조항은 발동되지 않는다.
 >
-> **seed의 자기소멸 원칙(중요)**: bastion이 손으로 apply하는 매니페스트는 **GitOps 저장소에 있는 것과
+> **seed의 자기소멸 원칙(중요)**: workbench가 손으로 apply하는 매니페스트는 **GitOps 저장소에 있는 것과
 > 바이트 단위로 동일**해야 한다. 그래야 root App이 첫 sync에서 그것을 자기 소유로 흡수(adopt)하고
 > 즉시 no-op이 된다. seed는 저장소 콘텐츠의 **사본**이지 별개 아티팩트가 아니다 — 이 원칙이 깨지면
 > seed 산출물이 영구 드리프트로 남는다. 상세 절차는 [`30-gitops-repo.md §4`](30-gitops-repo.md).
 >
-> **⭐ 2026-07-24 실측 — 읽기 경로 확인(가정의 절반 실증)**: bastion kubectl로 hub `argocd` 네임스페이스를
+> **⭐ 2026-07-24 실측 — 읽기 경로 확인(가정의 절반 실증)**: workbench kubectl로 hub `argocd` 네임스페이스를
 > 조회한 결과 —
 > - CRD 3종(`applications`·`applicationsets`·`appprojects`)이 **클러스터에 설치**되어 있다.
 > - `default` AppProject가 **CR로 존재**한다(생성 시각 = capability 생성 시각).

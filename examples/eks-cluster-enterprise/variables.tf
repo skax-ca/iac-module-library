@@ -32,9 +32,9 @@ variable "repository" {
   default     = "skax-ca/iac-module-library"
 }
 
-variable "bastion_ami_id" {
+variable "workbench_ami_id" {
   description = <<-EOT
-    bastion 이 쓸 AMI ID(D-BASTION-AMI-PIN — 모듈에는 기본값이 없다).
+    workbench 이 쓸 AMI ID(D-WORKBENCH-AMI-PIN — 모듈에는 기본값이 없다).
 
     ⛔ **아래 기본값은 자리표시자다. 반드시 조회한 값으로 바꾼다.**
       aws ssm get-parameter --region <region> \

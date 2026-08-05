@@ -313,7 +313,7 @@ variable "access_entries" {
 
 variable "cluster_security_group_additional_rules" {
   description = <<-EOT
-    cluster SG에 추가할 규칙. **D-BASTION-SEAM 3층**의 소유 지점이다(설계 40 §5).
+    cluster SG에 추가할 규칙. **D-WORKBENCH-SEAM 3층**의 소유 지점이다(설계 40 §5).
 
     "클러스터가 누구를 네트워크로 받아들이는가"는 클러스터 쪽 결정이므로 이 모듈이 소유한다 —
     03 §2.3이 *"소유 모듈이 허용 소스 목록을 변수로 파라미터화해 owner가 rule을 생성한다"* 고
@@ -323,9 +323,9 @@ variable "cluster_security_group_additional_rules" {
       { <키> = { from_port, to_port, protocol = "tcp", type = "ingress",
                  description, source_security_group_id | cidr_blocks | source_node_security_group } }
 
-    예 — bastion 에서 apiserver 443:
-      { bastion = { from_port = 443, to_port = 443, description = "kubectl from bastion",
-                    source_security_group_id = module.bastion.bastion_security_group_id } }
+    예 — workbench 에서 apiserver 443:
+      { workbench = { from_port = 443, to_port = 443, description = "kubectl from workbench",
+                    source_security_group_id = module.workbench.workbench_security_group_id } }
 
     ⚠️ 이 규칙이 붙는 SG는 **upstream이 만든 cluster SG**이며 EKS가 자동 생성하는
        primary cluster SG와 다르다. 전자가 vpc_config.security_group_ids 로 클러스터에 붙어

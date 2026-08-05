@@ -14,8 +14,8 @@
 
 
 > 2026-07-20 신설, 2026-07-20 개정(3계층 소유 모델·addon 3분류·app 영역 범위 정리),
-> 2026-07-24 개정(**§4 부트스트랩 확정** — D-SEED-KUBECTL: bastion kubectl seed·자기소멸 원칙·소유 3분할),
-> 2026-07-24 실측 반영(bastion kubectl로 hub `argocd` ns 조회) — **§3 전용 `platform` AppProject 결정**
+> 2026-07-24 개정(**§4 부트스트랩 확정** — D-SEED-KUBECTL: workbench kubectl seed·자기소멸 원칙·소유 3분할),
+> 2026-07-24 실측 반영(workbench kubectl로 hub `argocd` ns 조회) — **§3 전용 `platform` AppProject 결정**
 > (`default`가 완전 개방 상태임을 확인), §2.1 cluster Secret `project` 필드 함정, `sourceNamespaces` 필수.
 > 2026-07-24 **§1 D-REPO-CODECONNECTIONS 확정** — GitHub private + AWS CodeConnections(장기 자격증명 없음).
 > 콘솔 수동 승인 게이트·`repoURL` 결합도 트레이드오프 명시, §4 seed 2단계 갱신.
@@ -188,7 +188,7 @@ KEDA/Kyverno가 EKS community addon으로 존재하는지 미기록이라 §5 �
 ```
 platform-gitops-repo/
 ├── bootstrap/
-│   └── root-app.yaml            # App-of-Apps root Application (§4 — bastion kubectl로 seed 후 자기 흡수)
+│   └── root-app.yaml            # App-of-Apps root Application (§4 — workbench kubectl로 seed 후 자기 흡수)
 ├── clusters/
 │   ├── dev/
 │   │   └── eks-poc-dev-an2-main-01/   # 클러스터명 디렉토리 — 같은 env에 여러 클러스터 구분(§2.3)
@@ -387,7 +387,7 @@ spec:
 
 > **⭐ 2026-07-27 실측 — 관리형 ArgoCD repo-server의 public helm egress 확인 (canary)**
 > 열린 질문(private 환경에서 repo-server가 `https://aws.github.io/eks-charts`에 닿는가 / ECR 미러링이
-> 필요한가)을 bastion kubectl로 canary Application(`project: default`·helm **chart** source·`targetRevision:
+> 필요한가)을 workbench kubectl로 canary Application(`project: default`·helm **chart** source·`targetRevision:
 > 1.8.1`·**syncPolicy 없음**=비교만)을 심어 실측했다:
 > - `status.sync.revision=1.8.1` · rendered resources **14** · `status.conditions` **비어 있음**
 >   → repo-server가 차트를 **fetch + helm template 렌더**했다는 직접 증거(연결 실패였다면 rendered 0 +
@@ -418,7 +418,7 @@ EC2NodeClass만.
   Synced면 egress OK, ComparisonError면 미러링 검토).
 - **버전 핀**: 클러스터 k8s **1.35** → chart **1.13.x** 계열. 근거는 호환성 매트릭스 원문 실측
   (compatibility.md: `1.35 → karpenter >= 1.9`, 최신 계열 `1.13.x`. git 태그 v1.14.0도 Chart.yaml은
-  chart `1.13.0`을 담는다 — Karpenter는 마이너 병행 backport라 태그≠chart 버전). 정확 patch는 bastion
+  chart `1.13.0`을 담는다 — Karpenter는 마이너 병행 backport라 태그≠chart 버전). 정확 patch는 workbench
   `helm show chart oci://public.ecr.aws/karpenter/karpenter --version <x>` 실측 후 확정(ALBC "실측 핀" 원칙).
 
 **(2) CRD 순서 — Application 2개 분리 + sync-wave**
@@ -626,7 +626,7 @@ spec:
 
 ### ⭐ `default` AppProject를 쓰지 않는다 — 전용 `platform` 프로젝트 (2026-07-24 실측 근거)
 
-Capability 생성 시 AWS가 만드는 `default` AppProject는 **완전 개방 상태**다(bastion kubectl 실측):
+Capability 생성 시 AWS가 만드는 `default` AppProject는 **완전 개방 상태**다(workbench kubectl 실측):
 
 ```yaml
 spec:
@@ -683,7 +683,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 > - **IAM→RBAC 쓰기(20 §2.8 D-ARGOCD-CLUSTER-WRITE)와는 별개 층** — 이 화이트리스트는 ArgoCD project
 >   가드레일이고, 저쪽은 apiserver 쓰기 권한이다. **둘 다 열려야** ALBC가 배포된다.
 > - **파일 소유**: 별도 repo `eks-platform-gitops`의 `projects/platform.yaml`(root App이 흡수). 이
->   로컬 저장소가 아니다 — 수정 후 root App sync(또는 bastion re-seed)로 반영.
+>   로컬 저장소가 아니다 — 수정 후 root App sync(또는 workbench re-seed)로 반영.
 >
 > **⭐ 2026-07-27 개정 (Karpenter 증분) — whitelist·sourceRepos 확대**
 > 위에서 예고한 "각자의 증분에서 추가"가 Karpenter에 도래. `clusterResourceWhitelist`에 아래 3 kind 추가:
@@ -709,7 +709,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 심느냐가 남는다. §2.8 V1~V3로 확정했으며 **2026-07-24 종결**되었다:
 
 - **V1 (NEGATIVE, 2026-07-20)**: `awscc_eks_capability`에 네이티브 seed 필드 없음 → 외부 행위자 필요.
-- **V2 (확정, 2026-07-24)**: 외부 행위자 = **bastion의 kubectl**. 관리형 Capability의 등록·앱 정의는
+- **V2 (확정, 2026-07-24)**: 외부 행위자 = **workbench의 kubectl**. 관리형 Capability의 등록·앱 정의는
   전부 hub 클러스터 `argocd` 네임스페이스의 CR이고 공식 절차가 `kubectl apply`다.
 - **V3 (무의미화)**: seed 수행자가 TFC 러너가 아니므로 러너 도달성 게이트는 성립하지 않는다.
 
@@ -718,7 +718,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 > 요구해 private 환경에서 새 치킨-에그를 만든다. kubectl 경로는 **IAM(Access Entry)만으로 인증**되어
 > 신규 자격증명이 생기지 않는다.
 
-### seed 절차 (수행 지점: bastion, 1회성)
+### seed 절차 (수행 지점: workbench, 1회성)
 
 **결정적 순서** — 각 단계가 다음 단계의 전제다:
 
@@ -746,7 +746,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 |---|---|---|
 | 매니페스트 **실체** | 이 저장소 `bootstrap/` | root App이 흡수 → 드리프트 0. 위 자기소멸 원칙 |
 | 실행 **절차·검증** | `docs/runbooks/` (신설 예정) | 재현성·감사. 기존 런북 관행 |
-| 수행 **권한** | Terraform (`live/dev/bastion`·`live/cicd/gitops-hub`) | 이미 보유(ClusterAdmin Access Entry) |
+| 수행 **권한** | Terraform (`live/dev/workbench`·`live/cicd/gitops-hub`) | 이미 보유(ClusterAdmin Access Entry) |
 
 > **Terraform이 seed 산출물을 소유하면 안 되는 이유**: ① cluster Secret·Application은 reconcile되는
 > desired-state라 TF가 쥐면 ArgoCD와 드리프트를 다투고 self-heal이 죽는다(D-SPOKE-SEAM). ② TFC SaaS
@@ -756,7 +756,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 
 > **⭐ 2026-07-24 seed 실행 완료 — 5단계까지 apply, 6단계(reconcile)는 권한 벽에 막힘**
 >
-> bastion kubectl로 seed 3종(3·4·5단계)을 실제 apply했다(sha256 바이트 동일성 확인 → server dry-run →
+> workbench kubectl로 seed 3종(3·4·5단계)을 실제 apply했다(sha256 바이트 동일성 확인 → server dry-run →
 > 순차 apply). 결과:
 > - **✅ 3·4·5 apply 성공** — AppProject `platform` · cluster Secret `eks-poc-dev-an2-main-01` ·
 >   root Application `root-app` 전부 created. **쓰기 미실증 해소**(아래 미실증 표 갱신).
@@ -779,7 +779,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 > > 시도조차 못 됐다. 실제 pull 성공은 read 벽 해소 **후** `revision=1d1525b`(SHA)로 드러났다.
 
 **미실증(실행 시 확인)** — 2026-07-24 완료:
-- ✅ **해소**: bastion kubectl의 `argocd` ns CR apply를 관리형 컨트롤플레인이 반영(저장·조회됨).
+- ✅ **해소**: workbench kubectl의 `argocd` ns CR apply를 관리형 컨트롤플레인이 반영(저장·조회됨).
 - ✅ **해소**: CodeConnections로 저장소 실제 pull(`revision=1d1525b` — GitHub App 설치 범위 추가 후).
 - ✅ **해소**: cluster-wide read → reconcile 루프(sync) 정상 — root App `Synced`(D-ARGOCD-CLUSTER-READ).
 - ❌ **남음**: `default` AppProject 수정 시 capability reconcile 여부(우회 설계라 당장 불필요, §3).

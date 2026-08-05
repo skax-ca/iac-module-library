@@ -46,7 +46,7 @@
 | # | 문서 | 상태 |
 |---|------|------|
 | 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-08-03 개정 — 현행 **`vpc-v0.3.0`** 계약, D13 SubnetGroup 태그 포함) |
-| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-05 개정 — 현행 **`eks-cluster-v0.2.0`** 계약 + §4.1·§4.2 릴리스·apply 판정 기록) |
+| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-05 개정 — 현행 **`eks-cluster-v0.3.0`** 계약 + §4.1~§4.3 릴리스·apply 판정 기록) |
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-04 신규 — **D-DAY2-PROFILE**, 업그레이드 런북 + 운영 프로파일) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
@@ -64,7 +64,9 @@
 > **40은 흔들리지 않는다**(어느 쪽이든 helm/kubectl 실행 지점이 필요하다).
 > 🔑 **미개정 문서를 개정할 때 "번역"에 그치지 않고 의존 방향을 먼저 본 사례**다.
 >
-> ⚠️ 파급: `eks-cluster` 계약이 늘어난다(40 §5.2 — cluster SG 추가 규칙 통과). **`v0.3.0` 예정.**
+> ✅ 파급 처리 완료: `eks-cluster` 계약이 늘어났다(40 §5.2 — cluster SG 추가 규칙 통과).
+> **`bastion-v0.1.0` · `eks-cluster-v0.3.0` 발행 완료**(2026-08-05, PR #12 `417154b` · [20 §4.3](design/20-eks-module.md)).
+> ⭐ **한 PR에 태그를 둘 달았다** — 컴포넌트별 cadence 분리(`architecture/05 §4`)를 릴리스 단위로 지킨 것이다.
 
 > ⚠️ **50은 승계 문서가 아니라 이 repo에서 새로 쓴 설계다.** 모듈이 아니라 **소비 경로**를 다루므로
 > `design/`에 있으면서도 다른 문서들과 성격이 다르다 — 산출물은 `.tf`가 아니라 별도 repo

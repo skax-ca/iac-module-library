@@ -24,6 +24,10 @@
 > - **✅ D-EXTDNS-ZONE 해소**(2026-08-05 = **`eks-cluster-v0.2.0`**, §4.2) — 2026-08-04 apply가
 >   발견한 조합(`enable_external_dns_iam = true` + zone ARN 비움)을 **교차변수 validation**으로
 >   plan에서 배제했다. §5.1-8 종결. 예제는 Route53 private zone을 직접 만들어 실효 형상이 됐다.
+> - **✅ D-BASTION-SEAM 3층 + D-TOFU-FLOOR**(2026-08-05 = **`eks-cluster-v0.3.0`**, §4.3) —
+>   `cluster_security_group_additional_rules` 신설(§3.1)로 *"클러스터가 누구를 네트워크로
+>   받아들이는가"* 의 소유 지점을 이 모듈에 뒀다. §5.1-9 종결. `required_version` 하한도 함께
+>   `>= 1.9.0` → **`>= 1.12.0`** 으로 통일됐다(§3.3).
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -34,7 +38,7 @@
 **전략 위치**: 고속 churn·지식밀도 높음·정확성 비직관적 → **커뮤니티 `terraform-aws-modules/eks` +
 wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/NodePool은 GitOps.
 
-**릴리스 스코프**: 이 문서의 §1~§3이 현행 **`eks-cluster-v0.2.0`** 의 계약이다.
+**릴리스 스코프**: 이 문서의 §1~§3이 현행 **`eks-cluster-v0.3.0`** 의 계약이다.
 
 > ⚠️ **2026-08-05 D-VERSION 재매핑** — `eks-cluster-v1.0.0`은 **같은 커밋(`74bbf51`)의**
 > `eks-cluster-v0.1.0`으로 바뀌었고 구 태그는 삭제됐다
@@ -415,7 +419,7 @@ seam 재결정이 모듈 인터페이스를 바꾸지 않는다는 것이, 두 �
 ---
 
 
-## 3. 인터페이스 — `eks-cluster-v0.1.0` 계약
+## 3. 인터페이스 — `eks-cluster-v0.3.0` 계약
 
 ### 3.0 재사용 자산 요건 5종의 이행 (`01 §4`)
 
@@ -523,6 +527,10 @@ variable "cluster_addons" {
   default = {}                             # 빈 map = baseline 6종 상속
 }
 
+# ── 네트워크 도달 (D-BASTION-SEAM 3층 / 설계 40 §5) ────────────────────
+# "클러스터가 누구를 네트워크로 받아들이는가" = 클러스터 쪽 결정 → 이 모듈이 소유한다(03 §2.3).
+variable "cluster_security_group_additional_rules" { type = any, default = {} }
+
 # ── IAM ──────────────────────────────────────────────────────────────
 variable "access_entries"   { type = any,  default = {} }   # aws-auth 대체
 variable "enable_karpenter" { type = bool, default = true }
@@ -540,6 +548,14 @@ variable "external_dns_hosted_zone_arns" { type = list(string), default = [] }  
 - ➕ `managed_node_groups.ami_type` — **D-NODE-ARCH**(2026-08-04). graviton 등 아키텍처 선택 지점.
   없으면 arm 인스턴스를 넣어도 AMI가 x86이라 노드가 부팅되지 않는다(계약에 결정 지점이 없던 빈틈)
 - ➕ `enable_alb_controller_iam`·`enable_external_dns_iam`·`external_dns_hosted_zone_arns` (§2.6a)
+- ➕ `cluster_security_group_additional_rules` — **D-BASTION-SEAM**(2026-08-05, `v0.3.0`).
+  upstream v21의 `security_group_additional_rules`를 통과시킨다. **`cluster_` 접두는 의도적**이다 —
+  node SG 쪽(`node_security_group_additional_rules`)과 이름으로 구분되지 않으면 규칙을 엉뚱한 SG에 붙인다.
+  - 🔑 **또 하나의 "facade가 upstream을 가린" 사례**였다(→ `ami_type`/D-NODE-ARCH와 같은 형태).
+    upstream엔 **처음부터 있었고** wrapper가 안 넘기고 있었을 뿐이다.
+  - ⛔ **이 변수에는 `tofu test`를 만들지 않았다.** facade 한계로 하위 모듈에 넘어간 값을 볼 수 없어
+    억지 assertion은 **자기 모킹 설정을 검증**하게 된다. 회귀 방지는 **예제가 실제로 소비하고
+    CI 게이트 ⑤(examples validate)가 도는 것**이다(같은 기준을 `bastion` tests 헤더에도 적었다).
 - ➖ `enable_pod_identity` — **삭제**. upstream v21은 Pod Identity가 기본이고 이 변수가 없다.
   facade에 남기면 소비자에게 **끌 수 있다는 거짓 계약**을 노출한다(Task 20.1에서 실물 재확인).
 
@@ -582,6 +598,13 @@ output "external_dns_iam_role_arn" {}
   - ⚠️ 계약에 늦게 올린 것이지 **새로 만든 것이 아니다.** 출력은 릴리스 시점부터 존재했고, 계약표에만
     빠져 있었다. `01 §4`상 소비자가 의존할 수 있는 출력은 전부 §3.2에 있어야 한다.
 
+> ⚠️ **`cluster_security_group_id`의 설명이 값과 다른 SG를 가리키고 있었다**(2026-08-05 `v0.3.0`에서 정정).
+> 이 출력의 값은 **upstream 모듈이 만든 SG**이고(`vpc_config.security_group_ids`로 붙어 apiserver ENI에
+> 적용된다 = `cluster_security_group_additional_rules`의 대상), **EKS 서비스가 자동 생성하는 primary
+> cluster SG는 다른 것**이다(upstream `cluster_primary_security_group_id`, 이 모듈은 노출하지 않는다).
+> 🔑 **이름이 아니라 설명이 틀린 결함이라 계약 표에서는 보이지 않았다** — bastion 규칙을 어디에 붙일지
+> 판단하는 순간에야 드러났다. 출력 **설명도 계약의 일부**임을 보여주는 사례다(`01 §4` 출력 계약 안정성).
+
 > ⚠️ **함정 — upstream 출력의 fallback 값이 일관되지 않다**(2026-08-03 Task 20.1 확인).
 > `create = false`일 때 upstream `outputs.tf`는 대부분 `try(…, null)`이지만
 > **`cluster_name`과 `cluster_id`만 `try(…, "")`(빈 문자열)** 이다.
@@ -593,7 +616,7 @@ output "external_dns_iam_role_arn" {}
 
 > ⛔ **현행 값은 `>= 1.12.0`이다** — 2026-08-05 **D-TOFU-FLOOR**(전 모듈 통일,
 > [`../architecture/02 §2`](../architecture/02-naming-tagging-and-pinning.md))로 **상향**됐다.
-> **`eks-cluster-v0.3.0`에 포함**된다.
+> ✅ **`eks-cluster-v0.3.0`으로 발행 완료**(§4.3).
 >
 > ⚠️ **아래 본문은 그때의 사실 기록이다.** 이 모듈이 *"1.12 기능을 쓰지 않는다"* 는 판정은
 > **여전히 사실**이며, 상향은 그 판정이 뒤집혀서가 아니라 **하한을 모듈별 근거로 정하는 방식 자체를
@@ -989,6 +1012,59 @@ condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.
 > ⚠️ 이 확인이 없었다면 예제는 **CI `validate`를 통과하고 고객사 plan에서 죽었을 것이다** —
 > `validate`는 교차변수 validation을 평가하지 않기 때문이다(이 문서가 반복해 경고하는 지점).
 
+### 4.3 릴리스 기록 — `eks-cluster-v0.3.0` (2026-08-05, D-BASTION-SEAM + D-TOFU-FLOOR)
+
+§5.1-9를 닫는 릴리스다. **`bastion-v0.1.0`과 같은 PR([#12](https://github.com/skax-ca/iac-module-library/pull/12),
+머지 `417154b`)에서 나왔지만 태그는 따로 달았다** — 컴포넌트별 cadence 분리
+([`../architecture/05 §4`](../architecture/05-versioning-policy.md))를 지키기 위해서다.
+설계 SSOT는 [`40 §5`](40-bastion.md)이고, 이 절은 **eks-cluster 계약이 어떻게 늘었는가**만 기록한다.
+
+**계약 변경 3건**
+
+| 구분 | 내용 |
+|------|------|
+| ➕ 변수 | `cluster_security_group_additional_rules`(§3.1) — upstream `security_group_additional_rules` 통과 |
+| 🔧 정정 | `cluster_security_group_id` **출력 설명**이 값과 다른 SG를 가리키고 있었다(§3.2) |
+| ⬆️ 하한 | `required_version` `>= 1.9.0` → **`>= 1.12.0`**(D-TOFU-FLOOR, §3.3). 커밋 `fae555c` |
+
+> ⭐ **소비자 영향은 하한 상향에도 없다** — 소비 루트가 이미 `>= 1.12.0`이었다.
+> `0.y.z` 구간이라 판정 자체가 불필요하지만([`../architecture/05 §1`](../architecture/05-versioning-policy.md)),
+> **실제로 무엇이 깨지는가**는 릴리스마다 확인한다.
+
+**⛔ 이 릴리스는 test를 늘리지 않았다 — 그것이 의도다(20 passed 유지).**
+
+facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock_resource`로 값을 강제해 assert하면
+**테스트가 자기 모킹 설정을 검증**하게 되므로 만들지 않았고, 대신 **한계를 `tests/plan.tftest.hcl`
+헤더에 적었다**(같은 판단을 `bastion` 하드닝 2종에서도 했다 — [`40 §5.1`](40-bastion.md)).
+회귀 방지는 **예제가 실제로 이 변수를 소비하고 CI 게이트 ⑤(examples `validate`)가 도는 것**이다.
+
+| # | 게이트 항목 | 결과 |
+|---|------------|------|
+| 1 | `tofu fmt -recursive -check` | exit 0 |
+| 2 | `modules/eks-cluster`: `validate` + `test` | Success · **20 passed, 0 failed** |
+| 3 | `modules/bastion`: `validate` + `test` | Success · **10 passed, 0 failed** |
+| 4 | `modules/vpc`: `test`(회귀) | **13 passed, 0 failed** |
+| 5 | `examples/*`: `validate` | 전부 Success |
+| 6 | `tflint --recursive` · `trivy config` | exit 0 · exit 0 |
+
+✅ CI run [`30981984588`](https://github.com/skax-ca/iac-module-library/actions/runs/30981984588) **6/6 pass**
+— **로그 본문까지 확인**했다(lock 5개 전부 `registry.opentofu.org`).
+
+**예제가 이 릴리스의 실질적 검증 지점이다** — `examples/eks-cluster-enterprise`는
+`endpoint_public_access = false`이면서 **조작 지점이 없는 상태**였다. 이 릴리스가 그 미해결을 닫는다.
+
+> ⭐ **모듈 간 순환을 발견하고 결정적 네이밍으로 끊었다**([`40 §5.1-1`](40-bastion.md) 신설).
+> 소유를 3층으로 가르면 참조가 양방향이 된다 — bastion은 클러스터 ARN을, eks는 bastion role ARN을
+> (`access_entries`) 원한다. 해법은 [`03 §3.1`](../architecture/03-dependencies.md) **1순위**:
+> 루트가 `local.cluster_arn`을 직접 합성해 **단방향**으로 만든다.
+> 🔑 **`03`의 조회 우선순위는 "느슨한 결합"만이 아니라 순환 해소 장치이기도 하다** —
+> SG rule을 별도 리소스로 분리해 순환을 푸는 `03 §2.2`와 같은 역할을 **값 층위**에서 한다.
+> ⚠️ 예제 README가 *"`local.cluster_arn`을 `module.eks.cluster_arn`으로 바꾸면 plan이 순환으로 죽는다"* 를
+> 명시한다 — 이 예제에서 가장 만지기 쉬운 함정이다.
+
+> 🔒 **`v0.2.0` 태그는 옮기지 않았다** — 소비 repo가 같은 날 핀을 올려 **apply까지 마쳤다.**
+> CLAUDE.md가 인정하는 유일한 예외(*"소비자가 0일 때"*)는 그 시점에 이미 닫혔다.
+
 ## 5. 열린 항목
 
 ### 5.1 이 모듈 소관 — 구현·릴리스와 함께 판단한다
@@ -1025,8 +1101,9 @@ condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.
    - ✅ **재개 조건도 함께 해소됐다**: 소비 repo가 dev hosted zone을 bootstrap해 `enable_external_dns_iam`을
      되켤 때, 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 apply 실패를
      반복하는데 이제는 plan에서 몇 초 만에 잡힌다.
-9. 🔴 **cluster SG 추가 규칙 통과 변수 — `D-BASTION-SEAM`이 낸 요구**(2026-08-05, [`40 §5.2`](40-bastion.md)).
-   **`eks-cluster-v0.3.0`에서 처리한다.**
+9. ~~🔴 **cluster SG 추가 규칙 통과 변수 — `D-BASTION-SEAM`이 낸 요구**~~
+   ✅ **해소(2026-08-05, `eks-cluster-v0.3.0`, §4.3)** — 아래는 그때의 판단 기록이다
+   (설계 근거는 [`40 §5.2`](40-bastion.md)).
    - **왜 이 모듈인가**: bastion → apiserver 443은 **클러스터가 누구를 받아들이는가**의 문제이고,
      [`03 §2.3`](../architecture/03-dependencies.md)이 *"소유 모듈이 허용 소스 목록을 변수로
      파라미터화해 owner가 rule을 생성한다"* 고 이미 정했다. bastion 모듈이 남의 SG에 rule을 붙이면

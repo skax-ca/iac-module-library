@@ -635,11 +635,28 @@ CI run [`30981984588`](https://github.com/skax-ca/iac-module-library/actions/run
 > (실측: `cluster_security_group_additional_rules`). **판정 근거는 `tofu validate` 와 CI 다** —
 > IDE 진단은 이 repo 게이트 정의에 없다. 해소: `Terraform: Restart Language Server`.
 
+#### ✅ `design/20` 이 `v0.3.0` 을 따라잡았다 (2026-08-06) — **태그가 문서를 앞선 상태 재발**
+
+세션 시작 교차 검증에서 발견. `docs/README.md` 1줄만 stale 인 줄 알았는데 **릴리스 기록 전체가 빠져
+있었다**. `20 §4.3` 신설 + §3.1 변수 등재 + §5.1-9 종결 + 헤더 3곳 갱신(main 직접 커밋, 문서 전용).
+
+- 🔑 **같은 유형이 2026-08-04(Task 20.8)에 이어 두 번째다.** 원인이 같다 — **릴리스 PR 이 모듈 코드와
+  설계 문서를 함께 싣지 않는다.** 40(bastion 설계)은 구현 PR 에 실렸는데 **20(eks 설계)은 안 실렸다**.
+  ⇒ **파급받는 모듈의 설계 문서도 그 PR 에 넣는다.** 태그를 다는 모듈 수만큼 §4.x 릴리스 기록이 필요하다.
+- ⚠️ **실질적 결함은 §3.1 누락이었다** — *"§1~§3 이 현행 계약"* 이라고 선언한 문서에
+  `cluster_security_group_additional_rules` 가 없는데 **예제는 그걸 쓰고 있었다.**
+  소비자가 계약을 읽는 지점이 §3 이라 여기 없으면 없는 기능이다.
+- 🔑 **출력 "설명"이 틀린 결함은 계약 표에서 안 보인다**(§3.2 상자로 승격).
+  `cluster_security_group_id` 는 이름·값이 맞고 **설명만 다른 SG 를 가리켰다.**
+
 **그다음 태스크**:
-1. **`21` 개정** — 이제 40 이 닫혔으므로 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3):
+1. 🔵 **진행 중 — 소비 repo 에서 bastion 실제 배포**(2026-08-06 사용자 결정으로 21 보다 먼저).
+   `/Users/born2k/silverte/ai/iac-reference-infra` 소관. 목표는 **`live/dev/eks` 의 public 엔드포인트를
+   닫는 것** — 40 이 그 이유(도달 지점 부재)를 없앴다. ⚠️ 진행 상태는 여기서 추적하지 않는다.
+   - 🔑 **이 repo 쪽 관여 지점**: 배포가 `bastion-v0.1.0` 계약의 **첫 apply 판정**을 낸다.
+     `40` 의 apply 미검증 항목이 판정되면 그때 `40` 에 기록한다(`tofu test` 로 대체 불가한 것들).
+2. **`21` 개정** — 40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3):
    관리형 Capability vs self-managed ArgoCD. `awscc_eks_capability` 스키마는 착수 시 재조회.
-2. **소비 repo `live/dev/eks` 의 public 엔드포인트를 닫는다** — 40 이 그 이유를 없앴다.
-   ⚠️ 소비 repo 소관이라 여기서 진행을 추적하지 않는다.
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

@@ -1005,7 +1005,25 @@ condition = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.
    - ✅ **재개 조건도 함께 해소됐다**: 소비 repo가 dev hosted zone을 bootstrap해 `enable_external_dns_iam`을
      되켤 때, 이 validation이 **되켜는 사람을 보호한다** — zone ARN을 빠뜨리면 같은 apply 실패를
      반복하는데 이제는 plan에서 몇 초 만에 잡힌다.
-9. **닫힌 열거(`validation`)의 유지보수 부채** — `ami_type`(D-NODE-ARCH)·`capacity_type`·
+9. 🔴 **cluster SG 추가 규칙 통과 변수 — `D-BASTION-SEAM`이 낸 요구**(2026-08-05, [`40 §5.2`](40-bastion.md)).
+   **`eks-cluster-v0.3.0`에서 처리한다.**
+   - **왜 이 모듈인가**: bastion → apiserver 443은 **클러스터가 누구를 받아들이는가**의 문제이고,
+     [`03 §2.3`](../architecture/03-dependencies.md)이 *"소유 모듈이 허용 소스 목록을 변수로
+     파라미터화해 owner가 rule을 생성한다"* 고 이미 정했다. bastion 모듈이 남의 SG에 rule을 붙이면
+     소유자가 쪼개진다.
+   - 🔑 **또 하나의 "facade가 upstream을 가린" 사례다.** upstream v21에 `security_group_additional_rules`가
+     **처음부터 있다**(`source_security_group_id` 지원). 우리 wrapper가 안 넘기고 있을 뿐 —
+     `ami_type`(D-NODE-ARCH)과 같은 형태다. **단정하고 우회를 짜지 않은 것이 이번에도 맞았다.**
+   - facade 이름은 **`cluster_` 접두를 붙여** node SG 쪽(`node_security_group_additional_rules`)과 구분한다.
+   - ⚠️ **함께 고칠 결함**: `outputs.tf`의 `cluster_security_group_id` 설명이 *"EKS가 만든 클러스터
+     보안 그룹"* 이라고 적혀 있으나 값은 **upstream 모듈이 만든 SG**다(EKS 자동 생성분은
+     `cluster_primary_security_group_id`이며 노출하지 않는다). **설명과 값이 다른 SG를 가리킨다** —
+     규칙을 어디에 붙일지 판단할 때 정확히 오도하는 지점이다.
+   - ✅ 경로 성립 확인: upstream은 자신이 만든 SG를 `vpc_config.security_group_ids`에 넣으므로
+     **apiserver ENI에 적용**된다. ⚠️ 단 그 규칙을 **구형 `aws_security_group_rule`** 로 만든다 —
+     `03 §2.1`이 신규 코드에서 금지한 리소스이나 **upstream 내부라 통제 밖**이다([`40 §10-4`](40-bastion.md)).
+   - ⛔ **`v0.2.0` 태그를 옮기지 않는다** — 이미 소비자가 apply까지 마쳤다.
+10. **닫힌 열거(`validation`)의 유지보수 부채** — `ami_type`(D-NODE-ARCH)·`capacity_type`·
    `enabled_log_types`·taint `effect`는 값 목록을 모듈이 소유한다. **AWS가 값을 추가하면 그때까지
    신형 값이 막힌다.** 실증: `capacity_type`이 AWS가 나중에 추가한 `CAPACITY_BLOCK`을 아직 담지 못한다.
    ⚠️ 이건 "고쳐야 할 결함"이 아니라 **의식적으로 낸 값**이다(오타의 대가가 비대칭이라 넣었다).

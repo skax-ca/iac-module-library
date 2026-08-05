@@ -50,13 +50,21 @@
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-04 신규 — **D-DAY2-PROFILE**, 업그레이드 런북 + 운영 프로파일) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
-| 40 | [40-bastion.md](design/40-bastion.md) | ⚠️ 미개정 |
+| **40** | [40-bastion.md](design/40-bastion.md) | ✅ (2026-08-05 개정 — **D-BASTION-MODULE**(인라인 철회) · **D-BASTION-SCOPE** · **D-BASTION-SEAM**) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 
-> ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30·40)는 *판단은 섰으나
+> ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30)는 *판단은 섰으나
 > 실행 스택 전제가 무효*인 상태고, **21은 판단 자체가 이 repo의 것이 아니다**([`01 §3.3`](architecture/01-module-strategy.md)).
 > 20 개정에서 이 둘을 한 문서에 두면 상태표가 **문서 단위로 판정할 수 없게** 되므로 분리했다.
 > 절 번호(§2.7·§2.8)는 30·40의 기존 참조를 보존하려고 그대로 뒀다.
+
+> ⭐ **40 개정(2026-08-05)이 21과의 의존을 끊었다.** 개정 전 40의 제목은 *"ArgoCD private 전환의
+> 선결 과제"* 여서 **미결정(21) 위에 서 있었다.** 개정은 40을 *"엔드포인트를 닫은 클러스터에
+> 누가 닿는가"* 로 일반화해 ArgoCD 종속부를 걷어냈다 — 21이 self-managed ArgoCD로 뒤집혀도
+> **40은 흔들리지 않는다**(어느 쪽이든 helm/kubectl 실행 지점이 필요하다).
+> 🔑 **미개정 문서를 개정할 때 "번역"에 그치지 않고 의존 방향을 먼저 본 사례**다.
+>
+> ⚠️ 파급: `eks-cluster` 계약이 늘어난다(40 §5.2 — cluster SG 추가 규칙 통과). **`v0.3.0` 예정.**
 
 > ⚠️ **50은 승계 문서가 아니라 이 repo에서 새로 쓴 설계다.** 모듈이 아니라 **소비 경로**를 다루므로
 > `design/`에 있으면서도 다른 문서들과 성격이 다르다 — 산출물은 `.tf`가 아니라 별도 repo

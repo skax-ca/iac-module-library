@@ -1,431 +1,508 @@
-# 40 · Bastion (SSM 기반 관리 호스트) 설계
+# 40 · Bastion (SSM 기반 도달 지점) 설계
 
-> **승계(미개정)**: `terraform-enterprise-poc` `docs/design/40-bastion.md` @ `76285f7`(동결 커밋)
+> **상태**: ✅ **개정 완료 (2026-08-05)**. [`docs/README.md`](../README.md) 상태표가 인용 가능 여부의 판정 근거다.
 >
-> ⚠️ **이 문서는 아직 정밀 개정되지 않았다.** PoC 전제(Terraform 1.15 + HCP Terraform,
-> `workload=poc`, 상대경로 모듈 소싱, TFC 워크스페이스)와 **실증 서술이 그대로 남아 있다.**
+> **승계 출처**: `terraform-enterprise-poc` `docs/design/40-bastion.md` @ `76285f7`(동결 커밋).
+> 개정 전 이 문서는 **⚠️ 미개정**이었다 — PoC 전제(HCP Terraform 워크스페이스 · `workload=poc` ·
+> 인라인 배포 루트 · 실측 리소스 ID)와 실증 서술이 그대로 남아 있었다.
 >
-> - 본문의 실증 날짜·run ID·"실증됨" 서술은 **이 repo에서 재현된 것이 아니다** —
->   정리본은 [`../reference/poc-findings.md`](../reference/poc-findings.md)를 본다.
-> - 설계 판단(리소스 구성·경계·트레이드오프)은 대체로 유효하나, **실행 스택 종속부는 무효**다.
+> **이번 개정이 바꾼 것**
+> 1. **산출물이 배포 루트에서 재사용 모듈로 바뀌었다** — ⛔ `D-BASTION-INLINE` **철회**, `D-BASTION-MODULE` 신설.
+> 2. **ArgoCD 종속 서술을 걷어냈다** — 이 문서는 이제 *"private 클러스터에 누가 닿는가"* 만 소유한다(§0).
+> 3. **역할 범위를 확정했다** — self-hosted runner 겸용 **안 함**(`D-BASTION-SCOPE`). [`22 §4-2`](22-day2-operations.md)를 닫는다.
+> 4. **EKS 접근 3층의 소유를 갈랐다**(`D-BASTION-SEAM`) — 파급으로 `eks-cluster` 계약이 늘어난다(§5).
 >
-> **모듈 이식 시점(D-OSS-STACK §6-2)에 재검토하며 개정한다.** 그 전까지 이 문서를
-> "이 repo의 확정 설계"로 인용하지 않는다.
-
-
-> 2026-07-23 신설. **ArgoCD private 전환의 선결 과제**를 해소한다.
-> 2026-07-24 개정: private 전환 완료(§7 40.6) 후 bastion의 역할이 확장됐다 — 진단 도구를 넘어
-> **GitOps seed 수행 지점**으로 확정(§6 · 20 §2.8 D-SEED-KUBECTL). §9 열린 항목 4는 종결.
-> 같은 날 **UI 접근 경로도 확정**(§9-3 채택, V-9 통과) — SSM 포트포워딩, 단 **로컬 포트 443 강제**
-> (envoy `:authority` 라우팅으로 8443은 404. §6 함정 블록에 실증 기록).
-> [`20-eks-module.md §2.7`](20-eks-module.md)의 노출 토글(`argocd_endpoint_access`)을 `private`으로
-> 넘기려면 VPC 내부에 조작 지점이 있어야 한다 — 이 문서가 그 조작 지점을 정의한다.
-> 상위 규약은 [`../architecture/02-naming-tagging-and-pinning.md`](../architecture/02-naming-tagging-and-pinning.md)(네이밍·태깅)와
-> [`../architecture/03-dependencies.md`](../architecture/03-dependencies.md)(의존성·공유 리소스)를 전제한다.
+> **실증 기록의 소재**: PoC에서 확인한 값(SSM 등록·tmpfs 고갈·envoy 443 함정·private 전환 V-4~V-9)은
+> [`../reference/poc-findings.md`](../reference/poc-findings.md)가 소유한다. **이 repo는 배포하지 않으므로
+> 여기에 apply 실증을 적지 않는다** — "동작한다"의 기준은 `tofu test` + 예제 `validate`까지다(§7).
 
 ---
 
-## 0. 배경 — 왜 지금 필요한가
+## 0. 이 문서가 소유하는 것 / 소유하지 않는 것
 
-ArgoCD Capability는 AWS 관리 평면이라 VPC 자원이 아니지만, `private` 모드는 그 서비스를
-**Interface VPC Endpoint(PrivateLink)로 VPC 안 ENI에 투영**한다. 즉 `private` 전환 후의 도달성은
-세 조건의 AND다.
+| | 내용 |
+|---|---|
+| **소유** | ① `modules/bastion` 모듈 계약(입력·출력·리소스) ② **private 엔드포인트 클러스터에 대한 도달 지점**의 설계 ③ SSM 기반 접근의 경계와 그 대가 ④ EKS 접근 3층 중 **어느 층을 누가 소유하는가**(§5) |
+| **소유하지 않음** | GitOps 부트스트랩 seam(→ [`21`](21-gitops-bootstrap-seam.md) **미결정**) · ArgoCD 토폴로지와 UI 접근 절차(→ 같음) · Day 2 운영 프로파일(→ [`22`](22-day2-operations.md)) · EKS 모듈 계약(→ [`20`](20-eks-module.md)) · 배포 루트 구성(→ [`50`](50-reference-consumer-repo.md)) |
 
-1. ENI의 private IP로 TCP 443 라우팅이 성립할 것
-2. `serverUrl` 호스트명이 그 private IP로 **DNS 해석**될 것 (VPC resolver 경유)
-3. VPCE의 SG가 소스를 허용할 것
-
-**2026-07-23 실측 — 현재 이 조건을 만족하는 조작 지점이 없다.**
-
-| 항목 | 실측값 | 함의 |
-|------|--------|------|
-| dev VPC(`vpc-0c8371732d66e081e`) VPC Endpoint | **0개** | public 모드라 정상 — 전환 시 생성됨 |
-| NAT Gateway | `nat-066f4eaa9428a9caf` available | private 서브넷 아웃바운드 성립 |
-| EKS 노드 | `10.1.7.146` · `10.1.6.114` (node-uniq) | 네트워크는 VPC 내부 |
-| **노드 SSM 상태** | **`ConnectionLost`** | 노드 인스턴스 프로파일에 SSM 정책 없음 → **접속 불가** |
-| bastion | **없음** | — |
-
-→ 지금 `private`으로 전환하면 **UI도 CLI도 접근 수단이 사라진다.** 그래서 전환보다 bastion이 먼저다.
+> ⭐ **개정 전 이 문서의 제목은 "ArgoCD private 전환의 선결 과제"였다.** 그 틀을 버린 것이
+> 이번 개정의 가장 큰 변화다. 이유는 의존 방향이다 — 40이 ArgoCD를 전제하면 **21(미결정)이 뒤집힐 때
+> 40도 함께 흔들린다.** [`01 §3.3`](../architecture/01-module-strategy.md)이 *"관리형 Capability는
+> 대안(self-managed ArgoCD 포함)과 함께 다시 결정한다"* 고 적은 이상, 그 재결정은 실제로 뒤집힐 수 있다.
+>
+> **일반화하면 40은 21과 무관하게 완결된다.** bastion이 푸는 문제는 *"ArgoCD를 어떻게 보나"* 가 아니라
+> **"엔드포인트를 닫은 클러스터를 누가 조작하나"** 이고, 이 문제는 21이 무엇으로 결정되든 남는다.
+> self-managed ArgoCD를 택해도 helm을 돌릴 지점이 필요하다([`22 §4-1`](22-day2-operations.md)).
 
 ---
 
-## 1. 결정 요약
+## 1. 문제 — 엔드포인트를 닫으면 조작 지점이 사라진다
 
-| ID | 결정 | 근거 |
-|----|------|------|
-| **D-BASTION-OWNER** | 새 컴포넌트 `live/dev/bastion` (TFC workspace `bastion-dev`) | bastion은 수시 생성·파기되는 운영 자원이고 VPC는 기반 계층 — 생명주기가 다르다. `networking`에 넣으면 bastion을 만질 때마다 VPC plan이 함께 돌아 기반 계층에 불필요한 위험이 생긴다. `gitops-hub` 편입은 cicd 계정 컴포넌트가 dev 계정 EC2를 소유하게 되어 향후 hub 계정 이관의 걸림돌이 된다(03 §3.1) |
-| **D-BASTION-ACCESS** | **SSM Session Manager 전용** — SSH·키페어·공인 IP·인바운드 SG 규칙 전부 없음 | SSM은 Agent가 **아웃바운드로** 연결을 맺고 세션이 그 연결을 역방향으로 흐르는 구조라 인바운드가 원천적으로 불필요. 키 관리·22번 노출·감사 공백이 동시에 사라진다 |
-| **D-BASTION-SUBNET** | **`vm-uniq` (private, NAT)** — `snet-poc-dev-an2-vm-uniq-a/c` | D-BASTION-ACCESS의 귀결. 인바운드가 없으므로 public 서브넷은 **이득 없이 공격면만 늘린다.** 10-vpc §1.5 프리셋의 `vm-uniq`가 `private` 타입이라 서브넷 신설 불요 |
-| **D-BASTION-EGRESS** | 기존 NAT 경유 (SSM VPCE 3종 미신설) | 추가 비용 0, 구성 단순. SSM 제어 트래픽은 TLS로 보호되며 AWS 권장 구성 중 하나. VPCE 3종×2AZ는 상시 시간당 요금이 붙어 PoC 단계에 과하다 → §9 열린 항목으로 이월 |
-| **D-BASTION-LIFECYCLE** | 상시 기동 소형 인스턴스(`t4g.nano`) | 즉시 접속 가능한 운영 편의. 인바운드가 없어 상시 기동의 공격면 증가가 미미하다. 월 $5 미만 |
-| **D-BASTION-SGREF** | **VPCE SG 추가 조치 불요** | `gitops-hub`의 VPCE ingress가 이미 **VPC 전 CIDR 대역** 443을 허용한다(`live/cicd/gitops-hub/main.tf:116`, `cidr_block_associations` 순회). bastion이 VPC 안에 있으면 자동 포함 → 컴포넌트 간 SG 참조·순서 의존이 발생하지 않는다 |
-| **D-BASTION-K8S** | bastion에서 **kubectl 사용** — Access Entry(`AmazonEKSClusterAdminPolicy`, cluster scope)를 **`live/dev/bastion`이 소유**하고, IAM 인라인 정책으로 `eks:DescribeCluster`를 부여하며, user_data가 kubeconfig를 생성한다 | dev apiserver는 `endpointPublicAccess=false`·`endpointPrivateAccess=true`(2026-07-23 실측)라 **VPC 내부에서만 도달** — bastion이 유일한 조작 지점이다. Access Entry 소유를 bastion에 두는 것은 `gitops-hub`가 스포크 Access Entry를 직접 소유하는 기존 패턴(§2.8 D-SPOKE-SEAM)과 일관되며, bastion 파기 시 접근권도 함께 사라져 잔재물이 남지 않는다. ⚠️ ClusterAdmin이므로 **SSM 접근 통제가 곧 클러스터 보안**이 된다 — §9 열린 항목 1(세션 로깅)의 중요도가 이 결정으로 올라간다 |
-| **D-BASTION-AMI-PIN** | AMI ID를 **명시 핀**(`ami-0e9f53ecbca0f42fd`) — `latest` SSM 파라미터 금지 | `latest`는 AWS 릴리스마다 값이 바뀌어 **리뷰 없이 인스턴스가 재생성**된다. D-ADDON-VERSION-PIN(20 §2.6-6)과 동일한 원칙 — 업그레이드 판단을 Terraform이 매 plan마다 대신 내리게 두지 않는다. §3 참조 |
-| **D-BASTION-INLINE** | 모듈화하지 않고 `live/dev/bastion`에 인라인 | 리소스 5개 미만·분기 없음. `gitops-hub`의 vpce/SG를 인라인으로 둔 것과 동일 판단(01-strategy 계층형 하이브리드 — 얇은 것은 굳이 감싸지 않는다). stg/prd 확장 시 모듈 승격 |
+[`20 §3.1`](20-eks-module.md)의 `endpoint_public_access` 기본값은 **`false`** 다. GitOps(pull)를 전제로
+한 값이다([`01 §3.1`](../architecture/01-module-strategy.md)). 그런데 private-only 클러스터의 apiserver는
+**VPC 내부에서만** 도달한다 — GitHub Actions의 공용 runner도, 운영자 노트북도 닿지 않는다.
+
+**이것이 지금 실제로 비용을 내고 있다.** 소비 repo `iac-reference-infra`의 `live/dev/eks`는
+`endpoint_public_access = true`를 켜 두고 다음 주석을 달고 있다.
+
+```
+# ⚠️ bastion(design/40)이 아직 없어 private-only 면 kubectl 도달 지점이 없다 — 그래서 public 을 켠다.
+```
+
+즉 **모듈의 기본값(private)이 레퍼런스 소비 repo에서 지켜지지 못하는 상태**다. `public_access_cidrs`로
+좁혀 두었지만(0.0.0.0/0은 validation이 차단한다) 그것은 완화이지 해소가 아니다.
+
+⭐ **그래서 이 문서 하나만 끝나도 값이 난다** — 위 주석의 이유가 사라지고 소비 repo가 public을 닫을 수 있다.
+`21`의 결정을 기다리지 않는다.
+
+### 1.1 도달성 후보 3개와 이 문서의 선택
+
+[`22 §3.4`](22-day2-operations.md)가 세운 후보다.
+
+| 후보 | 성립 방식 | 대가 |
+|------|-----------|------|
+| **public endpoint + CIDR 제한** | 지금 소비 repo가 쓰는 방식 | 고객사 사무실 IP가 바뀔 때마다 인프라 변경. 재택·VPN·CI runner IP까지 열면 목록이 커진다. **apiserver가 인터넷에 노출된 사실 자체는 남는다** |
+| **self-hosted runner** | CI가 VPC 안에서 돈다 | 상시 기동 + runner 등록 자격증명 + 빌드 부하를 견딜 인스턴스. **사람의 조작 지점은 여전히 없다** |
+| ⭐ **bastion (SSM)** | VPC 안 조작 지점 | 인스턴스 1대 상시 비용(월 $5 미만). 접근 통제가 **SSM/IAM 한 곳**으로 모인다 |
+
+**bastion을 택한다**(2026-08-04 사용자 결정, [`22 §3.4`](22-day2-operations.md) 상자). 결정적 근거는
+비용이 아니라 **경계의 개수**다 — public+CIDR은 "네트워크 경계"와 "IAM 경계"를 둘 다 관리해야 하고,
+self-hosted runner는 "CI 자격증명 경계"가 하나 더 는다. SSM은 **인바운드가 아예 없어**
+네트워크 경계를 지우고 IAM 하나로 수렴시킨다(§2 D-BASTION-ACCESS).
+
+⚠️ **대신 그 IAM 하나의 무게가 커진다.** SSM 접근 통제가 곧 클러스터 접근 통제가 된다 — §9 열린 항목 1이
+그래서 열려 있다.
 
 ---
 
-## 2. 네트워크 도달 경로
+## 2. 결정 요약
+
+승계 결정의 **재판정 결과를 함께 적는다.** "그때 이렇게 정했다"와 "지금도 유효한가"는 다른 질문이고,
+미개정 문서를 개정할 때 이 구분을 흐리면 PoC 전제가 조용히 살아남는다.
+
+| ID | 결정 | 승계 상태 | 근거 |
+|----|------|-----------|------|
+| **D-BASTION-MODULE** | `modules/bastion` **얇은 스크래치 모듈** + `examples/bastion-*` 예제. 소비 repo는 태그로 소싱한다 | 🆕 **신설 — ⛔ `D-BASTION-INLINE` 철회** | 아래 §2.1 |
+| **D-BASTION-ACCESS** | **SSM Session Manager 전용** — SSH·키페어·공인 IP·인바운드 SG 규칙 **전부 없음** | ✅ 승계·유효 | SSM Agent가 **아웃바운드로** 연결을 맺고 세션이 그 연결을 역방향으로 흐른다. 인바운드가 원천적으로 불필요하다 → 키 관리·22번 노출·감사 공백이 **동시에** 사라진다. 도구 스택(TFC→OpenTofu)과 무관한 판단이라 그대로 살아 있다 |
+| **D-BASTION-PLACEMENT** | **private 서브넷**에 배치. 단 모듈은 **`subnet_id`를 입력받고 서브넷 그룹 이름을 고정하지 않는다** | 🔧 **개정**(구 `D-BASTION-SUBNET`) | 아래 §2.2 |
+| **D-BASTION-EGRESS** | 기존 **NAT 경유**. SSM VPCE 3종(`ssm`·`ssmmessages`·`ec2messages`) 미신설 | ✅ 승계·유효(단 §9-2) | 추가 비용 0, 구성 단순. SSM 제어 트래픽은 TLS로 보호되며 AWS 권장 구성 중 하나다. VPCE 3종 × AZ 수는 상시 시간당 요금이라 **NAT가 이미 있는 VPC에서는 중복 지출**이다. ⚠️ NAT 없는 완전 격리 VPC를 요구하는 고객사가 나오면 §9-2로 전환 |
+| **D-BASTION-LIFECYCLE** | 상시 기동 **소형 인스턴스**(기본 `t4g.nano`) + **`bastion_enabled` kill switch** | 🔧 **개정** | 상시 기동 자체는 유효하다(인바운드가 없어 공격면 증가가 미미하고 월 $5 미만). **개정 지점은 kill switch** — 재사용 자산에서 "파기하려면 코드를 지운다"는 소비자에게 diff 폭을 강요한다. `vpc_enabled`·`cluster_enabled`와 동형의 토글을 낸다(`01 §4` 재사용 자산 요건) |
+| **D-BASTION-AMI-PIN** | AMI ID **명시 핀**. 단 **모듈에 기본값을 두지 않는다**(필수 입력) | 🔧 **개정·강화** | 아래 §2.3 |
+| **D-BASTION-SCOPE** | **self-hosted runner로 겸용하지 않는다.** bastion은 사람이 조작하는 지점이다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §2.4 — [`22 §4-2`](22-day2-operations.md)를 닫는다 |
+| **D-BASTION-SEAM** | EKS 접근 3층 중 **1층(주체 IAM)만 bastion이 소유**하고 **2·3층(Access Entry·SG ingress)은 `eks-cluster`가 소유**한다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §5 — ⛔ PoC의 `D-BASTION-K8S`(bastion이 3층 전부 소유) **철회** |
+
+### 2.1 D-BASTION-MODULE — 왜 인라인을 철회하는가
+
+PoC의 `D-BASTION-INLINE`은 *"리소스 5개 미만·분기 없음이므로 배포 루트에 인라인"* 이었다.
+그 판단은 **PoC repo 안에서는 옳았다** — 거기엔 배포 루트가 있었고 환경이 하나였다.
+
+**이 repo에는 배포 루트가 없다.** 인라인을 유지하면 이 repo가 소유할 산출물이 **문서뿐**이 되고,
+bastion은 고객사마다 복사되는 코드가 된다. 그것은 이 repo의 존재 이유
+(*"재사용 자산"*, [`01 §4`](../architecture/01-module-strategy.md))와 정면으로 어긋난다.
+
+- 계층형 하이브리드([`01`](../architecture/01-module-strategy.md))의 **얇은 스크래치 모듈**에 정확히 해당한다 —
+  EC2·SG·IAM은 안정적이고 churn이 없어 커뮤니티 모듈을 감쌀 이유가 없다.
+- 신규 모듈이므로 **`bastion-v0.1.0`에서 시작**한다(`D-VER-NEW`, [`../architecture/05 §3`](../architecture/05-versioning-policy.md)).
+- ⚠️ **"리소스가 적어서 모듈로 감쌀 가치가 없다"는 반론은 이 repo에서 성립하지 않는다.** 모듈의 값은
+  리소스 개수가 아니라 **하드닝 규약을 계약으로 고정**하는 데 있다 — IMDSv2 강제·볼륨 암호화·
+  인바운드 0·키페어 없음은 인라인으로 복사되면 고객사마다 조용히 빠진다. §4.2가 그 목록이다.
+
+### 2.2 D-BASTION-PLACEMENT — 서브넷 **그룹 이름**을 계약에 넣지 않는다
+
+PoC는 `snet-poc-dev-an2-vm-uniq-a/c`라는 구체 서브넷을 지정했다. 재사용 자산에서는 그럴 수 없다 —
+`vm-uniq`는 **PoC VPC의 서브넷 그룹 키**일 뿐이고, [`modules/vpc`](10-vpc-module.md)의 `subnet_groups`는
+소비자가 자유롭게 정의하는 map이다(그룹 키가 곧 `Name`의 purpose 토큰이 된다).
+
+- 모듈 입력은 **`subnet_id`(단수)** 다. bastion은 1대이므로 AZ 분산이 의미 없다 — 리스트를 받아
+  내부에서 하나를 고르면 "어느 AZ에 떴는지"가 모듈 내부 규칙에 숨는다.
+- **private 서브넷일 것**은 계약이 아니라 **문서화된 전제**로 둔다. 모듈이 `data.aws_subnet`으로
+  `map_public_ip_on_launch`를 검사해 막을 수는 있으나, **public 서브넷 + 공인 IP 미할당** 조합도
+  기술적으로 유효하다. 닫힌 검증은 값이 늘 때마다 부채가 된다(CLAUDE.md 작업 원칙).
+- ⭐ **인바운드가 0이므로 public 서브넷은 이득 없이 공격면만 늘린다** — 이 논증은 승계 그대로 유효하다.
+  예제는 private 그룹에 배치한다.
+
+### 2.3 D-BASTION-AMI-PIN — 핀은 유지, **기본값은 제거**
+
+`latest` SSM 파라미터(`…/al2023-ami-latest/…`)를 쓰지 않는다는 결정은 유효하다. `latest`는 AWS가
+새 AMI를 릴리스할 때마다 값이 바뀌어 **리뷰 없이 인스턴스가 재생성**된다.
+
+**개정 지점은 기본값이다.** PoC는 `ami-0e9f53ecbca0f42fd`를 기본값으로 박았는데, AMI ID는
+**리전 종속**이라 재사용 자산의 기본값이 될 수 없다 — 다른 리전 고객사는 apply가 실패하고,
+같은 리전이라도 그 AMI는 시간이 지나면 deprecated된다.
+
+> 🔑 **이것은 `D-ADDON-VERSION-PIN-1`([`20 §2.6-6`](20-eks-module.md))과 같은 구조다.**
+> *"핀을 쓴다"* 와 *"핀의 값을 모듈이 소유한다"* 는 별개이고, 후자가 재사용을 막는다.
+> **모듈은 `most_recent = false`에 해당하는 것(= 명시 인자 요구)만 소유하고, 값은 소비 루트가 소유한다.**
+
+- `ami_id`는 **기본값 없는 필수 입력**이다.
+- 값을 찾는 방법은 예제 README가 안내한다(`aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/...`
+  로 **조회해서 그 값을 커밋**한다 — 조회를 코드에 넣지 않는다).
+- 업그레이드는 `ami_id`를 bump하는 **명시적 커밋**으로만. plan diff에 인스턴스 재생성이 보이고,
+  그것이 의도된 것임을 리뷰가 확인한 뒤 apply한다.
+
+⚠️ **`instance_type`과 `ami_id`의 아키텍처 정합은 모듈이 검증하지 않는다.** arm64 AMI에 x86 타입을
+주면 apply에서 죽는다. 검증하려면 AMI를 조회해야 하고(= 핀의 취지와 충돌), 인스턴스 타입 문자열에서
+아키텍처를 유도하는 것은 닫힌 열거를 새로 만드는 일이다. **예제와 변수 설명으로 안내한다.**
+
+### 2.4 D-BASTION-SCOPE — self-hosted runner 겸용을 하지 않는다
+
+[`22 §4-2`](22-day2-operations.md)가 *"`40` 개정과 분리해서 결정하지 않는다"* 고 못박은 항목이다.
+역할 범위가 인스턴스 타입·SG·IAM을 전부 정하기 때문이다.
+
+**겸용하지 않는다.** bastion은 **사람이 조작하는 지점**이고, 그 결과 다음이 계약이 된다.
+
+| 축 | 겸용 안 함(채택) | 겸용(기각) |
+|----|------------------|-----------|
+| 인스턴스 타입 | `t4g.nano` 급으로 충분 | 빌드 부하를 견뎌야 함 → 타입 상향 + 비용 |
+| IAM | SSM + (선택) `eks:DescribeCluster` | GitHub runner 등록·아티팩트 접근 권한 추가 |
+| 자격증명 | **추가 없음** | runner 등록 토큰(회전 대상)이 하나 늘어남 |
+| 상시 기동 | 조작할 때만 쓰는 유휴 인스턴스 | CI 대기 시간 때문에 상시가 **요구사항**이 됨 |
+
+**그 대가를 명시한다** — 프로파일 B(helm/kubectl 직접 운영, [`22 §3`](22-day2-operations.md))의 배포는
+**사람이 bastion에서 실행**한다. 즉 [`50`](50-reference-consumer-repo.md)의 plan artifact 규약
+(*"승인한 계획을 그대로 apply한다"*)에 대응하는 장치가 **helm 경로에는 없다.**
+
+> ⚠️ **이 한계를 숨기지 않는다.** 프로파일 B는 애초에 *"플랫폼 팀이 없는 고객사"* 를 위한 경로이고
+> ([`22 §3.1`](22-day2-operations.md)), 그런 조직에 CI 승인 게이트를 강제하면 운영이 멈춘다.
+> **작은 조직에 현실적인 절차를 주는 것이 선택의 목적**이지, 구멍을 못 본 것이 아니다.
+>
+> 🔁 **재검토 조건**: 프로파일 B 고객사가 **환경 3개 이상**(dev/stg/prd)으로 늘어 helm 실행이 반복
+> 작업이 되면 그때 다시 판단한다. 그 시점엔 자동화의 값이 자격증명 1개의 대가를 넘어선다.
+
+---
+
+## 3. 도달 경로
 
 ```mermaid
 flowchart LR
-  subgraph laptop["운영자 노트북"]
+  subgraph laptop["운영자 노트북 / 고객사 단말"]
     cli["aws ssm start-session"]
   end
 
   subgraph aws["AWS 관리 평면 (VPC 밖)"]
     ssm["SSM Service"]
-    argocd["ArgoCD Capability<br/>(EKS 관리형)"]
   end
 
-  subgraph vpc["dev VPC 10.0.0.0/24 + 10.1.0.0/16"]
-    subgraph vmsub["vm-uniq (private)<br/>10.1.16.0/20 · 10.1.32.0/20"]
-      bastion["ec2-poc-dev-an2-bastion-01<br/>SSM Agent · kubectl · argocd CLI"]
+  subgraph vpc["고객사 VPC"]
+    subgraph priv["private 서브넷 (NAT 경유)"]
+      bastion["ec2-…-bastion-01<br/>SSM Agent · kubectl · helm"]
     end
-    subgraph epsub["ep-uniq (isolated)<br/>10.0.0.0/27 · 10.0.0.32/27"]
-      vpce["vpce eks-capabilities<br/>ENI"]
-    end
-    subgraph nodesub["node-uniq (private)"]
-      api["EKS apiserver ENI<br/>(public access = false)"]
+    subgraph nodesub["노드 서브넷"]
+      api["EKS apiserver ENI<br/>endpoint_public_access = false"]
     end
     nat["NAT GW"]
   end
 
-  cli -->|"① 세션 요청"| ssm
-  bastion -->|"② 아웃바운드 폴링 (443)"| nat --> ssm
+  cli -->|"① 세션 요청 (IAM 인증)"| ssm
+  bastion -->|"② 아웃바운드 폴링 443"| nat --> ssm
   ssm -.->|"③ 세션은 ②의 연결을 역방향으로"| bastion
-  bastion -->|"④ ArgoCD UI/API 443"| vpce -->|"PrivateLink"| argocd
-  bastion -->|"⑤ kubectl 443 (GitOps seed)"| api
-  argocd -.->|"⑥ argocd ns의 CR을 watch"| api
+  bastion -->|"④ kubectl / helm 443"| api
 ```
 
-**핵심**: ①②는 별개 방향이며, bastion으로 들어오는 인바운드 연결은 존재하지 않는다.
-④는 `private` 전환 후의 경로이고, 현재 `public` 모드에서는 ④가 NAT를 거쳐 공인 엔드포인트로 나간다.
+**핵심**: ①과 ②는 **별개 방향**이며, bastion으로 들어오는 인바운드 연결은 존재하지 않는다.
+③이 성립하는 것은 ②가 이미 열어 둔 연결 위를 세션이 흐르기 때문이다 — 이것이 인바운드 SG 규칙 0개로
+셸에 진입할 수 있는 이유다.
 
-**④와 ⑤는 목적지도 인증도 다른 별개 경로다** — 혼동하면 진단이 어긋난다:
+④가 성립하려면 **세 층이 모두** 필요하다. 그 소유는 §5가 정한다.
 
-| | ④ ArgoCD 서버 | ⑤ apiserver |
-|---|---|---|
-| 목적지 | Capability 엔드포인트(VPC 밖, vpce 경유) | 클러스터 apiserver ENI(VPC 안) |
-| 인증 | IdC → UI → **JWT 토큰**(§9-4) | **IAM**(Access Entry) |
-| 용도 | UI 관찰·`argocd app sync`류 | **GitOps seed**(§6) · 진단 |
-| 접근 제어 | vpce SG 443 | cluster SG ingress 443 |
-
-⑥이 seed가 성립하는 이유다 — 관리형 ArgoCD는 클러스터 밖에서 돌지만 **desired-state는 클러스터
-`argocd` 네임스페이스의 CR**을 읽는다. 그래서 ⑤(kubectl)만으로 ④를 거치지 않고 seed할 수 있다.
+> ⚠️ **PoC가 여기서 한 번 틀렸다** — 앞의 두 층만 갖추고 SG를 빠뜨려 `dial tcp …: i/o timeout`이 났다.
+> 🔑 **증상이 인증 오류가 아니라 타임아웃이었다는 것이 단서다** — 인증 계층에 닿지도 못했다는 뜻이다.
+> 진단은 **증상의 계층을 먼저 특정하고 그 계층만 의심한다**(원문: [`../reference/poc-findings.md`](../reference/poc-findings.md)).
 
 ---
 
-## 3. 리소스 구성
+## 4. 모듈 계약 — `modules/bastion`
 
-| 리소스 | `Name` 태그 | 비고 |
-|--------|-------------|------|
-| `aws_instance` | `ec2-poc-dev-an2-bastion-01` | `t4g.nano`(arm64), AL2023 |
-| `aws_security_group` | `sgr-poc-dev-an2-bastion` | **ingress 규칙 0개** |
-| `aws_vpc_security_group_egress_rule` | — | 443/tcp → `0.0.0.0/0` 1건만 (SSM·패키지·GitHub 전부 HTTPS) |
-| `aws_iam_role` | `iamr-poc-dev-an2-bastion` | 관리형은 `AmazonSSMManagedInstanceCore` 1개 + 인라인 정책(아래) |
-| `aws_iam_role_policy` (인라인) | `iamr-poc-dev-an2-bastion-eks` | `eks:DescribeCluster` **해당 클러스터 ARN 한정** — `update-kubeconfig`에 필요한 최소 권한(D-BASTION-K8S) |
-| `aws_eks_access_entry` | — | principal = bastion role, `STANDARD` |
-| `aws_eks_access_policy_association` | — | `AmazonEKSClusterAdminPolicy`, scope = `cluster` |
-| `aws_vpc_security_group_ingress_rule` (EKS cluster SG 대상) | — | apiserver 443 ← bastion SG. **EKS 접근의 세 번째 층**(아래) |
+### 4.1 variables
 
-> **EKS 접근은 세 층이 모두 성립해야 한다 (2026-07-23 V-8 실증)**
+```hcl
+# ── 정체성 (파라미터화 — 01 §4 재사용 자산 요건) ─────────────────────────
+variable "naming"  { type = object({ workload = string, env = string, region_code = string }) }
+variable "purpose" { type = string, default = "bastion" }
+variable "serial"  { type = string, default = "01" }
+variable "tags"    { type = map(string), default = {} }
+
+# ── kill switch (D-BASTION-LIFECYCLE) ────────────────────────────────────
+variable "bastion_enabled" { type = bool, default = true }
+
+# ── 배치 (D-BASTION-PLACEMENT) ───────────────────────────────────────────
+variable "vpc_id"    { type = string }
+variable "subnet_id" { type = string }   # private 서브넷 전제(§2.2). 모듈은 검사하지 않는다
+
+# ── 인스턴스 (D-BASTION-AMI-PIN) ─────────────────────────────────────────
+variable "ami_id"        { type = string }                      # ⭐ 기본값 없음 = 필수 입력
+variable "instance_type" { type = string, default = "t4g.nano" } # ⚠️ ami_id 의 아키텍처와 정합할 것
+variable "root_volume_size" { type = number, default = 10 }
+variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS 관리형 키
+
+# ── 도구 (user_data) ─────────────────────────────────────────────────────
+variable "kubectl_version" { type = string, default = null }  # null = 미설치. 예: "v1.35.7"
+variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.16.4"
+
+# ── EKS 연동 — 1층만 (D-BASTION-SEAM) ────────────────────────────────────
+variable "eks_cluster_name" { type = string, default = null }  # null 이면 kubeconfig 생성 안 함
+variable "eks_cluster_arn"  { type = string, default = null }  # eks:DescribeCluster 를 이 ARN 으로 한정
+
+# ── egress (D-BASTION-EGRESS) ────────────────────────────────────────────
+variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } # 443/tcp
+```
+
+> **교차변수 validation** — `eks_cluster_name`과 `eks_cluster_arn`은 **함께 주거나 함께 비운다.**
+> 한쪽만 주면 kubeconfig는 만들어지는데 권한이 없거나(이름만), 권한은 있는데 kubeconfig가 없다(ARN만).
+> D-EXTDNS-ZONE([`20 §4.2`](20-eks-module.md))과 같은 형태의 가드를 건다.
 >
-> | 층 | 무엇을 결정하나 | 없으면 나타나는 증상 |
-> |----|----------------|---------------------|
-> | IAM `eks:DescribeCluster` | kubeconfig를 만들 수 있는가 | `update-kubeconfig` 권한 오류 |
-> | Access Entry + 정책 | 클러스터 **안에서** 무엇을 하는가 | `401 Unauthorized` |
-> | **SG ingress 443** | apiserver에 **네트워크로 닿는가** | **`dial tcp …: i/o timeout`** |
+> ⭐ **거기서 배운 것을 그대로 적용한다**: 가드에 **`&& var.bastion_enabled`를 함께 넣는다.**
+> 빠뜨리면 kill switch를 끄는 **파기 경로의 plan이 거부**되어 반쪽 토글이 된다.
+> 설계 조건식을 그대로 옮기지 않고 선례를 먼저 찾는 것이 차이를 만들었던 지점이다.
+
+### 4.2 리소스 구성과 하드닝
+
+| 리소스 | `Name` | 비고 |
+|--------|--------|------|
+| `aws_instance` | `ec2-<w>-<e>-<r>-bastion-01` | 아래 하드닝 4종이 **계약**이다 |
+| `aws_security_group` | `sgr-<w>-<e>-<r>-bastion-01` | **ingress 규칙 0개** |
+| `aws_vpc_security_group_egress_rule` | `sgr-…-bastion-01-egress-https` | 443/tcp 1건만. SSM·패키지·차트 저장소가 전부 HTTPS다 |
+| `aws_iam_role` | `iamr-<w>-<e>-<r>-bastion-01` | 관리형 `AmazonSSMManagedInstanceCore` 1개 |
+| `aws_iam_role_policy`(inline) | `iamr-…-bastion-01-eks-policy` | `eks:DescribeCluster` **`eks_cluster_arn` 한정**. `eks_cluster_arn = null`이면 생성 안 함 |
+| `aws_iam_instance_profile` | `iamr-…-bastion-01` (role과 **동일명**) | 아래 상자 |
+| root EBS 볼륨 | `vol-<w>-<e>-<r>-bastion-01` | gp3, `encrypted = true` |
+
+> **인스턴스 프로파일에 새 약어를 만들지 않는다.** 카탈로그([`../reference/aws-naming-abbreviations.md`](../reference/aws-naming-abbreviations.md))에
+> 인스턴스 프로파일 약어는 **없다**. 임의 생성 금지(CLAUDE.md)이므로 남은 선택지는 둘이었다 —
+> 물어서 등재하거나, 기존 규약으로 처리하거나.
 >
-> 초회 구현에서 앞의 두 층만 갖춰 V-8이 timeout으로 실패했다. 인증 오류가 아니라 **타임아웃**이었다는
-> 것이 단서 — 인증 계층에 닿지도 못했다는 뜻이다. apiserver ENI에는 EKS가 자동 생성한
-> cluster SG(`sg-0cc911a9…`)가 붙고 기본 규칙은 노드 통신만 허용한다.
-| `aws_iam_instance_profile` | `iamr-poc-dev-an2-bastion` (동일명) | 인스턴스 프로파일 약어가 카탈로그에 **없다** — 임의 생성 금지 규칙(CLAUDE.md)에 따라 새 약어를 만들지 않고 role과 동일 이름을 쓴다. IAM에서 role과 instance profile은 별개 네임스페이스라 충돌하지 않는다 |
-| root EBS 볼륨 | `vol-poc-dev-an2-bastion-01` | gp3 10GB, **암호화 필수** |
+> 🔑 **2026-07-30에 신설된 「종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다」 규약이 이미 답이다.**
+> 인스턴스 프로파일은 role 없이 존재할 수 없고 콘솔·API에서도 role과 짝으로 다뤄진다.
+> IAM에서 role과 instance profile은 **별개 네임스페이스**라 같은 이름이 충돌하지 않는다.
+> → **카탈로그 변경 없음.** (PoC도 같은 처리를 했으나, 당시엔 근거가 될 규약이 아직 없었다.)
 
-### AMI 선택 — **명시 핀** (D-BASTION-AMI-PIN)
+**하드닝 4종 — 변수로 열지 않는다**(§2.1의 "모듈의 값"):
 
-`data.aws_ssm_parameter`의 `…/al2023-ami-latest/…` 경로는 **사용하지 않는다.** AMI ID를 변수
-기본값으로 **고정**한다.
-
-| 항목 | 값 (2026-07-23 실측) |
-|------|----------------------|
-| AMI ID | **`ami-0e9f53ecbca0f42fd`** |
-| AMI 이름 | `al2023-ami-2023.12.20260720.0-kernel-6.1-arm64` |
-| 리전 | `ap-northeast-2` (**리전 종속** — 다른 리전 확장 시 재조회 필요) |
-
-**근거**: `latest` 파라미터는 AWS가 새 AMI를 릴리스할 때마다 값이 바뀌어 **리뷰 없이 인스턴스가
-재생성**된다. 이는 addon 버전 핀에서 이미 겪은 문제와 동일한 구조다 — `most_recent = true`가
-업그레이드 판단을 매 plan마다 Terraform이 대신 내리던 것을 명시 핀으로 되돌린 결정
-([`20-eks-module.md §2.6-6`](20-eks-module.md) D-ADDON-VERSION-PIN). AMI도 같은 원칙을 적용한다.
-
-**업그레이드 절차**: `ami_id` 기본값을 bump하는 **명시적 커밋**으로만 갱신한다. plan diff에서
-인스턴스 재생성이 보이고, 그것이 의도된 것임을 리뷰에서 확인한 뒤 apply한다.
-
-AL2023은 SSM Agent가 기본 탑재라 별도 설치 과정이 없다.
-
-### 보안 하드닝 (구현 시 필수)
-- `metadata_options`: `http_tokens = "required"` (**IMDSv2 강제**), `http_put_response_hop_limit = 1`
+- `metadata_options`: `http_tokens = "required"`(**IMDSv2 강제**), `http_put_response_hop_limit = 1`
 - `root_block_device`: `encrypted = true`, `volume_type = "gp3"`
-- SSH 키페어 미지정 (`key_name` 없음)
-- `associate_public_ip_address` 미지정 (서브넷이 `MapPublicIpOnLaunch=false`)
+- `key_name` 미지정 — SSH 키페어를 만들지 않는다(D-BASTION-ACCESS)
+- `associate_public_ip_address` 미지정 — private 서브넷 전제(§2.2)
 
-### user_data
-`argocd` CLI와 `kubectl`의 **arm64** 바이너리를 설치한다. 버전은 **명시 핀**(CLAUDE.md 버전 핀 철학) —
-`argocd`는 서버 버전 `v3.3.10+eks-4`에 맞춰 `v3.3.10`, `kubectl`은 `stable-1.35.txt` 실측값 `v1.35.7`.
+> ⚠️ **hop limit 1은 컨테이너를 bastion에서 돌리면 IMDS가 막힌다는 뜻이다.** bastion은 도구를
+> 호스트에서 직접 실행하는 지점이므로 지금 요구에는 맞다. docker/nerdctl로 무언가를 돌리는 요구가
+> 실제로 생기면 그때 변수를 연다 — **추측으로 미리 열지 않는다**(CLAUDE.md 작업 원칙).
 
-> **⚠️ tmpfs 고갈 실증(2026-07-23) — 다운로드 경로는 반드시 `/var/tmp`**
+### 4.3 user_data
+
+`kubectl`·`helm` 바이너리를 **명시 핀 버전**으로 설치하고, `eks_cluster_name`이 있으면 kubeconfig를
+시스템 전역(`/etc/kubernetes/kubeconfig` + `/etc/profile.d`)에 생성한다.
+
+> **⚠️ 다운로드 경로는 `/tmp`가 아니라 `/var/tmp`다 — 승계된 함정 중 가장 값진 것**
 >
-> 초회 배포에서 argocd는 설치되고 **kubectl만 실패**했다. 처음에는 부팅 시점 네트워크 경합으로
-> 오진해 `--retry-all-errors`를 넣었으나, **재생성 후에도 동일하게 실패**했다. 실제 원인은 네트워크가
-> 아니라 **디스크**다:
+> PoC에서 `t4g.nano`(RAM 512MB)의 **tmpfs가 210MB**라 바이너리 두 개를 연속으로 받다가
+> `curl: (23) Failure writing output to destination`으로 죽었다. HTTP는 전부 200이었다.
+> 🔑 **"먼저 받은 것이 공간을 먹는 순서 의존"** 이라 수동 재시도도 실패한다.
+> → `/var/tmp`(루트 EBS)로 받고 `install` 직후 원본을 삭제한다.
 >
-> ```
-> tmpfs  210M  210M  0  100%  /tmp     ← t4g.nano RAM 512MB → tmpfs가 210MB
-> /tmp/argocd  197M                     ← argocd 바이너리 하나가 거의 다 점유
-> /tmp/kubectl  13M                     ← 여기서 공간 소진 → curl (23) write 실패
-> ```
->
-> 증상이 `curl: (23) Failure writing output to destination`였고, URL은 전부 `HTTP 200`이었다.
-> "나중에 하면 된다"가 아니라 **argocd가 먼저 받아져 공간을 먹는 순서 의존**이라 수동 재시도도 실패한다.
->
-> 대책: 다운로드를 **`/var/tmp`(루트 EBS, 8GB 여유)** 로 하고 `install` 직후 원본을 삭제한다.
-> `--retry-all-errors`는 이 문제의 해법은 아니지만 부팅 초기 일시적 네트워크 실패를 흡수하므로 유지한다
-> (`curl --retry`는 연결 실패만 재시도하고 DNS 실패·HTTP 오류는 재시도하지 않는다).
+> 이 함정은 **`instance_type` 기본값이 작은 한 계속 유효**하다. 실측 원문은
+> [`../reference/poc-findings.md`](../reference/poc-findings.md).
 
----
+- `curl --retry-all-errors`를 유지한다. tmpfs 문제의 해법은 아니지만 부팅 초기 일시적 네트워크 실패를
+  흡수한다(`curl --retry`는 연결 실패만 재시도하고 HTTP 오류·DNS 실패는 재시도하지 않는다).
+- `aws eks update-kubeconfig`는 **재시도로 감싼다.** IAM 인라인 정책 생성 직후 인스턴스가 부팅하면
+  전파 지연으로 권한 오류가 날 수 있다. **Terraform에 `time_sleep`을 넣기보다 부팅 스크립트가 스스로
+  견디는 편**이 재생성마다 반복되는 이 상황에 맞다.
 
-## 4. 인터페이스 (`live/dev/bastion`)
-
-| 변수 | 기본값 | 설명 |
-|------|--------|------|
-| `workload` / `env` / `region_code` | `poc` / `dev` / `an2` | 네이밍 3요소 |
-| `ami_id` | `ami-0e9f53ecbca0f42fd` | **명시 핀**(D-BASTION-AMI-PIN). bump는 별도 커밋 — 인스턴스 재생성을 수반 |
-| `instance_type` | `t4g.nano` | arm64 계열 유지 시에만 변경 (`ami_id`가 arm64) |
-| `argocd_cli_version` | `v3.3.10` | ArgoCD Capability 서버 버전과 정합 |
-| `kubectl_version` | `v1.35.7` | `stable-1.35.txt` 실측값 — EKS 1.35와 정합 |
-| `eks_cluster_name` | `eks-poc-dev-an2-main-01` | kubeconfig 대상. 네이밍 규약으로 합성하되 override 가능(D-BASTION-K8S) |
-| `bastion_enabled` | `true` | 파기 시 `false` — D-BASTION-LIFECYCLE은 상시지만 토글은 남긴다 |
+### 4.4 outputs
 
 | 출력 | 설명 |
 |------|------|
-| `bastion_instance_id` | `aws ssm start-session --target <id>` 에 그대로 사용 |
+| `bastion_instance_id` | `aws ssm start-session --target <id>`에 그대로 사용 |
+| `bastion_security_group_id` | ⭐ **`eks-cluster`의 SG 규칙 소스로 넘긴다**(§5) |
+| `bastion_iam_role_arn` | ⭐ **`eks-cluster`의 Access Entry principal로 넘긴다**(§5) |
 | `bastion_private_ip` | 도달성 진단용 |
 
-의존 조회는 **네이밍 → data source**(04 §조회 1순위) — `gitops-hub`와 동일 패턴으로
-`vpc-poc-dev-an2-main` · `snet-poc-dev-an2-vm-uniq-*`를 조회한다. `tfe_outputs`·remote state sharing
-추가 없음 → networking의 output 계약을 넓히지 않는다.
+> `bastion_enabled = false`면 위 출력은 전부 `null`이다 — `eks-cluster` 쪽 조립이
+> `try()`/조건식 없이 깨지지 않도록 예제가 그 형태를 보여준다.
 
 ---
 
-## 5. 검증 계획
+## 5. ⭐ D-BASTION-SEAM — EKS 접근 3층을 누가 소유하는가
 
-| ID | 검증 | 통과 기준 |
-|----|------|-----------|
-| **V-1** | SSM 등록 | `describe-instance-information`에서 `PingStatus: Online` — **✅ 2026-07-23 통과** (Agent 3.3.4624.0) |
-| **V-2** | 세션 접속 | `aws ssm start-session --target <id>` 로 셸 진입 — **✅ 통과** (`send-command` Status: Success) |
-| **V-3** | (public 상태) ArgoCD 도달 | bastion에서 `curl https://<serverUrl>/api/version` → 200 — **✅ 통과** (`v3.3.10+eks-4`) |
-| **V-4** | **private 전환 후 DNS 해석** | bastion에서 `dig <serverUrl>` → **`10.0.0.x` (ep-uniq 대역)** — **✅ 2026-07-24 통과** (`10.0.0.15`·`10.0.0.62`) |
-| **V-5** | private 전환 후 CLI 동작 | bastion에서 `curl /api/version` 200 · `argocd version` — **✅ 통과** (`v3.3.10+eks-4`) |
-| **V-6** | 음성 대조 | 노트북에서 동일 호출 시 **도달 불가** — **✅ 통과** (`curl EXIT=28`; DNS는 풀리나 사설 IP라 라우팅 불가) |
-| **V-7** | kubectl 도구 설치 | `kubectl version --client` 정상 — **✅ 2026-07-23 통과** (`v1.35.7`, `/tmp` 사용률 0%로 tmpfs 고갈 해소) |
-| **V-8** | kubectl 클러스터 연결 | `kubectl get nodes` → 노드 응답 — **✅ 통과** (노드 2대 `Ready` `v1.35.6-eks-8f14419`, `get ns`도 정상) |
-| **V-9** | **노트북 브라우저에서 ArgoCD UI 도달**(포트포워딩 채택 검증, §9-3) | 포트포워딩 후 노트북에서 `curl https://<serverUrl>/api/version` → 200, **Host 헤더 조작 없이** — **✅ 2026-07-24 통과** (`v3.3.10+eks-4`, root 200, TLS 검증 `ssl_verify_result=0`) |
+bastion이 apiserver에 닿으려면 세 층이 **모두** 성립해야 한다. PoC는 셋을 전부 bastion 컴포넌트가
+소유했다(`D-BASTION-K8S`). **이 repo에서는 그렇게 하지 않는다.**
 
-> **V-8 부수 확인**: `kubectl get pods -n argocd` → `No resources found`. 이는 정상이며 D-ARGOCD가
-> 의도한 상태다 — ArgoCD를 클러스터 안에 설치하지 않고 관리형 Capability(클러스터 밖 AWS 서비스)로
-> 띄웠으므로 네임스페이스만 있고 파드는 없다. 파드가 나왔다면 오히려 설계와 어긋난 상황이다.
+| 층 | 무엇을 결정하나 | 없으면 나타나는 증상 | **소유** |
+|----|----------------|---------------------|---------|
+| ① IAM `eks:DescribeCluster` | kubeconfig를 **만들 수 있는가** | `update-kubeconfig` 권한 오류 | **`modules/bastion`** |
+| ② Access Entry + 정책 | 클러스터 **안에서** 무엇을 하는가 | `401 Unauthorized` | **`modules/eks-cluster`** (`access_entries`) |
+| ③ cluster SG ingress 443 | apiserver에 **네트워크로 닿는가** | `dial tcp …: i/o timeout` | **`modules/eks-cluster`** (신설 변수) |
 
-> **V-4 비교 기준선(2026-07-23 확보)**: 현재 `public` 모드에서 bastion의 DNS 해석 결과는
-> `3.36.215.115` · `3.39.100.202` · `43.202.187.174` · `3.37.199.83` — **전부 공인 IP**다.
-> private 전환 후 이 값이 `10.0.0.x`(ep-uniq 대역)로 바뀌어야 V-4 통과다.
->
-> **V-4가 이 설계의 진짜 목표다.** `private_dns_enabled`를 켜지 않고 "AWS가 capability의 serverUrl DNS를
-> vpce private IP로 자동 구성한다"는 §2.7 H-2의 결론은 **문서상 근거만 있고 아직 실증되지 않았다.**
-> bastion이 그 실증 도구가 된다. V-4가 실패하면 private 전환 자체를 되돌리고 H-2를 재설계해야 한다.
+### 5.1 가르는 기준 — 주체냐 대상이냐
+
+**①은 bastion의 권한이고, ②③은 클러스터가 누구를 받아들이는가다.**
+
+- ①은 bastion role에 붙는 인라인 정책이다. 대상 리소스(cluster ARN)를 **참조만** 할 뿐,
+  클러스터 쪽에 아무것도 만들지 않는다. → 주체 소유.
+- ②③은 클러스터 쪽 리소스다. [`03 §2.3`](../architecture/03-dependencies.md)이 이미 답을 준다:
+  > *"cross-SG 참조는 rule 소유권을 쪼개지 말고 (…) 공유 SG에 외부 규칙 기여가 필요하면,
+  > **소유 모듈이 허용 소스 목록을 변수로 파라미터화**해 owner가 rule을 생성하게 한다."*
+
+**PoC 방식을 철회하는 실질 이유 3가지**:
+
+1. **의존 방향이 뒤집힌다.** bastion이 Access Entry를 만들면 `bastion → eks-cluster` 의존이 생긴다.
+   그런데 실제 생성 순서는 반대다 — 클러스터가 먼저 있고 bastion이 나중에 붙는다.
+2. **경쟁 SSOT가 생긴다.** `eks-cluster`는 이미 `access_entries`(type = any) 변수를 노출한다.
+   bastion이 두 번째 경로를 만들면 *"이 클러스터의 접근 주체 목록을 어디서 보나"* 의 답이 둘이 된다.
+3. **SG rule 소유자가 쪼개진다.** cluster SG의 rule을 두 모듈이 각자 붙이면 drift·충돌이 생긴다
+   ([`03 §2.3`](../architecture/03-dependencies.md)).
+
+⚠️ **잃는 것도 있다** — PoC 방식은 *"bastion을 파기하면 접근권도 함께 사라진다"* 는 이점이 있었다.
+이 배치에서는 bastion을 지워도 **`eks-cluster` 쪽 Access Entry·SG rule이 남는다**(존재하지 않는 SG를
+가리키는 rule은 apply에서 죽고, 존재하지 않는 role의 Access Entry는 조용히 남는다).
+→ **예제가 둘을 같은 루트에 두어** `bastion_enabled = false`가 양쪽을 함께 비우는 형태를 보여준다.
+이것이 §4.4가 출력을 `null`로 내려 보내는 이유다.
+
+### 5.2 파급 — `eks-cluster` 계약이 늘어난다
+
+②는 기존 `access_entries`로 **이미 가능**하다. **③에는 통과 경로가 없다.**
+
+> 🔑 **또 하나의 "facade가 upstream을 가리는" 사례다.** upstream `terraform-aws-modules/eks` v21에는
+> **`security_group_additional_rules`가 처음부터 있다**(`source_security_group_id` 지원 확인).
+> upstream이 지원하지 않는 것이 아니라 **우리 wrapper가 넘기지 않고 있을 뿐**이다 —
+> `ami_type`(D-NODE-ARCH)과 정확히 같은 형태다. 단정하고 우회를 짰다면
+> bastion 모듈이 남의 SG에 rule을 붙이는 부채가 됐을 것이다.
+
+**`20-eks-module.md` 개정에서 정할 것**(이 문서는 요구만 낸다):
+
+- 변수 신설: cluster SG 추가 규칙 통과 (upstream `security_group_additional_rules` → facade 이름은 20이 정한다).
+  facade 원칙상 **`cluster_` 접두를 붙여 node SG 쪽과 구분**하는 것을 권한다.
+- **릴리스**: `eks-cluster-v0.3.0`. ⛔ `v0.2.0`은 **이미 소비자가 apply까지 마쳐 태그를 옮길 수 없다.**
+- ⚠️ **함께 고칠 결함**: `modules/eks-cluster/outputs.tf`의 `cluster_security_group_id` 설명이
+  *"EKS가 만든 클러스터 보안 그룹"* 이라고 적혀 있으나, 값은 **upstream 모듈이 만든 SG**다
+  (EKS가 자동 생성하는 쪽은 `cluster_primary_security_group_id`이며 우리 모듈은 노출하지 않는다).
+  **설명과 값이 다른 SG를 가리킨다** — bastion 규칙을 어디에 붙일지 판단할 때 정확히 오도하는 지점이다.
+
+> ✅ **③이 upstream 경로로 실제 성립하는지 확인했다**: upstream은 `aws_security_group.cluster`를
+> `vpc_config.security_group_ids`에 넣으므로 그 SG가 **apiserver ENI에 적용**된다.
+> ⚠️ 단 upstream은 이 규칙을 **구형 `aws_security_group_rule`** 로 만든다 —
+> [`03 §2.1`](../architecture/03-dependencies.md)이 *"신규 코드에서 미사용"* 이라 판정한 리소스다.
+> **우리가 통제할 수 없는 upstream 내부**이므로 규약 위반으로 취급하지 않되, 이 어긋남을 §9-4에 남긴다.
 
 ---
 
 ## 6. 운영 절차
 
 ```bash
-# 접속
-aws ssm start-session --target <bastion_instance_id> --region ap-northeast-2
+# 접속 (인바운드 없음 — IAM 인증만으로 셸에 들어간다)
+aws ssm start-session --target <bastion_instance_id> --region <region>
+
+# 클러스터 조작 (kubeconfig 는 user_data 가 전역에 생성)
+kubectl get nodes
+helm upgrade --install <release> <chart> -n <ns>
 ```
 
-### ArgoCD UI 접근 — SSM 포트포워딩 (2026-07-24 **채택 확정**, V-9 통과)
-
-private 전환 후 노트북 브라우저로 ArgoCD UI를 보는 유일한 경로다(§9-3 미결 → 채택).
+**로컬 포트포워딩**(VPC 안 엔드포인트를 노트북 브라우저로 보는 경우):
 
 ```bash
-# ① /etc/hosts 매핑 (한 번만) — TLS 인증서가 호스트명으로 검증되므로 필수
-echo "127.0.0.1 <serverUrl 호스트명>" | sudo tee -a /etc/hosts
-
-# ② 터널 — 로컬 포트는 반드시 443 (아래 함정 참조). 443은 특권 포트라 sudo 필요.
-sudo AWS_PROFILE=<profile> \
-  AWS_CONFIG_FILE=$HOME/.aws/config \
-  AWS_SHARED_CREDENTIALS_FILE=$HOME/.aws/credentials \
-  aws ssm start-session --target <bastion_instance_id> --region ap-northeast-2 \
+aws ssm start-session --target <id> --region <region> \
   --document-name AWS-StartPortForwardingSessionToRemoteHost \
-  --parameters host="<serverUrl 호스트명>",portNumber="443",localPortNumber="443"
-
-# ③ 브라우저 → https://<serverUrl 호스트명>/   (포트 없이)
-
-# ④ 정리 — 터널 Ctrl+C 후
-sudo sed -i '' '/eks-capabilities/d' /etc/hosts
+  --parameters host="<대상 호스트>",portNumber="443",localPortNumber="<로컬 포트>"
 ```
 
-> **⚠️ 함정: 로컬 포트를 443이 아닌 값으로 두면 404가 난다 (2026-07-24 실증)**
->
-> 최초 절차안은 `localPortNumber="8443"`이었으나 **실제로 동작하지 않는다**. 실측:
-> `Host: <host>:8443` → **404**(`server: envoy`), `Host: <host>` → **200**.
->
-> 관리형 Capability 앞단의 envoy는 **`:authority`(HTTP/2 Host)로 어느 capability인지 라우팅**한다.
-> 비표준 포트를 쓰면 Host가 `<host>:8443`이 되어 등록된 라우트와 문자열이 어긋난다. **브라우저는
-> 비표준 포트를 항상 Host에 포함**하므로 curl처럼 헤더를 덮어쓸 수 없다 → 로컬 포트는 443 고정.
->
-> **진단 교훈(계층 분리)**: TLS는 통과하는데(SNI에는 포트가 붙지 않는다) HTTP에서만 막힌다.
-> 그래서 증상이 "연결 실패"가 아니라 "404"였다. 이때 원인을 좁힌 두 증거는
-> ① 인증서가 `*.eks-capabilities.<region>.amazonaws.com`으로 검증됨 → 올바른 서비스 앞단까지는 도달
-> ② bastion에서 같은 요청이 200 → 엔드포인트는 무죄. 남은 용의자가 Host 헤더뿐이었다.
-> §3의 "EKS 접근 세 층"과 같은 소거법이다 — **증상의 계층을 먼저 특정하고 그 계층만 의심한다.**
-
-> **보안 메모**: `/etc/hosts` 항목이 남아 있어도 실질 위험은 없다 — 그 호스트명은 원래
-> `10.0.0.x`(VPC 밖 라우팅 불가)로 해석되므로 터널이 없으면 아무 데도 닿지 않는다. 다만 나중에
-> "왜 안 되지"로 혼동할 여지를 없애기 위해 세션 종료 시 ④로 제거하는 것을 권장한다.
-
-### GitOps seed 수행 지점 (2026-07-24 추가)
-
-bastion은 진단 도구를 넘어 **ArgoCD 부트스트랩 seed의 수행 지점**으로 확정됐다
-(20 §2.8 **D-SEED-KUBECTL** · [`30-gitops-repo.md §4`](30-gitops-repo.md)). 근거는 도달성과 인증 둘 다다:
-
-- **도달성**: dev apiserver는 `endpointPublicAccess=false`라 VPC 내부에서만 닿는다 → bastion이 유일한 조작 지점.
-- **인증**: 관리형 Capability의 등록·앱 정의는 hub 클러스터 `argocd` 네임스페이스의 CR이고,
-  kubectl 경로는 **IAM(Access Entry)만으로 인증**된다 — ArgoCD 자체 인증 체계(IdC→UI→JWT)를 우회하므로
-  **신규 자격증명이 생기지 않는다**. 이것이 argocd CLI 경로 대비 결정적 이점이다(§9-4).
-
-이 역할은 D-BASTION-K8S(§1)가 이미 갖춘 것(kubeconfig·`eks:DescribeCluster`·ClusterAdmin Access
-Entry·SG 443)으로 **추가 권한 없이 성립**한다. 다만 ClusterAdmin이 seed 권한까지 겸하게 되므로
-§9 열린 항목 1(SSM 세션 로깅)의 중요도가 한 번 더 올라간다.
-
-> seed 매니페스트는 **GitOps 저장소의 파일을 그대로 apply**한다(자기소멸 원칙 — 30 §4).
-> bastion에서 매니페스트를 손으로 작성하지 않는다. 구체 절차서는 GitOps 저장소 확정 후 신설한다.
+> ⚠️ **대상 서비스가 Host 헤더로 라우팅하면 로컬 포트를 443으로 맞춰야 한다.** PoC에서 `8443`으로
+> 터널을 열었을 때 TLS는 통과하는데 HTTP만 404였다 — 브라우저가 비표준 포트를 **항상 Host에 포함**하기
+> 때문이다(`sudo` 필요). 구체 사례와 실측은 [`../reference/poc-findings.md`](../reference/poc-findings.md).
+> **어떤 서비스를 어떻게 노출할지는 이 문서 소관이 아니다**(§0).
 
 ---
 
-## 7. 구현 계획
+## 7. 검증 계획
 
-| # | 태스크 | 검증 |
-|---|--------|------|
-| 40.1 | `live/dev/bastion` 스캐폴딩 (`versions.tf`·`variables.tf`·`main.tf`·`outputs.tf`) — provider `default_tags` 거버넌스 태그 | `terraform validate` |
-| 40.2 | data source(vpc·subnet — **AMI는 data source 아님, 변수 핀**) + IAM role/instance profile | `fmt`·`tflint` |
-| 40.3 | SG(ingress 0 · egress 443) + `aws_instance`(IMDSv2·암호화·user_data) | `trivy config` 무경고 |
-| 40.4 | TFC workspace `bastion-dev` 생성 — working directory·varset `aws-oidc-poc-dev` 연결·OIDC 신뢰 패턴 확인 | 런북 [`tfc-workspace-run-trigger-setup.md`](../reference/poc-findings.md) 절차 |
-| 40.5 | apply → **V-1 ~ V-3 검증** (bastion 자체 완료 지점) — **✅ 2026-07-23 완료** (`run-u5ePKFzoq32vPf4c` applied, 6 to add / 0 change / 0 destroy · `i-0f85574c2cc83c858` · `10.1.38.222` · vm-uniq-c) | 위 §5 |
+⛔ **이 repo는 배포하지 않는다.** 따라서 `apply` 판정(SSM 등록·세션 접속·`kubectl get nodes`)은
+**소비 repo 몫**이다 — 그 경계를 넘어 "검증했다"고 쓰지 않는다(CLAUDE.md 작업 원칙).
 
-> **40.4의 OIDC 확인 — 해소됨(2026-07-23)**: 새 TFC workspace는 OIDC subject가 달라지므로 입구 Role
-> `tfc-terraform-enterprise-poc`의 신뢰 정책을 확인해야 한다(2026-07-19에 workspace rename으로 403이
-> 발생한 이력). 확인 결과 신뢰 정책에 `organization:born2k:project:skhy-poc:workspace:*-dev:run_phase:*`
-> 와일드카드가 있어 **`bastion-dev`는 자동 매칭된다 — 신뢰 정책 수정 불필요**
-> ([`../consumer/dynamic-credentials.md`](../consumer/dynamic-credentials.md) L78·L88).
+### 7.1 이 repo에서 판정하는 것 — `tofu test`(plan 단계)
 
-### 40.5b · kubectl 연결 (D-BASTION-K8S) — private 전환보다 먼저
+| ID | 검증 | 통과 기준 |
+|----|------|-----------|
+| T-1 | 기본 생성 | 인스턴스·SG·IAM role·instance profile이 계획됨 |
+| T-2 | **`Name` 태그 규약** | `ec2-`·`sgr-`·`iamr-`·`vol-` 접두 + `naming` 3요소 조합 일치(CLAUDE.md 강제 5) |
+| T-3 | **kill switch** | `bastion_enabled = false` → 리소스 0개, 출력 전부 `null` |
+| T-4 | **인바운드 0** | ingress rule 리소스가 계획에 **없을 것** |
+| T-5 | **하드닝 4종** | `http_tokens = "required"` · `encrypted = true` · `key_name` 미설정 · public IP 미할당 |
+| T-6 | EKS 연동 **양성** | `eks_cluster_name` + `eks_cluster_arn` 지정 시 인라인 정책이 **그 ARN으로 한정**되어 계획됨 |
+| T-7 | EKS 연동 **음성** ×2 | 한쪽만 지정 → **plan 거부**(§4.1 가드) |
+| T-8 | 음성 — kill switch × 가드 | `bastion_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
 
-40.5 검증 중 발견된 3개 결손(kubeconfig 없음 · Access Entry 없음 · IAM에 EKS 권한 없음)을 메운다.
-private 전환 전에 끝내야 한다 — 전환 후 문제가 생기면 진단 도구가 필요한데 kubectl이 그 도구다.
+> ⭐ **T-8이 D-EXTDNS-ZONE에서 배운 것의 회수 지점이다.** 가드에 `&& var.bastion_enabled`를 넣지 않으면
+> 이 케이스가 실패하고, 그것이 곧 **파기 불가능한 kill switch**를 뜻한다.
 
-| # | 작업 | 검증 |
-|---|------|------|
-| 40.5b-1 | user_data 다운로드 경로를 `/var/tmp`로 변경 + `install` 후 원본 삭제 (§3 tmpfs 실증) | **V-7** |
-| 40.5b-2 | IAM 인라인 정책(`eks:DescribeCluster`, 클러스터 ARN 한정) + Access Entry + `AmazonEKSClusterAdminPolicy` association | `terraform plan` diff |
-| 40.5b-3 | user_data에 `aws eks update-kubeconfig` (시스템 전역 `/etc/kubernetes/kubeconfig` + `/etc/profile.d`) | **V-8** |
-| 40.5b-4 | cluster SG에 bastion 443 ingress (§3 세 번째 층) | **V-8** |
+### 7.2 예제
 
-> **✅ 40.5b 완료 (2026-07-23)** — V-7·V-8 통과. kubeconfig는 재시도 없이 attempt 1에 성공해
-> IAM 전파 race는 이번엔 발현되지 않았다(재시도 로직은 보험으로 유지).
+`examples/bastion-enterprise` — VPC + EKS + bastion을 **한 루트에 조립**해 §5의 3층 배선을 보여준다.
+CI 게이트 ⑤(`init -lockfile=readonly` + `validate`)가 검증한다.
 
-> ⚠️ IAM 전파 race: 인라인 정책 생성 직후 인스턴스가 부팅하면 `update-kubeconfig`가 권한 오류로
-> 실패할 수 있다(gitops-hub에서 동일 계열 문제를 겪었다 — 설계 20 §2.7 `time_sleep`).
-> user_data 쪽에서 재시도로 흡수한다 — Terraform에 `time_sleep`을 또 넣기보다 부팅 스크립트가
-> 스스로 견디는 편이 재생성마다 반복되는 이 상황에 맞다.
+⚠️ 예제는 **EKS 접근 3층 전체**를 보여야 의미가 있다. bastion만 있는 예제는 §5의 요점을 놓친다.
 
-### 40.6 · private 전환 — bastion 완료 후 단계별 진행
+### 7.3 소비 repo가 판정할 것 (이 repo 밖)
 
-> **순서 고정**: 40.5의 V-1~V-3이 전부 통과한 뒤에만 착수한다. bastion이 동작하지 않는 상태에서
-> 전환하면 UI·CLI 양쪽 접근 수단이 동시에 사라진다(§0). 각 단계는 **직전 단계 검증 통과가 전제**이며,
-> 실패 시 그 단계에서 멈추고 되돌린다.
-
-| 단계 | 작업 | 통과 기준 | 실패 시 |
-|------|------|-----------|---------|
-| **40.6-a** | TFC 변수 `argocd_endpoint_access` = `public` → `private`, plan만 실행 | vpce·SG 생성 + capability in-place update가 계획에 보이고, **replace/destroy가 없을 것** | plan 폐기, 원인 분석 (설계 §2.7 재검토) |
-| **40.6-b** | apply 승인 | vpce `available`, capability `ACTIVE` 유지 | 변수 되돌리고 재apply(런북 §7) |
-| **40.6-c** | bastion에서 **V-4** (DNS 해석) | `dig <serverUrl>` → `10.0.0.x` (ep-uniq 대역) | **H-2 재설계** — `private_dns_enabled` 전제가 틀린 것이므로 20 §2.7 H-2로 되돌아감 |
-| **40.6-d** | bastion에서 **V-5** (CLI 동작) | `curl /api/version` 200 · `argocd` 명령 응답 | SG·라우팅 진단 |
-| **40.6-e** | 노트북에서 **V-6** (음성 대조) | 도달 **불가** 확인 | 격리 미성립 — 전환 목적 미달, 원인 분석 |
-
-> 40.6-c가 이 전환의 **하드 게이트**다. 여기서 실패하면 이후 단계로 진행하지 않고 `public`으로
-> 되돌린 뒤 설계를 고친다.
-
-> **✅ 40.6 완료 (2026-07-24) — H-2 가정 실증됨.**
-> `run-9Pd6rDGabQ7NAEj1` applied (create 5 / update 1 / destroy 0 — capability는 replace 아닌 **update**).
-> VPCE `vpce-07db0dc03baa6e1dc` available, ENI `10.0.0.15`(2a)·`10.0.0.62`(2c, ep-uniq),
-> `PrivateDnsEnabled=false`. capability ACTIVE 유지, `networkAccess.vpceIds`에 연결됨.
-> - **V-4 ✅**: bastion `getent hosts <serverUrl>` → `10.0.0.15`·`10.0.0.62`. **`private_dns_enabled=false`
->   인데도 AWS가 serverUrl을 vpce private IP로 자동 구성** — §2.7 H-2가 문서 가정에서 실증된 사실로 확정.
->   (아침 기준선: 같은 이름이 공인 IP `3.36.215.115` 등으로 해석됐음)
-> - **V-5 ✅**: bastion `curl /api/version` 200 (`v3.3.10+eks-4`), `argocd version` `v3.3.10`.
-> - **V-6 ✅**: 노트북에서 도달 **불가**(`curl EXIT=28` timeout). 단 노트북에서도 DNS는 `10.0.0.x`로
->   해석된다 — 격리는 "이름 은닉"이 아니라 **사설 IP라 VPC 밖에서 라우팅 불가**로 성립한다.
-> - capability `network_access: null → {vpce_ids}` 가 in-place update로 처리됨을 apply로 최종 확인
->   (§2.7 "전환은 가역" 가정 실증). ⚠️ public 복귀 실증은 아직 안 함 — 필요 시 역방향 전환으로 확인.
+`aws ssm describe-instance-information`의 `PingStatus: Online` → 세션 접속 → `kubectl get nodes` →
+**`endpoint_public_access = false`로 되돌리고 재확인**. 마지막 단계가 이 설계의 목적이다(§1).
 
 ---
 
-## 8. 비용
+## 8. 구현 계획
 
-| 항목 | 월 추정(ap-northeast-2, 상시) |
-|------|------------------------------|
+> ⛔ CLAUDE.md 순서: **설계(이 문서) → 검토/승인 → 구현 → 검증**. 아래는 승인 후 착수한다.
+> ⚠️ 커밋 단위는 *"변수가 전부 소비되는 시점"* 이다 — tflint `terraform_unused_declarations`가
+> 선언만 되고 쓰이지 않은 변수를 exit 2로 잡는다.
+
+| # | 태스크 | 게이트 |
+|---|--------|--------|
+| 40.1 | `modules/bastion/` 본체 — `versions.tf`·`variables.tf`(교차변수 가드 포함)·`main.tf`·`outputs.tf` | `fmt`·`validate`·`tflint`·`trivy` |
+| 40.2 | `user_data` 템플릿(`/var/tmp` 경로 · kubeconfig 재시도) | 위와 동일 |
+| 40.3 | `modules/bastion/tests/plan.tftest.hcl` — T-1 ~ T-8 | `tofu test` 통과 |
+| 40.4 | **`eks-cluster` 계약 확장**(§5.2) — cluster SG 추가 규칙 통과 변수 + outputs 설명 정정 + 테스트 | `tofu test`(기존 20개 + 신규) |
+| 40.5 | `examples/bastion-enterprise` — VPC+EKS+bastion 3층 조립 + README(AMI ID 조회법·소싱 태그 확인법) | 예제 `validate` |
+| 40.6 | 릴리스 — **`bastion-v0.1.0`** + **`eks-cluster-v0.3.0`** | CI 6/6 + 로그 본문 확인 |
+
+> 🔁 **릴리스 때마다 할 일**: 예제의 소싱 태그(`?ref=`)를 갱신한다. 2026-08-03에 실제로 놓쳤던 항목이다.
+> 40.5 README에 `git tag -l 'bastion-v*'` 확인 장치를 둔다(eks 예제에 이번에 보완한 것과 같은 형태).
+
+> ⚠️ **40.4는 별도 PR로 분리한다.** `eks-cluster`는 **이미 apply된 소비자가 있는 모듈**이고,
+> bastion 모듈의 미완성 상태와 릴리스 주기를 묶으면 소비 repo가 bastion을 안 쓰면서도
+> `v0.3.0` 대기에 걸린다. 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
+> ([`../architecture/05 §4`](../architecture/05-versioning-policy.md)).
+
+---
+
+## 9. 비용
+
+| 항목 | 월 추정 (ap-northeast-2 기준, 상시) |
+|------|------------------------------------|
 | `t4g.nano` on-demand | 약 $3.8 |
 | gp3 10GB | 약 $0.9 |
 | NAT 데이터 처리 | 미미 (제어 트래픽 위주) |
 | **합계** | **약 $5 미만** |
 
-SSM Session Manager 자체는 추가 요금이 없다.
+SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수에 따라 달라지며 **견적이 아니라 규모감**이다.
 
 ---
 
-## 9. 열린 항목
+## 10. 열린 항목
 
-1. **SSM 세션 로깅 미설정** — 감사 관점에서 세션 기록을 CloudWatch Logs 또는 S3로 남기는 구성이
-   필요하다. PoC 범위에서는 보류하되, 확산 단계 전에 반드시 결정한다.
-2. **SSM VPCE 3종** — D-BASTION-EGRESS는 NAT 경유를 택했다. NAT 제거나 완전 격리 요건이 생기면
-   `ssm`·`ssmmessages`·`ec2messages` Interface Endpoint 신설로 전환한다.
-3. ~~**private 전환 후 UI 접근 경로**~~ — **2026-07-24 채택 확정(V-9 통과)**. §6의 SSM 포트포워딩을
-   정식 경로로 채택한다. 실증 과정에서 로컬 포트 443 제약(envoy `:authority` 라우팅)을 발견해
-   절차를 정정했다 — §6의 함정 블록 참조.
-   **성격 변화**: seed 경로가 kubectl로 확정되어(20 §2.8 D-SEED-KUBECTL) UI는 부트스트랩의
-   선결과제가 아니라 **관찰·진단 수단**이다. 따라서 상시 터널이 아니라 **필요할 때만 여는 임시 경로**로
-   운용한다(사용 후 §6-④로 정리). 상시화하려면 별도 판단이 필요하다.
-4. ~~**argocd CLI 인증 방식**~~ — **2026-07-24 종결(seed 경로에서 불요)**. 실측·문서 확인 결과 관리형
-   Capability의 CLI 인증은 **JWT 토큰뿐**이고 발급이 UI를 선행 요구한다 — ① AppProject role JWT
-   (UI Settings → Projects → Roles → JWT Tokens), ② admin account token(동시 5개·만료 12시간 권장).
-   `argocd login --sso`는 OIDC discovery 404로 불가(2026-07-23 실측). private 환경에서는 "UI를 보려면
-   토큰이 필요한데 토큰을 받으려면 UI가 필요한" 치킨-에그가 된다.
-   → **seed는 kubectl로 수행**하므로 이 경로가 필요 없다. argocd CLI는 향후 CI/CD 파이프라인에서
-   `argocd app sync`류 작업이 필요해질 때 다시 검토한다. 토큰 발급은 **자격증명 생성이므로 그때도
-   별도 승인 후 진행**한다(bastion에 CLI v3.3.10은 이미 설치되어 있어 도구 준비는 완료 상태).
-5. **stg/prd 확장 시 모듈 승격** — D-BASTION-INLINE의 전제가 깨지는 시점(환경 3개 이상)에 재검토.
-
----
-
-## 10. 참고 실측 (2026-07-23)
-
-```
-VPC            vpc-0c8371732d66e081e   10.0.0.0/24 (+ 10.1.0.0/16, 100.64.0.0/16)
-vm-uniq-a      subnet-0d9dbd6686225fd62  10.1.16.0/20  ap-northeast-2a  MapPublicIp=false
-vm-uniq-c      subnet-04cf83f2ff27bb7f8  10.1.32.0/20  ap-northeast-2c  MapPublicIp=false
-ep-uniq-a/c    10.0.0.0/27 · 10.0.0.32/27               ← vpce ENI 배치 예정
-NAT GW         nat-066f4eaa9428a9caf (available)
-ArgoCD         ACTIVE · v3.3.10-eks-4 · RETAIN
-serverUrl      https://7af165c907b6…eks-capabilities.ap-northeast-2.amazonaws.com
-```
+1. 🔴 **SSM 세션 로깅** — 세션 기록을 CloudWatch Logs 또는 S3로 남기는 구성이 없다.
+   ⚠️ **D-BASTION-SEAM이 이 항목의 중요도를 낮추지 않는다.** 소유는 갈렸어도 bastion role에 부여되는
+   Access Entry 정책이 사실상 클러스터 관리 권한이면 **SSM 접근 통제가 곧 클러스터 보안**이다.
+   → 고객사 인도 전에 결정한다. 로깅 구성을 모듈이 소유할지(변수)·계정 수준 SSM 설정으로 둘지가 논점.
+2. **SSM VPCE 3종** — D-BASTION-EGRESS는 NAT 경유를 택했다. **NAT 없는 완전 격리 VPC**를 요구하는
+   고객사가 나오면 `ssm`·`ssmmessages`·`ec2messages` Interface Endpoint 신설로 전환한다.
+   그 경우 `egress_cidr_blocks`도 VPC CIDR로 좁힐 수 있다.
+3. **Access Entry 정책 범위** — §5는 *"누가 소유하나"* 만 정했고 *"어떤 정책을 붙이나"* 는 소비자 몫으로
+   뒀다. `AmazonEKSClusterAdminPolicy`(cluster scope)는 편하지만 넓다. 프로파일 B에서 helm이 실제로
+   요구하는 최소 권한이 무엇인지는 첫 수행 후 판단한다([`22 §2.4`](22-day2-operations.md)와 같은 성격).
+4. **upstream의 구형 SG rule 리소스** — §5.2 상자. `03 §2.1`이 금지한 `aws_security_group_rule`을
+   upstream이 쓴다. 지금은 우리 코드가 아니므로 수용하되, upstream이 신형으로 옮기면 그때 재확인한다.
+   ⚠️ **같은 SG에 우리가 신형 rule을 직접 붙이지 않는다** — 소유자를 쪼개는 일이고(§5.1),
+   혼용의 실제 위험은 여기서 발생한다.
+5. **다중 bastion / 다중 환경** — 모듈은 1대를 전제한다(`subnet_id` 단수). dev/stg/prd에 각각 두면
+   자연히 3대가 되므로 지금 요구에는 맞다. **AZ 이중화가 실제 요구로 나오면** 그때 계약을 연다 —
+   SSM 접속은 인스턴스 ID를 지정하므로 이중화의 값은 "가용성"이 아니라 "AZ 장애 시 대체 진입"이다.
+6. **Windows/기타 OS 도구 세트** — user_data는 AL2023 + arm64/x86 리눅스를 전제한다. 다른 OS 요구가
+   생기면 user_data를 변수로 여는 것이 아니라 **별도 모듈**을 검토한다(분기가 계약을 흐린다).

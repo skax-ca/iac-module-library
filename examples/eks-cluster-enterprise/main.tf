@@ -72,6 +72,33 @@ module "vpc" {
   flow_logs_enabled = true
 }
 
+# ── external-dns가 레코드를 쓸 대상 zone ──────────────────────────────────────
+# ⭐ **예제가 zone까지 만드는 이유**: enable_external_dns_iam = true는 zone ARN 없이 성립하지
+#    않는다(D-EXTDNS-ZONE). 더미 ARN을 적어 두는 선택지도 있었으나, 고객사가 그대로 복사해
+#    apply하면 **존재하지 않는 zone을 가리키는 IAM role이 조용히 만들어진다** — apply가 성공하기
+#    때문에 아무도 지적하지 않은 채 굳는 형태다(D13이 지적한 것과 같은 실패 구조).
+#
+# private zone인 이유: 예제가 만든 VPC 안에서만 해석되면 되므로 도메인 소유·위임이 필요 없다.
+#    public zone은 소유 검증 없이 만들어지지만 실제 위임이 없어 허공에 뜨고 과금만 남는다.
+resource "aws_route53_zone" "internal" {
+  name    = "${var.workload}.internal"
+  comment = "example internal zone for external-dns (${local.cluster_name})"
+
+  # private zone은 VPC 연결이 **항상 하나 이상** 있어야 한다(provider 문서).
+  vpc {
+    vpc_id = module.vpc.vpc_id
+  }
+
+  # ⚠️ external-dns는 클러스터 안에서 돌며 **IaC 밖에서** 레코드를 쓴다. 그 레코드가 남아 있으면
+  #    zone 삭제가 실패해 예제 teardown이 막힌다. **예제라서 켠다** — 실제 프로젝트에서는 켜지 않는다
+  #    (IaC가 모르는 레코드를 말없이 지우는 스위치다).
+  force_destroy = true
+
+  tags = {
+    Name = "hz-${var.workload}-${var.env}-${var.region_code}-internal"
+  }
+}
+
 module "eks" {
   source = "../../modules/eks-cluster"
 
@@ -175,7 +202,7 @@ module "eks" {
   enable_alb_controller_iam = true
 
   enable_external_dns_iam = true
-  # ⚠️ **prd에서는 반드시 zone ARN을 좁힌다.** 비워 두면 커뮤니티 정책이 전체 zone(*)을 허용한다.
-  #    예제는 계정에 붙지 않아 실제 zone ARN이 없으므로 비워 두되, 이 줄을 지우고 넘어가지 않는다.
-  external_dns_hosted_zone_arns = []
+  # ⛔ 이 목록은 **비울 수 없다**(D-EXTDNS-ZONE). 비우면 upstream이 Resource = "*" 정책을 만들고
+  #    AWS가 400 MalformedPolicyDocument로 거부한다 — 모듈의 교차변수 validation이 plan에서 먼저 막는다.
+  external_dns_hosted_zone_arns = [aws_route53_zone.internal.arn]
 }

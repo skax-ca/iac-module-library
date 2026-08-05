@@ -346,9 +346,22 @@ variable "external_dns_hosted_zone_arns" {
   description = <<-EOT
     external-dns 정책을 제한할 Route53 hosted zone ARN 목록.
 
-    ⚠️ 비워 두면 커뮤니티 모듈이 전체 zone(*)을 허용한다. prd에서는 반드시 좁힌다 —
-    설계 §2.6a가 "zone ARN 축소가 prd 필수"로 명시한 항목이다.
+    ⛔ enable_external_dns_iam = true면 **비워 둘 수 없다**(D-EXTDNS-ZONE, 설계 §2.6a).
+    route53:ChangeResourceRecordSets는 리소스 수준 권한을 요구하는 액션이라 Resource = "*"
+    정책을 IAM이 거부한다(400 MalformedPolicyDocument). upstream은 이 목록이 비면 정확히
+    그 정책을 만든다 — 즉 이것은 prd 권고가 아니라 **모든 환경의 apply 차단 조건**이다.
   EOT
   type        = list(string)
   default     = []
+
+  validation {
+    # 2026-08-04 apply가 발견한 결함(설계 §4.1 ❌ 상자). AWS는 apply 시점에 400을 내지만,
+    # 그 오류는 우리 변수 이름으로 해법을 알려주지 않는다 — plan에서 몇 초 만에 잡는다.
+    # ⚠️ cluster_enabled 게이트가 필수다: 파기 경로(kill switch)에서는 external-dns IAM이
+    #    애초에 생성되지 않으므로(iam.tf의 create = local.enabled && ...) 막을 이유가 없고,
+    #    막으면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다(D-EKS-ENABLED).
+    #    pod_subnet_ids 가드가 같은 이유로 같은 형태를 쓴다.
+    condition     = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0
+    error_message = "enable_external_dns_iam = true면 external_dns_hosted_zone_arns가 비어 있을 수 없다. AWS가 Resource = \"*\" 정책을 거부하므로 apply가 실패한다 — 대상 hosted zone ARN을 지정하거나 enable_external_dns_iam = false로 명시한다."
+  }
 }

@@ -532,6 +532,9 @@ OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.
 - ⚠️ trivy 리포트에 `terraform-aws-modules/eks/aws/*.tf` **행이 보이는 것은 정상**이다(0건).
   `--tf-exclude-downloaded-modules` 는 평가에서 빼는 것이지 리포트 행을 지우지 않는다.
   게이트 실패 신호는 **행의 존재가 아니라 종료 코드**다.
+- ✅ **AWS 프로파일도 머신별 상태다.** 이 머신은 `team`(2026-08-05 사용자가 설정, 동작 확인) ·
+  `born2k` · `default` 뿐이다 — 아래 §Task 20.1(d)의 *"`team` · `asset` 둘 다 있다"* 는 **다른 머신의
+  2026-08-03 기록**이라 여기엔 **`asset` 이 없다**. `describe-addon-versions` 류 조회는 `--profile team`.
 
 #### ✅ D-EXTDNS-ZONE 종결 → **`eks-cluster-v0.2.0` 발행 완료** (2026-08-05)
 

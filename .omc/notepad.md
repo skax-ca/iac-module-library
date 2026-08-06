@@ -715,36 +715,21 @@ private 서브넷 · SSM 전용(22번 없음) · kubectl 을 user_data 로 설�
 
 **그다음 태스크**:
 
-#### ⏭️ 1순위 — **`endpoint_public_access = false` 로 닫고 재확인** (마지막 단계)
+#### 🎉 **완결** — private-only 전환까지 끝났다 (`40 §7.3-2` 에 판정 기록)
 
-**작업 위치**: `/Users/a07326/born2k/ai/iac-reference-infra`
-⚠️ **경로는 머신별 상태다** — 구 기록의 `/Users/born2k/silverte/...` 는 다른 머신 것이다.
-⛔ 소비 repo 소관이라 Phase·진행 상태는 여기서 추적하지 않는다. 그쪽 `.omc/notepad.md` 를 먼저 읽는다.
+소비 repo apply run [`31062408357`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31062408357)
+= `0 added, 2 changed, 0 destroyed`. 실물 `endpointPublicAccess: false`.
 
-✅ **①~③ 완료**(위 판정 절). 남은 것은 **④ 하나**다 — 그리고 **그것이 `40 §1` 이 말한 이 설계의
-목적**이다. 지금까지는 전부 선행 조건이었다.
+⭐ **음성 대조군이 판정의 핵심이었다** — workbench 에서 kubectl 이 되는 것만으로는
+*"private 경로로 닿았다"* 가 증명되지 않는다(public 을 통했을 수 있다). VPC 밖에서 DNS 가
+**private IP 만** 반환하고 `curl` 이 **timeout** 인 것을 함께 봐야 배제된다.
+🔑 이 repo 가 GitHub App 실험에서 쓴 *"먼저 실패를 확인한다"* 와 같은 형태다 — **재사용할 절차**다.
 
-```
-① apply                  ✅ 31059712680 — 10 added / 0 changed / 0 destroyed
-② SSM 접속               ✅ PingStatus Online, send-command 로 실증
-③ kubectl get nodes      ✅ 노드 2개 Ready — 3층 전부 성립
-④ endpoint_public_access = false + public_access_cidrs·var 제거   ← 여기
-```
+**소비 루트가 알아야 할 실측 2건**(모듈 결함 아님, `40 §7.3-2` 상자):
+`publicAccessCidrs` 는 인자를 지워도 API 응답에 남는다 · 공용 계정 자동화가 EBS `volume_tags` 를
+덮어 apply 마다 drift 가 반복된다.
 
-**④ 의 구체 작업**(소비 repo `live/dev/eks`):
-- `main.tf` 엔드포인트 블록 — `endpoint_public_access = true` → `false`, `public_access_cidrs` 제거,
-  그 자리의 "🔴 아직 켜 둔다" 주석을 **닫은 근거로 교체**한다(죽은 주석을 남기지 않는다).
-- `variables.tf` — `var.public_access_cidrs` **삭제**. ⚠️ tflint `terraform_unused_declarations` 가
-  미사용 변수를 exit 2 로 잡으므로 **같은 커밋에서** 지운다.
-- repo 변수 `EKS_PUBLIC_ACCESS_CIDRS` 도 정리 대상이다(코드가 안 쓰면 죽은 설정).
-- `README.md §3` 형상표의 엔드포인트 행을 **private-only** 로.
-
-> 🔴 **닫은 뒤 재확인이 판정이다.** apply 후 다시 workbench 에서 `kubectl get nodes` 가 되는지 본다.
-> public 을 통해 닿고 있었을 가능성을 배제하는 유일한 방법이다 — 지금 실증은 public 이 **켜진 채로**
-> 났으므로, 엄밀히는 *"private 경로로 닿았다"* 를 아직 증명하지 않았다.
-> ⚠️ 실패하면 되돌릴 방법이 workbench 뿐이다. 그래서 ①~③ 을 먼저 한 것이다.
-
-⚠️ **apply 는 사람이 `Run workflow` 를 누르는 것이 승인 게이트다**(D30-1). 자동으로 돌지 않는다.
+⏭️ **다음은 2순위(`21` 개정)다.** workbench 축은 닫혔다.
 
 #### ⏭️ 2순위 — **`21` 개정**
 

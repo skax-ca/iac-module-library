@@ -94,9 +94,22 @@ module "eks" {
   # D-EKS-PROTECT — AWS 네이티브 보호. lifecycle prevent_destroy가 필요 없는 이유다(versions.tf 참조).
   deletion_protection = var.deletion_protection
 
-  endpoint_private_access      = var.endpoint_private_access
-  endpoint_public_access       = var.endpoint_public_access
-  endpoint_public_access_cidrs = var.public_access_cidrs
+  endpoint_private_access = var.endpoint_private_access
+  endpoint_public_access  = var.endpoint_public_access
+
+  # ⭐ D-EKS-CIDR-NULL (설계 20 §4.4) — public이 꺼져 있으면 **null을 넘긴다.**
+  #
+  # provider 문서 원문: *"Terraform will only perform drift detection of its value
+  # **when present in a configuration**."* ⇒ `[]`는 "설정에 있음"이고 `null`만 "없음"이다.
+  # 한편 AWS는 public이 꺼진 상태에서 publicAccessCidrs 변경을 **반영하지 않는다**(실측) —
+  # 그래서 `[]`를 넘기면 tofu는 계속 지우려 하고 AWS는 안 지워 **영구 diff**가 된다.
+  #
+  # ⛔ `length(...) > 0`을 조건에 넣지 말 것. 그러면 *public이 켜졌는데 리스트가 빈* 경우까지
+  #    null이 되어 **EKS가 0.0.0.0/0으로 여는 것을 더는 감지하지 못한다.** 그 안전망을
+  #    diff 편의와 바꾸지 않는다(설계 §4.4 표).
+  # ⛔ lifecycle ignore_changes 로 풀지 말 것 — 그것은 "어긋나도 눈감는다"이고,
+  #    여기 필요한 것은 "public이 꺼졌으니 애초에 관리하지 않는다"다.
+  endpoint_public_access_cidrs = var.endpoint_public_access ? var.public_access_cidrs : null
 
   enable_cluster_creator_admin_permissions = true
   access_entries                           = var.access_entries

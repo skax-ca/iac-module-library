@@ -362,7 +362,7 @@ endpoint + CIDR 제한이며, 각각 비용과 노출이 다르다.
 
 | 항목 | 요구 | 현행 |
 |---|---|---|
-| 클러스터 인증 모드 | `API` 또는 `API_AND_CONFIG_MAP` | ✅ upstream v21 기본값이 `API_AND_CONFIG_MAP`이고 facade가 덮어쓰지 않는다 |
+| 클러스터 인증 모드 | `API` 또는 `API_AND_CONFIG_MAP` | ✅ **실계정 실증**(2026-08-06) — `eks-ref-dev-an2-main-01`의 `accessConfig.authenticationMode` = `API_AND_CONFIG_MAP`. upstream v21 기본값이고 facade가 덮어쓰지 않는다 |
 | 클러스터 접근 | AWS Backup이 **Access Entry를 스스로 만든다** | ✅ 소비 루트가 만들 것이 없다 |
 | 에이전트·addon | **불필요**(원문 FAQ) | ✅ helm 대상 증가 없음 |
 | IAM | 관리형 `AWSBackupServiceRolePolicyForBackup` | 소비 루트가 서비스 역할에 부착 |

@@ -835,13 +835,15 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 > **파생 표**이고, 원본이 갱신됐는데 여기만 `TBD`로 남으면 다음 사람이 잘못 읽는다.
 > 그래서 **결정 내용은 원본에 두고 여기에는 포인터만** 남긴다.
 >
-> - **Kyverno** — [`20 §1.1` **D-POLICY-ENGINE**](20-eks-module.md)이 확정했다. 경로는 **helm**이고
->   (community addon도 Marketplace addon도 아님이 전수 실측됐다), ⚠️ **범위는 위 §0.1이 예정한
->   "①baseline(전 클러스터)"에서 "프로파일 A 한정"으로 좁혀졌다** — 프로파일 B에는 제약할 앱팀이
->   없다는 것이 근거다([`22 §3.2`](22-day2-operations.md)).
-> - **KEDA** — **경로만** 같은 실측으로 답이 나온다(community addon 6종에 없음 → **helm**).
->   ⚠️ **②catalog라는 배치는 재확인하지 않았다.** 도입 시 Kyverno와 같은 질문
->   (*"어느 프로파일에 필요한가"*)을 먼저 통과시킨다.
+> - **Kyverno** — [`20 §1.1` **D-POLICY-ENGINE**](20-eks-module.md)이 확정했다. 경로는 **helm**,
+>   ⚠️ **범위는 위 §0.1이 예정한 "①baseline(전 클러스터)"에서 "프로파일 A 한정"으로 좁혀졌다** —
+>   프로파일 B에는 제약할 앱팀이 없다는 것이 근거다([`22 §3.2`](22-day2-operations.md)).
+>   - 🔴 **`nirmata_kyverno` addon은 실재한다**(`describe-addon-versions` 실측). 그럼에도 helm인
+>     이유는 **`owner = aws-marketplace`(구독 전제)** 이며, 부수적으로 **k8s 1.35 호환 버전이 없다**
+>     (최신이 1.31까지). 근거 전문과 규칙 공백 보완은 `20 §1.1`이 소유한다.
+> - **KEDA** — 실측 결과 **어떤 `owner`에도 KEDA addon이 없다**(community·aws·aws-marketplace 전부).
+>   ⇒ 경로는 **helm**으로 확정된다. ⚠️ **②catalog라는 배치는 재확인하지 않았다.** 도입 시
+>   Kyverno와 같은 질문(*"어느 프로파일에 필요한가"*)을 먼저 통과시킨다.
 >
 > ⛔ **이 상자를 근거로 GitOps repo 구조를 확정하지 않는다.** 이 문서 전체의 개정은 별도 작업이다.
 

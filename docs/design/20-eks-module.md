@@ -34,6 +34,11 @@
 >   프로파일 A 한정**, 백업은 **AWS Backup for EKS(IaC, 소비 루트)** 로 확정. Velero는 예외 경로.
 >   ⛔ **`.tf` 변경 0** — Kyverno는 IAM을 요구하지 않고, AWS Backup의 전제조건(`authentication_mode`)은
 >   upstream 기본값으로 **이미 충족**돼 있다.
+>   - 🔴 **같은 날 2차 — `describe-addon-versions` 실측이 §1.1 초판을 정정했다.** 문서 페이지에
+>     없던 `nirmata_kyverno`·`catalogic-software_cloudcasa`가 **실제로는 존재한다**(둘 다
+>     `owner = aws-marketplace`). **두 결정의 결론은 유지되고 근거가 교체됐다.**
+>     함께 **규칙 공백 하나를 메웠다** — `aws-marketplace` addon은 D-ADDON-BOUNDARY의 "IaC 기본"
+>     대상이 **아니다**(구독 전제 = 이 repo의 존재 이유와 충돌).
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -116,20 +121,71 @@ wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/No
 D-ADDON-BOUNDARY는 *"`aws_eks_addon`으로 설치 가능한가"* 를 입력으로 받는 **판정 함수**다. 그래서
 새 컴포넌트의 계층은 **토론이 아니라 조회로 정해진다.** 아래는 그 조회의 현행 스냅샷이다.
 
-| 목록 | 출처 | 내용 |
+**측정 방법**: `aws eks describe-addon-versions` — 계정 `533616270150` · **ap-northeast-2** ·
+실클러스터 `eks-ref-dev-an2-main-01`(**k8s 1.35**) 기준. `owner` 필드가 세 값을 갖는다.
+
+| `owner` | 개수 | 내용 |
 |---|---|---|
-| **community addon 전체** | [`community-addons.html`](https://docs.aws.amazon.com/eks/latest/userguide/community-addons.html) | metrics-server · kube-state-metrics · prometheus-node-exporter · cert-manager · external-dns · fluent-bit — **6종이 전부** |
-| **AWS Marketplace vendor addon** | [`workloads-add-ons-available-vendors.html`](https://docs.aws.amazon.com/eks/latest/userguide/workloads-add-ons-available-vendors.html) | 34개 벤더 전수 확인 — `kyverno`·`velero`·`nirmata` **0건** |
+| `community` | **6** | metrics-server · kube-state-metrics · prometheus-node-exporter · cert-manager · external-dns · fluent-bit |
+| `aws` | 21 | vpc-cni · coredns · kube-proxy · eks-pod-identity-agent · aws-ebs-csi-driver 등 |
+| **`aws-marketplace`** | **55** | ⚠️ **상용 벤더 구독 제품** — 아래 상자 |
 
-⚠️ **AWS 자격증명이 없어 `describe-addon-versions`는 돌리지 못했다.** 위는 공식 문서 원문 조회이며,
-리전·k8s 버전별 실제 가용성은 위 상자대로 **구현 착수 시 CLI로 재확인**한다.
+🔑 **community addon 6종이 §2.6 baseline 표와 정확히 일치한다** — 즉 이 모듈은 이미 그 카탈로그를 소진했다.
 
-🔑 **community addon 6종이 §2.6 baseline 표와 정확히 일치한다** — 즉 이 모듈은 이미 카탈로그를 소진했다.
-**앞으로 등장하는 컴포넌트는 기본값이 "GitOps helm"이고, IaC로 오려면 AWS가 카탈로그를 늘려야 한다.**
+> ### 🔴 정정 — **AWS 문서 페이지가 실제 카탈로그보다 뒤처져 있다** (2026-08-06 같은 날 2차)
+>
+> 이 절의 **초판은 틀렸다.** 자격증명이 없어 문서 페이지
+> [`workloads-add-ons-available-vendors.html`](https://docs.aws.amazon.com/eks/latest/userguide/workloads-add-ons-available-vendors.html)
+> 를 전수 검색하고 *"Marketplace 34개 벤더 중 `kyverno`·`velero`·`nirmata` **0건**"* 이라고 적었다.
+> **API 실측 결과 문서에 없는 항목이 실제로 존재한다**:
+>
+> | addon | owner | type | publisher |
+> |---|---|---|---|
+> | `nirmata_kyverno` | `aws-marketplace` | policy-management | nirmata |
+> | `nirmata_nirmata-kyverno-payg` | `aws-marketplace` | security | Nirmata |
+> | `catalogic-software_cloudcasa` | `aws-marketplace` | **backup** | Catalogic Software |
+>
+> ⭐ **결론(둘 다 helm/IaC-외부)은 바뀌지 않았지만 근거가 통째로 바뀌었다** — 아래 두 결정 상자가
+> 개정된 근거를 갖는다. `04`가 D-OSS-STACK의 **엔진 축 근거를 교체**했을 때와 같은 형태다.
+>
+> ### 📌 **재사용할 절차 — addon 카탈로그의 SSOT는 문서 페이지가 아니라 API다**
+>
+> 문서 페이지는 사람이 갱신하고 API는 카탈로그가 갱신한다. **뒤처지는 쪽은 항상 문서다.**
+> CLAUDE.md 「검증」이 *"리소스 스키마를 추정하지 말고 조회하라"* 고 한 것과 **같은 축**이며,
+> 이번 사례는 그 규칙이 **"공식 문서를 읽었다"로도 충족되지 않는다**는 것을 보인다.
+> ⇒ **addon 가용성 판정은 `describe-addon-versions`로만 한다.** 문서 페이지는 설명 조회용이다.
+
+> ### ⛔ **`aws-marketplace` addon은 D-ADDON-BOUNDARY의 "IaC 기본" 대상이 아니다** (규칙 공백 메움)
+>
+> D-ADDON-BOUNDARY는 *"`aws_eks_addon` API로 설치 가능한 것은 IaC가 기본(**community addon 포함**)"*
+> 이라고 썼다. **`owner`에 세 번째 값이 있다는 것을 규칙이 다루지 않았다** — 이번 실측 전까지
+> 공백이었고, 여기서 메운다.
+>
+> **판정: Marketplace addon은 기본 대상이 아니다.** 근거는 이 repo의 존재 이유다 —
+> CLAUDE.md 첫 문장이 *"고객사가 **구독 라이선스 없이 바로 착수**할 수 있어야 한다"* 이고,
+> Marketplace addon은 **벤더 구독이 전제**다. `aws_eks_addon`으로 설치된다는 기술적 사실은
+> 같지만, **조달 마찰을 제거하려고 만든 자산이 조달 마찰을 기본값으로 삼을 수는 없다.**
+> 🔑 D-ENGINE(`04`)이 OpenTofu를 택한 근거와 **정확히 같은 축**이다.
+>
+> ⚠️ **금지가 아니라 기본값이다.** `cluster_addons`는 소비자 입력을 merge하므로 고객사가
+> 벤더를 이미 쓰고 있으면 그대로 넘기면 된다. 모듈은 막지 않는다 — **baseline에 넣지 않을 뿐**이다.
 
 > ### ⭐ D-POLICY-ENGINE — Kyverno = **GitOps helm · 프로파일 A 한정 baseline** (2026-08-06, 사용자 결정)
 >
-> **경로**: 위 실측대로 community addon도 Marketplace addon도 아니다 → D-ADDON-BOUNDARY가 **helm으로 보낸다.**
+> **경로 = GitOps helm.** ⚠️ **근거는 2026-08-06 실측으로 교체됐다**(위 정정 상자). 초판은
+> *"addon이 아예 없어서"* 라고 썼으나 **`nirmata_kyverno`는 존재한다.** 실제 근거는 둘이며,
+> **어느 하나만으로도 결론이 선다**:
+>
+> | # | 근거 | 성질 |
+> |---|---|---|
+> | ① | **`owner = aws-marketplace`** — 상용 벤더 구독 제품이라 위 상자대로 기본 대상이 아니다 | **원칙** — 시간이 지나도 안 바뀐다 |
+> | ② | **k8s 1.35에 호환 버전이 없다** — `nirmata_kyverno` 최신 `v1.13.2-eksbuild.1`이 **1.31**까지, `nirmata_..._payg` `v4.0.14`가 **1.32**까지. 현행 클러스터는 **1.35** | **사실** — 벤더가 따라오면 바뀐다 |
+>
+> ⚠️ **②를 근거의 주력으로 쓰지 않는다.** 벤더가 1.35를 지원하는 순간 사라지는 근거이고, 그때
+> *"그럼 이제 addon으로 바꾸나"* 라는 질문이 재발한다. **답은 ①이 이미 갖고 있다** — 바뀌지 않는다.
+> ⭐ ②는 **부수 사실로만 기록**한다: 상용 addon이 **4 마이너 뒤처져 있다**는 것 자체가,
+> upstream cadence를 벤더에 위임할 때의 대가를 보여 준다(`02 §3`의 semver 거버넌스와 같은 논점).
+>
 > ALBC와 같은 슬롯이며, 이 모듈의 `.tf`는 **바뀌지 않는다** — Kyverno는 AWS IAM을 요구하지 않는
 > 순수 admission controller라 §2.6a의 위임 대상도 아니다.
 >
@@ -156,7 +212,18 @@ D-ADDON-BOUNDARY는 *"`aws_eks_addon`으로 설치 가능한가"* 를 입력으�
 > - 원문 FAQ: *"Do I need to have an agent or Amazon EKS Add-on installed …? — **No.**"*
 > - 유일한 전제조건은 `authentication_mode`가 `API` 또는 `API_AND_CONFIG_MAP`인 것이며,
 >   **upstream v21 기본값이 `API_AND_CONFIG_MAP`이고 facade가 덮어쓰지 않아 이미 충족돼 있다**
->   (실측: `.terraform/modules/eks/variables.tf:59`). ⇒ **이 모듈의 계약 변경이 0이다.**
+>   (소스 실측: `.terraform/modules/eks/variables.tf:59`). ⇒ **이 모듈의 계약 변경이 0이다.**
+>   - ⭐ **실계정에서 실증됐다**(2026-08-06): `eks-ref-dev-an2-main-01`의
+>     `accessConfig.authenticationMode` = **`API_AND_CONFIG_MAP`**. 소스에서 연역한 값이
+>     **실제 apply된 클러스터에서 그대로 확인**됐으므로, 이 항목은 연역이 아니라 실측이다.
+>     ⚠️ **다만 백업·복원 자체는 여전히 실행한 적이 없다**([`22 §5-5`](22-day2-operations.md)).
+>
+> ⚠️ **CloudCasa라는 제3의 선택지가 실재한다**(2026-08-06 실측). `catalogic-software_cloudcasa`가
+> `type = backup`인 **Marketplace addon**이고, **k8s 1.35를 지원한다**(`v3.4.7-eksbuild.1` —
+> Kyverno 쪽과 달리 뒤처지지 않았다). 그럼에도 채택하지 않는 이유는 **위 Marketplace 상자 하나**다 —
+> 상용 구독이 전제이고, **AWS Backup은 이미 네이티브이며 추가 구독이 없다.**
+> 🔑 **기술적 우열이 아니라 조달 마찰로 갈린 판단**임을 명시해 둔다. 고객사가 CloudCasa를 이미
+> 구독 중이라면 그 선택은 소비 루트의 몫이고, 모듈은 막지 않는다.
 >
 > 🔑 **이 판단은 D-ADDON-BOUNDARY와 같은 축이다** — *"AWS API로 되는 것은 IaC로 당긴다."*
 > Velero를 채택하면 helm 대상(클러스터 안) + S3 버킷 + IAM role 셋을 새로 소유하게 되고,

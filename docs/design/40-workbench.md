@@ -599,9 +599,39 @@ kubectl       Client Version: v1.35.7                          ← 클러스터 
 > 실행했다(자동화 환경에 TTY가 없다). **같은 SSM 채널·같은 인스턴스 IAM role·같은 SG**를 지나므로
 > 도달성 판정으로는 동등하다. 사람이 붙을 때는 `aws ssm start-session --target <id>`.
 
-> ⏳ **아직 남은 판정**: `endpoint_public_access = false`로 닫고 **재확인**하는 단계.
-> 그것이 §1이 말한 이 설계의 목적이고, 위 실증은 그 **선행 조건**일 뿐이다.
-> 🔴 순서를 뒤집지 않는다 — 먼저 닫으면 workbench가 안 될 때 클러스터에 닿을 방법이 없다.
+#### ✅ 7.3-2 **private-only 전환 판정** (2026-08-06) — §1의 목적 달성
+
+apply run [`31062408357`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31062408357)
+= `Apply complete! Resources: 0 added, 2 changed, 0 destroyed.`(클러스터 `vpc_config` **in-place** —
+replace 없음). 실물 `describe-cluster`: **`endpointPublicAccess: false`** · `endpointPrivateAccess: true`.
+
+⭐ **음성 대조군이 이 판정의 핵심이다.** workbench에서 kubectl이 되는 것만으로는
+*"private 경로로 닿았다"* 가 증명되지 않는다 — public을 통해 닿고 있었을 수 있다. **양쪽을 함께
+봐야** 배제된다:
+
+| | 결과 |
+|---|---|
+| **음성** — VPC 밖에서 apiserver DNS | `10.51.37.9`·`10.51.36.184` — **private IP만** |
+| **음성** — VPC 밖에서 `curl <endpoint>/version` | **timeout(12s)**, `http=000` |
+| **양성** — workbench에서 DNS | 같은 private IP 2개 |
+| **양성** — workbench에서 `kubectl get nodes` | 노드 2개 `Ready` · pod **21개 Running** |
+
+🔑 §7.3-1의 실증은 public이 **켜진 채로** 났다. 이 절이 그 한계를 닫는다 — 그래서 ①~③이
+"선행 조건"이고 **④가 판정**이었다.
+
+ℹ️ plan은 3건이었는데 apply는 2건이다. OIDC `thumbprint_list`가 `(known after apply)`였고
+재계산 결과가 기존 값과 같아 **no-op**이 됐다 — `known after apply`는 *"바뀔 수도 있다"* 이지
+*"바뀐다"* 가 아니다.
+
+> ### ⚠️ 소비 루트가 알아야 할 실측 2건 (모듈 결함 아님)
+>
+> 1. **`publicAccessCidrs`는 API 응답에 남는다.** public을 끄고 인자를 지워도
+>    `describe-cluster`가 **직전 값을 계속 반환**한다(실측: 운영자 IP `/32`). 동작에는 영향이 없는
+>    무효 필드지만, **git에서 지운 값이 AWS API에는 남는다**는 뜻이다.
+>    ⇒ 🔑 *"인자를 지우는 것과 값이 사라지는 것은 다르다."* 값 노출이 문제라면 별도 조치가 필요하다.
+> 2. **공용 계정의 다른 자동화가 EBS `volume_tags`를 덮는다**(실측: `DependencyID`·`DependencyName`
+>    추가 + `Name`을 인스턴스 이름으로 변경). tofu가 매번 되돌리므로 **apply마다 반복되는 drift**다.
+>    무해하지만 "0 changed"를 기대할 수 없게 만든다 — 소비 repo의 미결 항목으로 추적한다.
 
 ---
 

@@ -649,45 +649,74 @@ CI run [`30981984588`](https://github.com/skax-ca/iac-module-library/actions/run
 - 🔑 **출력 "설명"이 틀린 결함은 계약 표에서 안 보인다**(§3.2 상자로 승격).
   `cluster_security_group_id` 는 이름·값이 맞고 **설명만 다른 SG 를 가리켰다.**
 
+#### ✅ **bastion → workbench 개명 완결** (2026-08-06, D-WORKBENCH-RENAME)
+
+사용자 제안. **이름이 실물과 어긋나 있었다** — `bastion host` 의 정의는 *인바운드를 받아 안쪽으로
+전달*(SSH/RDP 점프)인데 이 모듈은 그 특성을 **하나도 갖지 않는다**: 인바운드 규칙 **0개** ·
+private 서브넷 · SSM 전용(22번 없음) · kubectl 을 user_data 로 설치 · 상태 없음(수시 파기 정상).
+요새가 아니라 **도구가 갖춰진 작업대**다. 근거 전문은 `docs/design/40-workbench.md §2.0`.
+
+- PR [#13](https://github.com/skax-ca/iac-module-library/pull/13) 머지 `a5d8e2f` ·
+  CI [`31057983935`](https://github.com/skax-ca/iac-module-library/actions/runs/31057983935) **6/6 pass**
+  (로그 본문: workbench **10** · eks **20** · vpc **13 passed**).
+- 태그: **`workbench-v0.1.0` 발행 + `bastion-v0.1.0` 원격 삭제.** apply 0회라 CLAUDE.md 의
+  *"소비자 0일 때만"* 예외에 해당. ⛔ `eks-cluster` 는 **계약 무변경이라 재발행하지 않았다**
+  (`access_entries`·`cluster_security_group_additional_rules` 는 중립적 이름 — 주석만 갱신).
+- 소비 repo PR [#16](https://github.com/skax-ca/iac-reference-infra/pull/16) 머지 · plan
+  [`31058277158`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31058277158)
+  **`10 to add, 0 to change, 0 to destroy`** — 개명 전 plan 과 **숫자가 같다 = 개명이 공짜였다.**
+
+> ### ⏱️ 왜 "지금" 이 유일하게 싼 창이었나 — 재사용할 판단
+>
+> `var.purpose` 가 태그가 아니라 **식별자**로 흘러간다: `aws_iam_role.name` ·
+> `aws_iam_instance_profile.name` · `aws_security_group.name`.
+> **apply 후였다면** 그 셋이 replace 되고 Access Entry(principal ARN 변경)와 cluster SG rule
+> (source SG 변경)까지 **연쇄 replace** 됐다.
+> 🔑 일반화: *"purpose·naming 토큰을 바꾸는 개명은 apply 전에만 공짜다."*
+
+> ### ⛔ 기계 치환이 **역사적 사실 3곳을 위조했다** — 되돌린 것이 이 작업의 핵심
+>
+> `sed` 는 "지금의 이름"과 "그때의 사실"을 구분하지 못한다. 다음 개명 때 같은 곳을 본다:
+> 1. **릴리스 기록** — `docs/README.md` · `20 §4.3` 의 2026-08-05 발행분은 `bastion-v0.1.0` 이다.
+>    원복 + *"2026-08-06 에 대체·삭제됐다"* 를 **덧붙였다**(고치는 게 아니라 덧붙인다).
+> 2. **승계 출처** — `terraform-enterprise-poc .../40-bastion.md`. 그 repo 는 **동결**이라 구 이름이다.
+> 3. **철회된 PoC ID 3개** — `D-BASTION-INLINE`·`D-BASTION-K8S`·`D-BASTION-SUBNET`. 개명하면
+>    동결 repo 에서 찾을 수 없어 추적이 끊긴다. **구 이름 유지.**
+>    살아 있는 ID 8개만 `D-WORKBENCH-*` 로 바꾸고 **대응표를 `40 §2.0`** 에 남겼다.
+
+> ### ⚠️ 경로 한정 trivy 예외가 **조용히 깨졌다** (실측)
+>
+> `.trivyignore.yaml` 의 `paths: modules/bastion/main.tf` 가 디렉터리 이동으로 매치되지 않아
+> trivy 가 exit 1. 경로 한정(평면 `.trivyignore` 대신 YAML 을 쓰는 이유)의 대가다 —
+> 🔑 **모듈 디렉터리를 옮길 때 `.trivyignore.yaml` 을 함께 본다.**
+> ⚠️ 로컬에서 `--tf-exclude-downloaded-modules` 를 빠뜨리면 upstream 모듈 지적이 섞여 나온다.
+> **훅(`.githooks/pre-commit`)의 플래그를 그대로 복사해 쓴다.**
+
 **그다음 태스크**:
 
-#### ⏭️ 1순위 — **소비 repo 에서 bastion 실제 배포** (2026-08-06 사용자 결정, `21` 보다 먼저)
+#### ⏭️ 1순위 — **소비 repo 에서 workbench apply → 도달 실증 → public 차단**
 
-⚠️ **아직 착수하지 않았다**(2026-08-06 세션은 위 문서 정리까지만 하고 종료). 아래는 **착수 준비 조사**다.
+**작업 위치**: `/Users/a07326/born2k/ai/iac-reference-infra`
+⚠️ **경로는 머신별 상태다** — 구 기록의 `/Users/born2k/silverte/...` 는 다른 머신 것이다.
+⛔ 소비 repo 소관이라 Phase·진행 상태는 여기서 추적하지 않는다. 그쪽 `.omc/notepad.md` 를 먼저 읽는다.
 
-**작업 위치**: `/Users/born2k/silverte/ai/iac-reference-infra` — ⛔ **소비 repo 소관이라 Phase·진행
-상태는 여기서 추적하지 않는다**(위 §"Phase 1 이후" 규칙). 그쪽 `.omc/notepad.md` 를 먼저 읽는다.
-
-**목표**: `live/dev/eks` 의 **public 엔드포인트를 닫는다.** `main.tf:96-98` 이 지금
-`endpoint_public_access = true` 이고 주석이 *"bastion(design/40)이 아직 없어 private-only 면 kubectl
-도달 지점이 없다 — 그래서 public 을 켠다"* 라고 적혀 있다. **40 이 그 전제를 없앴다.**
-
-**실측 현황**(2026-08-06 조사):
-| 지점 | 현재 값 | 해야 할 일 |
-|------|---------|-----------|
-| `live/dev/eks/main.tf:75` | `?ref=eks-cluster-v0.2.0` | **`v0.3.0` 으로 상향**(3층 변수가 v0.3.0 계약) |
-| bastion 모듈 | 없음 | `?ref=bastion-v0.1.0` 신규 추가 |
-| `main.tf:96-98` | `endpoint_public_access = true` | **마지막에** false + 주석 제거 |
-
-**조립 레퍼런스는 `examples/eks-cluster-enterprise/main.tf`** — 이미 3층을 다 보여준다:
-`module "bastion"`(L129) · `access_entries`(L196, 2층) · `cluster_security_group_additional_rules`(L209, 3층) ·
-**순환 해소 `local.cluster_arn`**(L128 주석). ⚠️ **`module.eks.cluster_arn` 으로 바꾸면 plan 이 순환으로 죽는다.**
+✅ **코드는 전부 들어갔다**(소비 repo PR #15 → #16 머지). 남은 것은 **apply 와 실증뿐**이다.
+plan [`31058277158`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31058277158)
+= `10 to add, 0 to change, 0 to destroy` (workbench 7개 + Access Entry 2 + cluster SG rule 1).
 
 > 🔴 **순서가 안전에 직결된다 — public 을 먼저 닫으면 안 된다.**
-> ① bastion 배포 → ② **SSM 접속 실증**(`bastion_ssm_command` 출력) → ③ 그 세션에서 `kubectl` 도달 확인
-> → ④ 그때 public 을 닫는다. 순서를 뒤집으면 bastion 이 안 될 때 **클러스터에 닿을 방법이 없다.**
+> ① `workflow_dispatch` 로 apply → ② **SSM 접속 실증**
+> (`aws ssm start-session --profile team --region ap-northeast-2 --target $(tofu output -raw workbench_instance_id)`)
+> → ③ 그 세션에서 `kubectl get nodes` → ④ **그때** `endpoint_public_access = false`.
+> 뒤집으면 workbench 가 안 될 때 **클러스터에 닿을 방법이 없다.**
+>
+> ③ 실패 시 **증상으로 층을 특정한다**(소비 repo `live/dev/eks/README.md §4` 에 표로 있다):
+> `update-kubeconfig` 권한 오류 = 1층 / `401 Unauthorized` = 2층 / `i/o timeout` = **3층**.
 
-**착수 전 확인할 것 2개**:
-- **AMI ID** — 예제는 자리표시자 `ami-00000000000000000` 이다(*그대로 apply 하면 즉시 실패하도록* 낸
-  의도된 값, 40 §구현 4). 실 배포는 **실제 AL2023 AMI** 가 필요하다. ⚠️ `40 §127` 이 *"SSM 최신 파라미터를
-  직접 물리면 새 AMI 릴리스마다 리뷰 없이 인스턴스가 재생성된다"* 고 경고하므로 **핀을 뜬다.**
-- **서브넷** — 예제는 `vm-uniq`(private)를 `node-uniq` 와 **분리**한다(그 대역엔 `karpenter.sh/discovery`
-  태그가 있어 섞으면 소유가 흐려진다). 소비 repo `networking` 에 해당 그룹이 있는지 확인.
+⚠️ **apply 는 사람이 `Run workflow` 를 누르는 것이 승인 게이트다**(D30-1). 자동으로 돌지 않는다.
 
-**환경**: AWS 프로파일 **`team`**(이 머신엔 `asset` 없음) · apply 는 **`workflow_dispatch` 로만**(D30-1).
-
-🔑 **이 repo 쪽 관여 지점**: 이 배포가 **`bastion-v0.1.0` 계약의 첫 apply 판정**을 낸다.
-`tofu test` 로 지킬 수 없다고 40 §5.1 이 적은 항목들(`key_name`·`associate_public_ip_address` 미지정)이
+🔑 **이 repo 쪽 관여 지점**: 이 배포가 **`workbench-v0.1.0` 계약의 첫 apply 판정**을 낸다.
+`tofu test` 로 지킬 수 없다고 40 §5.1 이 적은 항목(`key_name`·`associate_public_ip_address` 미지정)이
 여기서 처음 실증된다. **판정이 나면 `40` 에 기록한다.**
 
 #### ⏭️ 2순위 — **`21` 개정**

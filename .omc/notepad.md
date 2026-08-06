@@ -797,7 +797,27 @@ plan [`31058277158`](https://github.com/skax-ca/iac-reference-infra/actions/runs
 - ⚠️ **로컬 npx 판은 0.1.x / 툴 5종**, hosted(`mcp.opentofu.org`)는 **1.0.1 / 7종**(실측).
   로컬에는 `get-provider-versions`가 **없다** → 버전 존재 확인은 표준 API로:
   `curl -s https://registry.opentofu.org/v1/providers/<ns>/<name>/versions` (실측 동작 확인).
-- ⛔ TFE/HCP 연동 서버·`aws-api`는 의도적으로 제외했다 — 되살리지 말 것.
+- ⛔ **TFE/HCP 연동 서버는 여전히 제외한다** — D-ENGINE(OpenTofu 단독)이 그 축을 닫았다. 되살리지 말 것.
+- **➕ `aws-api` 추가 (2026-08-06 사용자 지시)** — 실계정 **조회 전용**(`awslabs.aws-api-mcp-server`).
+  ⏸ 적용은 **`claude` 재시작 후**, 첫 사용 시 승인 프롬프트.
+  - 🔒 **`READ_OPERATIONS_ONLY=true`** — 공용 계정에서 MCP 를 통한 우발적 변경 원천 차단.
+    우리의 실제 변경은 전부 IaC→CI(OIDC→Role) 경로다. MCP 는 조회 전용이다.
+  - 🔒 **`AWS_API_MCP_PROFILE_NAME=team`** — 빼면 boto3 가 ambient 자격증명으로 **조용히 다른 계정**을 친다.
+  - **CA 번들 env 는 넣지 않는다**(aws-docs 와 다른 점) — `aws` CLI 가 `AWS_CA_BUNDLE` 없이 동작한다 =
+    AWS 엔드포인트는 MITM 대상이 아니다. 사내 CA 만 담긴 번들을 걸면 오히려 public AWS TLS 가 깨진다.
+  - ⚠️ 고객사 복사 시 `AWS_API_MCP_PROFILE_NAME` 은 그들의 프로파일로 바꾼다(버킷명·CA 와 동급).
+
+  > ### 🔄 2026-07-31 의 "제외" 결정을 왜 뒤집었나 — 전제가 바뀌었다
+  >
+  > 당시 근거는 *"aws-api 는 **배포 검증 도구**라 소싱만 하는 모듈 repo 엔 불필요하다"* 였고
+  > **그때는 옳았다.** 바뀐 것은 이 repo 의 역할이다 — `40 §5.1` 이 *"`tofu test` 로 지킬 수 없는
+  > 항목(`key_name`·`associate_public_ip_address` 미지정)은 소비 repo 의 첫 apply 에서 실증되고,
+  > **판정이 나면 `40` 에 기록한다**"* 고 정했다. 즉 이 repo 는 이제 **실계정 판정을 받아 적는 쪽**이다.
+  >
+  > ⚠️ **여전히 이 repo 는 배포하지 않는다.** aws-api 가 생겼다고 *"apply 로 검증했다"* 고 쓰지 않는다 —
+  > "동작한다"의 기준은 `tofu test` + 예제 `validate` 까지이고, apply 판정은 소비 repo 몫이다.
+  > 조회는 **설계 문서에 사실을 적기 위한 것**이지 게이트가 아니다.
+  > 🔑 **소비 repo `.mcp.json` 과 이제 동일하다.** 다르게 만들 이유가 없어졌으므로 parity 를 유지한다.
 - 구 `terraform-mcp-server` v1.1.0 바이너리는 `~/go/bin/`에 남아 있다(미사용, 삭제해도 무방).
 
 ## 미결 항목

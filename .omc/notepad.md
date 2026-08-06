@@ -536,6 +536,24 @@ notepad 이 *"hook 활성화됨"* 이라고 적고 있었지만 **이 머신에�
 OpenTofu **1.12.5** · tflint **0.63.1** · trivy **0.72.0** · aws ruleset **0.48.0** ·
 `git config core.hooksPath .githooks` (양쪽 repo 설정 완료)
 
+> ### 🔑 **AWS 자격증명도 같은 범주다 — 머신 단위, dotfiles 로 안 따라온다** (2026-08-06 추가)
+>
+> **실측에 쓰는 프로파일은 `team`** — 계정 **`533616270150`**(`user/silverte`) · `ap-northeast-2`.
+> 다른 프로파일 `asset`(`614054776208`)도 있으니 **계정을 확인하고 쓴다**.
+> `20 §1.1`·`22 §4.2` 의 addon/클러스터 실측이 전부 이 프로파일로 나왔다.
+>
+> **이 머신(`/Users/a07326/…`)에는 `~/.zshrc` 에 `export AWS_PROFILE=team` 을 넣어 뒀다**
+> (2026-08-06, 백업 `~/.zshrc.bak.*`). ⚠️ **`~/.zshrc` 는 dotfiles 동기화 대상이 아니다**
+> (대상: `CLAUDE.md`·`settings.json`·`.omc-config.json`·`keybindings.json`·스킬·hooks·hud).
+> ⇒ **다른 머신에서는 프로파일을 명시하거나 같은 줄을 직접 넣어야 한다.**
+>
+> - ⛔ **`~/.aws` 에 `[default]` 섹션을 만들어 해결하지 않았다** — 자격증명이 `[team]`·`[default]`
+>   두 곳에 **중복**되어 키 로테이션 때 한쪽만 고치면 조용히 어긋난다.
+> - ℹ️ **동작하지 않는 오답 기록**: `[default]` 에 `source_profile = team` 만 쓰는 별칭 방식.
+>   `source_profile` 은 **`role_arn` 과 짝일 때만** 의미가 있다.
+> - ⚠️ **기본값이 생기면 프로파일을 깜빡해도 명령이 성공한다.** 전엔 `Unable to locate credentials`
+>   로 멈췄다. **소비 repo 에서 로컬 `tofu apply` 전에는 `aws sts get-caller-identity` 로 계정을 본다.**
+
 - 🔑 **`brew` 로는 파리티를 맞출 수 없다 — 정확 핀 도구는 릴리스 바이너리로 받는다.**
   실측(2026-08-05): brew 최신 trivy 는 **0.73.0** 이라 `brew upgrade` 했으면 기준(0.72.0)에서
   **더 멀어졌다.** brew 는 "항상 최신" 모델이고 이 repo 요건은 "**같음**"이다.

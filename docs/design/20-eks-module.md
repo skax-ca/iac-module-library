@@ -491,7 +491,7 @@ variable "subnet_ids"         { type = list(string) }              # 노드·컨
 # ── 환경 프로파일 축 (소비자가 조건 분기를 짜지 않게 한다) ─────────────
 variable "endpoint_public_access"  { type = bool, default = false }  # GitOps(pull) 전제 → 기본 private
 variable "endpoint_private_access" { type = bool, default = true }
-variable "public_access_cidrs"     { type = list(string), default = [] }
+variable "public_access_cidrs"     { type = list(string), default = [] }  # ⚠️ 전달 방식은 D-EKS-CIDR-NULL (§4.4)
 variable "enabled_log_types"       { type = list(string), default = [] }  # 구 열린 항목 6 — 아래 참조
 
 # ── custom networking (§2.5) ─────────────────────────────────────────
@@ -1065,6 +1065,76 @@ facade가 하위 모듈에 넘긴 값은 plan 테스트로 볼 수 없다. `mock
 
 > 🔒 **`v0.2.0` 태그는 옮기지 않았다** — 소비 repo가 같은 날 핀을 올려 **apply까지 마쳤다.**
 > CLAUDE.md가 인정하는 유일한 예외(*"소비자가 0일 때"*)는 그 시점에 이미 닫혔다.
+
+### 4.4 릴리스 기록 — `eks-cluster-v0.4.0` (2026-08-06, **D-EKS-CIDR-NULL**)
+
+**소비 repo의 영구 가짜 diff를 닫는 릴리스.** 계약(변수·출력)은 **바뀌지 않는다** — 바뀌는 것은
+`public_access_cidrs`를 upstream에 **어떻게 전달하는가** 하나다. 소비자 무영향이라 **마이너**다.
+
+#### 문제 — apply해도 사라지지 않는 diff
+
+`iac-reference-infra`가 private-only로 전환한 뒤(2026-08-06) 매 plan이 이렇게 났다:
+
+```
+# module.eks.module.eks.aws_eks_cluster.this[0] will be updated in-place
+  ~ vpc_config {
+      ~ public_access_cidrs = [ - "<운영자 IP>/32" ]
+    }
+Plan: 0 to add, 1 to change, 0 to destroy.   ← apply해도 다음 plan에 또 난다
+```
+
+소비 루트는 `public_access_cidrs` 인자를 **지웠는데도** 그렇다. 이 모듈의 기본값이 `[]`이고
+그것을 그대로 upstream에 넘기기 때문이다.
+
+#### 원인 — **빈 리스트는 "없음"이 아니라 "있음"이다**
+
+provider 문서 원문(`aws_eks_cluster` `vpc_config.public_access_cidrs`):
+
+> *"Terraform will only perform drift detection of its value **when present in a configuration**."*
+
+⇒ **`null`이면 drift 감지를 하지 않고, `[]`는 "설정에 있음"으로 취급된다.**
+한편 AWS는 **public이 꺼진 상태에서 `publicAccessCidrs` 변경을 반영하지 않는다**(실측: apply가
+성공했는데 `describe-cluster`의 값이 그대로였다). ⇒ tofu는 계속 지우려 하고 AWS는 안 지운다 =
+**영구 diff**.
+
+🔑 **일반화**: *"Optional 인자에 빈 컬렉션을 넘기는 것과 넘기지 않는 것은 다르다."*
+이 모듈이 다른 곳에서도 `default = []`를 upstream으로 흘리고 있다면 같은 함정이 있는지 본다.
+
+#### 결정 — D-EKS-CIDR-NULL
+
+**`endpoint_public_access = false`면 `endpoint_public_access_cidrs`를 `null`로 넘긴다.**
+
+```hcl
+endpoint_public_access_cidrs = var.endpoint_public_access ? var.public_access_cidrs : null
+```
+
+- public이 **꺼져 있으면** 그 값은 애초에 **의미가 없다**(§3.1 변수 설명이 이미 그렇게 적고 있다).
+  의미 없는 값을 관리 대상으로 선언해 두는 것이 diff의 원인이었다.
+- ⛔ **`length(...) > 0`을 조건에 넣지 않았다.** 그러면 *public이 켜졌는데 리스트가 빈* 경우까지
+  `null`이 되어 **EKS가 `0.0.0.0/0`으로 여는 것을 tofu가 더는 감지하지 못한다.** 지금은 그 조합이
+  drift로 드러나는데, 그 안전망을 diff 편의와 바꾸지 않는다.
+- ⛔ `lifecycle { ignore_changes }`를 쓰지 않았다. 그것은 "값이 어긋나도 눈감는다"이고,
+  여기 필요한 것은 **"public이 꺼졌으니 이 값을 애초에 관리하지 않는다"** 이다. 둘은 다르다.
+
+| `endpoint_public_access` | `public_access_cidrs` | upstream에 가는 값 | drift 감지 |
+|---|---|---|---|
+| `true` | `["1.2.3.4/32"]` | 그대로 | ✅ (변경 없음) |
+| `true` | `[]` | `[]` | ✅ **유지** — EKS의 `0.0.0.0/0` 전면 개방이 diff로 드러난다 |
+| **`false`** | 무엇이든 | **`null`** | ⛔ **안 함** ← 이 릴리스가 바꾸는 칸 |
+
+#### 계약·테스트
+
+- 변수·출력 **불변**. 소비자는 **핀만 올리면 된다**.
+- ⚠️ `tofu test`(plan 단계)로는 이 결정을 지킬 수 없다 — 검증 대상이 *"AWS가 값을 반영하지 않는다"*
+  라는 **런타임 사실**이기 때문이다. §5.1의 *"미지정 자체가 계약"* 항목들과 같은 부류다.
+  ⇒ 판정은 소비 repo의 **다음 plan이 `No changes`인지**다(§7.3-3에 기록).
+
+> ### ⚠️ 함께 드러난 것 — OIDC `thumbprint_list` (이 릴리스 범위 밖)
+>
+> 같은 plan에 `aws_iam_openid_connect_provider.thumbprint_list`가
+> `[...] -> (known after apply)`로 매번 뜬다. apply하면 값이 같아 **no-op**이 된다.
+> **원인 계층이 다르다**(upstream/provider 동작이지 이 facade의 전달 방식이 아니다) —
+> 이 릴리스에 끼워 넣지 않고 열린 항목으로 둔다.
 
 ## 5. 열린 항목
 

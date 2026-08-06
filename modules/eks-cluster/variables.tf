@@ -129,8 +129,12 @@ variable "endpoint_private_access" {
 
 variable "public_access_cidrs" {
   description = <<-EOT
-    public 엔드포인트 접근을 허용할 CIDR 목록. endpoint_public_access = false면 의미가 없다.
+    public 엔드포인트 접근을 허용할 CIDR 목록.
     ⚠️ 빈 리스트를 넘기면 EKS가 0.0.0.0/0으로 기본 적용한다 — public을 켤 때는 반드시 좁힌다.
+
+    ℹ️ **endpoint_public_access = false면 이 값은 무시된다** — 모듈이 upstream에 null을 넘기기
+    때문이다(D-EKS-CIDR-NULL, 설계 20 §4.4). 값을 지워도 AWS는 직전 값을 계속 반환하지만
+    plan에는 나타나지 않는다. 그래서 public을 끌 때 이 변수를 비우지 않아도 무해하다.
   EOT
   type        = list(string)
   default     = []

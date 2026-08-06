@@ -781,10 +781,72 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 
 ⏭️ **다음은 2순위(`21` 개정)다.** workbench 축은 닫혔다.
 
-#### ⏭️ 2순위 — **`21` 개정**
+#### ✅ **D-POLICY-ENGINE · D-BACKUP-AWS** — Kyverno·백업 계층 확정 (2026-08-06, `340e361`)
+
+착수 질문은 *"Kyverno·Velero 를 EKS addon 에 추가할까"* 였다. **문서 전용 개정 · `.tf` 변경 0.**
+근거 전문은 **`docs/design/20 §1.1`**(신설). 운영 절차는 **`22 §4`**(신설).
+
+> ### 🔑 **D-ADDON-BOUNDARY 는 판정 *함수*다** — 재사용할 절차
+>
+> 입력이 *"`aws_eks_addon` 으로 설치되는가"* 하나뿐이라, 새 컴포넌트의 계층은
+> **토론이 아니라 조회로 정해진다.** 이번 결론 대부분이 검토가 아니라 실측에서 나왔다.
+> ⇒ *"어느 계층에 넣을까"* 라는 질문을 받으면 **먼저 카탈로그를 조회한다.**
+
+**실측(2026-08-06, 공식 문서 원문)** — ⚠️ AWS 자격증명이 없어 `describe-addon-versions` 는 못 돌렸다:
+- **community addon 전체 = 6종** — metrics-server·kube-state-metrics·prometheus-node-exporter·
+  cert-manager·external-dns·fluent-bit. **`20 §2.6` baseline 표와 정확히 일치**.
+- **Marketplace vendor addon 34개 전수** — `kyverno`·`velero`·`nirmata` **0건**.
+- ⭐ **카탈로그가 이미 소진됐다** ⇒ **앞으로 오는 컴포넌트는 기본이 GitOps helm 이다.**
+  IaC 로 오려면 AWS 가 카탈로그를 늘려야 한다.
+
+**D-POLICY-ENGINE (Kyverno)** = **helm · 프로파일 A 한정 baseline**. `30 §5` 의 TBD 해소.
+- `30 §5` 가 예정한 *①baseline(전 클러스터)* 을 **A 한정으로 좁혔다** — 프로파일 B 엔 위임할
+  앱팀이 없어 **제약할 대상이 없다**. 주면 `22 §1` 이 ArgoCD 에 지적한 *"관리 표면만 증가"* 다.
+- 🔑 **그래서 `22 §3.2` 의 *"프로파일 B 의 helm 대상은 둘뿐"* 이 깨지지 않는다. 순서가 반대다** —
+  그 문장이 성립하는 이유가 곧 범위를 좁힐 근거였다. **같은 사실의 두 표현**이다.
+- 📌 **다음 helm 후보에 물을 질문**: *"프로파일 B 에도 필요한가"* 를 **먼저** 묻는다.
+
+**D-BACKUP-AWS (백업)** = **AWS Backup for EKS(IaC, 소비 루트)**. Velero 는 **예외 경로**.
+- ⭐ CLAUDE.md *"발명하기 전에 찾는다"* 가 정확히 발동했다 — Velero 배치를 정하기 전에
+  **AWS 가 같은 문제를 이미 푸는지** 봤고, 풀고 있었다.
+- 원문 FAQ: *"Do I need to have an agent or Amazon EKS Add-on installed? — **No.**"*
+- 전제조건 `authentication_mode` 는 **upstream v21 기본값 `API_AND_CONFIG_MAP`** 이고 facade 가
+  덮어쓰지 않아 **이미 충족**(실측 `.terraform/modules/eks/variables.tf:59`) ⇒ **모듈 계약 변경 0**.
+- Velero 를 넣었다면 helm 대상 + S3 버킷 + IAM role 셋을 새로 소유하고 **백업이 축 A→축 B 로
+  넘어갔을 것**이다(프로파일마다 갈리는 것이 하나 는다).
+- ⛔ **기각이 아니다** — 전환 신호는 `22 §4.5`(CSI migration·in-tree·ACK 볼륨 · FSx · S3 prefix ·
+  크로스계정 EFS · 클러스터 간 마이그레이션). 🔑 **이식 비용은 미리 값 매겨 뒀다: 싸다** —
+  upstream `eks-pod-identity` 2.8.2 에 **`attach_velero_policy` 가 이미 있다**(실측 `velero.tf`).
+  `enable_velero_iam` 변수 1 + 블록 1. **단 요구가 나오면 그때 연다.**
+
+> ### ⚠️ **미개정 문서(`30`)에 현행 결정을 적지 않았다** — 재사용할 판단
+>
+> `30 §5` 는 스스로 *"20 §1 승계 — 정합 필수"* 라고 적은 **파생 표**라, 원본만 고치면 TBD 가
+> 남아 다음 사람이 잘못 읽는다. 그렇다고 본문에 결정을 쓰면 **어디까지가 PoC 전제인지 판정
+> 불가능**해진다. ⇒ **결정은 원본(`20`)이 소유하고 `30` 에는 포인터 상자만** 남겼다.
+> 📌 **KEDA 도 같은 실측으로 경로(helm)만 답이 나왔다. ②catalog 배치는 재확인 안 했다.**
+
+> ### 🔧 §번호 이동 — `22` 열린 항목 **§4 → §5**
+>
+> 백업 절을 §4 로 신설하며 밀렸다. `40` 의 교차 참조 4곳(`§4-1`·`§4-2` → `§5-1`·`§5-2`)을
+> **같은 커밋에서** 고쳤다. ⚠️ `22` 를 다시 인용할 때 옛 번호를 쓰지 않는다.
+
+#### ⏭️ 2순위 — **`21` 개정** (다음 태스크)
 
 40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3): 관리형 Capability vs self-managed ArgoCD.
 `awscc_eks_capability` 스키마는 착수 시 재조회(21 이 v1.93.0 기준).
+
+**⭐ `21` 이 닫히면 곧바로 이어지는 것 — `40` 열린 항목 7 (`argocd` CLI)**
+- 사용자 결정(2026-08-06): **`21` 개정 후 착수.** nullable 핀이라 비용은 0 이지만,
+  *"어떤 버전을 무슨 용도로 핀하는가"* 의 **근거가 `21` 의 결정에서 나온다**. 근거 없는 핀은
+  다음 사람이 못 고친다.
+- 릴리스 자산 실측: **`argocd-linux-arm64` 단일 바이너리**(v3.5.0, GitHub Releases) —
+  `t4g.nano` arm64 에서 동작하고 tarball 해제가 없어 `helm` 보다 절차가 짧다.
+- ⚠️ **`velero` CLI 는 제외됐다** — D-BACKUP-AWS 가 에이전트 없는 경로를 택해
+  **클러스터 안에서 실행할 CLI 가 없어졌다.**
+- 📌 **도구가 3개가 되어도 일반화하지 않는다** — 다운로드 형태가 전부 다르다(`dl.k8s.io` 단일 ·
+  `get.helm.sh` tarball · GitHub Releases 단일). 맵 추상화는 URL 조립 분기를 **오히려 늘린다**.
+- ⛔ **`.tf` 변경이므로 브랜치 → PR**(문서 전용이었던 이번 커밋과 다르다).
 
 ### 🔑 state 버킷 = partial backend (D25) — 잊으면 init이 안 된다
 

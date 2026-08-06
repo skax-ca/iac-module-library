@@ -46,11 +46,11 @@
 | # | 문서 | 상태 |
 |---|------|------|
 | 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-08-03 개정 — 현행 **`vpc-v0.3.0`** 계약, D13 SubnetGroup 태그 포함) |
-| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-05 개정 — 현행 **`eks-cluster-v0.3.0`** 계약 + §4.1~§4.3 릴리스·apply 판정 기록) |
+| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-06 갱신 — 현행 **`eks-cluster-v0.4.0`** 계약 + §4.1~§4.4 릴리스·apply 판정 기록) |
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-04 신규 — **D-DAY2-PROFILE**, 업그레이드 런북 + 운영 프로파일) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
-| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-05 개정 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM**) |
+| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 
 > ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30)는 *판단은 섰으나

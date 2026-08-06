@@ -792,14 +792,40 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 > **토론이 아니라 조회로 정해진다.** 이번 결론 대부분이 검토가 아니라 실측에서 나왔다.
 > ⇒ *"어느 계층에 넣을까"* 라는 질문을 받으면 **먼저 카탈로그를 조회한다.**
 
-**실측(2026-08-06, 공식 문서 원문)** — ⚠️ AWS 자격증명이 없어 `describe-addon-versions` 는 못 돌렸다:
-- **community addon 전체 = 6종** — metrics-server·kube-state-metrics·prometheus-node-exporter·
-  cert-manager·external-dns·fluent-bit. **`20 §2.6` baseline 표와 정확히 일치**.
-- **Marketplace vendor addon 34개 전수** — `kyverno`·`velero`·`nirmata` **0건**.
-- ⭐ **카탈로그가 이미 소진됐다** ⇒ **앞으로 오는 컴포넌트는 기본이 GitOps helm 이다.**
-  IaC 로 오려면 AWS 가 카탈로그를 늘려야 한다.
+**실측(2026-08-06 2차, `de1df5c`)** — `aws eks describe-addon-versions` · **profile `team`** ·
+계정 `533616270150` · `ap-northeast-2` · 실클러스터 **`eks-ref-dev-an2-main-01`(k8s 1.35)**.
+`owner` 는 **3값**: `community` **6** · `aws` **21** · **`aws-marketplace` 55**.
+- **community 6종** — metrics-server·kube-state-metrics·prometheus-node-exporter·cert-manager·
+  external-dns·fluent-bit. **`20 §2.6` baseline 표와 정확히 일치** ⇒ 그 카탈로그는 소진됐다.
+
+> ### 🔴 **1차 서술이 틀렸다 — 문서 페이지가 API 보다 뒤처져 있었다**
+>
+> 자격증명 없이 공식 문서 페이지를 전수 검색해 *"Marketplace 34개 중 kyverno·velero 0건"* 이라
+> 적었다(`340e361`). **API 엔 있다**: `nirmata_kyverno` · `nirmata_nirmata-kyverno-payg` ·
+> `catalogic-software_cloudcasa`(type=**backup**) — 전부 `owner = aws-marketplace`.
+>
+> ### 📌 **재사용할 절차 — addon 카탈로그의 SSOT 는 문서 페이지가 아니라 API 다**
+> 문서는 사람이, API 는 카탈로그가 갱신한다. **뒤처지는 쪽은 항상 문서다.**
+> ⭐ CLAUDE.md 「검증」의 *"추정 금지"* 가 **"공식 문서를 읽었다"로도 충족되지 않는다**는 실증.
+> ⇒ **가용성 판정은 `describe-addon-versions` 로만.** 문서 페이지는 설명 조회용이다.
+>
+> ⭐ **결론 2건은 유지되고 근거가 교체됐다** — `04` 가 D-OSS-STACK 의 엔진 축 근거를 교체한 것과 같은 형태다.
+
+> ### ⛔ **규칙 공백을 메웠다 — `aws-marketplace` addon 은 "IaC 기본" 대상이 아니다**
+>
+> D-ADDON-BOUNDARY 는 *"community addon 포함"* 만 썼고 **`owner` 의 세 번째 값을 다루지 않았다.**
+> 판정 근거는 **이 repo 의 존재 이유**다 — *"고객사가 **구독 라이선스 없이** 바로 착수"* 인데
+> Marketplace addon 은 **벤더 구독이 전제**다. 조달 마찰을 없애려 만든 자산이 그것을 기본값으로
+> 삼을 수 없다. 🔑 **D-ENGINE(`04`) 이 OpenTofu 를 택한 축과 정확히 같다.**
+> ⚠️ **금지가 아니라 기본값**이다 — `cluster_addons` 는 소비자 입력을 merge 하므로 고객사가 이미
+> 벤더를 쓰면 그대로 넘긴다. **baseline 에 넣지 않을 뿐**이다.
 
 **D-POLICY-ENGINE (Kyverno)** = **helm · 프로파일 A 한정 baseline**. `30 §5` 의 TBD 해소.
+- 🔴 **`nirmata_kyverno` 는 실재한다.** 그럼에도 helm 인 근거는 둘이고 **①만으로 결론이 선다**:
+  **① `owner = aws-marketplace`**(원칙 — 안 바뀐다) · ② **k8s 1.35 호환 버전 없음**
+  (`nirmata_kyverno` 최신 `v1.13.2` 가 **1.31** 까지, payg `v4.0.14` 가 **1.32** 까지).
+  ⚠️ **②를 주력으로 쓰지 않는다** — 벤더가 따라오면 사라지는 근거이고 그때 질문이 재발한다.
+  ②는 *상용 addon 이 **4 마이너 뒤처진다***는 부수 사실로만 기록한다(벤더 위임의 대가).
 - `30 §5` 가 예정한 *①baseline(전 클러스터)* 을 **A 한정으로 좁혔다** — 프로파일 B 엔 위임할
   앱팀이 없어 **제약할 대상이 없다**. 주면 `22 §1` 이 ArgoCD 에 지적한 *"관리 표면만 증가"* 다.
 - 🔑 **그래서 `22 §3.2` 의 *"프로파일 B 의 helm 대상은 둘뿐"* 이 깨지지 않는다. 순서가 반대다** —
@@ -811,7 +837,13 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
   **AWS 가 같은 문제를 이미 푸는지** 봤고, 풀고 있었다.
 - 원문 FAQ: *"Do I need to have an agent or Amazon EKS Add-on installed? — **No.**"*
 - 전제조건 `authentication_mode` 는 **upstream v21 기본값 `API_AND_CONFIG_MAP`** 이고 facade 가
-  덮어쓰지 않아 **이미 충족**(실측 `.terraform/modules/eks/variables.tf:59`) ⇒ **모듈 계약 변경 0**.
+  덮어쓰지 않아 **이미 충족**(소스 `.terraform/modules/eks/variables.tf:59`) ⇒ **모듈 계약 변경 0**.
+  ⭐ **실계정에서 실증됨**(2026-08-06 2차): `eks-ref-dev-an2-main-01` 의
+  `accessConfig.authenticationMode` = **`API_AND_CONFIG_MAP`**. 소스 연역이 실물로 확인됐다.
+  ⚠️ **백업·복원 자체는 여전히 미실행**(`22 §5-5`) — *"전제조건 충족"* 과 *"복구된다"* 는 다르다.
+- ⚠️ **CloudCasa(`catalogic-software_cloudcasa`) 라는 제3 선택지가 실재하고 k8s 1.35 를 지원한다**
+  (`v3.4.7` — Kyverno 와 달리 **뒤처지지 않았다**). 그럼에도 안 쓰는 이유는 **Marketplace 구독 하나**다.
+  🔑 **기술적 우열이 아니라 조달 마찰로 갈린 판단**임을 문서에 명시했다.
 - Velero 를 넣었다면 helm 대상 + S3 버킷 + IAM role 셋을 새로 소유하고 **백업이 축 A→축 B 로
   넘어갔을 것**이다(프로파일마다 갈리는 것이 하나 는다).
 - ⛔ **기각이 아니다** — 전환 신호는 `22 §4.5`(CSI migration·in-tree·ACK 볼륨 · FSx · S3 prefix ·
@@ -824,7 +856,8 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 > `30 §5` 는 스스로 *"20 §1 승계 — 정합 필수"* 라고 적은 **파생 표**라, 원본만 고치면 TBD 가
 > 남아 다음 사람이 잘못 읽는다. 그렇다고 본문에 결정을 쓰면 **어디까지가 PoC 전제인지 판정
 > 불가능**해진다. ⇒ **결정은 원본(`20`)이 소유하고 `30` 에는 포인터 상자만** 남겼다.
-> 📌 **KEDA 도 같은 실측으로 경로(helm)만 답이 나왔다. ②catalog 배치는 재확인 안 했다.**
+> 📌 **KEDA 는 어떤 `owner` 에도 addon 이 없다**(실측) ⇒ 경로 **helm** 확정.
+> ②catalog 배치는 재확인 안 했다 — 도입 시 *"어느 프로파일에 필요한가"* 를 먼저 통과시킨다.
 
 > ### 🔧 §번호 이동 — `22` 열린 항목 **§4 → §5**
 >
@@ -835,6 +868,17 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 
 40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3): 관리형 Capability vs self-managed ArgoCD.
 `awscc_eks_capability` 스키마는 착수 시 재조회(21 이 v1.93.0 기준).
+
+> ### 🆕 **21 의 입력 하나가 실측으로 늘었다 — 제3 후보 `akuity_agent`**
+>
+> addon 카탈로그 조회(2026-08-06 2차)에서 나왔다: **`akuity_agent`**(`owner=aws-marketplace`,
+> `type=gitops`) = **관리형 ArgoCD SaaS**. 즉 21 의 선택지가 *관리형 Capability / self-managed* 둘이
+> 아니라 **셋**이다.
+> ⚠️ **다만 `aws-marketplace` 라 위 규칙 상자가 이미 기본 대상에서 배제한다** — 21 에서 다시
+> 논증할 필요 없이 **근거를 인용하면 된다**. 기록하는 이유는 *"검토 안 했다"* 가 아니라
+> *"검토했고 같은 축으로 배제됐다"* 를 남기기 위해서다.
+> 📌 **21 착수 시 `describe-addon-versions` 를 먼저 돌린다** — Capability 계열이 addon 으로
+> 새로 등장했을 수 있고, 문서 페이지는 뒤처진다는 것이 이번에 실증됐다.
 
 **⭐ `21` 이 닫히면 곧바로 이어지는 것 — `40` 열린 항목 7 (`argocd` CLI)**
 - 사용자 결정(2026-08-06): **`21` 개정 후 착수.** nullable 핀이라 비용은 0 이지만,

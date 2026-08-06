@@ -692,32 +692,59 @@ private 서브넷 · SSM 전용(22번 없음) · kubectl 을 user_data 로 설�
 > ⚠️ 로컬에서 `--tf-exclude-downloaded-modules` 를 빠뜨리면 upstream 모듈 지적이 섞여 나온다.
 > **훅(`.githooks/pre-commit`)의 플래그를 그대로 복사해 쓴다.**
 
+#### ✅ **workbench-v0.1.0 첫 apply 판정 완료** (2026-08-06) — `40 §7.3-1` 에 기록
+
+소비 repo apply run [`31059712680`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31059712680)
+= `Apply complete! Resources: 10 added, 0 changed, 0 destroyed.` 인스턴스 `i-04ac14a6f5891492c`.
+
+⛔ **이 repo 가 apply 한 것이 아니다.** 판정 주체는 소비 repo 이고 여기는 **받아 적는 쪽**이다
+(그것이 2026-08-06 `aws-api` MCP 를 추가한 근거이기도 하다). "동작한다"의 기준은 그대로
+`tofu test` + 예제 `validate` 다.
+
+**⭐ `§5.1` 이 "`tofu test` 로 지킬 수 없다"고 적은 항목이 처음 실증됐다** — *"미지정 자체가 계약"*
+인 항목은 plan 에서 `(known after apply)` 라 assertion 을 걸 수 없었다:
+`PublicIpAddress: null` · `KeyName: null` · SG `IpPermissions` **0개** · t4g.nano↔arm64 AMI 정합.
+
+**도달 3층 전부 성립**: SSM `Online` → `cloud-init done` → kubeconfig 생성(1층) →
+`kubectl get nodes` 노드 2개 Ready(2·3층). kubectl `v1.35.7` 로 클러스터 마이너와 일치.
+🔑 **`get nodes` 가 반환된 것 자체가 3층 전부의 증거다** — 실패했다면 층별로 다른 에러가 났다
+(1층 없음 → kubeconfig 미생성 / 2층 → 401 / 3층 → i/o timeout).
+
+⚠️ 판정은 `ssm send-command` 로 했다(자동화에 TTY 없음). 같은 채널·IAM·SG 라 도달성으로는 동등하고,
+사람은 `aws ssm start-session --profile team --region ap-northeast-2 --target i-04ac14a6f5891492c`.
+
 **그다음 태스크**:
 
-#### ⏭️ 1순위 — **소비 repo 에서 workbench apply → 도달 실증 → public 차단**
+#### ⏭️ 1순위 — **`endpoint_public_access = false` 로 닫고 재확인** (마지막 단계)
 
 **작업 위치**: `/Users/a07326/born2k/ai/iac-reference-infra`
 ⚠️ **경로는 머신별 상태다** — 구 기록의 `/Users/born2k/silverte/...` 는 다른 머신 것이다.
 ⛔ 소비 repo 소관이라 Phase·진행 상태는 여기서 추적하지 않는다. 그쪽 `.omc/notepad.md` 를 먼저 읽는다.
 
-✅ **코드는 전부 들어갔다**(소비 repo PR #15 → #16 머지). 남은 것은 **apply 와 실증뿐**이다.
-plan [`31058277158`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31058277158)
-= `10 to add, 0 to change, 0 to destroy` (workbench 7개 + Access Entry 2 + cluster SG rule 1).
+✅ **①~③ 완료**(위 판정 절). 남은 것은 **④ 하나**다 — 그리고 **그것이 `40 §1` 이 말한 이 설계의
+목적**이다. 지금까지는 전부 선행 조건이었다.
 
-> 🔴 **순서가 안전에 직결된다 — public 을 먼저 닫으면 안 된다.**
-> ① `workflow_dispatch` 로 apply → ② **SSM 접속 실증**
-> (`aws ssm start-session --profile team --region ap-northeast-2 --target $(tofu output -raw workbench_instance_id)`)
-> → ③ 그 세션에서 `kubectl get nodes` → ④ **그때** `endpoint_public_access = false`.
-> 뒤집으면 workbench 가 안 될 때 **클러스터에 닿을 방법이 없다.**
->
-> ③ 실패 시 **증상으로 층을 특정한다**(소비 repo `live/dev/eks/README.md §4` 에 표로 있다):
-> `update-kubeconfig` 권한 오류 = 1층 / `401 Unauthorized` = 2층 / `i/o timeout` = **3층**.
+```
+① apply                  ✅ 31059712680 — 10 added / 0 changed / 0 destroyed
+② SSM 접속               ✅ PingStatus Online, send-command 로 실증
+③ kubectl get nodes      ✅ 노드 2개 Ready — 3층 전부 성립
+④ endpoint_public_access = false + public_access_cidrs·var 제거   ← 여기
+```
+
+**④ 의 구체 작업**(소비 repo `live/dev/eks`):
+- `main.tf` 엔드포인트 블록 — `endpoint_public_access = true` → `false`, `public_access_cidrs` 제거,
+  그 자리의 "🔴 아직 켜 둔다" 주석을 **닫은 근거로 교체**한다(죽은 주석을 남기지 않는다).
+- `variables.tf` — `var.public_access_cidrs` **삭제**. ⚠️ tflint `terraform_unused_declarations` 가
+  미사용 변수를 exit 2 로 잡으므로 **같은 커밋에서** 지운다.
+- repo 변수 `EKS_PUBLIC_ACCESS_CIDRS` 도 정리 대상이다(코드가 안 쓰면 죽은 설정).
+- `README.md §3` 형상표의 엔드포인트 행을 **private-only** 로.
+
+> 🔴 **닫은 뒤 재확인이 판정이다.** apply 후 다시 workbench 에서 `kubectl get nodes` 가 되는지 본다.
+> public 을 통해 닿고 있었을 가능성을 배제하는 유일한 방법이다 — 지금 실증은 public 이 **켜진 채로**
+> 났으므로, 엄밀히는 *"private 경로로 닿았다"* 를 아직 증명하지 않았다.
+> ⚠️ 실패하면 되돌릴 방법이 workbench 뿐이다. 그래서 ①~③ 을 먼저 한 것이다.
 
 ⚠️ **apply 는 사람이 `Run workflow` 를 누르는 것이 승인 게이트다**(D30-1). 자동으로 돌지 않는다.
-
-🔑 **이 repo 쪽 관여 지점**: 이 배포가 **`workbench-v0.1.0` 계약의 첫 apply 판정**을 낸다.
-`tofu test` 로 지킬 수 없다고 40 §5.1 이 적은 항목(`key_name`·`associate_public_ip_address` 미지정)이
-여기서 처음 실증된다. **판정이 나면 `40` 에 기록한다.**
 
 #### ⏭️ 2순위 — **`21` 개정**
 

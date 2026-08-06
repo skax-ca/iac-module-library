@@ -561,6 +561,48 @@ upstream에 넘어간 값을 볼 수 없다.
 `aws ssm describe-instance-information`의 `PingStatus: Online` → 세션 접속 → `kubectl get nodes` →
 **`endpoint_public_access = false`로 되돌리고 재확인**. 마지막 단계가 이 설계의 목적이다(§1).
 
+#### ✅ 7.3-1 첫 apply 판정 — `workbench-v0.1.0` (2026-08-06, `iac-reference-infra`)
+
+⛔ **이 절은 이 repo가 apply했다는 뜻이 아니다.** 판정 주체는 소비 repo
+(`iac-reference-infra` `live/dev/eks`, apply run
+[`31059712680`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31059712680) —
+`Apply complete! Resources: 10 added, 0 changed, 0 destroyed.`)이고, 이 문서는 **그 결과를
+계약 항목별로 받아 적는다.** "동작한다"의 기준이 `tofu test` + 예제 `validate`라는 것은 그대로다.
+
+**⭐ §5.1이 *"`tofu test`로 지킬 수 없다"* 고 적은 항목이 여기서 처음 실증됐다.**
+"미지정 자체가 계약"인 항목은 plan에서 `(known after apply)`라 assertion을 걸 수 없었다 —
+mock으로 강제하면 assertion이 자기 모킹 설정을 검증하게 된다.
+
+| 계약 | `tofu test` | 실물(2026-08-06 `describe-instances`·`describe-security-groups`) |
+|------|-------------|--------------------------------------------------------------|
+| **공인 IP 미할당** | ⛔ 불가(optional+computed) | ✅ `PublicIpAddress: null` |
+| **키페어 미지정** | ⛔ 불가(mock이 임의 값을 채움) | ✅ `KeyName: null` |
+| **인바운드 0개** | △ 리소스 부재로만 간접 확인 | ✅ `length(IpPermissions) == 0` |
+| egress 443/tcp 하나 | ✅ | ✅ `0.0.0.0/0:443` 단일 |
+| `ami_id`↔`instance_type` 아키텍처 정합 | ⛔ 불가(§2.3) | ✅ `t4g.nano` + AL2023 arm64 부팅 성공 |
+
+**도달 3층 전부 성립**(§5의 목적):
+
+```
+SSM 등록      PingStatus: Online · agent 3.3.4851.0 · AL2023   ← 인바운드 0인 호스트에 제어 평면이 붙었다
+cloud-init    status: done                                     ← user_data 완료(비동기라 먼저 본다)
+1층           /etc/kubernetes/kubeconfig 생성됨(2447B)         ← eks:DescribeCluster 성립
+kubectl       Client Version: v1.35.7                          ← 클러스터 1.35와 마이너 일치
+2·3층         kubectl get nodes → 노드 2개 Ready                ← 401도 timeout도 아니다
+```
+
+🔑 **`kubectl get nodes`가 반환된 것 자체가 3층 전부의 증거다.** 실패했다면 층별로 **다른 에러**가
+났을 것이다 — 1층 없음 → kubeconfig 미생성 / 2층 없음 → `401 Unauthorized` / 3층 없음 →
+`i/o timeout`. 층을 특정하는 이 표는 소비 repo `live/dev/eks/README.md §4`가 소유한다.
+
+> ⚠️ **판정 방식**: 대화형 `start-session`이 아니라 `ssm send-command`(AWS-RunShellScript)로
+> 실행했다(자동화 환경에 TTY가 없다). **같은 SSM 채널·같은 인스턴스 IAM role·같은 SG**를 지나므로
+> 도달성 판정으로는 동등하다. 사람이 붙을 때는 `aws ssm start-session --target <id>`.
+
+> ⏳ **아직 남은 판정**: `endpoint_public_access = false`로 닫고 **재확인**하는 단계.
+> 그것이 §1이 말한 이 설계의 목적이고, 위 실증은 그 **선행 조건**일 뿐이다.
+> 🔴 순서를 뒤집지 않는다 — 먼저 닫으면 workbench가 안 될 때 클러스터에 닿을 방법이 없다.
+
 ---
 
 ## 8. 구현 계획

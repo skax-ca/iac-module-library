@@ -28,6 +28,12 @@
 >   `cluster_security_group_additional_rules` 신설(§3.1)로 *"클러스터가 누구를 네트워크로
 >   받아들이는가"* 의 소유 지점을 이 모듈에 뒀다. §5.1-9 종결. `required_version` 하한도 함께
 >   `>= 1.9.0` → **`>= 1.12.0`** 으로 통일됐다(§3.3).
+> - **✅ §1 경계표 확장 — D-POLICY-ENGINE · D-BACKUP-AWS 신설**(2026-08-06, §1.1) —
+>   *"Kyverno·Velero를 addon으로 넣을까"* 라는 질문을 **카탈로그 전수 조회**로 답했다.
+>   둘 다 community addon도 Marketplace addon도 아니다(§1.1 표) → Kyverno는 **GitOps helm ·
+>   프로파일 A 한정**, 백업은 **AWS Backup for EKS(IaC, 소비 루트)** 로 확정. Velero는 예외 경로.
+>   ⛔ **`.tf` 변경 0** — Kyverno는 IAM을 요구하지 않고, AWS Backup의 전제조건(`authentication_mode`)은
+>   upstream 기본값으로 **이미 충족**돼 있다.
 >
 > 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
 
@@ -67,7 +73,8 @@ wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/No
 | Karpenter IAM 전제조건 | **IaC** `//modules/karpenter` | 컨트롤러 Pod Identity 역할, 노드 IAM, instance profile, 중단 SQS | ✅ |
 | 컨트롤러 IAM(ALBC·external-dns) | **IaC** `eks-pod-identity` | role + 정책 + standalone Pod Identity association (§2.6a) | ✅ opt-in |
 | 부트스트랩 seam | **미결정** | ArgoCD 설치·등록 경로 → [`21`](21-gitops-bootstrap-seam.md) (`01 §3.3` 재결정 대상) | ❌ 배포 루트 |
-| Day 2 GitOps | GitOps | **AWS Load Balancer Controller**(community addon 아님 → helm, IAM은 §2.6a로 IaC), Karpenter helm/NodePool, **컨트롤러 설정(cert-manager Issuer/Certificate CR, external-dns 애노테이션)**, 앱 워크로드 | ❌ |
+| Day 2 GitOps | GitOps | **AWS Load Balancer Controller**(community addon 아님 → helm, IAM은 §2.6a로 IaC), Karpenter helm/NodePool, **Kyverno 컨트롤러**(community addon 아님 → helm, **프로파일 A 한정** — 아래 D-POLICY-ENGINE), **컨트롤러 설정(cert-manager Issuer/Certificate CR, external-dns 애노테이션)**, 앱 워크로드 | ❌ |
+| **백업·복구** | **IaC** `aws_backup_plan` / `aws_backup_selection` | 클러스터 상태 + PV(EBS·EFS·S3) — **AWS Backup for EKS**(아래 **D-BACKUP-AWS**) | ❌ **소비 루트** (전제조건은 이미 충족) |
 
 > **한 줄 규칙(D-ADDON-BOUNDARY)**: `aws_eks_addon` API로 설치 가능한 것은 **IaC가 기본**이다
 > (community add-on 포함). `aws_eks_addon`은 AWS API지 helm/kubernetes provider가 **아니므로** push 안티패턴
@@ -103,6 +110,68 @@ wrapper(facade)**(`01 §2.2`). Karpenter는 **IAM 전제조건만 IaC**, helm/No
 > (→ §2.6a eks-pod-identity 위임 범위는 ALBC로 축소).
 > ⚠️ **addon 카탈로그는 AWS가 바꾼다.** 구현 착수 시 `aws eks describe-addon-versions`로 대상 리전·k8s
 > 버전에서의 가용성과 `owner`를 재확인한다(Task 20.1). 위 목록은 확인 시점의 스냅샷이다.
+
+### 1.1 카탈로그 전수 실측 (2026-08-06)
+
+D-ADDON-BOUNDARY는 *"`aws_eks_addon`으로 설치 가능한가"* 를 입력으로 받는 **판정 함수**다. 그래서
+새 컴포넌트의 계층은 **토론이 아니라 조회로 정해진다.** 아래는 그 조회의 현행 스냅샷이다.
+
+| 목록 | 출처 | 내용 |
+|---|---|---|
+| **community addon 전체** | [`community-addons.html`](https://docs.aws.amazon.com/eks/latest/userguide/community-addons.html) | metrics-server · kube-state-metrics · prometheus-node-exporter · cert-manager · external-dns · fluent-bit — **6종이 전부** |
+| **AWS Marketplace vendor addon** | [`workloads-add-ons-available-vendors.html`](https://docs.aws.amazon.com/eks/latest/userguide/workloads-add-ons-available-vendors.html) | 34개 벤더 전수 확인 — `kyverno`·`velero`·`nirmata` **0건** |
+
+⚠️ **AWS 자격증명이 없어 `describe-addon-versions`는 돌리지 못했다.** 위는 공식 문서 원문 조회이며,
+리전·k8s 버전별 실제 가용성은 위 상자대로 **구현 착수 시 CLI로 재확인**한다.
+
+🔑 **community addon 6종이 §2.6 baseline 표와 정확히 일치한다** — 즉 이 모듈은 이미 카탈로그를 소진했다.
+**앞으로 등장하는 컴포넌트는 기본값이 "GitOps helm"이고, IaC로 오려면 AWS가 카탈로그를 늘려야 한다.**
+
+> ### ⭐ D-POLICY-ENGINE — Kyverno = **GitOps helm · 프로파일 A 한정 baseline** (2026-08-06, 사용자 결정)
+>
+> **경로**: 위 실측대로 community addon도 Marketplace addon도 아니다 → D-ADDON-BOUNDARY가 **helm으로 보낸다.**
+> ALBC와 같은 슬롯이며, 이 모듈의 `.tf`는 **바뀌지 않는다** — Kyverno는 AWS IAM을 요구하지 않는
+> 순수 admission controller라 §2.6a의 위임 대상도 아니다.
+>
+> **범위**: [`30 §5`](30-gitops-repo.md)는 Kyverno를 **①baseline**(전 클러스터)으로 예정했으나
+> **프로파일 A(GitOps) 한정**으로 좁힌다. 그 근거([`30 §0.1`](30-gitops-repo.md))는 *"앱팀에게
+> self-service를 위임하려면 가드레일이 필수"* 인데, **프로파일 B에는 위임할 앱팀이 없다**(`22 §3.1` 질문 3).
+> 제약할 대상이 없는 곳에 admission controller를 기본으로 주면 [`22 §1`](22-day2-operations.md)이
+> ArgoCD에 대해 지적한 것과 같은 함정 — **관리 표면만 증가** — 에 빠진다.
+>
+> 🔑 **그래서 `22 §3.2`의 *"프로파일 B의 helm 대상은 ALBC·Karpenter 둘뿐"* 은 깨지지 않는다.**
+> 범위를 A로 좁힌 결정이 그 문장을 지킨 것이 아니라, **그 문장이 성립하는 이유(위임 없음)가
+> 곧 범위를 좁힐 근거였다** — 같은 사실의 두 표현이다.
+>
+> CR 소유(ClusterPolicy=계층 2 · 네임스페이스 Policy=계층 3)는 D-CR-OWNERSHIP이 이미 확정했고
+> 이 결정이 바꾸지 않는다.
+
+> ### ⭐ D-BACKUP-AWS — 백업은 **AWS Backup for EKS(IaC)**, Velero는 예외 경로 (2026-08-06, 사용자 결정)
+>
+> 착수 질문은 *"Velero를 helm 대상에 넣을까"* 였으나, **AWS가 같은 문제를 이미 푼다**는 것을 먼저
+> 확인했다(CLAUDE.md *"발명하기 전에 찾는다"*). 실측
+> ([`eks-backups.html`](https://docs.aws.amazon.com/aws-backup/latest/devguide/eks-backups.html)):
+>
+> - EKS **클러스터 상태 + PV(EBS·EFS·S3)** 를 composite recovery point로 백업한다.
+> - 원문 FAQ: *"Do I need to have an agent or Amazon EKS Add-on installed …? — **No.**"*
+> - 유일한 전제조건은 `authentication_mode`가 `API` 또는 `API_AND_CONFIG_MAP`인 것이며,
+>   **upstream v21 기본값이 `API_AND_CONFIG_MAP`이고 facade가 덮어쓰지 않아 이미 충족돼 있다**
+>   (실측: `.terraform/modules/eks/variables.tf:59`). ⇒ **이 모듈의 계약 변경이 0이다.**
+>
+> 🔑 **이 판단은 D-ADDON-BOUNDARY와 같은 축이다** — *"AWS API로 되는 것은 IaC로 당긴다."*
+> Velero를 채택하면 helm 대상(클러스터 안) + S3 버킷 + IAM role 셋을 새로 소유하게 되고,
+> 그 경계가 프로파일 B에 만들어 준 낮은 진입 장벽을 **자산이 스스로 깬다.**
+>
+> **⛔ Velero를 기각한 것이 아니다 — 예외 경로로 문서화한다.** AWS Backup의 한계에 걸리는 고객사가
+> 대상이다: CSI migration·in-tree 스토리지 플러그인·ACK 컨트롤러 볼륨 미지원 · FSx 미지원 ·
+> S3 prefix 단위 불가 · 크로스 계정 EFS 불가(원문 Limitations). 클러스터 간 마이그레이션이나
+> 온프렘/멀티클라우드 복원이 요구되는 경우도 같다.
+>
+> ⭐ **그 경우의 이식 비용을 미리 값 매겨 둔다 — 싸다.** upstream `terraform-aws-modules/eks-pod-identity`
+> **2.8.2에 `attach_velero_policy`가 이미 있다**(실측: `velero.tf`, 입력은 `velero_s3_bucket_arns` ·
+> `velero_s3_bucket_path_arns` · `velero_kms_arns`). ALBC·external-dns와 **완전히 동일한 §2.6a 패턴**이라
+> `enable_velero_iam` 변수 하나 + 모듈 블록 하나면 끝난다. S3 버킷은 **소비 루트 소유**다(ARN을 입력받는다).
+> ⚠️ 이것은 *"지금 만들어 둔다"* 가 아니라 **요구가 나오면 그때 연다**는 뜻이다(CLAUDE.md 단순성 원칙).
 
 ## 2. facade 원칙 (핵심)
 

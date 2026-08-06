@@ -13,7 +13,7 @@
 > **이번 개정이 바꾼 것**
 > 1. **산출물이 배포 루트에서 재사용 모듈로 바뀌었다** — ⛔ `D-BASTION-INLINE` **철회**, `D-WORKBENCH-MODULE` 신설.
 > 2. **ArgoCD 종속 서술을 걷어냈다** — 이 문서는 이제 *"private 클러스터에 누가 닿는가"* 만 소유한다(§0).
-> 3. **역할 범위를 확정했다** — self-hosted runner 겸용 **안 함**(`D-WORKBENCH-SCOPE`). [`22 §4-2`](22-day2-operations.md)를 닫는다.
+> 3. **역할 범위를 확정했다** — self-hosted runner 겸용 **안 함**(`D-WORKBENCH-SCOPE`). [`22 §5-2`](22-day2-operations.md)를 닫는다.
 > 4. **EKS 접근 3층의 소유를 갈랐다**(`D-WORKBENCH-SEAM`) — 파급으로 `eks-cluster` 계약이 늘어난다(§5).
 >
 > **실증 기록의 소재**: PoC에서 확인한 값(SSM 등록·tmpfs 고갈·envoy 443 함정·private 전환 V-4~V-9)은
@@ -36,7 +36,7 @@
 >
 > **일반화하면 40은 21과 무관하게 완결된다.** workbench가 푸는 문제는 *"ArgoCD를 어떻게 보나"* 가 아니라
 > **"엔드포인트를 닫은 클러스터를 누가 조작하나"** 이고, 이 문제는 21이 무엇으로 결정되든 남는다.
-> self-managed ArgoCD를 택해도 helm을 돌릴 지점이 필요하다([`22 §4-1`](22-day2-operations.md)).
+> self-managed ArgoCD를 택해도 helm을 돌릴 지점이 필요하다([`22 §5-1`](22-day2-operations.md)).
 
 ---
 
@@ -152,7 +152,7 @@ self-hosted runner는 "CI 자격증명 경계"가 하나 더 는다. SSM은 **�
 | **D-WORKBENCH-EGRESS** | 기존 **NAT 경유**. SSM VPCE 3종(`ssm`·`ssmmessages`·`ec2messages`) 미신설 | ✅ 승계·유효(단 §9-2) | 추가 비용 0, 구성 단순. SSM 제어 트래픽은 TLS로 보호되며 AWS 권장 구성 중 하나다. VPCE 3종 × AZ 수는 상시 시간당 요금이라 **NAT가 이미 있는 VPC에서는 중복 지출**이다. ⚠️ NAT 없는 완전 격리 VPC를 요구하는 고객사가 나오면 §9-2로 전환 |
 | **D-WORKBENCH-LIFECYCLE** | 상시 기동 **소형 인스턴스**(기본 `t4g.nano`) + **`workbench_enabled` kill switch** | 🔧 **개정** | 상시 기동 자체는 유효하다(인바운드가 없어 공격면 증가가 미미하고 월 $5 미만). **개정 지점은 kill switch** — 재사용 자산에서 "파기하려면 코드를 지운다"는 소비자에게 diff 폭을 강요한다. `vpc_enabled`·`cluster_enabled`와 동형의 토글을 낸다(`01 §4` 재사용 자산 요건) |
 | **D-WORKBENCH-AMI-PIN** | AMI ID **명시 핀**. 단 **모듈에 기본값을 두지 않는다**(필수 입력) | 🔧 **개정·강화** | 아래 §2.3 |
-| **D-WORKBENCH-SCOPE** | **self-hosted runner로 겸용하지 않는다.** workbench는 사람이 조작하는 지점이다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §2.4 — [`22 §4-2`](22-day2-operations.md)를 닫는다 |
+| **D-WORKBENCH-SCOPE** | **self-hosted runner로 겸용하지 않는다.** workbench는 사람이 조작하는 지점이다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §2.4 — [`22 §5-2`](22-day2-operations.md)를 닫는다 |
 | **D-WORKBENCH-SEAM** | EKS 접근 3층 중 **1층(주체 IAM)만 workbench가 소유**하고 **2·3층(Access Entry·SG ingress)은 `eks-cluster`가 소유**한다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §5 — ⛔ PoC의 `D-BASTION-K8S`(workbench가 3층 전부 소유) **철회** |
 
 ### 2.1 D-WORKBENCH-MODULE — 왜 인라인을 철회하는가
@@ -210,7 +210,7 @@ PoC는 `snet-poc-dev-an2-vm-uniq-a/c`라는 구체 서브넷을 지정했다. �
 
 ### 2.4 D-WORKBENCH-SCOPE — self-hosted runner 겸용을 하지 않는다
 
-[`22 §4-2`](22-day2-operations.md)가 *"`40` 개정과 분리해서 결정하지 않는다"* 고 못박은 항목이다.
+[`22 §5-2`](22-day2-operations.md)가 *"`40` 개정과 분리해서 결정하지 않는다"* 고 못박은 항목이다.
 역할 범위가 인스턴스 타입·SG·IAM을 전부 정하기 때문이다.
 
 **겸용하지 않는다.** workbench는 **사람이 조작하는 지점**이고, 그 결과 다음이 계약이 된다.
@@ -703,3 +703,16 @@ SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수
    SSM 접속은 인스턴스 ID를 지정하므로 이중화의 값은 "가용성"이 아니라 "AZ 장애 시 대체 진입"이다.
 6. **Windows/기타 OS 도구 세트** — user_data는 AL2023 + arm64/x86 리눅스를 전제한다. 다른 OS 요구가
    생기면 user_data를 변수로 여는 것이 아니라 **별도 모듈**을 검토한다(분기가 계약을 흐린다).
+7. ⏭️ **`argocd` CLI 추가** — 예정 (2026-08-06 사용자 결정, **`21` 개정 후 착수**).
+   `kubectl_version`·`helm_version`과 동일한 nullable 핀 패턴이라 계약 형태는 이미 정해져 있다.
+   릴리스 자산 실측(2026-08-06): `argocd-linux-arm64` **단일 바이너리**(v3.5.0 기준, GitHub Releases) —
+   `t4g.nano`의 arm64에서 동작하고 tarball 해제가 없어 `helm`보다 절차가 짧다.
+   - ⛔ **`21`보다 먼저 넣지 않는다.** [`21`](21-gitops-bootstrap-seam.md)이 **관리형 EKS Capability vs
+     self-managed ArgoCD**를 아직 안 갈랐다. 어느 쪽이든 CLI는 쓰지만, *"어떤 버전을 무슨 용도로
+     핀하는가"* 의 근거가 그 결정에서 나온다 — 근거 없는 핀은 다음 사람이 못 고친다.
+   - ⚠️ **`velero` CLI는 이 항목에서 제외됐다.** 같은 날 [D-BACKUP-AWS](22-day2-operations.md)가
+     백업을 **AWS Backup(에이전트 없음)** 으로 확정해 **클러스터 안에서 실행할 CLI가 없어졌다.**
+     Velero 예외 경로([`22 §4.5`](22-day2-operations.md))를 여는 고객사가 생기면 그때 함께 연다.
+   - 📌 **도구가 3개가 되어도 일반화하지 않는다.** 다운로드 형태가 전부 다르다
+     (`dl.k8s.io` 단일 · `get.helm.sh` tarball · GitHub Releases 단일). 맵 기반 추상화는 URL 조립
+     분기를 오히려 늘린다 — 열린 항목 6의 *"분기가 계약을 흐린다"* 와 같은 이유로 **명시 블록을 유지**한다.

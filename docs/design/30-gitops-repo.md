@@ -826,10 +826,29 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 | Karpenter (컨트롤러 helm + NodePool/NodeClass) | **GitOps** (①baseline) | 컨트롤러 OCI helm(§2.2 증분) + CR. IAM·SQS 전제는 Terraform(§2.6). CRD는 chart 동봉. **NodePool/EC2NodeClass=계층 2**(§0.1 인프라 CR) |
 | Kafka/Redis operator | **GitOps** (②catalog) | 구독 클러스터만, 플랫폼 큐레이션 |
 | **KEDA** (컨트롤러 + ScaledObject) | 컨트롤러 **TBD**(②catalog, 경로는 D-ADDON-BOUNDARY 실측) | **ScaledObject·TriggerAuthentication=계층 3**(앱팀 repo, 범위 밖)·**ClusterTriggerAuthentication=계층 2 공유** — §0.1 D-CR-OWNERSHIP |
-| **Kyverno** (컨트롤러 + 정책) | 컨트롤러 **TBD**(①baseline, 경로는 D-ADDON-BOUNDARY 실측) | **ClusterPolicy=계층 2**(플랫폼 가드레일 `config/kyverno/`)·**네임스페이스 Policy=계층 3**(위임) — §0.1. API 명명은 kyverno.io/v1 기준(신 CEL 타입 도입 시 재확인) |
+| **Kyverno** (컨트롤러 + 정책) | ✅ **TBD 해소 → GitOps helm · 프로파일 A 한정 baseline** (2026-08-06, **D-POLICY-ENGINE**) | **ClusterPolicy=계층 2**(플랫폼 가드레일 `config/kyverno/`)·**네임스페이스 Policy=계층 3**(위임) — §0.1. API 명명은 kyverno.io/v1 기준(신 CEL 타입 도입 시 재확인) |
+
+> ### 📌 2026-08-06 — 이 표의 TBD 2건에 대한 정합 표시 (**이 문서의 개정이 아니다**)
+>
+> 이 문서는 [`docs/README.md`](../README.md) 상태표상 **⚠️ 미개정**(PoC 전제 잔존)이라
+> **확정 설계로 인용하지 않는다.** 그러나 위 표는 스스로 *"20 §1 승계 — 정합 필수"* 라고 적은
+> **파생 표**이고, 원본이 갱신됐는데 여기만 `TBD`로 남으면 다음 사람이 잘못 읽는다.
+> 그래서 **결정 내용은 원본에 두고 여기에는 포인터만** 남긴다.
+>
+> - **Kyverno** — [`20 §1.1` **D-POLICY-ENGINE**](20-eks-module.md)이 확정했다. 경로는 **helm**이고
+>   (community addon도 Marketplace addon도 아님이 전수 실측됐다), ⚠️ **범위는 위 §0.1이 예정한
+>   "①baseline(전 클러스터)"에서 "프로파일 A 한정"으로 좁혀졌다** — 프로파일 B에는 제약할 앱팀이
+>   없다는 것이 근거다([`22 §3.2`](22-day2-operations.md)).
+> - **KEDA** — **경로만** 같은 실측으로 답이 나온다(community addon 6종에 없음 → **helm**).
+>   ⚠️ **②catalog라는 배치는 재확인하지 않았다.** 도입 시 Kyverno와 같은 질문
+>   (*"어느 프로파일에 필요한가"*)을 먼저 통과시킨다.
+>
+> ⛔ **이 상자를 근거로 GitOps repo 구조를 확정하지 않는다.** 이 문서 전체의 개정은 별도 작업이다.
 
 > 검증 7(§2.8): 이 표의 GitOps helm 목록(ALBC·Karpenter·②) == 20 §1 "Day 2 GitOps" 행. 컨트롤러가
 > Terraform addon인 것(cert-manager·external-dns·관측성)은 GitOps엔 **설정만** 존재. 불일치 시 규약 위반.
+> ⚠️ **2026-08-06 기준 이 검증은 Kyverno를 포함해 성립한다** — 20 §1 "Day 2 GitOps" 행에 Kyverno가
+> 등재됐고 경로(helm)가 일치한다. 다만 **범위(프로파일 A 한정)는 20 §1 쪽에만 있다.**
 
 ---
 

@@ -46,11 +46,11 @@
 | # | 문서 | 상태 |
 |---|------|------|
 | 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-08-03 개정 — 현행 **`vpc-v0.3.0`** 계약, D13 SubnetGroup 태그 포함) |
-| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-06 갱신 — 현행 **`eks-cluster-v0.4.0`** 계약 + §4.1~§4.4 릴리스·apply 판정 기록) |
+| 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-06 갱신 — 현행 **`eks-cluster-v0.4.0`** 계약 + §4.1~§4.4 릴리스·apply 판정 기록 + **§1.1 D-POLICY-ENGINE·D-BACKUP-AWS**) |
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
-| **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-04 신규 — **D-DAY2-PROFILE**, 업그레이드 런북 + 운영 프로파일) |
-| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 |
-| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록) |
+| **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-06 개정 — **D-DAY2-PROFILE** + **§4 백업·복구**(D-BACKUP-AWS 수용). ⚠️ 구 §4 열린 항목 → **§5**로 이동) |
+| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 (2026-08-06 **§5에 정합 포인터만** 추가 — Kyverno TBD는 [20 §1.1](design/20-eks-module.md)이 해소. **본문은 여전히 인용 불가**) |
+| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 
 > ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30)는 *판단은 섰으나

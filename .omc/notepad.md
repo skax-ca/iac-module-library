@@ -713,6 +713,35 @@ private 서브넷 · SSM 전용(22번 없음) · kubectl 을 user_data 로 설�
 ⚠️ 판정은 `ssm send-command` 로 했다(자동화에 TTY 없음). 같은 채널·IAM·SG 라 도달성으로는 동등하고,
 사람은 `aws ssm start-session --profile team --region ap-northeast-2 --target i-04ac14a6f5891492c`.
 
+#### ✅ **eks-cluster-v0.4.0 — 영구 가짜 diff 해소** (2026-08-06, D-EKS-CIDR-NULL)
+
+PR [#14](https://github.com/skax-ca/iac-module-library/pull/14) 머지 `ade89e9` · CI 6/6 ·
+태그 발행 완료. 소비 repo 핀 상향 후 plan
+[`31080181294`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31080181294)
+= **`No changes.`** 근거 전문은 `docs/design/20 §4.4`.
+
+**고친 것**: `endpoint_public_access = false` 인데 `public_access_cidrs` diff 가 매 plan 마다 나고
+apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬다 — 모듈 기본값 `[]` 가 그대로 갔다.
+
+> ### 🔑 **빈 컬렉션은 "없음"이 아니라 "있음"이다** — 재사용할 판단
+>
+> provider 문서 원문: *"Terraform will only perform drift detection of its value
+> **when present in a configuration**."* ⇒ `null` 만 "없음"이고 `[]` 는 "설정에 있음"이다.
+> 여기에 **AWS 가 public 꺼진 상태에서 그 값 변경을 반영하지 않는다**(실측)가 겹쳐 영구 diff.
+> ⇒ **`default = []` 를 upstream 으로 흘리는 다른 지점도 같은 함정인지 본다.**
+>
+> ⛔ 해법에서 `length(...) > 0` 을 조건에 넣지 **않았다** — 그러면 *public 이 켜졌는데 리스트가 빈*
+> 경우까지 null 이 되어 **EKS 의 0.0.0.0/0 전면 개방을 더는 감지하지 못한다.**
+> 안전망을 diff 편의와 바꾸지 않는다. `lifecycle ignore_changes` 도 쓰지 않았다 —
+> *"어긋나도 눈감는다"* 와 *"애초에 관리하지 않는다"* 는 다르다.
+
+> ### ⭐ 판단 정정 — `(known after apply)` diff 는 **그 자체가 원인이 아닐 수 있다**
+>
+> 착수 때 OIDC `thumbprint_list` diff 를 *"원인 계층이 다르니 별개 항목"* 으로 분리했는데
+> **그 분리가 틀렸다.** 클러스터 diff 가 사라지자 **연쇄로 함께 사라졌다** —
+> `known after apply` 는 다른 리소스 변경에 의존할 때 뜨기 때문이다.
+> ⇒ **의존하는 리소스의 diff 를 먼저 닫고 다시 본다.** 별개로 조사하기 전에.
+
 **그다음 태스크**:
 
 #### 🎉 **완결** — private-only 전환까지 끝났다 (`40 §7.3-2` 에 판정 기록)

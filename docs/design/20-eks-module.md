@@ -1129,12 +1129,27 @@ endpoint_public_access_cidrs = var.endpoint_public_access ? var.public_access_ci
   라는 **런타임 사실**이기 때문이다. §5.1의 *"미지정 자체가 계약"* 항목들과 같은 부류다.
   ⇒ 판정은 소비 repo의 **다음 plan이 `No changes`인지**다(§7.3-3에 기록).
 
-> ### ⚠️ 함께 드러난 것 — OIDC `thumbprint_list` (이 릴리스 범위 밖)
+#### ✅ 판정 (2026-08-06) — 소비 repo plan이 **`No changes`**
+
+`iac-reference-infra` 핀 상향 후 plan
+([run `31080181294`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31080181294)):
+
+```
+No changes. Your infrastructure matches the configuration.
+```
+
+> ### ⭐ 예상보다 좋았다 — OIDC `thumbprint_list`도 **함께** 사라졌다 (판단 정정)
 >
-> 같은 plan에 `aws_iam_openid_connect_provider.thumbprint_list`가
-> `[...] -> (known after apply)`로 매번 뜬다. apply하면 값이 같아 **no-op**이 된다.
-> **원인 계층이 다르다**(upstream/provider 동작이지 이 facade의 전달 방식이 아니다) —
-> 이 릴리스에 끼워 넣지 않고 열린 항목으로 둔다.
+> 착수 시점에 이 문서는 그 diff를 *"원인 계층이 다르니 별개 항목으로 둔다"* 고 적었다.
+> **그 분리는 틀렸다.** 실제로는 **하나가 다른 하나를 유발**하고 있었다.
+>
+> `thumbprint_list`의 diff는 `[...] -> (known after apply)` 형태였는데, `known after apply`는
+> **다른 리소스의 변경에 의존할 때** 나타난다. 클러스터가 매 plan마다 바뀌려 했으므로 OIDC
+> provider가 *"클러스터가 바뀌면 thumbprint를 다시 계산해야 할 수 있다"* 로 판단한 것이다.
+> ⇒ 클러스터 diff가 사라지자 그 의존이 끊겨 **연쇄로 사라졌다.**
+>
+> 🔑 **재사용할 판단**: *"`(known after apply)`로 뜨는 diff는 그 자체가 원인이 아닐 수 있다."*
+> 의존하는 리소스의 diff를 먼저 닫고 다시 본다 — 별개로 조사하기 전에.
 
 ## 5. 열린 항목
 

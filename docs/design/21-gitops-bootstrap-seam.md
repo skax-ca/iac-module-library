@@ -195,6 +195,24 @@ CLI 제약(→ [`40` 열린 항목 7](40-workbench.md)에 직접 영향):
 ⇒ **CLI에 없다고 API에 없는 것이 아니다.** 이번 실측이 Cloud Control·Price List API를 쓴 이유다.
 Capability를 실제로 조작할 때는 **CLI를 먼저 올린다.**
 
+#### ⑨ IdC 인스턴스 — **존재한다. 단 cross-region이고 계정 인스턴스다**
+
+```
+aws sso-admin list-instances --profile team
+  ap-northeast-2 → Instances: []
+  us-east-1      → ssoins-7223bbce7f515ec2 | ACTIVE | OwnerAccountId 533616270150
+```
+
+⇒ **탈출 조건 ①(IdC 미보유)에 걸리지 않는다** — 관리형 경로를 **실증할 수 있다.**
+두 가지가 따라온다:
+- **cross-region** — `configuration.argo_cd.aws_idc.idc_region = "us-east-1"`이 필요하다.
+  §1.2 ⑦의 `idc_region`이 여기서 쓰인다. PoC의 *"계정 인스턴스는 us-east-1"* 서술과 일치.
+- ⚠️ **`OwnerAccountId`가 우리 계정 = 계정(account) 인스턴스**이지 조직 인스턴스가 아니다.
+  ⇒ **열린 항목 1의 "다중 계정 미지원" 제약이 그대로 산다.** "중앙 Capability 1개로 다중 계정
+  관리"를 택하려면 **조직 인스턴스 전환이 선행**된다. `24` 설계에서 이 값을 전제로 잡는다.
+- 🔑 **`aws_idc`는 `createOnly`**(§1.2 ⑦) — 즉 **이 인스턴스에 한 번 바인딩하면 바꿀 수 없다.**
+  조직 인스턴스 전환은 **Capability 재생성**이고, RETAIN이 orphan을 남긴다.
+
 ### 1.3 왜 관리형이 프로파일 A의 기본인가
 
 근거 4개이고, **①②만으로 결론이 선다.**
@@ -265,8 +283,10 @@ Capability를 실제로 조작할 때는 **CLI를 먼저 올린다.**
 | [`01 §3.3`](../architecture/01-module-strategy.md) · `01` 열린 항목 1 | **해소** | ✅ 포인터로 정리 |
 | [`22 §3.2`](22-day2-operations.md) | 프로파일 A의 seam이 갈린다 | ✅ 포인터 상자 |
 | [`22 §3.1`](22-day2-operations.md) | ⏸ **판별표가 흔들린다 — 아래** | ⏸ 포인터만 |
-| [`40` 열린 항목 7](40-workbench.md) | `argocd` CLI 핀의 근거가 확정됨 | ⏭️ 다음 태스크 |
-| [`30`](30-gitops-repo.md) | ⚠️ 미개정 문서 | ⛔ 손대지 않는다 |
+| [`40` 열린 항목 7](40-workbench.md) | `argocd` CLI 핀의 근거가 확정됨 | ⏭️ 예정 |
+| **`23-argocd-self-managed.md`** 🆕 | self-managed 경로 상세 설계 | ⏳ **다음 태스크** — §1.7이 계약면 |
+| **`24-argocd-managed-capability.md`** 🆕 | 관리형 경로 상세 설계 | ⏳ `23` 이후. §1.2 ⑨(IdC)가 전제 |
+| [`30`](30-gitops-repo.md) | ⚠️ 미개정 문서 · **경로 무관 공통부** | ⏳ `23`이 요구하는 범위만 개정(§1.7) |
 
 > ### ⏸ **미결로 남긴 것 — `22 §3.1` 판별표 완화 (2026-08-07 사용자 결정: 보류)**
 >
@@ -281,6 +301,66 @@ Capability를 실제로 조작할 때는 **CLI를 먼저 올린다.**
 > A인가"* 를 바꾸는 일이라 [`22`](22-day2-operations.md) 전체와 [`30`](30-gitops-repo.md)(미개정)에
 > 파급된다. **21을 닫는 데 필요한 일이 아니다.**
 > 📌 **재개 조건**: 실제로 *"1=아니오 & 4=예"* 인 고객사를 만났을 때. 그때 이 상자를 근거로 착수한다.
+
+### 1.7 갈림점 — **두 경로가 공유하는 단일 계약면** (2026-08-07 신설)
+
+§1.1이 두 경로를 열었으므로, **무엇이 갈리고 무엇이 갈리지 않는지**를 여기서 한 번만 정한다.
+`23-argocd-self-managed.md`(self-managed)과 `24-argocd-managed-capability.md`(관리형)는
+**이 표의 갈림점만** 각자 채우고, 공통부는 [`30`](30-gitops-repo.md)을 함께 가리킨다.
+
+> ## ⛔ **문서를 경로별로 복제하지 않는다**
+>
+> 공통부를 두 벌 두면 **곧 drift**다 — 이 repo가 PoC repo 동결(`CLAUDE.md` §0)과
+> notepad 중복 기록 3회로 반복해서 배운 실패다.
+> ⇒ **`30`은 하나로 유지하고, 갈림점에서만 분기 표시**한다.
+
+#### 갈리지 않는 것 (= `30`이 소유. 경로 무관)
+
+공식 문서 근거: *"Applications and ApplicationSets work identically to upstream Argo CD
+**with no changes to your manifests**. The capability uses the same Kubernetes APIs and CRDs."*
+
+- **3계층 소유 모델**([`30 §0`](30-gitops-repo.md)) · **CR 소유 경계**(D-CR-OWNERSHIP, `30 §0.1`)
+- **App-of-Apps 패턴** · root Application 범위·sync 정책(`30 §4`)
+- **addon 팬아웃** — cluster generator + `matchLabels`(`30 §2.2`) · addon 3분류(`30 §2.4`)
+- **AppProject 테넌시** — `sourceRepos`·`destinations`·전용 `platform` 프로젝트(`30 §3`)
+- sync 정책(automated/prune/self-heal) · sync waves·hooks · Helm/Kustomize/plain YAML 소스
+- **D-SPOKE-SEAM 원칙**(§2.8) — *IAM grant = IaC · cluster Secret = GitOps*.
+  §0 상태표가 이미 **도구 무관 원칙**으로 판정했다.
+
+#### 🔀 갈리는 것 — **설계축 5개**
+
+| # | 갈림점 | 관리형 Capability (`24`) | self-managed helm (`23`) |
+|---|--------|------------------------|------------------------|
+| **1** | **부트스트랩** | `awscc_eks_capability` (**IaC**) + capability IAM role(신뢰 principal `capabilities.eks.amazonaws.com`) | **helm install** + IRSA/Pod Identity. 설치 지점은 [`40`](40-workbench.md) workbench |
+| **2** | **인증·RBAC** | **IdC 강제**(local users 미지원). `rbac_role_mappings`(ADMIN/EDITOR/VIEWER) — ⛔ `argocd-rbac-cm` 사용 불가 | **자유** — local / OIDC / dex. `argocd-rbac-cm` 그대로 |
+| **3** | **cluster 등록** | Secret `server` = **EKS 클러스터 ARN**. ⚠️ **local cluster 자동 등록 안 됨**(명시 등록 필요). spoke는 access entry | Secret `server` = **API server URL**. `in-cluster`가 기본 제공 |
+| **4** | **namespace** | **단일 강제 + immutable**(`createOnly`). AppProject에 `.spec.sourceNamespaces` 필수. 리소스 추적 애노테이션 형식이 다름(`ns_app:group/kind:ns/name`) | **자유** |
+| **5** | **기능 표면** | **8종 미지원**(§1.2 ⑥) — 특히 Notifications controller·CMP·custom SSO | **upstream 전체** |
+
+#### ⚙️ 운영 특성이 갈리는 축 3개 (설계 분기가 아니라 §1.3이 근거로 든 것)
+
+| 축 | 관리형 | self-managed |
+|---|---|---|
+| **비용** | **Application 수에 선형**($25.40/월 + $1.26/App — §1.2 ③) | 기존 노드면 한계비용 ≈ $0 |
+| **업그레이드·HA·패치** | **AWS 소유** | 우리 소유 → `22 §3.1` 질문 1의 비용 |
+| **private 도달성** | **AWS 소유**(peering 불필요) | 우리 설계 — `40`이 workbench로 푼 문제를 hub→spoke 축에서 다시 |
+
+> ### 🔑 **두 경로는 같은 층에 있지 않다 — 문서를 좌우 대칭으로 만들지 않는다**
+>
+> 갈림점 1이 그것을 드러낸다: **관리형은 `.tf`를 낳고, self-managed는 helm 실행 절차를 낳는다.**
+> [`22 §3.2`](22-day2-operations.md)가 그은 **축 A(IaC) / 축 B(helm)** 경계를 두 경로가 가로지른다.
+> ⇒ `23`과 `24`는 **분량도 형식도 대칭이 아닌 것이 정상**이다.
+> ⛔ 대칭으로 잡으면 *"self-managed 모듈을 만들자"* 같은 잘못된 후속 판단이 나온다 —
+> **self-managed ArgoCD는 이 repo의 모듈이 아니다.**
+
+> ### 📌 **`23`이 `30`(⚠️ 미개정) 위에 서지 않게 하는 방법**
+>
+> [`design/AGENTS.md`](AGENTS.md)의 개정 규칙 4번이 경고한 실패다 — 개정 전 `40`이 미결정인 `21`
+> 위에 서 있었던 것과 같은 구조.
+> ⭐ **떼어낼 수 있다**: *"ArgoCD를 어떻게 세우는가"*(`23`)는 *"ArgoCD가 무엇을 읽는가"*(`30`)와
+> 무관하고, **root Application을 가리키는 seed 한 지점에서만** 닿는다.
+> ⇒ **`23`은 그 한 지점을 인터페이스로 선언하고 `30`의 본문을 인용하지 않는다.**
+> `30` 개정은 `23`이 실제로 요구하는 범위만 하되, **전수 개정을 선행 조건으로 삼지 않는다.**
 
 ---
 

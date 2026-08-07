@@ -1355,6 +1355,28 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem              # workbench 안의 파일. �
    ⛔ 마지막에 **초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제**(완료 조건이다).
 3. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
+#### ⏭️ **다음 태스크 (2026-08-07 세션 종료 시점)** — 우선순위 순
+
+> 🔴 **먼저 알 것: workbench 의 `git`·`helm`·`argocd-seed.sh` 는 전부 수동 설치 상태다.**
+> **인스턴스가 교체되면 전부 사라진다.** 1번이 그 부채를 갚는 태스크다.
+> 🔑 설계는 **전부 끝나 있다** — 남은 건 구현이다. 설계부터 다시 하지 말 것.
+
+1. ⛔ **`modules/workbench` — `.tf` PR** (`workbench-v0.2.0`). 설계 = `40 §2.5` + `40 §4.1` 상자.
+   - `user-data.sh.tftpl` 에 **`dnf install -y git-core`** — ⚠️ **변수를 만들지 않는다**(항상 설치).
+     근거는 `40 §4.1` 의 *"`git` 은 왜 nullable 핀이 아닌가"* 상자.
+   - `variables.tf` 의 **`helm_version` 설명 정정** — *"프로파일 B 에서 쓴다"* 는 `23` 이전 세계다.
+     helm 은 **프로파일과 무관하게 seed 필수**(`23 §2.1`·`§5`).
+   - 커밋은 **분리**한다: git 추가(산출물 변경) / 설명 정정(계약 무관).
+   - ⚠️ 예제·`docs/README.md` 상태표(`40` 행의 *".tf 미반영 = PR 대기"*)를 **같이 지운다.**
+2. **`iac-platform-gitops` — `bootstrap/argocd-seed.sh` vendoring** (D-WORKBENCH-REPO 결정 ②).
+   사본 헤더에 **출처 태그**를 적는다. ⛔ **사본을 편집하지 않는다**(SSOT 는 이 repo).
+3. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).
+   ⚠️ **대화형 SSM 세션이 필요**하다(`send-command` 로는 port-forward 터널이 안 선다).
+   ⛔ 초기 비밀번호를 `send-command` 로 조회하지 말 것 — 출력이 CloudTrail·히스토리에 남는다.
+4. **`40` 열린 항목 7 — `argocd` CLI v3.5.0**. 🔑 이제 **근거가 둘**이다: `23 §5`(chart appVersion 과
+   동일 값) + **판정 ③ 미완**(`argocd cluster list` 없이는 in-cluster 대체/중복을 못 가른다).
+5. 그 뒤 `addons/` 증분 → `24`(관리형 ArgoCD).
+
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
 
 `21` 이 닫혔으므로 착수 가능(사용자 결정 2026-08-06: *"21 개정 후"*). 핀의 근거가 이제 있다.

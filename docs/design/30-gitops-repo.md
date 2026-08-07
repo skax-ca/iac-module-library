@@ -27,6 +27,27 @@
 > 필요 없는 일을 먼저 하게 된다.
 > ⇒ **이 문서를 인용할 때 절 번호까지 쓴다.** *"30에 따르면"* 은 판정 근거가 못 된다.
 
+> # 📚 **PoC 구현체 — `silverte/eks-platform-gitops`**
+>
+> 이 문서가 설계한 것의 **실물**이 있다(2026-07-24~27 증분 B1). 매니페스트 7개 + README.
+> ⚠️ **`terraform-enterprise-poc`와 같은 지위다 — 동결 스냅샷이고 고치지 않는다**(CLAUDE.md §0).
+> **참조 자산으로만** 쓴다.
+>
+> ⭐ **설계 문서보다 실물이 빨리 답한 적이 이미 있다**: §4.1의 4단계 오판을 잡은 것이
+> 이 저장소의 `addons/aws-load-balancer-controller.yaml`이었다.
+>
+> | 파일 | 재사용성 |
+> |---|---|
+> | `projects/platform.yaml` | ⭐ **높음** — `default` 미사용·`clusterResourceWhitelist` 점진 개방·`sourceRepos` 제3 가드레일. ⚠️ `sourceNamespaces: [argocd]`의 *근거*는 관리형 제약이지만, self-managed에서도 **규약으로 유지**한다([`23 §3`](23-argocd-self-managed.md) 갈림점 4) |
+> | `bootstrap/root-app.yaml` | ⭐ **높음** — `recurse: true` + `exclude` 패턴 · `prune: false` · finalizer 없음. **경로 무관** |
+> | `addons/*.yaml` (ApplicationSet) | ⭐ **높음** — cluster generator + `matchLabels` 팬아웃. **경로 무관** |
+> | `clusters/**/cluster-secret.yaml` | 🔶 **구조는 재사용, `server` 값은 갈린다**(§4.1) |
+> | `README.md`의 "접근 방식"(CodeConnections) | ⛔ **관리형 전용** — §1.1 재판정 |
+> | `repoURL`·클러스터 ARN·`vpcId`·`karpenterNodeRole` | ⛔ **PoC 환경 고유값** — 그대로 복사 금지 |
+>
+> 🔑 **`{{name}}`이 실제 EKS 클러스터명이어야 한다**는 규약이 특히 값지다 —
+> ALBC의 필수 파라미터 `clusterName`으로 그대로 흘러가므로 **별칭을 쓰면 조용히 틀린다.**
+
 
 > 2026-07-20 신설, 2026-07-20 개정(3계층 소유 모델·addon 3분류·app 영역 범위 정리),
 > 2026-07-24 개정(**§4 부트스트랩 확정** — D-SEED-KUBECTL: workbench kubectl seed·자기소멸 원칙·소유 3분할),
@@ -889,16 +910,63 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 | 1 | Access Entry (hub 자신) | TF — spoke만(§2.8 실측 보정 ①) | ⛔ **불필요** — ArgoCD가 **클러스터 안**에 있다. spoke만 TF |
 | 2 | 저장소 접근 | TF — CodeConnections 커넥션 + IAM 가산 | **GitHub App repository Secret**(kubectl seed) — §1.1 |
 | 3 | `platform` AppProject | kubectl seed → root App이 흡수 | **동일** |
-| 4 | cluster Secret (hub 자신) | kubectl seed — **명시 등록 필수**([`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)) | ⛔ **불필요** — `in-cluster`가 기본 제공 |
+| 4 | cluster Secret (hub 자신) | kubectl seed — **명시 등록 필수**([`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)) | ⚠️ **여전히 필요** — 이유가 다르다. 아래 🔴 |
 | 5 | root Application | kubectl seed → 자기 자신을 흡수 | **동일** |
 | 6 | 이후 전부 | GitOps(pull) | **동일** + ⭐ **argocd chart 자체도 Application으로 흡수** |
 
 > ### 🔑 **갈림의 실질 — "ArgoCD가 클러스터 안에 있는가"**
 >
-> 1·4가 self-managed에서 사라지는 이유는 같다: **ArgoCD가 클러스터 내부 워크로드**라
-> 자기 apiserver에 ServiceAccount로 닿는다. 관리형은 **클러스터 밖**에 있어
-> Access Entry와 명시적 cluster 등록이 **둘 다** 필요하다.
+> 1이 self-managed에서 사라지는 이유: **ArgoCD가 클러스터 내부 워크로드**라 자기 apiserver에
+> ServiceAccount로 닿는다. 관리형은 **클러스터 밖**에 있어 Access Entry가 필요하다.
 > ⇒ [`21 §1.7`](21-gitops-bootstrap-seam.md) 갈림점 1·3이 여기서 **같은 뿌리**임이 드러난다.
+
+> ## 🔴 **정정 — 4단계는 self-managed에서도 사라지지 않는다** (2026-08-07, PoC repo 실물 대조)
+>
+> 이 절의 초판은 4단계를 *"⛔ 불필요 — `in-cluster`가 기본 제공"* 이라고 적었다. **틀렸다.**
+> **연결(등록)** 관점에서만 맞고, **팬아웃** 관점에서는 여전히 필요하다.
+>
+> **근거 — `silverte/eks-platform-gitops` 실물**(PoC 구현체):
+> `addons/aws-load-balancer-controller.yaml`의 ApplicationSet은 **cluster Secret의 라벨**을 읽는다.
+>
+> ```yaml
+> generators:
+>   - clusters:
+>       selector:
+>         matchLabels: {environment: dev}     # ← cluster Secret 라벨
+> parameters:
+>   - {name: clusterName, value: '{{name}}'}                    # ← Secret 이름
+>   - {name: vpcId,       value: '{{metadata.labels.vpcId}}'}   # ← Secret 라벨
+> ```
+>
+> ArgoCD의 내장 `in-cluster`는 **Secret이 없고 따라서 라벨도 없다**. 그대로 두면:
+> - `matchLabels`가 매칭되지 않아 **팬아웃이 아예 안 된다**
+> - `{{name}}`이 `in-cluster`가 되어 ALBC의 `clusterName`에 **틀린 값이 들어간다** —
+>   PoC README가 경고한 *"별칭을 쓰면 그 자리에 틀린 값이 들어간다"* 가 **그대로 발생**한다
+>
+> ### ⇒ self-managed의 4단계는 **"등록"이 아니라 "라벨과 이름"을 위해 존재한다**
+>
+> | | 관리형 | self-managed |
+> |---|---|---|
+> | 4단계 목적 | **연결** + 라벨/이름 | **라벨/이름만** |
+> | `server` 값 | EKS 클러스터 **ARN** | **`https://kubernetes.default.svc`** |
+>
+> **어디에 두는가** — chart에 `configs.clusterCredentials`(라벨 지원, 실측)가 있어 helm values로도
+> 되지만, ⛔ **매니페스트로 둔다.** spoke는 *"클러스터 추가 = Secret 매니페스트 1개"* 인데
+> hub만 helm values에 두면 **같은 일이 두 곳에서 다르게** 일어난다(D-SPOKE-SEAM의 *cluster Secret =
+> GitOps* 도 매니페스트 쪽이다).
+>
+> ⚠️ **apply 시 확인할 것**: `server: https://kubernetes.default.svc`인 Secret이 내장 `in-cluster`
+> 항목을 **대체하는지 / 중복으로 뜨는지**는 argo-cd v3.5.0 문서에 서술이 없다.
+> 이 repo는 배포하지 않으므로 **소비 루트가 판정한다**(CLAUDE.md — *"동작한다"의 기준은
+> `tofu test` + 예제 `validate`까지*).
+
+> ### 📌 **재사용할 절차 — 설계를 바꾸면 그 설계의 *소비자*를 열어 본다**
+>
+> 4단계를 지운 판단은 **`21 §1.2 ⑥`의 관리형 서술만 뒤집어 읽은 것**이었다
+> (*"관리형은 local cluster를 자동 등록하지 않는다"* → *"self-managed는 자동이니 불필요"*).
+> 그 추론은 **연결에 대해서는 맞았고**, 그 Secret을 **누가 소비하는지**를 보지 않아 틀렸다.
+> ⇒ **어떤 산출물을 없앤다고 판단하면, 그것을 참조하는 곳을 먼저 grep한다.**
+> ⭐ 이번엔 **PoC 구현체 실물**이 그 역할을 했다 — 설계 문서만 봤다면 못 잡았다.
 
 > ### ⭐ **자기소멸 원칙이 helm values에도 적용된다**
 >

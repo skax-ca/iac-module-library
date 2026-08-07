@@ -338,7 +338,7 @@ aws sso-admin list-instances --profile team
 |---|--------|------------------------|------------------------|
 | **1** | **부트스트랩** | `awscc_eks_capability` (**IaC**) + capability IAM role(신뢰 principal `capabilities.eks.amazonaws.com`) | **helm install** + IRSA/Pod Identity. 설치 지점은 [`40`](40-workbench.md) workbench |
 | **2** | **인증·RBAC** | **IdC 강제**(local users 미지원). `rbac_role_mappings`(ADMIN/EDITOR/VIEWER) — ⛔ `argocd-rbac-cm` 사용 불가 | **자유** — local / OIDC / dex. `argocd-rbac-cm` 그대로 |
-| **3** | **cluster 등록** | Secret `server` = **EKS 클러스터 ARN**. ⚠️ **local cluster 자동 등록 안 됨**(명시 등록 필요). spoke는 access entry | Secret `server` = **API server URL**. `in-cluster`가 기본 제공 |
+| **3** | **cluster 등록** | Secret `server` = **EKS 클러스터 ARN**. ⚠️ **local cluster 자동 등록 안 됨**(명시 등록 필요). spoke는 access entry | Secret `server` = **`https://kubernetes.default.svc`**. ⚠️ **연결은 자동이지만 Secret은 여전히 만든다** — ApplicationSet 팬아웃이 그 **라벨과 이름**을 읽기 때문([`30 §4.1`](30-gitops-repo.md) 정정) |
 | **4** | **namespace** | **단일 강제 + immutable**(`createOnly`). AppProject에 `.spec.sourceNamespaces` 필수. 리소스 추적 애노테이션 형식이 다름(`ns_app:group/kind:ns/name`) | **자유** |
 | **5** | **기능 표면** | **8종 미지원**(§1.2 ⑥) — 특히 Notifications controller·CMP·custom SSO | **upstream 전체** |
 | **6** 🆕 | **저장소 접근** | **CodeConnections** — *direct integration*, **Repository Secret 불필요 · 장기 자격증명 없음** | **GitHub App** repository Secret. 🔴 **CodeConnections는 지원 자체가 없다**(argo-cd v3.5.0 문서 0건) ⇒ **장기 private key가 생긴다** |

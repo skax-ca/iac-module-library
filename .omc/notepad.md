@@ -1084,10 +1084,25 @@ CLAUDE.md 의 *"05 §5.4"* 는 **PoC repo 문서**를 가리키며, 이 repo `ar
 > 🔑 **1·3 은 같은 뿌리**임도 드러났다: *"ArgoCD 가 클러스터 안에 있는가"* —
 > self-managed 는 내부 워크로드라 **Access Entry 도 `in-cluster` 명시 등록도 불필요**하다(`30 §4.1`).
 
-**`30 §4.1` seed 경로 분기** — self-managed 는 **단계가 하나 늘고 둘 줄어든다**:
+**`30 §4.1` seed 경로 분기** — self-managed 는 **단계가 하나 늘고 하나 줄어든다**:
 `0` helm install **신규** · `1` Access Entry **불필요**(hub) · `2` 저장소 접근이 TF→**kubectl seed** 로 이동 ·
-`4` cluster Secret **불필요**(in-cluster 자동) · `6` 에서 **argocd chart 자체도 흡수**.
+`6` 에서 **argocd chart 자체도 흡수**.
 ⭐ **자기소멸 원칙이 helm values 에도 걸린다** ⇒ ⛔ **seed 절차서에 `--set` 을 쓰지 않는다.**
+
+> ### 🔴 **자기 정정 — 4단계(cluster Secret)를 "불필요"로 쓴 것은 틀렸다** (같은 날 정정)
+> **연결** 관점에서만 맞고 **팬아웃** 관점에서는 필요하다. PoC 구현체 실물이 잡아줬다:
+> `addons/aws-load-balancer-controller.yaml` 의 ApplicationSet 이 **cluster Secret 의 라벨**을 읽는다
+> (`matchLabels:{environment:dev}` · `{{name}}`→ALBC `clusterName` · `{{metadata.labels.vpcId}}`).
+> ArgoCD 내장 `in-cluster` 는 **Secret 도 라벨도 없다** ⇒ 팬아웃이 아예 안 되고
+> `{{name}}` 이 `in-cluster` 가 되어 **ALBC 에 틀린 clusterName 이 들어간다.**
+> ⇒ self-managed 의 4단계는 **"등록"이 아니라 "라벨과 이름"** 을 위해 존재한다.
+> `server` = **`https://kubernetes.default.svc`**. ⛔ helm `configs.clusterCredentials` 가 아니라
+> **매니페스트로 둔다**(spoke 와 같은 방식이어야 한다 — D-SPOKE-SEAM).
+> ⚠️ **apply 확인 필요**: 그 Secret 이 내장 in-cluster 를 대체하는지/중복인지 문서에 서술이 없다.
+>
+> 📌 **재사용할 절차: 어떤 산출물을 없앤다고 판단하면 그것을 참조하는 곳을 먼저 grep 한다.**
+> 이번 오판은 `21 §1.2 ⑥`(관리형 서술)을 **뒤집어 읽기만** 하고 **소비자를 안 봤기** 때문이다.
+> ⭐ 설계 문서만 봤으면 못 잡았다 — **PoC 구현체 실물이 잡았다.**
 
 > ### 📌 **규칙 일반화 — 설계 문서 인용 시 항상 절 번호를 쓴다**
 > 처음엔 `21` 하나라 "예외"로 적었는데 `30` 을 부분 개정하자마자 **둘**이 됐다.

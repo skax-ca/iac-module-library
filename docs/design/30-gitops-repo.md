@@ -998,6 +998,40 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단계) 이후**여야 한다
 (`argocd` namespace가 존재해야 한다).
 
+> ## 🔴 **2단계는 자기소멸 원칙의 *유일한 예외*다** (2026-08-07 신설)
+>
+> §4의 자기소멸 원칙은 *"손으로 apply하는 매니페스트는 저장소에 커밋된 것과 **바이트 단위로
+> 동일**해야 한다"* 고 요구한다. **repository Secret은 그럴 수 없다** — GitHub App private key가
+> 들어 있어 **저장소에 커밋하면 안 되기 때문**이다.
+>
+> ⇒ **이 Secret 하나만 저장소가 소유하지 않는다.** root App이 훑어도 대상이 없고,
+> `selfHeal`·`prune`의 관리를 받지 않는다. **의도된 예외**이며 아래가 성립해야 한다:
+> - root App의 `prune: false`(§4) 덕에 **지워지지 않는다**
+> - 이 Secret이 사라지면 ArgoCD가 저장소를 못 읽어 **모든 sync가 멈춘다** ⇒ 복구 절차에 명시한다
+>
+> ⚠️ **관리형에는 이 예외가 없다** — CodeConnections는 Secret을 만들지 않고 IAM으로 끝난다
+> ([`§1.1`](#11--d-repo-codeconnections-재판정--경로마다-갈린다-2026-08-07)).
+> 🔑 **`§1.1`이 말한 *"장기 자격증명을 만들지 않는다"* 의 대가가 여기서 두 번째 형태로 나타난다** —
+> 자격증명이 생길 뿐 아니라 **GitOps 관리 밖의 리소스가 하나 생긴다.**
+>
+> 📌 **해소 경로는 있으나 지금 쓰지 않는다**: External Secrets Operator + Secrets Manager ·
+> Sealed Secrets · SOPS. 전부 **컴포넌트를 하나 늘린다** — 요구가 생기면 그때 연다
+> (CLAUDE.md *"지금 요구를 채우는 가장 단순한 형태"*).
+
+> ### 📌 **GitHub App 규격** (2026-08-07 확정 — 기존 CI용 App 실측을 기준으로)
+>
+> | 항목 | 값 | 근거 |
+> |---|---|---|
+> | 소유 | org **`skax-ca`** | 개인 계정에 묶이면 퇴사·권한 변경으로 끊긴다 |
+> | 권한 | **Repository → Contents: Read-only** (`metadata: read`는 자동) | 기존 `skax-ca-module-reader` 실측과 동일. ArgoCD는 **clone만** 한다 |
+> | 이벤트(webhook) | **없음** | ⭐ ArgoCD가 `ClusterIP`+port-forward라([`23 §2.2`](23-argocd-self-managed.md)) **GitHub webhook을 받을 수 없다.** 폴링만 쓴다 |
+> | 설치 범위 | **`skax-ca/iac-platform-gitops` 하나** | ⛔ *All repositories* 금지 |
+>
+> ⛔ **CI용 `skax-ca-module-reader`를 재사용하지 않는다**([`§1.1`](#11--d-repo-codeconnections-재판정--경로마다-갈린다-2026-08-07)) —
+> 다른 주체·다른 blast radius다.
+> 🔑 **webhook을 끄는 것이 도달성 결정의 부수 효과**라는 점에 주의: 관리형으로 전환하면
+> ArgoCD 서버가 URL을 갖게 되어 **webhook을 다시 검토할 수 있다.**
+
 > ### ⛔ **§4 표의 `live/cicd/gitops-hub`는 존재하지 않는 루트다** (2026-08-07)
 >
 > 위 §4 표는 1·2단계의 소유를 *"Terraform (`live/cicd/gitops-hub`)"* 라고 적지만,

@@ -1202,7 +1202,89 @@ key: **`~/.config/gh-apps/skax-ca-gitops-reader.pem`**(⛔ 어느 repo 에도 �
 ⛔ 워크플로 변경은 **브랜치 → PR** 이라 별도 태스크. 🔑 **게이트를 추가하는 순간 `scripts/` 도
 브랜치 → PR 대상이 된다**(브랜치 규칙의 기준이 *"CI 가 머지 전에 막아야 하는가"* 이므로).
 
-#### ⏭️ 다음 태스크 — **적용(seed 실행)**. 준비는 전부 끝났다
+#### 🎉 **seed 실행 완료 — ArgoCD 부트스트랩 성공** (2026-08-07)
+
+`argocd-seed.sh` 5단계 전부 적용됐다. 실행은 **`aws ssm send-command`** 로 했다(대화형 SSM 세션 없이).
+⚠️ **키는 절대 send-command 로 보내지 않았다** — 파라미터가 평문으로 히스토리·CloudTrail 에 남기 때문이고,
+D-KEY-TRANSFER 가 *"workbench 가 스스로 Parameter Store 에서 당긴다"* 로 설계된 이유가 이것이다.
+
+**판정 결과** (`kubectl` 실물 조회):
+
+| 판정 | 결과 |
+|---|---|
+| ① `root-app.status.sync.revision` | ✅ **`d11883864fc6091fde69f97cc044b61fdfa9937a`** = 저장소 HEAD 와 **완전 일치**. `main` 아님 |
+| ② sync/health | ✅ `Synced Healthy` · `.status.conditions` **비어 있음** |
+| ③ cluster Secret 이 내장 `in-cluster` 를 대체하는가 | ⚠️ **절반만 확인** — 아래 |
+| ③-b GitHub App 설치 범위 | ✅ **`total_count=1` · `skax-ca/iac-platform-gitops` 하나** (installation token 으로 `GET /installation/repositories` 직접 조회) |
+| pods | ✅ 5개 전부 Running (controller·applicationset·redis·repo-server·server) |
+
+> ### ⭐ **①이 자기소멸 원칙의 작동 증거다** — 재사용할 판독법
+>
+> revision 이 실제 SHA 이고 저장소 HEAD 와 같다는 것은 "읽었다"만 뜻하지 않는다.
+> **손으로 apply 한 것과 root App 이 흡수한 것 사이에 차이가 0** 이라는 뜻이다 —
+> 차이가 있었다면 `OutOfSync` 로 드러났을 것이다. 🔑 **`Synced` 는 자기소멸 원칙의 자동 검사다.**
+> ⚠️ notepad 가 경고한 *"`main` 이면 아직 설정값"* 전례(PoC)는 이번엔 재현되지 않았다.
+
+> ### ⚠️ **판정 ③ 을 "확인됨"으로 쓰지 않는다** — 절반만 봤다
+>
+> cluster Secret 은 `eks-ref-dev-an2-main-01` → `https://kubernetes.default.svc` 하나이고
+> root-app 이 그 URL 을 target 해 `Synced` 이므로 **해석은 된다.** 하지만
+> *"내장 `in-cluster` 를 **대체**했는가, **중복**인가"* 는 `argocd cluster list` 나 UI 로만 보인다.
+> ⇒ 이것이 정확히 **`40` 열린 항목 7(`argocd` CLI 핀)** 이 필요한 이유다. 그때 판정한다.
+
+#### 🔴 **seed 과정에서 드러난 설계 공백 4건** — 전부 지금은 수동 우회 상태다
+
+⚠️ **수동으로 넣은 것은 인스턴스 교체 시 전부 사라진다.** 지속 해결은 아래 각 항목이 소유한다.
+
+| # | 공백 | 실측 | 귀속 |
+|---|---|---|---|
+| 1 | **workbench 에 `git` 이 없다** | 모듈에 변수조차 없음. GitOps seam 은 클론을 전제하는데 | `modules/workbench` **`.tf` → 브랜치·PR** |
+| 2 | `helm` 미설치 | `helm_version` default=`null`, 소비 repo 가 미지정. **모듈 결함 아님** | 소비 repo `iac-reference-infra` |
+| 3 | **`23 §5` 버전 핀 표에 helm CLI 가 없다** | chart·ArgoCD·`argocd` CLI·k8s 는 있는데 0단계가 쓰는 helm 이 누락 | `docs/design/23` |
+| 4 | **workbench 의 private repo 접근 경로 미설계** | `40` 에 git/GitHub 인증 서술 0건 | 설계 판단 필요 — 굳히지 않았다 |
+
+- **2 의 진짜 문제는 변수 설명이다**: `helm_version` 은 *"Day 2 운영 프로파일 B(`22 §3`)에서 쓴다"* 라고
+  적혀 있는데, **`23` 이 self-managed 를 `helm install` 로 seed 하기로 하면서 helm 은 프로파일과
+  무관하게 필수가 됐다.** 설명이 `23` 이전 세계를 기술하고 있다.
+- **이번에 넣은 것**: `git-core 2.50.1`(dnf) · **`helm v3.21.3`**(GitHub Releases arm64).
+  ⚠️ **helm 최신은 `v4.2.3`(2026-07-09)이지만 일부러 v3 를 골랐다** — 차트 `argo-cd 10.3.0` 은
+  helm 3 시대 산물이고, **최초 부트스트랩에 메이저 CLI 변경까지 겹치면 실패 시 원인이 둘로 갈린다.**
+  🔑 이 근거는 `23 §5` 에 등재돼야 다음 사람이 고칠 수 있다(공백 3).
+- **4 를 이번엔 이렇게 우회했다**: GitHub App installation token 으로 클론(JWT 를 workbench 에서
+  `openssl` 로 서명 — `jq`·`openssl` 이 AL2023 에 기본 탑재라 가능했다). 토큰이 `.git/config` 에
+  남지 않도록 클론 직후 `remote set-url` 로 정규화했다(실측 확인).
+  ⚠️ **그 App 은 `iac-platform-gitops` 하나만 커버**하므로(위 ③-b) **`argocd-seed.sh` 자체는
+  여전히 별도 경로가 필요**했다 — 이번엔 base64 로 send-command 에 실어 보냈다. 임시방편이다.
+
+> ### 📌 **재사용할 실측 — `send-command` 는 `/etc/profile.d/` 를 읽지 않는다**
+>
+> workbench 의 kubeconfig 는 `/etc/kubernetes/kubeconfig` 에 두고 `/etc/profile.d/kubeconfig.sh` 로
+> 전역 export 한다(사용자에 묶이지 않는 좋은 설계). 그러나 **`send-command` 는 로그인 셸이 아니라
+> 그 파일을 읽지 않는다** — 매 명령에 `export KUBECONFIG=...` 를 명시해야 한다.
+> ⚠️ 놓치면 *"클러스터에 못 닿는다"* 는 **잘못된 결론**이 난다.
+>
+> 그리고 다운로드 경로는 **`/tmp` 가 아니라 `/var/tmp`** 다 — `t4g.nano` 의 tmpfs 는 210MB 라
+> `curl (23) Failure writing output` 로 죽는다(모듈 user-data 에 이미 기록된 PoC 실측). 그대로 재사용했다.
+
+#### ⛔ **남은 완료 조건 1건 — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제**
+
+`23 §2.3` 이 **선택이 아니라 완료 조건**으로 정했다. ⚠️ 아직 **하지 않았다.**
+- 비밀번호는 **사용자가 정할 값**이라 내가 대신 정하지 않았다. 초기 비밀번호도 **조회하지 않았다**
+  (조회하면 send-command 출력 경로로 CloudTrail·히스토리에 남는다).
+- 경로: workbench 에서 `kubectl -n argocd port-forward svc/argocd-server 8080:443` →
+  `https://localhost:8080`(자체 서명 경고 정상) → admin 로그인 → 변경 → Secret 삭제.
+  ⚠️ port-forward 는 **대화형 SSM 세션**이 필요하다(send-command 로는 터널이 안 선다).
+- 또는 **`argocd` CLI v3.5.0**(`23 §5` 가 이미 핀함)을 넣어 `argocd account update-password`.
+  ⇒ 이 경로를 택하면 **`40` 열린 항목 7 과 같은 작업**이 된다.
+
+#### ✅ D-KEY-TRANSFER 완료 조건 이행 (2026-08-07)
+
+- ✅ k8s Secret 에 키가 유효하게 들어간 것을 **지우기 전에** 확인(`openssl rsa -check` → `RSA key ok`).
+  🔑 **순서가 반대였다면 복구 불가 상태를 만들 뻔했다.**
+- ✅ `shred -u /root/gh-app.pem` — workbench 키 파기
+- ✅ `aws ssm delete-parameter` — `ParameterNotFound` 로 확인
+
+#### ~~⏭️ 다음 태스크 — **적용(seed 실행)**~~ ✅ **완료**(위 참조). 아래는 그때의 실행 계획이다
 
 ⚠️ **workbench 안에서** 실행한다(클러스터가 private — `40 §1`). 스크립트는 `iac-module-library` 에 있다.
 

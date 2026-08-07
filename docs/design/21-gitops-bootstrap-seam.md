@@ -327,15 +327,26 @@ aws sso-admin list-instances --profile team
 - **D-SPOKE-SEAM 원칙**(§2.8) — *IAM grant = IaC · cluster Secret = GitOps*.
   §0 상태표가 이미 **도구 무관 원칙**으로 판정했다.
 
-#### 🔀 갈리는 것 — **설계축 5개**
+#### 🔀 갈리는 것 — **설계축 6개**
 
-| # | 갈림점 | 관리형 Capability (`24`) | self-managed helm (`23`) |
+> ⚠️ **2026-08-07 정정 — 초판은 5개였다.** [`30 §1.1`](30-gitops-repo.md) 재판정에서
+> **6번째(저장소 접근)** 가 드러났다. 초판이 놓친 이유는 그것이 `30 §1`에 **관리형 전제로
+> 숨어 있었기** 때문이다 — *"우리가 고른 것"* 처럼 서술돼 있어 갈림점으로 보이지 않았다.
+> 📌 **갈림점 목록은 완결이 아니다.** 각 경로를 실제로 설계하면 더 나온다.
+
+| # | 갈림점 | 관리형 Capability (`24`) | self-managed helm ([`23`](23-argocd-self-managed.md)) |
 |---|--------|------------------------|------------------------|
 | **1** | **부트스트랩** | `awscc_eks_capability` (**IaC**) + capability IAM role(신뢰 principal `capabilities.eks.amazonaws.com`) | **helm install** + IRSA/Pod Identity. 설치 지점은 [`40`](40-workbench.md) workbench |
 | **2** | **인증·RBAC** | **IdC 강제**(local users 미지원). `rbac_role_mappings`(ADMIN/EDITOR/VIEWER) — ⛔ `argocd-rbac-cm` 사용 불가 | **자유** — local / OIDC / dex. `argocd-rbac-cm` 그대로 |
 | **3** | **cluster 등록** | Secret `server` = **EKS 클러스터 ARN**. ⚠️ **local cluster 자동 등록 안 됨**(명시 등록 필요). spoke는 access entry | Secret `server` = **API server URL**. `in-cluster`가 기본 제공 |
 | **4** | **namespace** | **단일 강제 + immutable**(`createOnly`). AppProject에 `.spec.sourceNamespaces` 필수. 리소스 추적 애노테이션 형식이 다름(`ns_app:group/kind:ns/name`) | **자유** |
 | **5** | **기능 표면** | **8종 미지원**(§1.2 ⑥) — 특히 Notifications controller·CMP·custom SSO | **upstream 전체** |
+| **6** 🆕 | **저장소 접근** | **CodeConnections** — *direct integration*, **Repository Secret 불필요 · 장기 자격증명 없음** | **GitHub App** repository Secret. 🔴 **CodeConnections는 지원 자체가 없다**(argo-cd v3.5.0 문서 0건) ⇒ **장기 private key가 생긴다** |
+
+> ### 🔑 **1·3은 같은 뿌리다 — "ArgoCD가 클러스터 안에 있는가"**
+> self-managed는 클러스터 내부 워크로드라 자기 apiserver에 ServiceAccount로 닿는다
+> ⇒ Access Entry도 `in-cluster` 명시 등록도 **불필요**하다.
+> 관리형은 **클러스터 밖**에 있어 둘 다 필요하다. 상세는 [`30 §4.1`](30-gitops-repo.md).
 
 #### ⚙️ 운영 특성이 갈리는 축 3개 (설계 분기가 아니라 §1.3이 근거로 든 것)
 

@@ -51,7 +51,7 @@
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-06 개정 — **D-DAY2-PROFILE** + **§4 백업·복구**(D-BACKUP-AWS 수용). ⚠️ 구 §4 열린 항목 → **§5**로 이동) |
 | **23** | [23-argocd-self-managed.md](design/23-argocd-self-managed.md) | ✅ (2026-08-07 신규 — **D-ARGOCD-SM-BOOTSTRAP**(workbench seed + 자기 관리) · **-REACH**(port-forward) · **-AUTH** · **-HA**. ⚠️ `.tf` 산출물 없음 — 설계상 그렇다) |
 | **24** | `design/24-argocd-managed-capability.md` | ⏳ **미작성** — 관리형 Capability 경로. 계약면은 [21 §1.7](design/21-gitops-bootstrap-seam.md) |
-| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 (2026-08-06 **§5에 정합 포인터만** 추가 — Kyverno TBD는 [20 §1.1](design/20-eks-module.md)이 해소. **본문은 여전히 인용 불가**) |
+| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | 🔶 **부분 개정** (2026-08-07) — **§1.1**(D-REPO-CODECONNECTIONS 재판정) · **§4.1**(seed 경로별 분기)만 ✅. **§0·§1·§2·§3·§5는 미개정 = 인용 불가**. ⇒ 인용 시 **절 번호 필수** |
 | **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 

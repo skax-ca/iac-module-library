@@ -1047,14 +1047,61 @@ CLAUDE.md 의 *"05 §5.4"* 는 **PoC repo 문서**를 가리키며, 이 repo `ar
    ⇒ `23 §4` 가 선언한 인터페이스(*"root Application 매니페스트가 저장소에 존재한다"*)의
    **저장소가 아직 없다.**
 
-#### ⏭️ 다음 태스크 — **`30` 개정** (`23` 이 요구하는 범위만)
+#### ✅ **`30` 부분 개정 완료** (2026-08-07) — §1.1 · §4.1 만. 전수 개정 안 함
 
-⛔ **전수 개정하지 않는다**(`23 §4` 가 접점을 1지점으로 격리해 뒀다).
-- 필수 범위: **root Application 매니페스트** + **저장소 접근 방식 재판정**
-  (⚠️ `30 §1` D-REPO-CODECONNECTIONS 는 **관리형 Capability 의 IAM role 전제 위에서** 내려졌다 —
-  self-managed 는 주체가 IRSA/Pod Identity 라 **재판정 대상**이다. `23` 열린항목 4)
-- 그 뒤 **GitOps repo 생성**(위 🔴 2) → 배포 루트(`50`) → 적용
-- ⏸ `24`(관리형) · `40` 열린항목 7(`argocd` CLI 핀 — **근거는 `23 §5` 에서 이미 확정**)
+🔶 **`30` 은 이제 절 단위 판정 문서다**: **§1.1·§4.1 = ✅** · **§0·§1·§2·§3·§5 = 미개정(인용 불가)**.
+
+> ### 🔴 **D-REPO-CODECONNECTIONS 재판정 — CodeConnections 는 self-managed 의 선택지가 아니었다**
+>
+> **실측**: `argoproj/argo-cd` **v3.5.0** `docs/operator-manual/declarative-setup.md` 전수 검색 →
+> `codeconnections` **0건** · `codecommit` **0건**. `awsAuthConfig` 는 있으나 **cluster secret 전용**
+> (`clusterName`·`roleARN`·`profile`)이고 **repository 용이 아니다.**
+> ⇒ self-managed repository 인증은 표준 git 뿐: username/password · sshPrivateKey ·
+> **GitHub App**(`githubAppID`·`githubAppInstallationID`·`githubAppPrivateKey`) · bearerToken 등.
+>
+> **결정**: 관리형 = CodeConnections(§1 유효) · **self-managed = GitHub App**.
+> ⛔ **CI 용 App(D20)을 재사용하지 않는다 — 별도 발급.** 다른 주체·다른 blast radius이고,
+> 키를 공유하면 **클러스터 침해가 CI 소싱 권한으로 번진다.**
+> 🔑 **자격증명 공유는 *단순함* 이 아니라 *결합* 이다** — "가장 단순한 형태"가 옹호하는 대상이 아니다.
+> 🔴 **§1 의 driver(*"장기 자격증명을 만들지 않는다"*)를 self-managed 는 달성할 수 없다.** 숨기지 않고 적었다.
+
+> ### 📌 **재사용할 질문 — "우리가 고른 것인가, 그 서비스가 준 것인가"**
+> `30 §1` 은 CodeConnections 를 **우리가 고른 것처럼** 서술했지만 실은 **관리형이 준 것**이었다.
+> 경로가 하나일 때는 그 차이가 드러나지 않는다.
+> ⇒ **관리형 전제 위의 결정을 재판정할 때 이 질문을 먼저 던진다.** 후자면 다른 경로엔 **선택지가 없을 수 있다.**
+> ⭐ `23 §2.1` 의 *"upstream 이 있다 ≠ 쓸 수 있다"* 와 같은 형태의 함정.
+
+> ### ⚠️ **정정 — `30 §1` 표의 "클러스터에 평문" 은 이 클러스터에 부정확**
+> 실측: `eks-ref-dev-an2-main-01` 의 `encryptionConfig` 에 `resources:["secrets"]` + KMS `keyArn` **실재**.
+> 🔑 그런데 **`modules/eks-cluster` 의 `.tf` 에 `encryption` 이 한 줄도 없다** —
+> upstream `terraform-aws-modules/eks` 가 **기본으로 켠다**. ⭐ **D-NODE-ARCH 와 같은 형태**
+> (*facade 가 안 넘길 뿐 upstream 엔 처음부터 있었다*).
+> ⇒ 위험도는 *"평문 상주"* 가 아니라 **"KMS 로 암호화된 장기 자격증명 상주"**. ⚠️ 그래도 0 은 아니다.
+
+> ### 🆕 **갈림점이 5개가 아니라 6개였다** (`21 §1.7` 정정)
+> **6번째 = 저장소 접근.** 초판이 놓친 이유: 그것이 `30 §1` 에 **관리형 전제로 숨어** 있었다.
+> 📌 **갈림점 목록은 완결이 아니다** — 각 경로를 실제로 설계하면 더 나온다.
+> 🔑 **1·3 은 같은 뿌리**임도 드러났다: *"ArgoCD 가 클러스터 안에 있는가"* —
+> self-managed 는 내부 워크로드라 **Access Entry 도 `in-cluster` 명시 등록도 불필요**하다(`30 §4.1`).
+
+**`30 §4.1` seed 경로 분기** — self-managed 는 **단계가 하나 늘고 둘 줄어든다**:
+`0` helm install **신규** · `1` Access Entry **불필요**(hub) · `2` 저장소 접근이 TF→**kubectl seed** 로 이동 ·
+`4` cluster Secret **불필요**(in-cluster 자동) · `6` 에서 **argocd chart 자체도 흡수**.
+⭐ **자기소멸 원칙이 helm values 에도 걸린다** ⇒ ⛔ **seed 절차서에 `--set` 을 쓰지 않는다.**
+
+> ### 📌 **규칙 일반화 — 설계 문서 인용 시 항상 절 번호를 쓴다**
+> 처음엔 `21` 하나라 "예외"로 적었는데 `30` 을 부분 개정하자마자 **둘**이 됐다.
+> ⇒ 절 단위 판정은 예외가 아니라 **부분 개정이라는 작업 방식의 자연스러운 결과**다.
+> `design/AGENTS.md` 에 일반 규칙으로 승격했다.
+
+#### ⏭️ 다음 태스크 — **GitOps repo 생성 + 배포 루트 확정**
+
+1. 🔴 **플랫폼 GitOps repo 신설** — `skax-ca` 에 아직 없다(repo 2개뿐).
+   `23 §4` 인터페이스(*root Application 매니페스트가 저장소에 존재*)의 **저장소가 없다.**
+   ⚠️ 이름은 PoC 의 `silverte/eks-platform-gitops` 를 그대로 쓰지 말고 org 규약(`iac-` 프리픽스·Team `iac`) 확인.
+2. **배포 루트** — 소비 repo 에 `live/cicd/` 가 없다. 이름·위치는 **`50` 이 정한다**(21 §2.8 의
+   `live/cicd/gitops-hub` 는 PoC 시절 이름이고 `50` 이 채택한 적 없다).
+3. 그 뒤 **적용**(helm seed) → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
 

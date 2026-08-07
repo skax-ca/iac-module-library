@@ -219,8 +219,11 @@ chart 기본값이 `server.service.type: ClusterIP`다(실측). **바꾸지 않�
 3. **배포 루트 이름·위치** — 소비 repo는 `live/dev/{networking,eks}`뿐이고 **`live/cicd/`가 없다.**
    [`21 §2.8`](21-gitops-bootstrap-seam.md)의 `live/cicd/gitops-hub`는 **PoC 시절 이름**이고
    [`50`](50-reference-consumer-repo.md)이 채택한 적 없다 — **`50`에서 정한다.**
-4. **저장소 접근 방식** — [`30 §1`](30-gitops-repo.md)은 CodeConnections(D-REPO-CODECONNECTIONS)를 쓴다.
-   ⚠️ 그 결정은 **관리형 Capability의 IAM role 전제 위에서** 내려졌다. self-managed는 role 주체가
-   달라지므로(IRSA/Pod Identity) **`30` 개정 시 재판정**한다.
+4. ~~**저장소 접근 방식** — `30 §1`의 CodeConnections 재판정~~
+   ✅ **해소**(2026-08-07, [`30 §1.1`](30-gitops-repo.md)). 결론: **self-managed는 GitHub App**이다.
+   🔴 **CodeConnections는 선택지조차 아니었다** — argo-cd v3.5.0 문서 전수 검색에서
+   `codeconnections`·`codecommit` **0건**. 그것은 관리형 Capability의 *direct integration* 기능이다.
+   ⚠️ **대가**: §1의 driver였던 *"장기 자격증명을 만들지 않는다"* 를 **self-managed는 달성할 수 없다.**
+   ⇒ 이것이 [`21 §1.7`](21-gitops-bootstrap-seam.md)의 **6번째 갈림점**이다.
 5. **seed 절차서의 자리** — `30 §4`는 `docs/runbooks/`(신설 예정)를 가리킨다. 이 repo가 런북을
    소유할지, 소비 repo가 소유할지는 [`50`](50-reference-consumer-repo.md) 소관이다.

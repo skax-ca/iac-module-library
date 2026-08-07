@@ -12,6 +12,21 @@
 > **모듈 이식 시점(D-OSS-STACK §6-2)에 재검토하며 개정한다.** 그 전까지 이 문서를
 > "이 repo의 확정 설계"로 인용하지 않는다.
 
+> # 🔶 **2026-08-07 부분 개정 — §1·§4만 개정됐다**
+>
+> [`23`](23-argocd-self-managed.md)이 요구하는 범위만 열었다. **§0·§2·§3·§5는 손대지 않았다.**
+>
+> | 절 | 상태 |
+> |---|---|
+> | **§1** 저장소 호스팅·접근 방식 | ✅ **개정** — D-REPO-CODECONNECTIONS **재판정**(§1.1 신설) |
+> | **§4** 부트스트랩 seed | ✅ **개정** — 경로별 분기(§4.1 신설) |
+> | §0 · §2 · §3 · §5 | ⚠️ **미개정 유지** — 인용 불가 |
+>
+> ⛔ **전수 개정하지 않은 것은 의도다.** [`23 §4`](23-argocd-self-managed.md)가 접점을
+> **root Application 1지점으로 격리**해 두었으므로, 전수 개정을 선행 조건으로 삼으면
+> 필요 없는 일을 먼저 하게 된다.
+> ⇒ **이 문서를 인용할 때 절 번호까지 쓴다.** *"30에 따르면"* 은 판정 근거가 못 된다.
+
 
 > 2026-07-20 신설, 2026-07-20 개정(3계층 소유 모델·addon 3분류·app 영역 범위 정리),
 > 2026-07-24 개정(**§4 부트스트랩 확정** — D-SEED-KUBECTL: workbench kubectl seed·자기소멸 원칙·소유 3분할),
@@ -265,6 +280,85 @@ seed 경로를 kubectl(IAM 인증)로 정한 것(§4 D-SEED-KUBECTL)과 같은 �
 >
 > "자격증명을 없애는 대가로 결합도를 얻는" 교환이며, PoC 단계에서는 **자격증명 제거 쪽을 택한다**.
 > 다중 계정 확장 시 URL 파라미터화 방식은 구현 단계(증분 B1) 과제로 남긴다.
+
+---
+
+## 1.1 🔴 D-REPO-CODECONNECTIONS **재판정** — 경로마다 갈린다 (2026-08-07)
+
+[`21 §1`](21-gitops-bootstrap-seam.md)(D-GITOPS-SEAM)이 두 경로를 열면서 위 §1의 전제가 깨졌다.
+**§1은 관리형 Capability를 전제로 내려진 결정**이었다 — 그 사실이 당시엔 보이지 않았다.
+
+### 무엇이 전제였나
+
+§1의 구성 3요소는 *"Repository Secret 불필요(**direct integration**). URL 자체가 인증 경로"* 이고,
+IAM 가산의 주체는 **Capability role**이다. 그런데 그 direct integration은
+[`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)이 인용한 **관리형 전용 기능**이다:
+
+> *"The capability provides **direct integration with AWS services** through the Capability Role's
+> IAM permissions. You can reference CodeCommit repositories, ECR Helm charts, and **CodeConnections**
+> directly in Application resources **without creating Repository configurations**."*
+
+### 🔴 실측 — self-managed ArgoCD에는 그 경로가 **없다**
+
+`argoproj/argo-cd` **v3.5.0**의 `docs/operator-manual/declarative-setup.md` 전수 검색:
+
+| 검색어 | 결과 |
+|---|---|
+| `codeconnections` | **0건** |
+| `codecommit` | **0건** |
+| `awsAuthConfig` | 있음 — 단 **cluster secret 전용**(`clusterName`·`roleARN`·`profile`). repository용이 아니다 |
+
+⇒ **self-managed ArgoCD의 repository 인증은 표준 git 방식뿐이다**:
+`username`/`password` · `sshPrivateKey` · **GitHub App**(`githubAppID`·`githubAppInstallationID`·
+`githubAppPrivateKey`) · `bearerToken` · `gcpServiceAccountKey`(GCP) · Azure workload identity.
+
+> ### 📌 **재사용할 판단 — "관리형이 준 편의"와 "우리 설계"를 구분한다**
+>
+> §1은 CodeConnections를 **우리가 고른 것**처럼 서술하지만, 실은 **관리형이 준 것을 쓴 것**이다.
+> 그 차이는 경로가 하나일 때는 드러나지 않는다.
+> ⇒ **관리형 위에서 내린 결정을 재판정할 때 물을 질문**: *"이건 우리가 고른 것인가,
+> 그 서비스가 준 것인가."* 후자라면 다른 경로에서 **선택지 자체가 없을 수 있다.**
+> ⭐ [`23 §2.1`](23-argocd-self-managed.md)의 *"upstream이 있다 ≠ 쓸 수 있다"* 와 같은 형태의 함정이다.
+
+### ⭐ 결정 — **경로별로 갈린다**
+
+| 경로 | 저장소 접근 | 자격증명 |
+|------|------------|---------|
+| **관리형 Capability** | **CodeConnections**(§1 그대로 유효) | **없음**(IAM만) |
+| **self-managed** | **GitHub App**(repository Secret) | **private key**(장기) |
+
+**self-managed에서 GitHub App을 고른 근거** (SSH deploy key·PAT 대비):
+- **세밀한 권한** — installation을 저장소 단위로 좁힌다. deploy key는 저장소마다 키가 생긴다.
+- **사람에 묶이지 않는다** — PAT는 발급자 계정에 묶여 **퇴사·권한 변경으로 끊긴다.**
+- ⭐ **이 프로젝트가 이미 GitHub App을 운영한다**(D20 — CI 모듈 소싱, [`50`](50-reference-consumer-repo.md)).
+  운영 절차·발급 경험이 이미 있다. CLAUDE.md *"발명하기 전에 찾는다"*.
+
+> ### ⛔ **그렇다고 CI용 App을 재사용하지 않는다 — 별도로 만든다**
+>
+> D20의 App은 **CI가 `iac-module-library`를 읽는** 주체이고, 이것은 **ArgoCD가 GitOps 저장소를
+> 읽는** 주체다. **다른 주체 · 다른 blast radius**다.
+> 키를 공유하면 **클러스터 침해가 CI 소싱 권한으로 번진다.**
+> ⚠️ 자격증명 공유는 *단순함*이 아니라 **결합**이다 — CLAUDE.md의 *"가장 단순한 형태"* 가
+> 옹호하는 대상이 아니다.
+
+> ### 🔴 **§1의 Decision driver를 self-managed는 달성할 수 없다 — 숨기지 않는다**
+>
+> §1이 든 driver는 *"**장기 자격증명을 만들지 않는다**"* 였다. GitHub App private key는
+> **만료가 없는 장기 자격증명**이다. ⇒ self-managed를 택하면 **그 목표를 포기한다.**
+> 이것은 [`21 §1.7`](21-gitops-bootstrap-seam.md)에 **없던 6번째 갈림점**이며,
+> `21 §1.1`의 탈출 조건을 저울질할 때 **비용에 포함해야 한다.**
+
+> ### ⚠️ **정정 — §1 표의 *"클러스터에 평문"* 은 이 클러스터에 정확하지 않다**
+>
+> §1 후보 비교표는 `Kubernetes Secret + PAT`를 *"클러스터에 **평문**"* 으로 적었다.
+> **실측(2026-08-07)**: 실클러스터 `eks-ref-dev-an2-main-01`의 `encryptionConfig`에
+> `resources: ["secrets"]` + KMS `keyArn`이 **붙어 있다** ⇒ **envelope 암호화된다.**
+> 🔑 흥미로운 것은 **[`modules/eks-cluster`](../../modules/eks-cluster)의 `.tf`에 `encryption`
+> 설정이 한 줄도 없다**는 점이다 — upstream `terraform-aws-modules/eks`가 **기본으로 켠다.**
+> ⭐ `D-NODE-ARCH`(2026-08-04, CLAUDE.md 작업 원칙)와 **같은 형태**다:
+> *"facade가 안 넘길 뿐 upstream엔 처음부터 있었다."*
+> ⇒ 위험도는 *"평문 상주"* 가 아니라 **"KMS로 암호화된 장기 자격증명 상주"** 로 다시 읽는다.
+> ⚠️ 그래도 **0은 아니다** — etcd 암호화는 클러스터 내부 탈취(RBAC 우회·노드 침해)를 막지 못한다.
 
 ---
 
@@ -783,6 +877,43 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 - ✅ **해소**: CodeConnections로 저장소 실제 pull(`revision=1d1525b` — GitHub App 설치 범위 추가 후).
 - ✅ **해소**: cluster-wide read → reconcile 루프(sync) 정상 — root App `Synced`(D-ARGOCD-CLUSTER-READ).
 - ❌ **남음**: `default` AppProject 수정 시 capability reconcile 여부(우회 설계라 당장 불필요, §3).
+
+## 4.1 🔀 seed 절차 — **경로별 분기** (2026-08-07 신설)
+
+위 §4 표는 **관리형 Capability 전제**다. [`23 §2.1`](23-argocd-self-managed.md)이 self-managed
+경로를 열었으므로 순서가 갈린다. ⭐ **단계가 하나 늘고 둘 줄어든다.**
+
+| # | 단계 | **관리형** | **self-managed** |
+|---|------|-----------|------------------|
+| **0** | **ArgoCD 자체 설치** | ⛔ 없음(AWS가 소유) | 🆕 **workbench에서 `helm install`** — [`23 §2.1`](23-argocd-self-managed.md) |
+| 1 | Access Entry (hub 자신) | TF — spoke만(§2.8 실측 보정 ①) | ⛔ **불필요** — ArgoCD가 **클러스터 안**에 있다. spoke만 TF |
+| 2 | 저장소 접근 | TF — CodeConnections 커넥션 + IAM 가산 | **GitHub App repository Secret**(kubectl seed) — §1.1 |
+| 3 | `platform` AppProject | kubectl seed → root App이 흡수 | **동일** |
+| 4 | cluster Secret (hub 자신) | kubectl seed — **명시 등록 필수**([`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)) | ⛔ **불필요** — `in-cluster`가 기본 제공 |
+| 5 | root Application | kubectl seed → 자기 자신을 흡수 | **동일** |
+| 6 | 이후 전부 | GitOps(pull) | **동일** + ⭐ **argocd chart 자체도 Application으로 흡수** |
+
+> ### 🔑 **갈림의 실질 — "ArgoCD가 클러스터 안에 있는가"**
+>
+> 1·4가 self-managed에서 사라지는 이유는 같다: **ArgoCD가 클러스터 내부 워크로드**라
+> 자기 apiserver에 ServiceAccount로 닿는다. 관리형은 **클러스터 밖**에 있어
+> Access Entry와 명시적 cluster 등록이 **둘 다** 필요하다.
+> ⇒ [`21 §1.7`](21-gitops-bootstrap-seam.md) 갈림점 1·3이 여기서 **같은 뿌리**임이 드러난다.
+
+> ### ⭐ **자기소멸 원칙이 helm values에도 적용된다**
+>
+> §4의 자기소멸(self-superseding) 원칙은 kubectl seed 매니페스트에 대한 것이었는데,
+> self-managed에서는 **0단계의 helm values 파일**에도 그대로 걸린다 —
+> 6단계에서 ArgoCD가 자기 chart를 Application으로 흡수하기 때문이다.
+> ⇒ **`helm install -f`에 넘기는 values는 저장소에 커밋된 그 파일이어야 한다.**
+> 손으로 `--set`을 얹으면 그 차이가 **영구 드리프트**로 남는다.
+> ⛔ **seed 절차서에 `--set`을 쓰지 않는다.**
+
+⚠️ **2단계는 순서가 다르다** — 관리형은 TF(apply 전)이지만 self-managed는 **kubectl seed**다.
+GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단계) 이후**여야 한다
+(`argocd` namespace가 존재해야 한다).
+
+---
 
 ### ⭐ root Application의 범위·sync 정책 확정 (2026-07-24, 증분 B1 구현 — 열린 항목 5 부분 해소)
 

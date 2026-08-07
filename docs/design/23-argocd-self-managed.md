@@ -228,5 +228,10 @@ chart 기본값이 `server.service.type: ClusterIP`다(실측). **바꾸지 않�
    `codeconnections`·`codecommit` **0건**. 그것은 관리형 Capability의 *direct integration* 기능이다.
    ⚠️ **대가**: §1의 driver였던 *"장기 자격증명을 만들지 않는다"* 를 **self-managed는 달성할 수 없다.**
    ⇒ 이것이 [`21 §1.7`](21-gitops-bootstrap-seam.md)의 **6번째 갈림점**이다.
-5. **seed 절차서의 자리** — `30 §4`는 `docs/runbooks/`(신설 예정)를 가리킨다. 이 repo가 런북을
-   소유할지, 소비 repo가 소유할지는 [`50`](50-reference-consumer-repo.md) 소관이다.
+5. ~~**seed 절차서의 자리**~~ ✅ **해소**(2026-08-07, 사용자 결정 — *"팀원이 재사용할 수 있도록"*).
+   **이 repo가 소유한다**: [`scripts/argocd-seed.sh`](../../scripts/argocd-seed.sh) +
+   [`scripts/README.md`](../../scripts/README.md).
+   ⚠️ `30 §4`가 예고한 `docs/runbooks/`는 **폐기**했다 — 절차가 **실행 가능한 스크립트**라
+   문서 디렉토리가 아니라 `scripts/`가 맞다.
+   🔑 **재사용 자산이므로 환경값을 하드코딩하지 않는다**([`01 §4`](../architecture/01-module-strategy.md)) —
+   클러스터·저장소·App ID를 전부 파라미터로 받는다. 실행은 소비 프로젝트 몫이다.

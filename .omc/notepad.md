@@ -1168,15 +1168,56 @@ sourceRepos 포함 · `metadata.name==stringData.name` · 라벨 길이 · `prun
 ⚠️ **`21 §2.8`·`30 §4` 의 `live/cicd/gitops-hub` 표기는 PoC 시절 서술**이고 `50` 이 채택한 적 없다.
 **배포 루트의 SSOT 는 `50`**(D26). 두 문서에 부인 상자를 달았다.
 
-#### ⏭️ 다음 태스크 — **GitHub App 발급 → 적용(helm seed)**
+#### ✅ **GitHub App 발급 + seed 스크립트 작성** (2026-08-07)
 
-1. **GitHub App 발급**(ArgoCD 전용). ⛔ **CI 용 D20 App 재사용 금지**(`30 §1.1` — 다른 주체·다른
-   blast radius, 키 공유 시 클러스터 침해가 CI 소싱 권한으로 번진다). 설치 범위에
-   `skax-ca/iac-platform-gitops` 포함.
-2. **적용**(workbench, 사람): `helm install argo-cd 10.3.0`(values 는 저장소 커밋본, ⛔ `--set` 금지)
-   → GitHub App repository Secret → seed 3·4·5 → root App 흡수
-   ⚠️ **apply 판정 2건**: ① `kubernetes.default.svc` Secret 이 내장 `in-cluster` 를 대체하는지
-   (`argocd cluster list`) ② GitHub App 설치 범위 포함 여부
+**App**: `skax-ca-gitops-reader` · **app_id `4512318`** · owner `skax-ca` ·
+`permissions {contents:read, metadata:read}` · `events []`(webhook 없음) — **API 로 규격 검증 완료**.
+key: `~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem`(⛔ 어느 repo 에도 두지 않는다).
+🔴 **설치(Install App)는 아직 안 됨** — `orgs/skax-ca/installations` 에 `module-reader` 하나뿐.
+⇒ **`GH_APP_INSTALLATION_ID` 를 아직 못 얻는다.** 적용 전에 설치 필요.
+
+**GitOps repo** `d118838` — `bootstrap/argocd-values.yaml` 신설(dex off · notifications off,
+**기본값과 다른 것만** 적음) + root-app `exclude` 를 `{clusters/**/values.yaml,bootstrap/argocd-values.yaml}` 로.
+
+**스크립트**: **`scripts/argocd-seed.sh`** + `scripts/README.md`(런북). `23` 열린항목 5 해소.
+⚠️ `30 §4` 가 예고한 `docs/runbooks/` 는 **폐기** — 절차가 실행 가능하므로 `scripts/` 가 맞다.
+🔑 **재사용 자산이라 환경값을 전부 파라미터로** 받는다(`01 §4`).
+
+> ### 📌 **실측으로 잡은 것 3건** (전부 문서·주석에 근거를 남겼다)
+> 1. 🔴 **`kubectl --dry-run=client` 는 오프라인이 아니다.** `--validate=false` 를 줘도
+>    **CRD(AppProject·Application) 는 RESTMapping 에 discovery API(`/api`) 가 필요**해 VPC 밖에서
+>    `unable to recognize ... i/o timeout`. ⇒ **dry-run 에서 kubectl 을 아예 부르지 않는다** —
+>    역할을 *"무엇을 어디서 적용하는지 보여주기"* 로 좁혔고, 진짜 검증은 실행 경로의 `--dry-run=server`.
+> 2. **`want N && cmd` 패턴** — `set -e` 아래에서 **조기 종료는 없다**(내 최초 판단은 틀렸다).
+>    실제 영향은 **그 줄이 마지막이면 종료 코드가 1** 이 되는 것 → `--to 4` 성공이 호출자에게
+>    실패로 보인다. ⇒ `if` 블록으로. (실측: `--from 3 --to 4` → exit 0)
+> 3. **이 셸은 zsh 다** — 테스트에서 `$args` 가 단어 분리되지 않아 `--to 0` 이 토큰 하나로 갔다.
+>    스크립트 결함이 아니라 **테스트 하네스 문제**였다. ⇒ bash 스크립트를 zsh 로 테스트할 때 주의.
+
+⚠️ **게이트 공백**: `scripts/` 는 pre-commit 도 `verify.yml` 도 **검사하지 않는다**(실측).
+지금은 사람이 `bash -n` 하는 것이 유일한 방어. 📌 `verify.yml` 에 `bash -n`/shellcheck 추가 제안 —
+⛔ 워크플로 변경은 **브랜치 → PR** 이라 별도 태스크. 🔑 **게이트를 추가하는 순간 `scripts/` 도
+브랜치 → PR 대상이 된다**(브랜치 규칙의 기준이 *"CI 가 머지 전에 막아야 하는가"* 이므로).
+
+#### ⏭️ 다음 태스크 — **App 설치 → 적용(seed 실행)**
+
+1. 🔴 **Install App**(웹 UI): App 설정 → Install App → `skax-ca` → **Only select repositories** →
+   **`iac-platform-gitops` 하나만**. ⛔ *All repositories* 금지.
+   이후 `gh api orgs/skax-ca/installations` 로 **installation_id** 획득.
+2. **적용**(workbench 안에서): 아래 그대로.
+   ```
+   export GITOPS_REPO_DIR=~/iac-platform-gitops
+   export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
+   export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
+   export GH_APP_ID=4512318 GH_APP_INSTALLATION_ID=<위에서 획득>
+   export GH_APP_PRIVATE_KEY=~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem
+   ./scripts/argocd-seed.sh --dry-run   # 먼저
+   ./scripts/argocd-seed.sh
+   ```
+   ⚠️ **apply 판정 3건**: ① `root-app` 의 `.status.sync.revision` 이 **실제 SHA** 인가
+   (`main` 이면 아직 설정값 — PoC 가 성급히 성공으로 읽은 전례) ② `kubernetes.default.svc` Secret 이
+   내장 `in-cluster` 를 대체하는지(`argocd cluster list`) ③ GitHub App 설치 범위 포함 여부.
+   ⛔ 마지막에 **초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제**(완료 조건이다).
 3. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**

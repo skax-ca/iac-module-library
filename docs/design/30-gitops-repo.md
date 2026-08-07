@@ -877,7 +877,7 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 | 무엇 | 어디 | 왜 |
 |---|---|---|
 | 매니페스트 **실체** | 이 저장소 `bootstrap/` | root App이 흡수 → 드리프트 0. 위 자기소멸 원칙 |
-| 실행 **절차·검증** | `docs/runbooks/` (신설 예정) | 재현성·감사. 기존 런북 관행 |
+| 실행 **절차·검증** | ✅ **[`scripts/argocd-seed.sh`](../../scripts/argocd-seed.sh) + [`scripts/README.md`](../../scripts/README.md)** (2026-08-07) | 재현성·감사. ⚠️ *"`docs/runbooks/` 신설 예정"* 은 **폐기** — 절차가 실행 가능한 스크립트라 문서 디렉토리가 아니라 `scripts/`가 맞다 |
 | 수행 **권한** | Terraform (`live/dev/workbench`·`live/cicd/gitops-hub`) | 이미 보유(ClusterAdmin Access Entry) |
 
 > **Terraform이 seed 산출물을 소유하면 안 되는 이유**: ① cluster Secret·Application은 reconcile되는

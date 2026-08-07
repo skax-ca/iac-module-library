@@ -11,10 +11,14 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 라이선스는 채택 근거가 **아니다**(컨설팅 사용은 BUSL이 명시적으로 허용). 근거는 **리워크 0 + 조달 마찰 제거**다.
 **두 엔진 동시 지원은 실측 비용을 근거로 기각**했다(04 §3) — 다시 제안하기 전에 그 절을 읽는다.
 
-**현재 상태**: 부트스트랩. 설계 승계 완료(`docs/`), **모듈 코드는 아직 없다**(`modules/` 비어 있음).
-다음 작업은 PoC 모듈 이식 + 재사용 파라미터화다.
+**현재 상태**(2026-08-07): 모듈 **3개** 릴리스됨 — `vpc` · `eks-cluster` · `workbench`.
+⛔ **현행 태그·문서 상태의 판정 근거는 이 파일이 아니라 [`docs/README.md`](docs/README.md) 상태표다**
+(이 파일이 *"모듈 코드는 아직 없다"* 로 stale해진 전례가 있다 — 여기에 상태를 적지 않는다).
 
-**이 repo는 배포하지 않는다.** 모듈만 소유하고, 실제 apply는 소비 프로젝트(`<project>-infra`)가 한다.
+**이 repo는 배포하지 않는다.** 모듈·설계·재사용 절차를 소유하고, 실제 apply는
+소비 프로젝트(`<project>-infra`)가 한다.
+⚠️ **`.yaml` 매니페스트는 여기 두지 않는다** — GitOps 자산은 `iac-platform-gitops` 소관이다
+(`CLAUDE.md` §0 · `docs/design/30 §0`).
 
 ## Key Files
 | File | Description |
@@ -31,10 +35,11 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
-| `docs/` | 설계·규약 문서. 승계 상태표가 진입점 (see `docs/AGENTS.md`) |
-| `modules/` | 재사용 모듈 — **아직 비어 있음** (see `modules/AGENTS.md`) |
+| `docs/` | 설계·규약 문서. **`docs/README.md` 상태표가 진입점이자 판정 근거** (see `docs/AGENTS.md`) |
+| `modules/` | 재사용 모듈 (see `modules/AGENTS.md`) |
 | `examples/` | 모듈별 최소 예제 = `tofu test` 대상. provider 상한(`~> 6.0`) 소유 (see `examples/AGENTS.md`) |
-| `.github/workflows/` | 모듈 검증 CI — 아직 없음. 배포 워크플로는 두지 않는다 |
+| `scripts/` | **소비 프로젝트가 실행하는 재사용 절차**(`argocd-seed.sh` 등). ⚠️ 환경값 하드코딩 금지 (see `scripts/README.md`) |
+| `.github/workflows/` | 모듈 검증 CI(`verify.yml`). ⛔ 배포 워크플로는 두지 않는다 — 이 repo는 배포하지 않는다 |
 
 ## For AI Agents
 

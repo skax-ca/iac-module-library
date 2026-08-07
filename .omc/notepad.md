@@ -1141,14 +1141,43 @@ sourceRepos 포함 · `metadata.name==stringData.name` · 라벨 길이 · `prun
 ⚠️ **apply 판정 2건 남음**: ① `kubernetes.default.svc` Secret 이 내장 `in-cluster` 를 대체하는지
 (argo-cd v3.5.0 문서에 서술 없음 — `argocd cluster list` 로 판정) ② GitHub App 설치 범위 포함 여부.
 
-#### ⏭️ 다음 태스크 — **배포 루트 확정(`50`) → GitHub App 발급 → 적용**
+#### ✅ **`50` 개정 — D31 신설: GitOps 배포 루트를 만들지 않는다** (2026-08-07)
 
-1. **배포 루트** — 소비 repo 에 `live/cicd/` 가 없다. 이름·위치는 **`50` 이 정한다**
-   (`21 §2.8` 의 `live/cicd/gitops-hub` 는 PoC 시절 이름이고 `50` 이 채택한 적 없다).
-   ⚠️ self-managed 는 IaC 산출물이 거의 없다(`23 §0`) — **루트가 필요한지부터** 묻는다.
-2. **GitHub App 발급**(ArgoCD 전용, ⛔ CI 용 D20 App 재사용 금지 — `30 §1.1`)
-3. **적용**: workbench 에서 `helm install argo-cd 10.3.0` → repository Secret → seed 3종 → root App 흡수
-4. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
+> ## ⛔ **판정: `live/cicd/` 를 만들지 않는다. 이름도 지금 정하지 않는다.**
+>
+> **근거 ① 소유할 리소스가 0개다**(self-managed 실측):
+> GitHub App private key = **k8s Secret**(IaC 아님) · ArgoCD 의 AWS 접근 = **요구 0**(GitHub+public helm) ·
+> **ALBC·Karpenter IAM 은 이미 `live/dev/eks` 가 소유**(`enable_*=true` 실측) · spoke Access Entry = 클러스터 1개라 없음
+> ⇒ 만들면 **`.tf` 가 한 줄도 없는 빈 자리**가 된다.
+> **근거 ② D22 가 이미 같은 기준을 세웠다** — *"검증할 것이 없는 빈 자리는 만들지 않는다(YAGNI)"*.
+> **근거 ③ `cicd` 컴포넌트의 실체가 없다** — PoC 의 `live/cicd/` 는 **hub-spoke**(hub 가 별도 계정·컴포넌트)
+> 전제였다. 지금은 **dev 클러스터 하나에 ArgoCD 가 얹힌다.**
+
+> ### ⭐ **선례 — `workbench`**
+> `40` 이라는 **자기 설계 문서**와 **자기 모듈**이 있는데도 별도 루트가 아니라
+> **`live/dev/eks` 안의 `module "workbench"`** 다(실측 `live/dev/eks/main.tf:124`).
+> 🔑 **"설계 문서가 있다"가 "배포 루트가 필요하다"를 뜻하지 않는다.**
+> 이 repo 의 문서 번호(`10`·`20`·`40`·`50`)와 소비 repo 의 디렉토리는 **다른 축**이다.
+
+**재검토 조건 3개**(그때 생기는 IaC): **관리형 전환**(`awscc_eks_capability`+capability role) ·
+**두 번째 클러스터**(spoke Access Entry + assume role) · **ArgoCD 의 AWS 접근**(ECR·Secrets Manager IRSA).
+📌 **재검토 시 물을 순서**: ① *"어디에 넣나"* — **기본 가정은 `live/dev/eks` 확장**(workbench 선례)
+② 새 루트 근거는 **state blast radius** ③ 그때 이름을 정한다 —
+⛔ **`gitops-hub` 를 기본값으로 삼지 않는다**(hub-spoke 전제를 담은 이름이라 구조를 잘못 설명한다).
+
+⚠️ **`21 §2.8`·`30 §4` 의 `live/cicd/gitops-hub` 표기는 PoC 시절 서술**이고 `50` 이 채택한 적 없다.
+**배포 루트의 SSOT 는 `50`**(D26). 두 문서에 부인 상자를 달았다.
+
+#### ⏭️ 다음 태스크 — **GitHub App 발급 → 적용(helm seed)**
+
+1. **GitHub App 발급**(ArgoCD 전용). ⛔ **CI 용 D20 App 재사용 금지**(`30 §1.1` — 다른 주체·다른
+   blast radius, 키 공유 시 클러스터 침해가 CI 소싱 권한으로 번진다). 설치 범위에
+   `skax-ca/iac-platform-gitops` 포함.
+2. **적용**(workbench, 사람): `helm install argo-cd 10.3.0`(values 는 저장소 커밋본, ⛔ `--set` 금지)
+   → GitHub App repository Secret → seed 3·4·5 → root App 흡수
+   ⚠️ **apply 판정 2건**: ① `kubernetes.default.svc` Secret 이 내장 `in-cluster` 를 대체하는지
+   (`argocd cluster list`) ② GitHub App 설치 범위 포함 여부
+3. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
 

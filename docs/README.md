@@ -53,7 +53,7 @@
 | **24** | `design/24-argocd-managed-capability.md` | ⏳ **미작성** — 관리형 Capability 경로. 계약면은 [21 §1.7](design/21-gitops-bootstrap-seam.md) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | 🔶 **부분 개정** (2026-08-07) — **§1.1**(D-REPO-CODECONNECTIONS 재판정) · **§4.1**(seed 경로별 분기)만 ✅. **§0·§1·§2·§3·§5는 미개정 = 인용 불가**. ⇒ 인용 시 **절 번호 필수** |
 | **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |
-| 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
+| 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (2026-08-07 개정 — **D31**: GitOps 배포 루트를 만들지 않는다. D-CONSUME 소비 경로 규약 · **배포 루트의 SSOT**) |
 
 > ⚠️ **21은 "미개정"이 아니라 "미결정"이었다 — 그 구분이 2026-08-07에 닫혔다.**
 > 미개정 문서(30)는 *판단은 섰으나 실행 스택 전제가 무효*인 상태고, **21은 판단 자체가 이 repo의

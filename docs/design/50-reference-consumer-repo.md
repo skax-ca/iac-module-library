@@ -12,6 +12,13 @@
 > 그대로 둔다** — 특히 `F2`는 당시 `init` 로그 원문이고, `§4`는 *"어느 릴리스의 미검증 항목을
 > 판정했는가"* 를 기록한다. 번호를 덮어쓰면 그 추적이 끊긴다.
 
+> ### 🔄 2026-08-07 개정 — **D31 신설**: GitOps 배포 루트를 만들지 않는다
+>
+> [`23`](23-argocd-self-managed.md)(self-managed ArgoCD)이 확정되면서 *"`live/cicd/` 루트가
+> 필요한가"* 를 판정해야 했다. **결론: 만들지 않는다** — 소유할 리소스가 **0개**이고,
+> D22가 세운 YAGNI 기준이 그대로 적용된다. 재검토 조건과 그때 물을 순서는 **D31**에 있다.
+> ⚠️ `21`·`30`의 `live/cicd/gitops-hub` 표기는 **PoC 시절 서술**이며 이 문서가 채택한 적 없다.
+
 > ### 🔄 2026-07-31 개정 — 첫 이행 인스턴스가 **apply까지 통과했다**
 >
 > `skax-ca/iac-reference-infra`가 §3의 파이프라인으로 실제 계정에 apply를 완료했다
@@ -485,6 +492,64 @@ assume_role = {
 
 > ⚠️ **이 결정은 "state를 읽는 주체 = 리소스를 만드는 주체"를 명시한다.** 둘이 갈리면
 > 권한 분석이 두 배가 된다. D28이 plan/apply 권한을 분리하지 않은 것과 같은 사고다.
+
+### D31 · GitOps 배포 루트를 **지금 만들지 않는다** (2026-08-07 신설)
+
+[`21 §2.8`](21-gitops-bootstrap-seam.md)·[`30 §4`](30-gitops-repo.md)이 `live/cicd/gitops-hub`를
+20곳 넘게 참조하지만, **이 문서는 그 루트를 채택한 적이 없다.** 채택 여부를 여기서 판정한다.
+
+> ## ⛔ **결정: 만들지 않는다. 이름도 지금 정하지 않는다.**
+
+**근거 ① — 소유할 리소스가 0개다** (self-managed 경로, 2026-08-07 실측)
+
+| 후보 리소스 | 현재 상태 |
+|---|---|
+| GitHub App private key | **k8s Secret**(kubectl seed) — IaC가 아니다([`30 §4.1`](30-gitops-repo.md) 2단계) |
+| ArgoCD의 AWS 접근 IAM | **요구 0** — GitHub 저장소 + public helm repo만 읽는다([`23 §0`](23-argocd-self-managed.md)) |
+| ALBC · Karpenter IAM | ⭐ **이미 `live/dev/eks`가 소유**한다 — 실측: `enable_alb_controller_iam = true` · `enable_karpenter = true` |
+| spoke Access Entry | **없다** — 클러스터가 dev 하나다 |
+
+⇒ 루트를 만들면 **`.tf`가 한 줄도 없는 빈 자리**가 된다.
+
+**근거 ② — D22가 이미 이 기준을 세웠다**
+
+> *"stg/prd·foundation 디렉토리는 만들지 않는다 — (…) 검증할 것이 없는 **빈 자리**다(YAGNI)."*
+
+같은 기준을 같은 문서 안에서 다르게 적용할 이유가 없다.
+
+**근거 ③ — `cicd` 컴포넌트의 실체가 없다**
+
+PoC의 `live/cicd/`는 **hub-spoke 토폴로지**를 전제했다 — ArgoCD hub가 워크로드 클러스터와
+**분리된 계정·컴포넌트**에 있었다. 현재는 **dev 클러스터 하나에 ArgoCD가 얹힌다.**
+⇒ `cicd`라는 컴포넌트 축이 **아직 존재하지 않는다.** 이름만 먼저 만들면 그 축이 있는 것처럼 보인다.
+
+> ### ⭐ **선례가 이미 있다 — `workbench`**
+>
+> [`40`](40-workbench.md)이라는 **자기 설계 문서**와 **자기 모듈**을 가진 컴포넌트인데도,
+> 소비 repo는 `live/dev/workbench/`를 만들지 않고 **`live/dev/eks` 안의 `module "workbench"`** 로 뒀다
+> (실측: `live/dev/eks/main.tf:124`).
+> 🔑 **"설계 문서가 있다"가 "배포 루트가 필요하다"를 뜻하지 않는다.** 이 repo의 문서 번호 체계
+> (`10`·`20`·`40`·`50`)와 소비 repo의 디렉토리 구조는 **다른 축**이다.
+
+**재검토 조건** — 아래 중 하나가 실제로 발생할 때. 그 전에 미리 만들지 않는다.
+
+| 조건 | 생기는 IaC |
+|---|---|
+| **관리형 Capability로 전환** | `awscc_eks_capability` + capability IAM role(신뢰 `capabilities.eks.amazonaws.com`) |
+| **두 번째 클러스터(spoke)** | spoke Access Entry + ArgoCD가 assume할 role([`30 §4.1`](30-gitops-repo.md) 1단계) |
+| **ArgoCD가 AWS 리소스에 접근** | IRSA/Pod Identity role — ECR helm chart · Secrets Manager 등 |
+
+> ### 📌 **재검토 시 물을 순서 — "새 루트인가"를 먼저 묻지 않는다**
+>
+> 1. **어디에 넣을 것인가** — 기본 가정은 **`live/dev/eks` 확장**이다(workbench 선례).
+> 2. **새 루트가 필요한 근거가 있는가** — 판단 기준은 **state blast radius**다.
+>    같은 state에 두면 *"ArgoCD 설정 변경이 클러스터 plan을 흔든다"* 가 생긴다.
+>    ⚠️ 지금은 리소스가 0이라 **이 기준을 적용할 대상 자체가 없다.**
+> 3. 새 루트로 간다면 그때 **이름을 정한다** — ⛔ **`gitops-hub`를 기본값으로 삼지 않는다.**
+>    그 이름은 hub-spoke 전제를 담고 있어, 단일 클러스터에 붙이면 **구조를 잘못 설명한다.**
+
+⚠️ **`21`·`30`의 `live/cicd/gitops-hub` 표기는 PoC 시절 서술이다** — 두 문서 모두 그 부분이
+미개정 구간에 있다. **현행 규약으로 인용하지 말 것.** 배포 루트의 SSOT는 이 문서다(D26).
 
 ---
 

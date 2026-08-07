@@ -998,6 +998,15 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단계) 이후**여야 한다
 (`argocd` namespace가 존재해야 한다).
 
+> ### ⛔ **§4 표의 `live/cicd/gitops-hub`는 존재하지 않는 루트다** (2026-08-07)
+>
+> 위 §4 표는 1·2단계의 소유를 *"Terraform (`live/cicd/gitops-hub`)"* 라고 적지만,
+> **[`50` D31](50-reference-consumer-repo.md)이 그 루트를 만들지 않기로 판정했다** —
+> self-managed 경로에서 그 루트가 소유할 리소스가 **0개**이기 때문이다
+> (ALBC·Karpenter IAM은 이미 `live/dev/eks`가 소유한다).
+> ⇒ §4 표의 그 표기는 **PoC 시절 서술**이다. 배포 루트의 SSOT는 `50`이다(D26).
+> 📌 재검토 조건(관리형 전환 · 두 번째 클러스터 · ArgoCD의 AWS 접근)은 **D31**이 소유한다.
+
 ---
 
 ### ⭐ root Application의 범위·sync 정책 확정 (2026-07-24, 증분 B1 구현 — 열린 항목 5 부분 해소)

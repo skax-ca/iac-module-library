@@ -216,9 +216,12 @@ chart 기본값이 `server.service.type: ClusterIP`다(실측). **바꾸지 않�
 1. **앱팀 셀프서비스 시 UI 노출**(§2.2) — port-forward는 운영자 조작용이다. [`30 §0`](30-gitops-repo.md)
    계층 3이 실제로 생기면 internal ALB + Ingress를 다시 검토한다. **지금 만들지 않는다.**
 2. **spoke 등록 IAM**(§3 갈림점 3) — 두 번째 클러스터가 생길 때 착수. 이 repo의 **첫 IaC 산출물**이 될 수 있다.
-3. **배포 루트 이름·위치** — 소비 repo는 `live/dev/{networking,eks}`뿐이고 **`live/cicd/`가 없다.**
-   [`21 §2.8`](21-gitops-bootstrap-seam.md)의 `live/cicd/gitops-hub`는 **PoC 시절 이름**이고
-   [`50`](50-reference-consumer-repo.md)이 채택한 적 없다 — **`50`에서 정한다.**
+3. ~~**배포 루트 이름·위치**~~ ✅ **해소**(2026-08-07, [`50` D31](50-reference-consumer-repo.md)).
+   **결론: 배포 루트를 만들지 않는다.** self-managed 경로가 소유할 IaC 리소스가 **0개**이고
+   (§0이 예고한 그대로), D22의 YAGNI 기준이 그대로 적용된다.
+   ⭐ **선례**: `workbench`도 자기 설계 문서(`40`)와 모듈이 있지만 별도 루트가 아니라
+   `live/dev/eks` 안에 있다 — *"설계 문서가 있다"가 "배포 루트가 필요하다"를 뜻하지 않는다.*
+   재검토 조건 3개와 그때 물을 순서는 **D31**이 소유한다.
 4. ~~**저장소 접근 방식** — `30 §1`의 CodeConnections 재판정~~
    ✅ **해소**(2026-08-07, [`30 §1.1`](30-gitops-repo.md)). 결론: **self-managed는 GitHub App**이다.
    🔴 **CodeConnections는 선택지조차 아니었다** — argo-cd v3.5.0 문서 전수 검색에서

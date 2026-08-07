@@ -46,7 +46,81 @@ repository Secret은 GitHub App private key를 담아 **저장소에 커밋할 �
 ⇒ 이 Secret 하나만 GitOps 관리 밖에 남는다.
 
 - root App의 `prune: false` 덕에 **지워지지 않는다**
-- ⚠️ **이것이 사라지면 모든 sync가 멈춘다** — 복구 절차에 반드시 포함한다
+- ⚠️ **이것이 사라지면 모든 sync가 멈춘다** — 복구 절차는 아래 **D-KEY-TRANSFER**가 소유한다
+
+### 🔑 private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString** (D-KEY-TRANSFER, 2026-08-07)
+
+클러스터가 private이라 seed는 **workbench 안에서** 실행되는데([`design/40 §1`](../docs/design/40-workbench.md)),
+workbench는 **SSM Session Manager 전용**이라 `scp`가 없다. 그리고 스크립트는 키를
+**파일 경로**로 받는다(`--from-file=`) — 환경변수 주입으로는 대체되지 않는다.
+⇒ **키의 실물 파일이 workbench 디스크에 있어야 한다.** 그 경로를 이렇게 정한다.
+
+**실측 근거** (2026-08-07, 실계정 조회):
+
+| 확인한 것 | 값 | 그래서 |
+|---|---|---|
+| `AmazonSSMManagedInstanceCore` | `ssm:GetParameter`/`GetParameters` on **`Resource: "*"`** 포함 | workbench Role에 **IAM 추가 0** |
+| `alias/aws/ssm` 키 정책 | `Principal: {"AWS":"*"}` + `kms:ViaService=ssm.<region>` **직접 부여** | SecureString 복호화에 **`kms:Decrypt` 추가 불필요** |
+| Standard tier 파라미터 | 4KB · **과금 없음** | RSA 2048 PEM(~1.7KB)이 들어간다. 넘으면 `--tier Advanced`(유료) |
+
+#### 절차
+
+```bash
+# ── ① 노트북에서 한 번 — 키를 SecureString으로 올린다 ──────────────────
+#    `file://~/...` 의 틸드는 AWS CLI가 확장한다(실측). 값은 stdout에 찍히지 않는다.
+aws ssm put-parameter --region <region> \
+  --name /<workload>/<env>/gitops/github-app-private-key \
+  --type SecureString \
+  --description "ArgoCD seed 임시 — GitHub App private key. seed 완료 후 삭제한다" \
+  --value file://~/.config/gh-apps/<app>.private-key.pem
+#  ⭐ --description 을 반드시 붙인다. 공용 계정에는 남의 파라미터가 섞여 있어,
+#     정체를 밝히지 않으면 아무도 지우지 못하는(= 남는) 자격증명이 된다.
+
+# ── ② workbench 안에서 — 파일로 내린다 ────────────────────────────────
+umask 077                                    # 0600으로 만든다. chmod 전에 넣는다
+aws ssm get-parameter \
+  --name /<workload>/<env>/gitops/github-app-private-key \
+  --with-decryption --query Parameter.Value --output text > ~/gh-app.pem
+#  ⭐ 리다이렉트가 핵심이다 — 키가 터미널에 출력되지 않으므로
+#     세션 로깅이 켜진 계정에서도 로그에 남지 않는다.
+#  ℹ️ 내려받은 파일은 원본보다 **1바이트 크다** — `--output text`가 후행 개행을
+#     붙이기 때문이다(실측: 1675 → 1676). PEM은 이를 정상으로 받는다.
+#     체크섬이 다르다고 손상으로 오해하지 말 것. 검증은 `openssl rsa -noout -check`로.
+
+export GH_APP_PRIVATE_KEY=~/gh-app.pem
+./scripts/argocd-seed.sh
+
+# ── ③ 완료 조건 — 위생이 아니라 조건이다 ──────────────────────────────
+shred -u ~/gh-app.pem
+aws ssm delete-parameter --region <region> \
+  --name /<workload>/<env>/gitops/github-app-private-key
+```
+
+> 🔴 **③은 선택이 아니다.** `AmazonSSMManagedInstanceCore`가 `GetParameter`를 **`Resource: "*"`** 로
+> 주기 때문에, 그 파라미터는 **계정 안의 SSM 관리 인스턴스 전부가 읽을 수 있다.**
+> 남겨 두면 blast radius가 workbench 하나가 아니라 계정 전체다.
+> ⚠️ 이것은 관리형 정책의 성질이라 **우리가 좁힐 수 없다** — `40 §5`가 `eks:DescribeCluster`를
+> 클러스터 ARN으로 한정한 것과 대비된다. 관리형을 붙이면 그 안의 권한은 통제 밖이다.
+
+#### 복구 절차 ([`design/30 §4.1`](../docs/design/30-gitops-repo.md)이 요구한 것)
+
+repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파라미터는 이미 지워졌고
+노트북의 `.pem`도 영구 보관물이 아니다. ⇒ **키를 다시 발급한다.**
+
+1. GitHub App 설정에서 **새 private key 발급** → 옛 키 **삭제**(App당 복수 키를 가질 수 있다)
+2. 위 ①~③을 그대로 다시 실행
+3. `./scripts/argocd-seed.sh --from 2 --to 2` — 2단계만 재적용한다
+
+🔑 **키를 보관해서 복구하는 것이 아니라 재발급으로 복구한다.** 그래서 ③의 삭제가
+복구 가능성을 해치지 않는다. 장기 자격증명을 계정에 남기지 않는 쪽이 항상 낫다.
+
+#### 기각안
+
+| 안 | 기각 사유 |
+|---|---|
+| SSM 세션에 **heredoc 붙여넣기** | 리소스는 0이지만, **세션 로깅이 켜진 계정에서는 키 전체가 로그에 남는다.** 고객사는 감사 요건으로 켜 두는 것이 보통이라 **재사용 절차로 적을 수 없다** |
+| `aws ssm send-command` | 명령 파라미터가 **평문으로 command 히스토리·CloudTrail에 남는다**(조회 가능). 붙여넣기보다 나쁘다 |
+| **Secrets Manager** | 효과는 같은데 workbench Role에 `secretsmanager:GetSecretValue`가 **없어 `.tf` 변경(브랜치→PR)이 필요**하고 시크릿당 월 $0.40이 붙는다. 같은 값을 더 비싸게 산다 |
 
 ### 사용법
 
@@ -60,7 +134,7 @@ export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
 export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
 export GH_APP_ID=...                 # GitHub App 설정 페이지
 export GH_APP_INSTALLATION_ID=...    # gh api orgs/<org>/installations
-export GH_APP_PRIVATE_KEY=~/Downloads/....pem
+export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받은 파일
 
 # 3) 먼저 dry-run — 노트북에서도 돌아간다
 ./scripts/argocd-seed.sh --dry-run
@@ -68,6 +142,9 @@ export GH_APP_PRIVATE_KEY=~/Downloads/....pem
 # 4) 실제 실행은 workbench 안에서 (private endpoint)
 ./scripts/argocd-seed.sh
 ```
+
+⚠️ **`GH_APP_PRIVATE_KEY`를 노트북의 키 원본으로 두지 않는다.** 실행은 workbench 안에서
+일어나므로 그 경로는 **workbench의 파일**이어야 한다 — 어떻게 거기 두는지는 위 **D-KEY-TRANSFER**다.
 
 **선택 인자**: `--from N` · `--to N` (단계 구간 재실행). `--help`로 전체 옵션.
 **선택 환경변수**: `ARGOCD_NAMESPACE`(`argocd`) · `ARGOCD_CHART_VERSION`(`10.3.0`) ·

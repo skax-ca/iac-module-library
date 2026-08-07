@@ -1172,7 +1172,8 @@ sourceRepos 포함 · `metadata.name==stringData.name` · 라벨 길이 · `prun
 
 **App**: `skax-ca-gitops-reader` · **app_id `4512318`** · owner `skax-ca` ·
 `permissions {contents:read, metadata:read}` · `events []`(webhook 없음) — **API 로 규격 검증 완료**.
-key: `~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem`(⛔ 어느 repo 에도 두지 않는다).
+key: **`~/.config/gh-apps/skax-ca-gitops-reader.pem`**(⛔ 어느 repo 에도 두지 않는다).
+발급 시 위치는 `~/Downloads/…2026-08-06.private-key.pem` 이었으나 **TCC 때문에 옮겼다**(아래 D-KEY-TRANSFER).
 ✅ **설치 완료**(2026-08-07 확인) — **`installation_id = 151838919`** ·
 `selection=selected`(⇒ *All repositories* 아님) · perms/events 규격대로.
 ⚠️ **설치된 repo 목록 자체는 이 토큰으로 조회 불가**(app JWT 또는 `read:user` 스코프 필요) —
@@ -1211,12 +1212,36 @@ export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
 export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
 export GH_APP_ID=4512318
 export GH_APP_INSTALLATION_ID=151838919
-export GH_APP_PRIVATE_KEY=~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem
+export GH_APP_PRIVATE_KEY=~/gh-app.pem              # workbench 안의 파일. 내려받는 법은 D-KEY-TRANSFER
 ./scripts/argocd-seed.sh --dry-run   # 먼저
 ./scripts/argocd-seed.sh
 ```
-⚠️ **private key 를 workbench 로 옮기는 경로를 먼저 정한다** — repo 에 두지 않는다.
-(SSM 세션에 붙여넣기 / `aws ssm send-command` / Secrets Manager 경유 중 택1. **미결**)
+✅ **private key 전달 경로 확정 — D-KEY-TRANSFER**(2026-08-07, 사용자 결정).
+**SSM Parameter Store SecureString.** 절차·근거·복구·기각안 전문은 **`scripts/README.md`** 가 소유한다
+(`23 §6-5` 가 절차의 소유를 이미 런북에 위임했으므로 설계 문서를 늘리지 않았다).
+- 🔑 **채택 근거는 IAM 변경이 0 이라는 실측**이다: `AmazonSSMManagedInstanceCore` 가
+  `ssm:GetParameter` 를 **`Resource:"*"`** 로 주고, `alias/aws/ssm` 키 정책이
+  `Principal:{"AWS":"*"}` + `ViaService` 로 **직접 부여**해 `kms:Decrypt` 도 불필요하다.
+  ⇒ workbench Role 을 건드리지 않으므로 `.tf` 변경·PR 이 없다.
+- 🔴 **seed 후 `delete-parameter` 는 완료 조건이다** — 같은 관리형 정책 때문에 그 파라미터를
+  **계정의 SSM 관리 인스턴스 전부가 읽을 수 있다.** 남기면 blast radius 가 계정 전체다.
+- 🔑 **복구는 보관이 아니라 재발급**이다(GitHub App 은 키를 복수로 발급·삭제할 수 있다) →
+  `--from 2 --to 2` 로 2단계만 재적용. 그래서 삭제가 복구 가능성을 해치지 않는다.
+- 기각: **세션 붙여넣기**(고객사는 세션 로깅을 켜 두는 것이 보통 → 키 전체가 로그에) ·
+  **`send-command`**(파라미터가 평문으로 command 히스토리·CloudTrail 에) ·
+  **Secrets Manager**(IAM 추가 필요 + 월 $0.40 — 같은 값을 더 비싸게 산다).
+
+> ### 🔴 **macOS TCC 가 `~/Downloads` 를 막는다 — 이 머신의 실행 제약** (2026-08-07 실측)
+>
+> VS Code(`com.microsoft.VSCode`) 아래의 Claude Code 프로세스는 `~/Downloads` 에 대해
+> **`open()` 도 `rename()` 도 거부**된다(`Operation not permitted`). ⚠️ **쓰기는 허용**된다 —
+> 새 항목 생성은 되고 **기존 보호 항목의 접근만** 막는 게이트다.
+> - ⚠️ **`stat` 은 통과한다** — `[ -e ]` 는 yes 인데 `open` 이 실패한다. 그래서 첫 `find` 의
+>   glob 실패가 **"파일 없음"으로 오독**됐다. 🔑 **홈 디렉토리 탐색에서 stderr 를 버리지 말 것.**
+> - ⇒ 키를 **`~/.config/gh-apps/`** 로 옮긴다(이 머신의 기존 관행 — `skax-ca-module-reader.pem`
+>   1679B·0600 이 거기 있다). 이동은 **Terminal.app 에서** 실행해 TCC 프롬프트를 허용해야 한다.
+> - 📌 부수 확인: 그 sibling 키가 **1679 바이트** = GitHub App RSA 2048 PEM 의 실측 크기.
+>   Parameter Store **Standard tier(4KB) 안**이라 과금 없음.
    ⚠️ **apply 판정 3건**: ① `root-app` 의 `.status.sync.revision` 이 **실제 SHA** 인가
    (`main` 이면 아직 설정값 — PoC 가 성급히 성공으로 읽은 전례) ② `kubernetes.default.svc` Secret 이
    내장 `in-cluster` 를 대체하는지(`argocd cluster list`) ③ GitHub App 설치 범위 포함 여부.

@@ -27,7 +27,13 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 |------|------|
 | **이 repo (`iac-module-library`)** | 모듈·설계의 **현행 SSOT**. 모든 개발은 여기서 |
 | `terraform-enterprise-poc` | TFC 기반 **동결 스냅샷**(2026-07-28 졸업). TFE 제안서 레퍼런스 전용 — **고치지 않는다** |
+| `silverte/eks-platform-gitops` | PoC GitOps 구현체 — **동결**. 참조 자산으로만 쓴다(`docs/design/30` 헤더에 재사용성 판정) |
 | `<project>-infra` (향후 N개) | 프로젝트/고객별 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
+| **`iac-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**) — ArgoCD가 pull로 reconcile. 설계 SSOT는 이 repo의 `docs/design/30`·`23` |
+
+> ⚠️ **`.yaml` 매니페스트는 이 repo에 두지 않는다.** 여기는 모듈(`.tf`)과 설계(`docs/`)만 소유한다.
+> ArgoCD Application·AppProject·cluster Secret은 **`iac-platform-gitops`** 소관이다
+> (3계층 소유 모델 — `docs/design/30 §0`).
 
 - 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md` (D-OSS-STACK)
   — ⚠️ 그중 **엔진 축의 근거는 `docs/architecture/04-engine-decision.md`(D-ENGINE)가 교체**했다.

@@ -27,6 +27,23 @@
 > 필요 없는 일을 먼저 하게 된다.
 > ⇒ **이 문서를 인용할 때 절 번호까지 쓴다.** *"30에 따르면"* 은 판정 근거가 못 된다.
 
+> # 🏗️ **현행 구현체 — [`skax-ca/iac-platform-gitops`](https://github.com/skax-ca/iac-platform-gitops)**
+>
+> 2026-08-07 신설(private · Team `iac`). 이 문서가 설계한 것의 **현행 실물**이다.
+> **경로는 self-managed**([`23`](23-argocd-self-managed.md)) — seed 3종(§4.1의 3·4·5단계) 작성 완료,
+> ⚠️ **아직 apply 되지 않았다.** `addons/`는 다음 증분.
+>
+> | 파일 | seed 단계 |
+> |---|---|
+> | `projects/platform.yaml` | 3 |
+> | `clusters/dev/eks-ref-dev-an2-main-01/cluster-secret.yaml` | 4 |
+> | `bootstrap/root-app.yaml` | 5 |
+>
+> **시작값을 좁게 잡았다** — `clusterResourceWhitelist: []` · `sourceRepos`는 이 저장소 하나.
+> **addon 증분마다 필요한 것만 연다**(그때마다 리뷰 지점).
+> ⚠️ **apply 시 판정할 것 2건**: ① `server: https://kubernetes.default.svc` Secret이 내장
+> `in-cluster`를 대체하는지 ② GitHub App 설치 범위에 이 저장소가 포함되는지.
+
 > # 📚 **PoC 구현체 — `silverte/eks-platform-gitops`**
 >
 > 이 문서가 설계한 것의 **실물**이 있다(2026-07-24~27 증분 B1). 매니페스트 7개 + README.

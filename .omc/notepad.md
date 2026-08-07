@@ -1109,14 +1109,46 @@ CLAUDE.md 의 *"05 §5.4"* 는 **PoC repo 문서**를 가리키며, 이 repo `ar
 > ⇒ 절 단위 판정은 예외가 아니라 **부분 개정이라는 작업 방식의 자연스러운 결과**다.
 > `design/AGENTS.md` 에 일반 규칙으로 승격했다.
 
-#### ⏭️ 다음 태스크 — **GitOps repo 생성 + 배포 루트 확정**
+#### ✅ **플랫폼 GitOps repo 신설 완료** (2026-08-07) — 🆕 **세 번째 repo**
 
-1. 🔴 **플랫폼 GitOps repo 신설** — `skax-ca` 에 아직 없다(repo 2개뿐).
-   `23 §4` 인터페이스(*root Application 매니페스트가 저장소에 존재*)의 **저장소가 없다.**
-   ⚠️ 이름은 PoC 의 `silverte/eks-platform-gitops` 를 그대로 쓰지 말고 org 규약(`iac-` 프리픽스·Team `iac`) 확인.
-2. **배포 루트** — 소비 repo 에 `live/cicd/` 가 없다. 이름·위치는 **`50` 이 정한다**(21 §2.8 의
-   `live/cicd/gitops-hub` 는 PoC 시절 이름이고 `50` 이 채택한 적 없다).
-3. 그 뒤 **적용**(helm seed) → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
+**`skax-ca/iac-platform-gitops`**(private, Team `iac` `maintain`). 로컬 `~/born2k/ai/iac-platform-gitops`.
+초기 커밋 `18d0346` — **seed 3종**(`30 §4.1` 3·4·5단계). ⚠️ **아직 apply 되지 않았다.**
+
+```
+projects/platform.yaml                                   # seed 3
+clusters/dev/eks-ref-dev-an2-main-01/cluster-secret.yaml # seed 4
+bootstrap/root-app.yaml                                  # seed 5
+```
+
+**📚 PoC 구현체 `silverte/eks-platform-gitops` 를 참조했다** — ⚠️ **PoC repo 와 같은 지위(동결)**,
+고치지 않고 참조만. 재사용성 판정은 `30` 헤더 상자.
+- **승계(경로 무관)**: root-app 의 `recurse`+`exclude` · `prune:false` · finalizer 없음 ·
+  `default` AppProject 미사용 · **cluster Secret 이름 = 실제 EKS 클러스터명**(별칭 쓰면 조용히 틀림) ·
+  `project` 필드 함정(어긋나면 클러스터 `unknown` 인데 증상이 원인을 안 가리킴)
+- **바꾼 것(self-managed)**: `server` EKS ARN→**`https://kubernetes.default.svc`**(Secret·destinations 둘 다) ·
+  `repoURL` CodeConnections→**GitHub URL**(인증은 GitHub App) · `exclude` 중괄호 제거(패턴 1개)
+
+**시작값을 좁게** — `clusterResourceWhitelist: []` · `sourceRepos` 는 이 저장소 하나.
+**addon 증분마다 필요한 것만 연다**(그때마다 리뷰 지점).
+
+**실측 좌표**(2026-08-07 · profile `team` · `533616270150` · apn2):
+`eks-ref-dev-an2-main-01`(k8s **1.35**) · VPC **`vpc-00e16675363a702a5`** ·
+Karpenter node role **`Karpenter-eks-ref-dev-an2-main-01-66112745ef9ad44d7260570055`**(60자<63) ·
+소비 루트는 `enable_karpenter=true` · `enable_alb_controller_iam=true`.
+
+**검증**: YAML 3/3 · **매니페스트 상호 참조 정합성 11/11**(project 일치 · destinations 포함 ·
+sourceRepos 포함 · `metadata.name==stringData.name` · 라벨 길이 · `prune:false` · finalizer 없음).
+⚠️ **apply 판정 2건 남음**: ① `kubernetes.default.svc` Secret 이 내장 `in-cluster` 를 대체하는지
+(argo-cd v3.5.0 문서에 서술 없음 — `argocd cluster list` 로 판정) ② GitHub App 설치 범위 포함 여부.
+
+#### ⏭️ 다음 태스크 — **배포 루트 확정(`50`) → GitHub App 발급 → 적용**
+
+1. **배포 루트** — 소비 repo 에 `live/cicd/` 가 없다. 이름·위치는 **`50` 이 정한다**
+   (`21 §2.8` 의 `live/cicd/gitops-hub` 는 PoC 시절 이름이고 `50` 이 채택한 적 없다).
+   ⚠️ self-managed 는 IaC 산출물이 거의 없다(`23 §0`) — **루트가 필요한지부터** 묻는다.
+2. **GitHub App 발급**(ArgoCD 전용, ⛔ CI 용 D20 App 재사용 금지 — `30 §1.1`)
+3. **적용**: workbench 에서 `helm install argo-cd 10.3.0` → repository Secret → seed 3종 → root App 흡수
+4. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
 

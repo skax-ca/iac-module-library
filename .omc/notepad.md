@@ -1173,8 +1173,10 @@ sourceRepos 포함 · `metadata.name==stringData.name` · 라벨 길이 · `prun
 **App**: `skax-ca-gitops-reader` · **app_id `4512318`** · owner `skax-ca` ·
 `permissions {contents:read, metadata:read}` · `events []`(webhook 없음) — **API 로 규격 검증 완료**.
 key: `~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem`(⛔ 어느 repo 에도 두지 않는다).
-🔴 **설치(Install App)는 아직 안 됨** — `orgs/skax-ca/installations` 에 `module-reader` 하나뿐.
-⇒ **`GH_APP_INSTALLATION_ID` 를 아직 못 얻는다.** 적용 전에 설치 필요.
+✅ **설치 완료**(2026-08-07 확인) — **`installation_id = 151838919`** ·
+`selection=selected`(⇒ *All repositories* 아님) · perms/events 규격대로.
+⚠️ **설치된 repo 목록 자체는 이 토큰으로 조회 불가**(app JWT 또는 `read:user` 스코프 필요) —
+`iac-platform-gitops` 포함 여부는 **seed 실행 때 드러난다**(아래 apply 판정 ③).
 
 **GitOps repo** `d118838` — `bootstrap/argocd-values.yaml` 신설(dex off · notifications off,
 **기본값과 다른 것만** 적음) + root-app `exclude` 를 `{clusters/**/values.yaml,bootstrap/argocd-values.yaml}` 로.
@@ -1199,21 +1201,22 @@ key: `~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem`(⛔ 어느 r
 ⛔ 워크플로 변경은 **브랜치 → PR** 이라 별도 태스크. 🔑 **게이트를 추가하는 순간 `scripts/` 도
 브랜치 → PR 대상이 된다**(브랜치 규칙의 기준이 *"CI 가 머지 전에 막아야 하는가"* 이므로).
 
-#### ⏭️ 다음 태스크 — **App 설치 → 적용(seed 실행)**
+#### ⏭️ 다음 태스크 — **적용(seed 실행)**. 준비는 전부 끝났다
 
-1. 🔴 **Install App**(웹 UI): App 설정 → Install App → `skax-ca` → **Only select repositories** →
-   **`iac-platform-gitops` 하나만**. ⛔ *All repositories* 금지.
-   이후 `gh api orgs/skax-ca/installations` 로 **installation_id** 획득.
-2. **적용**(workbench 안에서): 아래 그대로.
-   ```
-   export GITOPS_REPO_DIR=~/iac-platform-gitops
-   export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
-   export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
-   export GH_APP_ID=4512318 GH_APP_INSTALLATION_ID=<위에서 획득>
-   export GH_APP_PRIVATE_KEY=~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem
-   ./scripts/argocd-seed.sh --dry-run   # 먼저
-   ./scripts/argocd-seed.sh
-   ```
+⚠️ **workbench 안에서** 실행한다(클러스터가 private — `40 §1`). 스크립트는 `iac-module-library` 에 있다.
+
+```
+export GITOPS_REPO_DIR=~/iac-platform-gitops        # 먼저 clone + pull (ArgoCD 는 원격을 읽는다)
+export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
+export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
+export GH_APP_ID=4512318
+export GH_APP_INSTALLATION_ID=151838919
+export GH_APP_PRIVATE_KEY=~/Downloads/skax-ca-gitops-reader.2026-08-06.private-key.pem
+./scripts/argocd-seed.sh --dry-run   # 먼저
+./scripts/argocd-seed.sh
+```
+⚠️ **private key 를 workbench 로 옮기는 경로를 먼저 정한다** — repo 에 두지 않는다.
+(SSM 세션에 붙여넣기 / `aws ssm send-command` / Secrets Manager 경유 중 택1. **미결**)
    ⚠️ **apply 판정 3건**: ① `root-app` 의 `.status.sync.revision` 이 **실제 SHA** 인가
    (`main` 이면 아직 설정값 — PoC 가 성급히 성공으로 읽은 전례) ② `kubernetes.default.svc` Secret 이
    내장 `in-cluster` 를 대체하는지(`argocd cluster list`) ③ GitHub App 설치 범위 포함 여부.

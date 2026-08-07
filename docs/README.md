@@ -49,7 +49,7 @@
 | 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-06 갱신 — 현행 **`eks-cluster-v0.4.0`** 계약 + §4.1~§4.4 릴리스·apply 판정 기록 + **§1.1 D-POLICY-ENGINE·D-BACKUP-AWS**) |
 | **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ✅ (2026-08-07 재결정 — **§1 D-GITOPS-SEAM**: 프로파일 A 내부 분기. ⚠️ **§1만 확정이고 §2.7·§2.8 본문은 여전히 PoC 이관본**) |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-06 개정 — **D-DAY2-PROFILE** + **§4 백업·복구**(D-BACKUP-AWS 수용). ⚠️ 구 §4 열린 항목 → **§5**로 이동) |
-| **23** | [23-argocd-self-managed.md](design/23-argocd-self-managed.md) | ✅ (2026-08-07 신규 — **D-ARGOCD-SM-BOOTSTRAP**(workbench seed + 자기 관리) · **-REACH**(port-forward) · **-AUTH** · **-HA**. ⚠️ `.tf` 산출물 없음 — 설계상 그렇다) |
+| **23** | [23-argocd-self-managed.md](design/23-argocd-self-managed.md) | ✅ (2026-08-07 신규 — **D-ARGOCD-SM-BOOTSTRAP**(workbench seed + 자기 관리) · **-REACH**(port-forward) · **-AUTH** · **-HA**. ⚠️ `.tf` 산출물 없음 — 설계상 그렇다. **§5에 `helm` CLI 핀 `v3.21.3` 추가**(2026-08-07 seed 실행 후 — 표에 빠져 있어 실행자가 그 자리에서 골라야 했다. ⚠️ 강제 장치 없음: `40`의 `helm_version` 미지정 상태) |
 | **24** | `design/24-argocd-managed-capability.md` | ⏳ **미작성** — 관리형 Capability 경로. 계약면은 [21 §1.7](design/21-gitops-bootstrap-seam.md) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | 🔶 **부분 개정** (2026-08-07) — **§1.1**(D-REPO-CODECONNECTIONS 재판정) · **§4.1**(seed 경로별 분기)만 ✅. **§0·§1·§2·§3·§5는 미개정 = 인용 불가**. ⇒ 인용 시 **절 번호 필수** |
 | **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |

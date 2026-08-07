@@ -1240,12 +1240,14 @@ D-KEY-TRANSFER 가 *"workbench 가 스스로 Parameter Store 에서 당긴다"* 
 |---|---|---|---|
 | 1 | **workbench 에 `git` 이 없다** | 모듈에 변수조차 없음. GitOps seam 은 클론을 전제하는데 | `modules/workbench` **`.tf` → 브랜치·PR** |
 | 2 | `helm` 미설치 | `helm_version` default=`null`, 소비 repo 가 미지정. **모듈 결함 아님** | 소비 repo `iac-reference-infra` |
-| 3 | **`23 §5` 버전 핀 표에 helm CLI 가 없다** | chart·ArgoCD·`argocd` CLI·k8s 는 있는데 0단계가 쓰는 helm 이 누락 | `docs/design/23` |
+| ~~3~~ | ~~**`23 §5` 에 helm CLI 핀 없음**~~ | ✅ **해소**(2026-08-07) — `helm v3.21.3` 등재 + 근거·재검토 조건. `docs/README.md` 상태표도 갱신 | ✅ 완료 |
 | 4 | **workbench 의 private repo 접근 경로 미설계** | `40` 에 git/GitHub 인증 서술 0건 | 설계 판단 필요 — 굳히지 않았다 |
 
 - **2 의 진짜 문제는 변수 설명이다**: `helm_version` 은 *"Day 2 운영 프로파일 B(`22 §3`)에서 쓴다"* 라고
   적혀 있는데, **`23` 이 self-managed 를 `helm install` 로 seed 하기로 하면서 helm 은 프로파일과
   무관하게 필수가 됐다.** 설명이 `23` 이전 세계를 기술하고 있다.
+  ✅ **"무엇이 참인지"는 `23 §5` 가 기록했다**(2026-08-07). ⛔ 남은 것은 **변수 설명 정정**뿐이고
+  `.tf` 변경이라 **브랜치 → PR**이다. 🔑 역할 분담: **문서가 참을 소유하고 모듈이 집행을 소유한다.**
 - **이번에 넣은 것**: `git-core 2.50.1`(dnf) · **`helm v3.21.3`**(GitHub Releases arm64).
   ⚠️ **helm 최신은 `v4.2.3`(2026-07-09)이지만 일부러 v3 를 골랐다** — 차트 `argo-cd 10.3.0` 은
   helm 3 시대 산물이고, **최초 부트스트랩에 메이저 CLI 변경까지 겹치면 실패 시 원인이 둘로 갈린다.**

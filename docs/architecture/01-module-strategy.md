@@ -89,7 +89,17 @@ Upstream 계층 (커뮤니티 모듈 / provider)
 > **한 줄 규칙**: `aws_eks_addon` API로 설치 가능 → IaC. Helm chart / k8s manifest → GitOps.
 > 단 **컨트롤러(+CRD)는 IaC addon, 그 addon이 소비하는 CR·애노테이션만 GitOps**.
 
-### 3.3 부트스트랩 seam — **이 repo에서 재결정 필요**
+### 3.3 부트스트랩 seam — ✅ **재결정 완료** (2026-08-07, D-GITOPS-SEAM)
+
+> ## ✅ **이 절이 위임한 재결정은 닫혔다** — [`design/21 §1`](../design/21-gitops-bootstrap-seam.md)
+>
+> **결론: 프로파일 A 내부 분기.** 관리형 EKS Capability for Argo CD를 기본으로 하고,
+> **탈출 조건 3개**(IdC 미보유 · 미지원 기능 필요 · App 과금 수용 불가) 중 하나라도 걸리면
+> self-managed ArgoCD로 내려간다. 프로파일 B는 ArgoCD 자체가 없다([`22 §3.2`](../design/22-day2-operations.md)).
+>
+> ⭐ **결론은 PoC와 같지만 근거가 다르다** — 아래 본문이 든 *"제약이 크니 재확인하라"* 는
+> 이행됐고(21 §1.2 실측), **그중 요금은 틀린 것으로 드러나 교체**됐다. 21 §1.5가 대조표를 갖는다.
+> ⛔ **아래 본문을 미결 상태로 인용하지 말 것.** 재결정 요청의 기록으로만 읽는다.
 
 PoC는 관리형 **EKS Capability for Argo CD**를 채택했다(self-managed helm 설치 대비: 클러스터 내 설치 없음,
 helm provider 불필요, spoke 등록은 Access Entry). 그 과정의 실측은
@@ -147,7 +157,8 @@ GitOps 모듈을 설계할 때 **대안(self-managed ArgoCD 포함)과 함께 �
 
 ## 7. 열린 항목
 
-1. GitOps 부트스트랩 seam 재결정(§3.3) — 관리형 Capability vs self-managed.
+1. ~~GitOps 부트스트랩 seam 재결정(§3.3) — 관리형 Capability vs self-managed.~~
+   ✅ **해소**(2026-08-07, **D-GITOPS-SEAM** — [`design/21 §1`](../design/21-gitops-bootstrap-seam.md)).
 2. 모듈 릴리스 프로세스 — 태그 규칙(`<module>-vX.Y.Z`)은 정했으나 CHANGELOG·릴리스 노트 형식 미정.
 3. 노드 관리 조합 — managed node group + Karpenter의 역할 분담(시스템 계층 vs 앱 계층).
 4. 모듈 간 의존 표현 — VPC 출력을 EKS 모듈이 어떻게 받을지(변수 vs data source, → `03-dependencies.md`).

@@ -47,16 +47,22 @@
 |---|------|------|
 | 10 | [10-vpc-module.md](design/10-vpc-module.md) | ✅ (2026-08-03 개정 — 현행 **`vpc-v0.3.0`** 계약, D13 SubnetGroup 태그 포함) |
 | 20 | [20-eks-module.md](design/20-eks-module.md) | ✅ (2026-08-06 갱신 — 현행 **`eks-cluster-v0.4.0`** 계약 + §4.1~§4.4 릴리스·apply 판정 기록 + **§1.1 D-POLICY-ENGINE·D-BACKUP-AWS**) |
-| **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ⚠️ **미결정** — 20에서 분리한 ArgoCD seam. `01 §3.3` **재결정 대상** |
+| **21** | [21-gitops-bootstrap-seam.md](design/21-gitops-bootstrap-seam.md) | ✅ (2026-08-07 재결정 — **§1 D-GITOPS-SEAM**: 프로파일 A 내부 분기. ⚠️ **§1만 확정이고 §2.7·§2.8 본문은 여전히 PoC 이관본**) |
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-06 개정 — **D-DAY2-PROFILE** + **§4 백업·복구**(D-BACKUP-AWS 수용). ⚠️ 구 §4 열린 항목 → **§5**로 이동) |
 | 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | ⚠️ 미개정 (2026-08-06 **§5에 정합 포인터만** 추가 — Kyverno TBD는 [20 §1.1](design/20-eks-module.md)이 해소. **본문은 여전히 인용 불가**) |
 | **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (신규 작성 — **D-CONSUME**, 소비 경로 규약) |
 
-> ⚠️ **21은 "미개정"이 아니라 "미결정"이다 — 구분이 중요하다.** 미개정 문서(30)는 *판단은 섰으나
-> 실행 스택 전제가 무효*인 상태고, **21은 판단 자체가 이 repo의 것이 아니다**([`01 §3.3`](architecture/01-module-strategy.md)).
-> 20 개정에서 이 둘을 한 문서에 두면 상태표가 **문서 단위로 판정할 수 없게** 되므로 분리했다.
+> ⚠️ **21은 "미개정"이 아니라 "미결정"이었다 — 그 구분이 2026-08-07에 닫혔다.**
+> 미개정 문서(30)는 *판단은 섰으나 실행 스택 전제가 무효*인 상태고, **21은 판단 자체가 이 repo의
+> 것이 아니었다**([`01 §3.3`](architecture/01-module-strategy.md)). 그 위임을 **§1 D-GITOPS-SEAM**이 받아 닫았다.
 > 절 번호(§2.7·§2.8)는 30·40의 기존 참조를 보존하려고 그대로 뒀다.
+>
+> 🔴 **그래서 21은 이 표에서 유일하게 "문서 단위로 판정되지 않는" 문서다.**
+> **§1 = ✅ 확정 · §2.7·§2.8 = PoC 이관본(인용 불가)** 이 한 파일에 있다.
+> ⇒ **21을 인용할 때는 절 번호까지 쓴다.** *"21에 따르면"* 은 이 문서에 한해 판정 근거가 못 된다.
+> ⚠️ 이는 **상태표의 결함이 아니라 의도된 예외**다 — 이관본을 버리면 PoC가 실물로 부딪힌 벽의
+> 기록이 사라지고, 분리하면 30·40의 참조 20여 곳이 끊긴다. §0 상태표가 절 단위 판정을 대신한다.
 
 > ⭐ **40 개정(2026-08-05)이 21과의 의존을 끊었다.** 개정 전 40의 제목은 *"ArgoCD private 전환의
 > 선결 과제"* 여서 **미결정(21) 위에 서 있었다.** 개정은 40을 *"엔드포인트를 닫은 클러스터에

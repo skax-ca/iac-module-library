@@ -1,4 +1,10 @@
-# 21 · GitOps 부트스트랩 seam (ArgoCD) — ⚠️ **미결정**
+# 21 · GitOps 부트스트랩 seam (ArgoCD) — ✅ **확정** (D-GITOPS-SEAM, 2026-08-07)
+
+> **2026-08-07 재결정 완료.** [`01 §3.3`](../architecture/01-module-strategy.md)이 이 repo에
+> 위임한 재결정이 **§1에서 닫혔다.** 결론은 **프로파일 A 내부 분기** — 관리형 EKS Capability를
+> 기본으로 하고, IdC 가 없는 고객사만 self-managed 로 내려간다.
+> ⚠️ **아래 §2.7·§2.8 본문은 여전히 PoC 이관본이다.** 확정된 것은 §1이고, §2.7의 "결정: 옵션 C"는
+> **PoC 시점 서술**이다(결론은 같지만 근거와 범위가 다르다 — §1.5).
 
 > **분리**(2026-08-03): [`20-eks-module.md`](20-eks-module.md)의 **§2.7·§2.8을 그대로 옮겼다.**
 > 20을 개정해 EKS 모듈 계약의 SSOT로 만드는 과정에서, 이 두 절이 **20의 개정 대상이 아님**이
@@ -20,11 +26,12 @@
 
 | 구분 | 항목 | 재결정 시 취급 |
 |------|------|--------------|
-| ✅ **살아 있는 실측** | `AmazonEKSArgoCDClusterPolicy`가 cluster-wide read-all을 **주지 않는다**(D-ARGOCD-CLUSTER-READ) · auto-managed Access Entry의 `kubernetesGroups`가 **비어 있어** custom ClusterRole을 bind할 수 없다 · IdC **계정 인스턴스는 다중 계정 미지원** · `delete_propagation_policy=RETAIN`이 유일값 · Capability의 IdC 바인딩은 **immutable** | **그대로 유효.** AWS 서비스 동작이라 실행 엔진과 무관하다 |
+| ✅ **살아 있는 실측** | `AmazonEKSArgoCDClusterPolicy`가 cluster-wide read-all을 **주지 않는다**(D-ARGOCD-CLUSTER-READ) · auto-managed Access Entry의 `kubernetesGroups`가 **비어 있어** custom ClusterRole을 bind할 수 없다(⚠️ **범위 축소 — §1.2 ⑤**) · IdC **계정 인스턴스는 다중 계정 미지원** · `delete_propagation_policy=RETAIN`이 유일값 · Capability의 IdC 바인딩은 **immutable** | **그대로 유효.** AWS 서비스 동작이라 실행 엔진과 무관하다 |
 | ✅ 살아 있는 판단 | 등록 seam을 **도달성 경계로 분리**(D-SPOKE-SEAM: IAM grant=IaC, cluster Secret=GitOps) · seed의 **자기소멸 원칙**(seed 산출물은 저장소 콘텐츠의 바이트 동일 사본) | 도구 무관한 원칙 — 재결정에서도 출발점으로 쓴다 |
 | ⚠️ **전제가 바뀐 것** | `tfe_outputs`로 hub cluster_name 조회 · TFC workspace(`gitops-hub-cicd`) · TFC 러너 도달성(V3) · Sentinel 게이트 | **무효.** [`03 §3.1`](../architecture/03-dependencies.md)의 네이밍/data source 조회와 GitHub Actions로 재설계해야 한다 |
-| ⚠️ 재확인 필요 | `awscc` provider 인증(TFC OIDC로 실증한 것) · 요금(2026-03 기준) · `awscc_eks_capability` 스키마(v1.93.0 기준) | GitHub Actions OIDC 기준으로 재실증. 스키마는 재조회 |
-| ❌ 미승계 결론 | **관리형 Capability를 쓸 것인가** 자체 | `01 §3.3`·`01` 열린 항목 1에서 self-managed 대안과 함께 재결정 |
+| ⚠️ 재확인 필요 | `awscc` provider 인증(TFC OIDC로 실증한 것) | GitHub Actions OIDC 기준으로 **재실증 미완**. 소비 루트 소관 |
+| ✅ **재조회 완료** | 요금 · `awscc_eks_capability` 스키마 · 리전 · 미지원 기능 | **§1.2 실측**(2026-08-07)이 대체했다. ⚠️ **요금은 21 초판이 틀렸다** — §1.2 ③ |
+| ✅ **닫힌 결론** | **관리형 Capability를 쓸 것인가** 자체 | **§1 D-GITOPS-SEAM**(2026-08-07). `01 §3.3`·`01` 열린 항목 1 해소 |
 
 ### 절 번호를 §2.7·§2.8로 유지하는 이유
 
@@ -36,6 +43,244 @@
 > ⚠️ 아래 본문은 **원문 그대로**다(PoC 시점 서술·날짜·run ID 포함). 정리본이 아니라 **이관본**이므로,
 > 본문 안의 "확정"·"실증됨"은 **PoC 스택에서의 것**이며 이 repo가 재현한 것이 아니다.
 > 정리된 실측 요약은 [`../reference/poc-findings.md`](../reference/poc-findings.md)를 본다.
+
+---
+
+## 1. 재결정 — **D-GITOPS-SEAM** (2026-08-07 확정, 사용자 결정)
+
+[`01 §3.3`](../architecture/01-module-strategy.md)이 이 repo에 위임한 재결정을 여기서 닫는다.
+질문은 *"PoC의 관리형 Capability 채택을 승계할 것인가"* 였다.
+
+### 1.1 결정
+
+> ## ⭐ **프로파일 A 내부에서 분기한다**
+>
+> | 조건 | seam |
+> |------|------|
+> | **프로파일 A** (GitOps) — 기본 | **관리형 EKS Capability for Argo CD** (`awscc_eks_capability`) |
+> | 프로파일 A + **아래 탈출 조건 1개 이상** | **self-managed ArgoCD** (helm) |
+> | **프로파일 B** (직접 배포) | **해당 없음** — ArgoCD 자체가 없다 |
+>
+> **탈출 조건 (하나라도 해당하면 self-managed)**
+> 1. **IdC 미보유·도입 불가** — 관리형은 IdC가 **유일 인증 경로**다(§1.2 ④). 우회로가 없다.
+> 2. **§1.2 ⑥ 미지원 기능 중 필수인 것이 있다** — 특히 Notifications controller·CMP·custom SSO.
+> 3. **Application 수 기준 과금이 수용 불가** — §1.2 ③의 실측 단가로 **계산해서** 판정한다.
+>
+> ⛔ **탈출 조건은 "취향"이 아니라 판정 가능한 사실 3개다.** 셋 다 아니면 관리형이다 —
+> *"우리는 직접 운영하는 게 편하다"* 는 조건이 아니다.
+
+### 1.2 실측 (2026-08-07 · profile `team` · 계정 `533616270150` · `ap-northeast-2`)
+
+⭐ **초판(2026-07-18)의 검증 3게이트를 전부 다시 쳤다.** 그중 **하나가 틀렸고**(요금), 둘은 확증됐다.
+
+#### ① 리전 — ✅ 확증. 단 **근거를 바꿨다**
+
+초판은 문서의 *"all commercial regions"* 서술에 의존했다. 이번엔 **두 API가 직접 답했다**:
+- `aws cloudformation describe-type --type-name AWS::EKS::Capability` →
+  `arn:aws:cloudformation:ap-northeast-2::type/resource/AWS-EKS-Capability`, `FULLY_MUTABLE`
+- Price List API에 **`APN2-AmazonEKSCapabilities-ArgoCD-Hours:perCapability` 실재**
+
+#### ② 카탈로그 경계 — 관리형 Capability는 **addon이 아니다**
+
+`describe-addon-versions`에서 `type=gitops`는 **2건뿐이고 둘 다 `owner=aws-marketplace`**다
+(`akuity_agent` · `spacelift_workerpool-controller`). **`owner=aws`인 gitops addon은 없다.**
+- 🔑 그래서 [`20 §1.1`](20-eks-module.md)의 **D-ADDON-BOUNDARY가 이 결정을 판정하지 못한다** —
+  그 함수의 입력은 *"`aws_eks_addon`으로 설치되는가"* 인데 Capability는 **별도 API**다.
+  ⚠️ *"카탈로그를 먼저 조회한다"* 는 절차는 옳았고, **조회 결과가 "이 축은 내 소관이 아니다"** 였다.
+- ⛔ 제3 후보 **`akuity_agent`**(관리형 ArgoCD SaaS)는 `aws-marketplace`라
+  [`20 §1.1`의 Marketplace 규칙 상자](20-eks-module.md)가 **이미 기본 대상에서 배제**한다.
+  여기서 다시 논증하지 않는다 — 검토했고 **같은 축으로 배제**됐다는 기록이다.
+- ⭐ **관리형 Capability는 Marketplace가 아니다.** AWS 1st-party라 **벤더 구독이 전제되지 않는다** —
+  이 repo의 존재 이유(*"구독 라이선스 없이 바로 착수"*)와 **충돌하지 않는다.**
+
+#### ③ 🔴 요금 — **초판이 틀렸다. 서울 실측으로 교체한다**
+
+| | 초판(2026-07-18) | **실측(APN2, Price List API)** | 차이 |
+|---|---|---|---|
+| capability 기본료 | `$0.03/hr` (≈$21.9/월) | **`$0.034799/hr`** (**$25.40/월**) | **+16.0%** |
+| Application 단가 | `$0.0015/hr` | **`$0.001726/hr`** (**$1.26/월**) | **+15.1%** |
+
+월 환산 730h. **Application 수에 선형**이다:
+
+| Application 수 | 30 | 50 | 100 |
+|---|---|---|---|
+| 월 비용 | **$63.20** | **$88.40** | **$151.40** |
+
+> ### 📌 **재사용할 절차 — 요금의 SSOT도 API다**
+>
+> 초판의 값이 어디서 왔는지는 남아 있지 않지만, **서울 값이 아니었다.**
+> 3rd-party 블로그도 확인해 봤더니 `$0.02771`/`$0.00136`(us-east-1)에 *"서울은 미확인"* 이라
+> 적혀 있었다 — **틀렸다.** APN2 usagetype이 실재하고 us-east-1 대비 **약 25.6% 비싸다.**
+> ⇒ 요금은 **`aws pricing get-products`로 리전 지정해 뽑는다.** 콘솔 페이지·블로그를 인용하지 않는다.
+> ⭐ [`20 §1.1`](20-eks-module.md)이 addon 카탈로그에서 얻은 *"SSOT는 문서가 아니라 API"* 가
+> **요금 축에서 그대로 재현됐다.**
+
+⚠️ **이 축은 self-managed가 유리하다.** 초판이 적었듯 in-cluster ArgoCD는 기존 노드에 얹으면
+한계비용 ≈ $0이고 **Application 수와 무관**하다. 관리형을 택한 것은 **비용을 이겼기 때문이 아니라
+운영 부담·도달성과 맞바꿨기 때문**이다(§1.3).
+
+#### ④ 🔴 IdC 필수 — **스키마가 `optional`이라고 요구가 사라진 것이 아니다**
+
+`awscc_eks_capability`의 `configuration.argo_cd.aws_idc`는 스키마상 **Optional**이다.
+그러나 공식 문서는 *"AWS Identity Center configured — **Required** for Argo CD authentication
+(**local users are not supported**)"* 다. 초판의 L-3 판단([`poc-findings.md`](../reference/poc-findings.md) 3.6)이 **유효하다.**
+
+> ### 📌 **재사용할 규칙 — 소스마다 대답할 수 있는 질문이 다르다**
+>
+> [`20 §1.1`](20-eks-module.md)이 *"API가 문서를 이긴다"* 로 읽히기 쉬운데, **여기선 반대다.**
+> 정확한 규칙은 이것이다:
+>
+> | 소스 | 대답하는 질문 |
+> |------|--------------|
+> | 스키마·카탈로그 **API** | *무엇을 **넣을 수 있나*** · *무엇이 **존재하나*** |
+> | **문서** | *무엇이 **있어야 동작하나*** · *무엇이 **지원되지 않나*** |
+>
+> `awscc` 스키마는 CloudFormation 스키마 **자동 생성물**이라 "필드의 형식적 선택성"만 안다.
+> **운영상의 전제조건은 표현할 수 없다.** ⇒ **가용성은 API로, 전제조건·제약은 문서로 판정한다.**
+> ⛔ 어느 한쪽만 보고 단정하지 않는다 — 20 §1.1은 전자로, 이 절은 후자로 틀릴 뻔했다.
+
+#### ⑤ PoC가 부딪힌 벽 — **범위가 좁아졌다**
+
+§0 상태표는 *"auto-managed Access Entry의 `kubernetesGroups`가 비어 custom ClusterRole을 bind할 수
+없다 — 어느 안을 택하든 다시 만난다"* 고 적었다. **spoke 축에는 해당하지 않는다.**
+현재 문서는 spoke 등록을 **사람이 만드는 access entry**로 안내한다:
+
+```
+aws eks create-access-entry --cluster-name <target> \
+  --principal-arn <ArgoCD capability role> --type STANDARD \
+  --kubernetes-groups system:masters
+```
+
+⇒ 벽은 **hub 로컬 클러스터의 auto-managed entry에 한정**된다. 상태표 문구를 그대로 인용하지 말 것.
+⚠️ **`system:masters`는 문서의 예시값이지 우리 권고가 아니다** — 최소권한은 소비 루트에서 좁힌다
+([`50 §5-7`](50-reference-consumer-repo.md)의 권한 축소와 같은 성격의 열린 항목).
+
+#### ⑥ 미지원 기능 — **초판에 없던 목록. 탈출 조건 2의 판정 근거다**
+
+Config Management Plugins · custom Lua health check · **Notifications controller** ·
+**custom SSO**(IdC 전용) · UI extensions · `argocd-cm`/`argocd-params` 직접 접근 ·
+**sync timeout 120초 고정** · Application/ApplicationSet/AppProject CR은 **단일 namespace 강제** ·
+IdC identity **1,000개 한도**.
+
+CLI 제약(→ [`40` 열린 항목 7](40-workbench.md)에 직접 영향):
+`argocd login` **미지원**(계정·프로젝트 토큰) · `argocd admin` 미지원 · `--grpc-web` **필수** ·
+앱 지정에 **namespace 접두**(`argocd app sync <ns>/<app>`) · `argocd cluster add`에 `--aws-cluster-name` 필요.
+
+#### ⑦ 스키마 — `v1.93.0` → **`v1.95.0`** (registry.opentofu.org 실측, 최신 stable)
+
+초판 대비 실제 변경:
+
+| 항목 | 상태 |
+|------|------|
+| `type` | **`ACK` / `ARGOCD` / `KRO`** 3값으로 확장(초판은 `ARGOCD`만 기록) |
+| **`namespace`가 immutable** | `createOnlyProperties`에 `Configuration/ArgoCd/Namespace` — **초판에 없던 제약** |
+| `aws_idc`가 immutable | `createOnlyProperties` — 초판 기록 **유효** |
+| `delete_propagation_policy=RETAIN` 유일 | **유효** |
+| `network_access.vpce_ids` | **초판이 이미 기록**했다(§2.7). 새 축이 아니다 |
+| `idc_region` | 1급 인자 — cross-region IdC가 **스키마로 지원**됨 |
+
+> ### ⛔ **착수 전에 확정해야 하는 값 5개 — 바꾸려면 재생성이고, RETAIN이 orphan을 남긴다**
+>
+> `createOnlyProperties` = `cluster_name` · `capability_name` · `type` ·
+> `configuration.argo_cd.namespace` · `configuration.argo_cd.aws_idc`
+>
+> 🔑 **이 다섯은 `delete_propagation_policy=RETAIN`과 맞물려 특히 비싸다** — 재생성이 곧
+> *"이전 Capability가 만든 k8s 리소스가 그대로 남는다"* 이기 때문이다. 열린 항목 1의
+> **M-4(RETAIN 상호작용)** 가 이 다섯 전부로 확장된다고 읽는다.
+> ⇒ 소비 루트는 **namespace와 IdC 인스턴스를 첫 apply 전에 확정**한다.
+
+#### ⑧ ⚠️ 로컬 `aws` CLI가 뒤처져 있다
+
+`aws-cli/2.27.18`에는 `eks describe-capability`·`list-capabilities`가 **없다**(문서에는 있다).
+⇒ **CLI에 없다고 API에 없는 것이 아니다.** 이번 실측이 Cloud Control·Price List API를 쓴 이유다.
+Capability를 실제로 조작할 때는 **CLI를 먼저 올린다.**
+
+### 1.3 왜 관리형이 프로파일 A의 기본인가
+
+근거 4개이고, **①②만으로 결론이 선다.**
+
+1. ⭐ **[`40`](40-workbench.md)이 방금 확정한 private-only와 정합한다.** 공식 문서:
+   *"transparent access to fully private EKS clusters **without requiring VPC peering or specialized
+   networking** — AWS manages connectivity between the Argo CD capability and private remote clusters."*
+   **self-managed를 택하면 40이 workbench로 푼 도달성 문제를 hub→spoke 축에서 다시 푼다.**
+2. ⭐ **[`22 §3.2`](22-day2-operations.md)의 *"프로파일 B의 helm 대상은 둘뿐"* 이 유지된다.**
+   관리형은 클러스터 안에 아무것도 설치하지 않으므로 helm 대상이 **0개 는다.**
+   self-managed면 프로파일 A의 helm 대상이 하나 늘고, **ArgoCD 자체가 업그레이드·HA·백업 대상**이 된다
+   — 이는 [`22 §3.1`](22-day2-operations.md) 질문 1이 프로파일 A에 매긴 비용 그 자체다.
+3. **Marketplace가 아니다**(§1.2 ②) — 조달 마찰 축에서 이 repo의 존재 이유와 충돌하지 않는다.
+4. 노드 리소스를 쓰지 않는다(off-cluster 실행).
+
+**대가**: §1.2 ③(App당 과금) · ④(IdC 필수) · ⑥(미지원 기능). 이 셋이 곧 **탈출 조건**이다 —
+🔑 **대가를 숨기지 않고 판정 가능한 조건으로 바꾼 것**이 이 결정의 형태다.
+
+### 1.4 "둘 다 지원"의 비용을 값 매긴다
+
+⛔ [`04 §3`](../architecture/04-engine-decision.md)이 *"두 엔진 동시 지원"* 을 **실측 비용을 매겨
+기각**했다. 같은 형태의 질문이므로 **같은 방식으로 값을 매긴다** — 매기지 않고 분기하면
+04가 기각한 것을 이름만 바꿔 되살리는 것이다.
+
+| 04 §3이 든 엔진 분기의 비용 | 여기서는? |
+|---|---|
+| 교차변수 validation 지원 확인 비용 | **없음** — 모듈 `.tf`가 갈리지 않는다 |
+| lock 커밋 포기 | **없음** |
+| 로컬↔CI 피드백 지연 | **없음** |
+| 🔴 **`required_version`이 느린 엔진에 영구히 묶임** | **없음** |
+
+> ### 🔑 **비용이 낮은 이유는 하나다 — 분기가 모듈이 아니라 소비 루트에서 일어난다**
+>
+> 이 repo는 **GitOps hub를 소유하지 않는다**(이 문서 머리말의 분리 근거 2 — 구현체는 전부
+> `live/cicd/gitops-hub`). [`§3.3`](../architecture/01-module-strategy.md)이 이미 못박았듯
+> **재결정은 `eks-cluster` 모듈의 계약을 바꾸지 않는다** — 모듈이 seam에 지는 의무는
+> 출력(`cluster_name`·`cluster_arn`·`oidc_provider_arn`)뿐이다([`20 §3.2`](20-eks-module.md)).
+>
+> ⇒ **실제로 드는 비용은 문서 축 하나뿐**이다: `22 §3.2` 표에 프로파일 A의 갈림을 적고,
+> 소비 루트가 두 경로 중 하나를 고른다. **`.tf` 변경 0 · 모듈 계약 변경 0.**
+>
+> ⚠️ **이것이 "분기는 언제나 싸다"는 뜻은 아니다.** 04의 분기가 비쌌던 이유는 그것이
+> **모든 모듈의 `required_version`에 박히는 축**이었기 때문이다. 값이 갈리는 지점이
+> **소비자 1곳**이냐 **모듈 N개**냐가 판정 기준이다.
+> 📌 **다음에 "둘 다 지원할까"가 나오면 먼저 물을 질문**: *"갈림이 모듈 계약에 박히는가."*
+
+### 1.5 PoC와 결론이 같은데 무엇이 다른가
+
+⭐ **§2.7의 "결정: 옵션 C"와 결론이 같다.** 그래서 *"그냥 승계한 것 아닌가"* 로 읽히기 쉬운데,
+**근거와 범위가 둘 다 다르다.**
+
+| | §2.7 (PoC, 2026-07-18) | **§1 (D-GITOPS-SEAM, 2026-08-07)** |
+|---|---|---|
+| 근거 | AFT 멀티어카운트에서 **반복 설치 소거** | **프로파일 A 정의와의 정합** + [`40`](40-workbench.md) private-only 도달성 |
+| 범위 | 무조건 | **프로파일 A 한정 + 탈출 조건 3개** |
+| 대안 | 기각 | **fallback으로 살아 있다**(self-managed) |
+| 요금 | `$0.03`/`$0.0015` | **실측 교체** — `$0.034799`/`$0.001726`(APN2) |
+| 전제 스택 | TFC + Sentinel | **GitHub Actions + OpenTofu** |
+
+🔑 **[`04`](../architecture/04-engine-decision.md)가 D-OSS-STACK의 엔진 축에 한 것과 같은 형태다** —
+*결론은 같고 이유가 다르다.* 이 repo에서 이 패턴이 반복되는 이유는, PoC의 결론이 **대체로 옳았지만
+그 근거가 TFC 전제에 얹혀 있었기** 때문이다. ⛔ **결론이 같다는 이유로 근거를 승계하지 않는다.**
+
+### 1.6 이 결정이 건드리는 다른 문서
+
+| 문서 | 영향 | 이번 개정에서 |
+|------|------|--------------|
+| [`01 §3.3`](../architecture/01-module-strategy.md) · `01` 열린 항목 1 | **해소** | ✅ 포인터로 정리 |
+| [`22 §3.2`](22-day2-operations.md) | 프로파일 A의 seam이 갈린다 | ✅ 포인터 상자 |
+| [`22 §3.1`](22-day2-operations.md) | ⏸ **판별표가 흔들린다 — 아래** | ⏸ 포인터만 |
+| [`40` 열린 항목 7](40-workbench.md) | `argocd` CLI 핀의 근거가 확정됨 | ⏭️ 다음 태스크 |
+| [`30`](30-gitops-repo.md) | ⚠️ 미개정 문서 | ⛔ 손대지 않는다 |
+
+> ### ⏸ **미결로 남긴 것 — `22 §3.1` 판별표 완화 (2026-08-07 사용자 결정: 보류)**
+>
+> `22 §3.1`은 스스로 이렇게 적어 뒀다: *"**4가 예(private 유지)인데 1이 아니오(전담 인력 없음)**인
+> 경우가 가장 어렵다 (…) 지금 답을 갖고 있지 않다."*
+>
+> **관리형 Capability는 그 조합의 양쪽을 동시에 푼다** — 질문 1이 매긴 비용(*"ArgoCD 자체가
+> 업그레이드·SSO·RBAC·백업 대상이 된다"*)을 AWS가 가져가고, 질문 4(private 유지)를 §1.3 ①이 충족한다.
+> ⇒ **판별표의 질문 1을 완화할 근거가 생겼다.**
+>
+> ⛔ **그럼에도 이번에 판별표를 고치지 않는다.** 판별 기준을 바꾸는 것은 *"어느 고객사가 프로파일
+> A인가"* 를 바꾸는 일이라 [`22`](22-day2-operations.md) 전체와 [`30`](30-gitops-repo.md)(미개정)에
+> 파급된다. **21을 닫는 데 필요한 일이 아니다.**
+> 📌 **재개 조건**: 실제로 *"1=아니오 & 4=예"* 인 고객사를 만났을 때. 그때 이 상자를 근거로 착수한다.
 
 ---
 
@@ -63,8 +308,13 @@ fleet 전체를 조망할 single pane of glass가 없다. ArgoCD 자체가 각 �
 계정 추가 시 "ArgoCD 설치"가 아니라 "Access Entry 등록"만 늘어나 §문제의 반복 설치가 구조적으로 소거된다.
 
 **검증 3게이트 (2026-07-18, 전부 통과)**:
+
+> 🔴 **2026-08-07 — 이 3게이트는 §1.2가 전부 다시 쳤다. 게이트 2(요금)는 틀렸다.**
+> 아래 값을 인용하지 말 것 — 서울 실측은 **`$0.034799/hr` + `$0.001726/Application-hr`**(§1.2 ③)이고,
+> awscc 핀은 **`1.95.0`** 기준이다(§1.2 ⑦).
+
 1. **리전** — ap-northeast-2 지원(all commercial regions except GovCloud/China). GA 2025-11-30.
-2. **요금** — `$0.03/capability-hr`(≈ $21.9/월) + `$0.0015/Application-hr`.
+2. **요금** — ⛔ **폐기된 값** — `$0.03/capability-hr`(≈ $21.9/월) + `$0.0015/Application-hr`.
    **PoC(dev 단일)에선 순증 ~$22/월 + 앱당 소액** — 이 규모엔 상쇄할 hub 클러스터가 없다(in-cluster
    standalone ArgoCD는 기존 노드에서 한계비용 ≈ $0). "hub EC2 비용 소거로 상쇄"는 **fleet 확장 시**
    논거이지 PoC 논거가 아니다.
@@ -495,6 +745,11 @@ provider 격리 보존, 로컬 등록 PoC 정정, root App seed는 V1~V3 의존.
 > **재결정([`01 §3.3`](../architecture/01-module-strategy.md))에서 이 리서치를 다시 하지 않도록** 남긴다 —
 > 관리형 Capability를 채택하지 않더라도 *"허브를 몇 개 둘 것인가 · 테넌시를 무엇으로 가를 것인가"*는
 > self-managed ArgoCD에서도 그대로 물어야 하는 질문이다.
+>
+> ✅ **2026-08-07 — 그 재결정은 §1에서 닫혔고, 이 리서치는 실제로 재사용됐다.**
+> 아래 항목들은 이제 *"관리형을 쓸 것인가"* 가 아니라 **"관리형을 어떤 형상으로 쓸 것인가"** 를
+> 묻는 것으로 읽는다. ⚠️ 다만 **여전히 소비 루트 소관**이다 — 이 repo는 hub를 소유하지 않는다.
+> ⚠️ **항목 1의 요금 근거는 §1.2 ③이 교체했다**(초판 값은 폐기).
 
 1. **ArgoCD Capability fleet 확장 정책** (§2.7) — 중앙 Capability 1개(cross-account Access Entry로
    전 계정 관리) vs 계정별 Capability. 2번째 계정(stg) 도입 시점에 확정. dev PoC는 후자의 최소형

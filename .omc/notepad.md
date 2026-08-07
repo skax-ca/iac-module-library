@@ -882,21 +882,87 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 > 백업 절을 §4 로 신설하며 밀렸다. `40` 의 교차 참조 4곳(`§4-1`·`§4-2` → `§5-1`·`§5-2`)을
 > **같은 커밋에서** 고쳤다. ⚠️ `22` 를 다시 인용할 때 옛 번호를 쓰지 않는다.
 
-#### ⏭️ 2순위 — **`21` 개정** (다음 태스크)
+#### ✅ **`21` 개정 완료 — D-GITOPS-SEAM** (2026-08-07). 문서 전용 · `.tf` 변경 0
 
-40 이 닫혀 착수 가능. ⚠️ 번역이 아니라 **재결정**이다(01 §3.3): 관리형 Capability vs self-managed ArgoCD.
-`awscc_eks_capability` 스키마는 착수 시 재조회(21 이 v1.93.0 기준).
+`01 §3.3` 이 위임한 재결정이 닫혔다. 전문은 **`docs/design/21 §1`**(신설).
+개정 문서 4개: `21`(§1 신설·§0 상태표·§2.7 정정 표시) · `01 §3.3`+열린항목1(해소) ·
+`22 §3.1`·`§3.2`(포인터) · `docs/README.md`(상태표).
 
-> ### 🆕 **21 의 입력 하나가 실측으로 늘었다 — 제3 후보 `akuity_agent`**
+> ## ⭐ 결정: **프로파일 A 내부 분기**
+> - **프로파일 A 기본** = 관리형 **EKS Capability for Argo CD**(`awscc_eks_capability`)
+> - **탈출 조건 3개**(하나라도 해당 → self-managed helm): ① **IdC 미보유·도입 불가**
+>   ② 미지원 기능 중 필수인 것 있음 ③ Application 과금 수용 불가
+> - **프로파일 B 는 해당 없음** — 정의상 ArgoCD 가 없다(`22 §3.2`)
+> - 🔑 **분기 축이 A/B 가 아니라 A 내부다.** 착수 때 A/B 로 잡았다가 `22 §3.2` 표를 열고 정정했다 —
+>   B 는 "직접 배포"라 self-managed ArgoCD 를 두면 **정의 모순**이었다.
+
+**🔴 실측이 초판을 하나 뒤집었다 — 요금**(profile `team`·`533616270150`·`ap-northeast-2`)
+
+| | 21 초판(07-18) | **실측(Price List API, APN2)** |
+|---|---|---|
+| capability | `$0.03/hr` (≈$21.9/월) | **`$0.034799/hr` = $25.40/월** (+16.0%) |
+| Application | `$0.0015/hr` | **`$0.001726/hr` = $1.26/월** (+15.1%) |
+
+App 30개 **$63.20/월** · 50개 $88.40 · 100개 $151.40 — **App 수에 선형**.
+⚠️ 3rd-party 블로그는 us-east-1 값(`$0.02771`)에 *"서울 미확인"* 이라 했으나 **APN2 usagetype 실재**,
+us-east-1 대비 **약 25.6% 비쌈**. `aws pricing get-products --filters ...Field=usagetype,Value=APN2-AmazonEKSCapabilities-ArgoCD-Hours:perCapability`
+
+> ### 📌 **재사용할 절차 ① — 요금의 SSOT 도 API 다**
+> 8/6 의 *"addon 카탈로그 SSOT 는 문서가 아니라 API"* 가 **요금 축에서 그대로 재현**됐다.
+> ⇒ 콘솔 페이지·블로그를 인용하지 않는다. **`aws pricing` 을 리전 지정해 뽑는다.**
+
+> ### 📌 **재사용할 절차 ② — 소스마다 대답할 수 있는 질문이 다르다** (8/6 교훈의 정정)
+> `awscc` 스키마는 `aws_idc` 를 **Optional** 이라 하지만 **실제로는 필수**다
+> (문서: *"local users are not supported"*). ⇒ *"API 가 문서를 이긴다"* 가 **아니다**:
+> - **스키마·카탈로그 API** = *무엇을 넣을 수 있나 · 무엇이 존재하나*
+> - **문서** = *무엇이 있어야 동작하나 · 무엇이 지원되지 않나*
 >
-> addon 카탈로그 조회(2026-08-06 2차)에서 나왔다: **`akuity_agent`**(`owner=aws-marketplace`,
-> `type=gitops`) = **관리형 ArgoCD SaaS**. 즉 21 의 선택지가 *관리형 Capability / self-managed* 둘이
-> 아니라 **셋**이다.
-> ⚠️ **다만 `aws-marketplace` 라 위 규칙 상자가 이미 기본 대상에서 배제한다** — 21 에서 다시
-> 논증할 필요 없이 **근거를 인용하면 된다**. 기록하는 이유는 *"검토 안 했다"* 가 아니라
-> *"검토했고 같은 축으로 배제됐다"* 를 남기기 위해서다.
-> 📌 **21 착수 시 `describe-addon-versions` 를 먼저 돌린다** — Capability 계열이 addon 으로
-> 새로 등장했을 수 있고, 문서 페이지는 뒤처진다는 것이 이번에 실증됐다.
+> ⛔ 8/6 은 전자로, 8/7 은 후자로 틀릴 뻔했다. **가용성은 API, 전제조건·제약은 문서.**
+
+**그 밖의 실측**(전문 `21 §1.2`):
+- `AWS::EKS::Capability` **APN2 등록 확인**(`describe-type`, `FULLY_MUTABLE`)
+- `type=gitops` addon 은 **2건뿐, 둘 다 `aws-marketplace`**(`akuity_agent`·`spacelift_workerpool-controller`)
+  ⇒ **`owner=aws` gitops addon 없음** = 관리형 Capability 는 addon 이 아니라 **별도 API**.
+  🔑 **D-ADDON-BOUNDARY 가 이 결정을 판정하지 못한다** — 조회 결과가 *"이 축은 내 소관이 아니다"* 였다.
+  제3 후보 `akuity_agent` 는 Marketplace 규칙이 이미 배제(재논증 불필요, 근거만 인용).
+- awscc **1.93.0 → 1.95.0**. `type` = **ACK/ARGOCD/KRO**. ⚠️ **`namespace` 도 immutable**(초판에 없던 제약)
+- ⛔ **착수 전 확정 필수 5개**(`createOnly`): `cluster_name`·`capability_name`·`type`·`namespace`·`aws_idc`.
+  **RETAIN 과 맞물려 재생성이 orphan 을 남긴다** — 열린항목 1 의 M-4 가 다섯 전부로 확장.
+- 미지원 8종: CMP · Lua health · **Notifications controller** · **custom SSO** · UI extensions ·
+  `argocd-cm` 직접접근 · **sync timeout 120s 고정** · CR 단일 namespace 강제 · IdC identity **1,000 한도**
+- ⚠️ **로컬 `aws-cli 2.27.18` 에 `eks describe-capability` 가 없다**(문서엔 있다).
+  **CLI 에 없다고 API 에 없는 것이 아니다** — 실제 조작 전 CLI 를 올린다.
+- ✅ `network_access.vpce_ids` 는 **초판이 이미 기록**했다(새 축 아님 — 착수 때 새 것으로 착각했다가 정정)
+
+> ### 🔴 **`21` 은 상태표에서 유일하게 "문서 단위 판정"이 안 되는 문서다**
+> **§1 = ✅ 확정 · §2.7·§2.8 = PoC 이관본(인용 불가)** 가 한 파일에 있다.
+> ⇒ **인용할 때 절 번호까지 쓴다.** *"21 에 따르면"* 은 이 문서에 한해 근거가 못 된다.
+> 의도된 예외다 — 이관본을 버리면 PoC 가 부딪힌 벽이 사라지고, 분리하면 30·40 참조 20여 곳이 끊긴다.
+
+> ### ⏸ **미결로 남긴 것 — `22 §3.1` 판별표 완화** (사용자 결정: 보류)
+> 관리형은 판별 질문 **1(전담 인력)** 의 비용을 AWS 가 가져가고 **4(private 유지)** 를 충족한다
+> ⇒ `22 §3.1` 이 *"지금 답을 갖고 있지 않다"* 고 적은 **"1=아니오 & 4=예"** 조합에 답이 생겼다.
+> ⛔ 그래도 안 고쳤다 — 판별 기준 변경은 22 전체 + 30(미개정)에 파급되고 **21 을 닫는 데 불필요**했다.
+> 📌 **재개 조건**: 실제로 그 조합인 고객사를 만났을 때. 근거 전문은 `21 §1.6` 상자.
+
+> ### 🔑 **"둘 다 지원"의 비용을 `04 §3` 형식으로 값 매겼다** (`21 §1.4`)
+> 04 가 든 엔진 분기 비용 4개(validation 확인·lock 포기·피드백 지연·**`required_version` 영구 구속`**)가
+> **여기선 전부 0**이다. 이유는 하나 — **분기가 모듈이 아니라 소비 루트에서 일어난다**
+> (이 repo 는 GitOps hub 를 소유하지 않는다. 모듈 계약 변경 0).
+> 📌 **다음에 "둘 다 지원할까"가 나오면 먼저 물을 질문: *"갈림이 모듈 계약에 박히는가."***
+
+#### ⏭️ 다음 태스크 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
+
+`21` 이 닫혔으므로 착수 가능(사용자 결정 2026-08-06: *"21 개정 후"*). 핀의 근거가 이제 있다.
+- ⚠️ **관리형이 기본이라 CLI 제약이 결정됐다**(`21 §1.2 ⑥`): `argocd login` **미지원**(계정·프로젝트
+  토큰) · `argocd admin` 미지원 · **`--grpc-web` 필수** · 앱 지정에 **namespace 접두**
+  (`argocd app sync <ns>/<app>`) · `argocd cluster add` 에 `--aws-cluster-name` 필요.
+  ⇒ workbench 에 CLI 를 두는 이유는 *"로그인해서 쓴다"* 가 아니라 **토큰 기반 조작**이다.
+- 릴리스 자산 실측(8/6): **`argocd-linux-arm64` 단일 바이너리**(v3.5.0, GitHub Releases) —
+  `t4g.nano` arm64 동작, tarball 해제 없음.
+- ⚠️ `velero` CLI 는 제외됨(D-BACKUP-AWS 가 에이전트 없는 경로를 택함).
+- 📌 도구가 3개가 돼도 **일반화하지 않는다** — 다운로드 형태가 전부 다르다.
+- ⛔ **`.tf` 변경이므로 브랜치 → PR.**
 
 **⭐ `21` 이 닫히면 곧바로 이어지는 것 — `40` 열린 항목 7 (`argocd` CLI)**
 - 사용자 결정(2026-08-06): **`21` 개정 후 착수.** nullable 핀이라 비용은 0 이지만,
@@ -1023,7 +1089,9 @@ apply 해도 안 사라졌다. 소비 루트가 인자를 지웠는데도 그랬
 - plan/apply 권한 분리 — `tofu plan`도 state lock을 잡아 "plan은 read-only"가 성립하지 않는다(D28 열린 항목)
 - CI `init`이 모듈 repo **전체를 clone**한다(실측 F2). 태그·히스토리 증가 시 `?depth=1` 검토
 - plan artifact 암호화 — `retention-days: 1`은 완화이지 해결이 아니다(50 §5)
-- 관리형 ArgoCD 채택 여부 재결정(`docs/architecture/01-module-strategy.md` §3.3)
+- ~~관리형 ArgoCD 채택 여부 재결정(`docs/architecture/01-module-strategy.md` §3.3)~~
+  ✅ **해소**(2026-08-07, **D-GITOPS-SEAM** — `docs/design/21 §1`). 프로파일 A 내부 분기로 확정.
+  ⏸ 파생 미결 1건: **`22 §3.1` 판별표 완화**(관리형이 질문 1·4 를 동시에 푼다) — 보류, 위 절 참조.
 - VPC 설계 **열린 항목 6건**은 `docs/design/10-vpc-module.md` 말미 참조 —
   **1** TGW attachment · **2** prefix list 소유권 · **3** IPAM 연계 · **4** Flow Logs 대상 확장(S3/Firehose) ·
   **5** private NAT 옵션 · **9** per-AZ NAT 개수 기준(호스트 그룹이 넓으면 미사용 NAT가 AZ당 ~$43/월).

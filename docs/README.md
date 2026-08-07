@@ -51,8 +51,8 @@
 | **22** | [22-day2-operations.md](design/22-day2-operations.md) | ✅ (2026-08-06 개정 — **D-DAY2-PROFILE** + **§4 백업·복구**(D-BACKUP-AWS 수용). ⚠️ 구 §4 열린 항목 → **§5**로 이동) |
 | **23** | [23-argocd-self-managed.md](design/23-argocd-self-managed.md) | ✅ (2026-08-07 신규 — **D-ARGOCD-SM-BOOTSTRAP**(workbench seed + 자기 관리) · **-REACH**(port-forward) · **-AUTH** · **-HA**. ⚠️ `.tf` 산출물 없음 — 설계상 그렇다. **§5에 `helm` CLI 핀 `v3.21.3` 추가**(2026-08-07 seed 실행 후 — 표에 빠져 있어 실행자가 그 자리에서 골라야 했다. ⚠️ 강제 장치 없음: `40`의 `helm_version` 미지정 상태) |
 | **24** | `design/24-argocd-managed-capability.md` | ⏳ **미작성** — 관리형 Capability 경로. 계약면은 [21 §1.7](design/21-gitops-bootstrap-seam.md) |
-| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | 🔶 **부분 개정** (2026-08-07) — **§1.1**(D-REPO-CODECONNECTIONS 재판정) · **§4.1**(seed 경로별 분기)만 ✅. **§0·§1·§2·§3·§5는 미개정 = 인용 불가**. ⇒ 인용 시 **절 번호 필수** |
-| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-06 갱신 — **D-WORKBENCH-MODULE**(인라인 철회) · **D-WORKBENCH-SCOPE** · **D-WORKBENCH-SEAM** · **D-WORKBENCH-RENAME** + §7.3-1·§7.3-2 apply 판정 기록 + 열린 항목 7 `argocd` CLI 예정) |
+| 30 | [30-gitops-repo.md](design/30-gitops-repo.md) | 🔶 **부분 개정** (2026-08-07) — **§1.1**(D-REPO-CODECONNECTIONS 재판정) · **§4.1**(seed 경로별 분기)만 ✅. **§0·§1·§2·§3·§5는 미개정 = 인용 불가**. ⇒ 인용 시 **절 번호 필수**. 📌 §1에 `bootstrap/argocd-seed.sh` vendoring **포인터 상자**가 붙었다 — 결정 본체는 [40 §2.5](design/40-workbench.md)가 소유(미개정 본문에 결정을 쓰지 않는 기존 관행) |
+| **40** | [40-workbench.md](design/40-workbench.md) | ✅ (2026-08-07 갱신 — **D-WORKBENCH-REPO**(§2.5, private 저장소 = GitHub App 토큰 + seed 스크립트 vendoring, **부트스트랩 시점 한정**) 신설 · §4.1에 `git`은 변수 없이 항상 설치. ⛔ **`.tf` 미반영 = 브랜치·PR 대기**. 이전: **D-WORKBENCH-MODULE** · **-SCOPE** · **-SEAM** · **-RENAME** + §7.3-1·§7.3-2 apply 판정 + 열린 항목 7 `argocd` CLI 예정) |
 | 50 | [50-reference-consumer-repo.md](design/50-reference-consumer-repo.md) | ✅ (2026-08-07 개정 — **D31**: GitOps 배포 루트를 만들지 않는다. D-CONSUME 소비 경로 규약 · **배포 루트의 SSOT**) |
 
 > ⚠️ **21은 "미개정"이 아니라 "미결정"이었다 — 그 구분이 2026-08-07에 닫혔다.**

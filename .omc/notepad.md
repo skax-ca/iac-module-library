@@ -1241,7 +1241,7 @@ D-KEY-TRANSFER 가 *"workbench 가 스스로 Parameter Store 에서 당긴다"* 
 | 1 | **workbench 에 `git` 이 없다** | 모듈에 변수조차 없음. GitOps seam 은 클론을 전제하는데 | `modules/workbench` **`.tf` → 브랜치·PR** |
 | 2 | `helm` 미설치 | `helm_version` default=`null`, 소비 repo 가 미지정. **모듈 결함 아님** | 소비 repo `iac-reference-infra` |
 | ~~3~~ | ~~**`23 §5` 에 helm CLI 핀 없음**~~ | ✅ **해소**(2026-08-07) — `helm v3.21.3` 등재 + 근거·재검토 조건. `docs/README.md` 상태표도 갱신 | ✅ 완료 |
-| 4 | **workbench 의 private repo 접근 경로 미설계** | `40` 에 git/GitHub 인증 서술 0건 | 설계 판단 필요 — 굳히지 않았다 |
+| ~~4~~ | ~~**workbench 의 private repo 접근 미설계**~~ | ✅ **설계 완료**(2026-08-07, **D-WORKBENCH-REPO** = `40 §2.5`, 사용자 결정) | ⛔ **`.tf` 구현은 대기** |
 
 - **2 의 진짜 문제는 변수 설명이다**: `helm_version` 은 *"Day 2 운영 프로파일 B(`22 §3`)에서 쓴다"* 라고
   적혀 있는데, **`23` 이 self-managed 를 `helm install` 로 seed 하기로 하면서 helm 은 프로파일과
@@ -1252,6 +1252,29 @@ D-KEY-TRANSFER 가 *"workbench 가 스스로 Parameter Store 에서 당긴다"* 
   ⚠️ **helm 최신은 `v4.2.3`(2026-07-09)이지만 일부러 v3 를 골랐다** — 차트 `argo-cd 10.3.0` 은
   helm 3 시대 산물이고, **최초 부트스트랩에 메이저 CLI 변경까지 겹치면 실패 시 원인이 둘로 갈린다.**
   🔑 이 근거는 `23 §5` 에 등재돼야 다음 사람이 고칠 수 있다(공백 3).
+> ### ✅ **D-WORKBENCH-REPO — `40 §2.5` 신설** (2026-08-07, 사용자 결정)
+>
+> **GitHub App installation token 으로 GitOps 저장소를 클론** + **`argocd-seed.sh` 를 그 저장소
+> `bootstrap/` 에 vendoring.** 부트스트랩 시점 한정이라 **상시 자격증명이 workbench 에 없다.**
+> - 🔑 **한계비용 ≈ 0**: D-KEY-TRANSFER 상 **그 시점 App 키가 이미 workbench 에 있다.**
+>   같은 저장소를 읽는 데 한 번 더 쓸 뿐 — 새 자격증명·IAM·버킷이 **0개**.
+>   ⇒ `40 §2.4`(D-WORKBENCH-SCOPE)가 계약으로 못박은 **"자격증명 추가 없음"이 지켜진다.**
+> - ⭐ **`30 §1.1` 의 기준을 다시 읽은 것이 판정의 핵심**: 그 조항이 CI 용 App 재사용을 금지한
+>   진짜 이유는 *"주체가 다르다"* 가 아니라 **접근 가능 집합이 늘어난다**(모듈 저장소들)는 것이었다.
+>   여기서는 대상·권한·목적이 전부 같아 집합이 늘지 않는다. ⛔ **역방향은 금지** —
+>   `iac-module-library` 를 이 App 설치 범위에 넣지 않는다(ArgoCD 가 모듈 소스를 읽게 된다).
+> - 🥚 **닭과 달걀**: 클론 헬퍼(JWT→token→clone)는 **클론 전에 필요해 vendoring 불가** ⇒ 런북 인라인.
+>   성립 조건은 **짧을 것 · 비밀이 아닐 것**. ⚠️ 길어지면 **S3 안이 필요하다는 신호**다.
+> - **`git` 은 변수 없이 항상 설치**로 정했다(`40 §4.1`). `kubectl`·`helm` 이 nullable 핀인 이유는
+>   버전이 **클러스터·차트에 결합**되기 때문인데 `git` 은 배포판 패키지라 **핀할 값이 없다.**
+>   같은 패턴을 기계적으로 복사하면 **선택지 없는 분기**가 생긴다(열린 항목 6 의 경고).
+> - **기각**: deploy key(장기 자격증명 + SSH 라 `egress_cidr_blocks` 443 계약을 건드림) ·
+>   `gh auth login`(개인 토큰이 공용 workbench 에 각인) ·
+>   **S3 아티팩트**(⭐ 최유력 대안 — GitHub 자격증명 0 + SHA tarball 이라 dirty 원천 불가.
+>   `s3:GetObject` IAM + 버킷 결정 비용 때문에 기각. **workbench 의 GitHub 접근을 금지하는
+>   고객사가 나오면 이 안으로 전환**) · send-command 배달(페이로드 상한).
+> - 📌 미개정 문서 `30 §1` 에는 **포인터 상자만** 남겼다 — `30 §5` 에서 쓴 관행 그대로다.
+
 - **4 를 이번엔 이렇게 우회했다**: GitHub App installation token 으로 클론(JWT 를 workbench 에서
   `openssl` 로 서명 — `jq`·`openssl` 이 AL2023 에 기본 탑재라 가능했다). 토큰이 `.git/config` 에
   남지 않도록 클론 직후 `remote set-url` 로 정규화했다(실측 확인).

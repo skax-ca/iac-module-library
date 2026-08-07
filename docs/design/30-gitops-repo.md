@@ -271,6 +271,26 @@ platform-gitops-repo/
   **불변** — cluster generator가 라벨로 자동 팬아웃, valueFiles는 `{{name}}`으로 그 클러스터 값만 소비.
 - 새 앱팀 = `projects/<team>.yaml` 가드레일 1개(플랫폼 소유). 앱 워크로드 자체는 **앱팀 repo(범위 밖)**.
 
+> ### 📌 **`bootstrap/`에 `argocd-seed.sh` 사본이 추가된다** — 결정은 [`40 §2.5`](40-workbench.md)가 소유 (2026-08-07)
+>
+> ⚠️ **위 트리는 미개정 구역이라 고치지 않는다.** 여기엔 사실과 포인터만 둔다
+> (`30 §5`에서 이미 쓴 방식 — 결정을 미개정 본문에 쓰면 *어디까지가 PoC 전제인지* 판정 불가능해진다).
+>
+> **왜 생기나**: self-managed 경로에서 seed는 workbench가 실행하는데, workbench는 SSM 전용이라
+> `scp`가 없고 **private 저장소 두 개**(GitOps · `iac-module-library`)에 닿아야 한다.
+> **D-WORKBENCH-REPO**는 GitHub App installation token으로 **GitOps 저장소만** 클론하고,
+> `argocd-seed.sh`의 **핀된 사본을 `bootstrap/`에 vendoring**하기로 했다 —
+> ⇒ **클론 한 번으로 매니페스트와 실행 절차가 함께 온다.**
+>
+> - **SSOT는 `iac-module-library`가 유지**한다([`23 §6-5`](23-argocd-self-managed.md)). **사본은 편집하지 않는다** —
+>   고치는 곳이 하나면 사본이 여럿이어도 SSOT는 하나다(vendoring이지 경쟁 SSOT가 아니다).
+> - 사본 헤더에 **출처 태그**를 적는다.
+> - ⛔ **이 App의 설치 범위에 `iac-module-library`를 추가하지 않는다** — 그러면 ArgoCD가 모듈 소스까지
+>   읽게 되어 접근 집합이 실제로 늘어난다([`§1.1`](#11--d-repo-codeconnections-재판정--경로마다-갈린다-2026-08-07)의 기준).
+> - ⚠️ **관리형 경로에는 이 항목이 없다** — seed 자체가 없다.
+>
+> 🔁 `bootstrap/`은 [§4](#4-부트스트랩)가 소유하므로, 사본의 **파일명·갱신 절차**가 정해지면 그쪽에 적는다.
+
 ### ⭐ 저장소 호스팅·접근 방식 — GitHub private + AWS CodeConnections (2026-07-24 확정, D-REPO-CODECONNECTIONS)
 
 **결정**: 플랫폼 GitOps 저장소는 **GitHub private**으로 두고, ArgoCD의 접근은 **AWS CodeConnections**로 한다.

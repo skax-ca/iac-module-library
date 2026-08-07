@@ -124,8 +124,39 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 
 ### 사용법
 
+> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다** (D-WORKBENCH-REPO, [`40 §2.5`](../docs/design/40-workbench.md))
+>
+> workbench는 SSM 전용이라 `scp`가 없고 GitHub 자격증명도 없다. **ArgoCD가 쓰는 그 App의
+> installation token**으로 클론한다 — 새 자격증명이 생기지 않는다.
+> ⚠️ **순서가 D-KEY-TRANSFER보다 앞이 아니다**: 키가 **클론에도 쓰이므로 키를 먼저 내린다.**
+>
+> ```bash
+> # 키는 D-KEY-TRANSFER ②로 이미 내려받은 상태여야 한다 (~/gh-app.pem)
+> APP_ID=<app_id>; INST_ID=<installation_id>; KEYFILE=~/gh-app.pem
+> ORG=<org>; REPO=<gitops-repo>; DEST=~/$REPO
+>
+> b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+> now=$(date +%s)
+> h=$(printf '%s' '{"alg":"RS256","typ":"JWT"}' | b64url)
+> p=$(printf '{"iat":%d,"exp":%d,"iss":"%s"}' "$((now-60))" "$((now+540))" "$APP_ID" | b64url)
+> sig=$(printf '%s.%s' "$h" "$p" | openssl dgst -sha256 -sign "$KEYFILE" | b64url)
+> TOKEN=$(curl -s -X POST -H "Authorization: Bearer $h.$p.$sig" \
+>   -H 'Accept: application/vnd.github+json' \
+>   "https://api.github.com/app/installations/$INST_ID/access_tokens" | jq -r .token)
+>
+> git clone --quiet "https://x-access-token:$TOKEN@github.com/$ORG/$REPO.git" "$DEST"
+> git -C "$DEST" remote set-url origin "https://github.com/$ORG/$REPO.git"   # ⛔ 토큰을 .git/config에 남기지 않는다
+> ```
+>
+> - ⛔ **`TOKEN`을 출력하지 않는다.** 설치 범위 확인이 필요하면
+>   `curl -H "Authorization: token $TOKEN" https://api.github.com/installation/repositories`
+>   로 **저장소 목록만** 본다(실측 2026-08-07: `total_count=1`).
+> - `openssl`·`jq`는 **AL2023 기본 탑재**라 도구를 늘리지 않는다. `git`은 workbench가 설치한다(`40 §4.1`).
+> - 🥚 **이 조각만은 vendoring할 수 없다** — 클론하기 전에 필요하기 때문이다(`40 §2.5`).
+>   길어지기 시작하면 다른 배달 경로가 필요하다는 신호다.
+
 ```bash
-# 1) GitOps 저장소를 체크아웃하고 최신 상태로 둔다 (ArgoCD는 원격을 읽는다)
+# 1) 저장소를 최신 상태로 둔다 (ArgoCD는 원격을 읽는다 — 갓 클론했다면 생략)
 git -C ~/iac-platform-gitops pull
 
 # 2) 파라미터

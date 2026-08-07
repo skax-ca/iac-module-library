@@ -233,6 +233,85 @@ PoC는 `snet-poc-dev-an2-vm-uniq-a/c`라는 구체 서브넷을 지정했다. �
 > 🔁 **재검토 조건**: 프로파일 B 고객사가 **환경 3개 이상**(dev/stg/prd)으로 늘어 helm 실행이 반복
 > 작업이 되면 그때 다시 판단한다. 그 시점엔 자동화의 값이 자격증명 1개의 대가를 넘어선다.
 
+### 2.5 D-WORKBENCH-REPO — private 저장소 접근은 **GitHub App 토큰, 부트스트랩 시점 한정** (2026-08-07)
+
+**문제**: [`23 §2.1`](23-argocd-self-managed.md)의 seed는 workbench에서 두 가지를 요구한다 —
+**(a)** GitOps 저장소의 **커밋본 파일**(자기소멸 원칙이 *"커밋본을 그대로 apply"* 를 요구) ·
+**(b)** `argocd-seed.sh`. **둘 다 private 저장소**이고 workbench는 SSM 전용이라 `scp`가 없다.
+2026-08-07 실측 시점에 workbench에는 `git`도 GitHub 자격증명도 **없었다.**
+
+> ## ⭐ **결정 ①: 저장소는 GitHub App installation token으로 클론한다**
+>
+> ArgoCD가 쓰는 그 App([`30 §4.1`](30-gitops-repo.md))의 **installation token**(유효 1시간)으로
+> `git clone` 한다. JWT 서명은 workbench에서 `openssl`로 한다 — **AL2023에 `openssl`·`jq`가
+> 기본 탑재**라 도구를 늘리지 않는다(2026-08-07 실측).
+>
+> 🔑 **한계비용이 거의 0인 이유**: [D-KEY-TRANSFER](../../scripts/README.md)에 따라 **그 시점
+> workbench에는 App private key가 이미 있다.** seed에 쓰려고 내려받은 그 키를, 같은 저장소를
+> 읽는 데 한 번 더 쓰는 것뿐이다. 새 자격증명·새 IAM·새 버킷이 **하나도 생기지 않는다.**
+> ⇒ [§2.4](#24-d-workbench-scope--self-hosted-runner-겸용을-하지-않는다)가 계약으로 못박은
+> **"자격증명 추가 없음"이 그대로 지켜진다.**
+
+> ### ⚠️ **주체가 다른데 재사용해도 되는가 — [`30 §1.1`](30-gitops-repo.md)의 기준으로 판정한다**
+>
+> `30 §1.1`은 CI용 App(`skax-ca-module-reader`) 재사용을 **금지**했다. 기준은
+> *"다른 주체 · 다른 blast radius"* 였다. 여기서는 **주체가 다르다**(ArgoCD가 아니라 조작자).
+> 그런데도 허용하는 근거는 **blast radius가 늘지 않는다**는 것이다:
+>
+> | 축 | ArgoCD의 사용 | 조작자의 사용 | 판정 |
+> |---|---|---|---|
+> | 대상 저장소 | `iac-platform-gitops` | **같음** | 동일 |
+> | 권한 | `contents: read` | **같음** | 동일 |
+> | 목적 | 그 매니페스트를 적용하려고 읽음 | **같음** | 동일 |
+>
+> 🔑 **기준은 "주체가 같은가"가 아니라 "접근 가능 집합이 늘어나는가"다.** CI용 App 재사용이
+> 금지된 진짜 이유는 그것이 **모듈 저장소들**을 함께 열기 때문이었다 — 주체 명칭이 아니라 범위다.
+> ⛔ **그래서 반대 방향은 금지된다**: `iac-module-library`를 이 App의 설치 범위에 **추가하지 않는다.**
+> 그러면 ArgoCD가 모듈 소스까지 읽게 되어 범위가 실제로 늘어난다.
+> (실측 2026-08-07: 이 App의 설치 범위는 `total_count=1`, GitOps 저장소 하나뿐이다.)
+
+> ## ⭐ **결정 ②: `argocd-seed.sh`는 GitOps 저장소에 vendoring한다**
+>
+> 위 ⛔ 때문에 **(b)를 같은 토큰으로 풀 수 없다.** 두 번째 메커니즘을 만드는 대신,
+> 스크립트의 **핀된 사본**을 GitOps 저장소 `bootstrap/`에 둔다 ⇒ **클론 한 번으로 (a)(b)가 함께 온다.**
+> - **SSOT는 이 repo가 유지한다**([`23 §6-5`](23-argocd-self-managed.md)) — 사본은 편집하지 않는다.
+> - 사본 헤더에 **출처 태그**를 적어 어느 버전인지 드러낸다.
+> - 저장소 레이아웃은 [`30 §4`](30-gitops-repo.md)가 소유한다.
+>
+> ⚠️ **이것은 경쟁 SSOT가 아니라 vendoring이다.** 구분 기준은 *"어디를 고치는가"* 하나다 —
+> 고치는 곳이 하나면 사본이 여럿이어도 SSOT는 하나다. 사본을 고치기 시작하면 그때 drift가 된다.
+
+> ### 🥚 **닭과 달걀 — 클론 헬퍼는 vendoring으로 풀 수 없다**
+>
+> 결정 ②는 **seed 스크립트**의 배달을 푼다. 그러나 **클론 자체를 하는 코드**(JWT 서명 →
+> installation token → `git clone`)는 **클론하기 전에** 필요하므로 저장소 안에 둘 수 없다.
+>
+> ⇒ **그 조각은 런북에 인라인으로 둔다**([`scripts/README.md`](../../scripts/README.md)).
+> 성립 조건은 **짧을 것**(붙여넣기 가능) · **비밀이 아닐 것**(키는 Parameter Store에서 오고
+> 토큰은 출력하지 않는다) 두 가지다. 현재 ~15줄로 둘 다 만족한다.
+> ⚠️ 이 조각이 길어지기 시작하면 그것이 **다른 배달 경로(S3 안)가 필요하다는 신호**다 —
+> 기각안 표의 재검토 조건 ①과 같은 지점에서 만난다.
+
+> ### 📌 **귀결 — `git`이 모듈 계약에 들어온다**
+>
+> 클론을 하려면 `git`이 있어야 하는데 **`§4.1`에 그 변수가 없다.** `kubectl_version`·`helm_version`과
+> 같은 nullable 패턴으로 열어야 한다. ⛔ **`.tf` 변경이라 브랜치 → PR**이며 **모듈 계약 변경**이므로
+> `workbench` 마이너를 컷한다([`05`](../architecture/05-versioning-policy.md) — `0.y.z`라 전부 마이너).
+> ⚠️ 2026-08-07 seed는 `git`을 **수동 설치**해서 넘겼다 — **인스턴스 교체 시 사라지는 상태**다.
+
+**기각안**
+
+| 안 | 기각 사유 |
+|---|---|
+| **Deploy key(SSH)** | 장기 자격증명 신설 + 키 배포 문제가 원점 회귀(D-KEY-TRANSFER를 또 씀). 결정적으로 **`egress_cidr_blocks`가 443만 연다**(§4.1) — SSH는 SG 계약까지 건드린다 |
+| **`gh auth login`(device flow)** | **개인 토큰이 공용 workbench에 남는다.** 고객사에서 *"누구 계정으로 부트스트랩했는가"* 가 인스턴스에 각인된다. 도구도 하나 는다 |
+| **S3 아티팩트 경유** | ⭐ **가장 유력했던 대안** — workbench가 GitHub 자격증명을 아예 안 갖고, SHA tarball이라 dirty가 원천 불가하다. 기각 이유는 **`s3:GetObject` IAM 추가 + 버킷 결정**(state 버킷 재사용은 경계 위반)이 필요한데, 채택안은 그 비용이 0이기 때문이다. 🔁 **workbench의 GitHub 접근을 금지하는 고객사가 나오면 이 안으로 전환한다** |
+| **`send-command`로 배달** | 자격증명·IAM 0이지만 **SendCommand 페이로드 상한**이 있어 저장소가 `addons/`로 커지면 깨진다. 절차를 설계하지 않고 넘기는 것에 가깝다 |
+
+**🔁 재검토 조건**: ① 고객사가 workbench의 GitHub 아웃바운드를 금지 → S3 안 ·
+② seed 외에 workbench가 저장소를 **상시** 읽을 요구가 생김(지금은 부트스트랩 시점 한정이라
+상시 자격증명이 없다) · ③ GitOps 저장소가 여러 개로 갈려 App 하나로 못 덮을 때.
+
 ---
 
 ## 3. 도달 경로
@@ -302,6 +381,7 @@ variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS
 # ── 도구 (user_data) ─────────────────────────────────────────────────────
 variable "kubectl_version" { type = string, default = null }  # null = 미설치. 예: "v1.35.7"
 variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.16.4"
+# git 은 변수가 없다 — 항상 설치한다(D-WORKBENCH-REPO §2.5). 근거는 바로 아래.
 
 # ── EKS 연동 — 1층만 (D-WORKBENCH-SEAM) ────────────────────────────────────
 variable "eks_cluster_name" { type = string, default = null }  # null 이면 kubeconfig 생성 안 함
@@ -310,6 +390,20 @@ variable "eks_cluster_arn"  { type = string, default = null }  # eks:DescribeClu
 # ── egress (D-WORKBENCH-EGRESS) ────────────────────────────────────────────
 variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } # 443/tcp
 ```
+
+> ### ⭐ **`git`은 왜 nullable 핀이 아닌가** — 비대칭이 실수가 아니라는 기록 (2026-08-07)
+>
+> `kubectl_version`·`helm_version`이 nullable 핀인 이유는 **버전이 다른 것과 결합**되기 때문이다 —
+> `kubectl`은 **클러스터 마이너**에, `helm`은 **차트**([`23 §5`](23-argocd-self-managed.md))에 묶인다.
+> 소비자가 골라야 할 실제 값이 있다.
+>
+> **`git`은 둘 다 아니다.** `dnf`가 주는 배포판 패키지(`git-core`)라 **핀할 값이 없고**,
+> 크기도 수 MB다. 여기에 `install_git = bool`을 두면 **선택지 없는 분기**가 하나 생긴다 —
+> [열린 항목 6](#10-열린-항목)의 *"분기가 계약을 흐린다"* 에 정확히 해당한다.
+> ⇒ **변수 없이 항상 설치한다.** 같은 패턴을 기계적으로 복사하지 않는 것이 이 판단의 요지다.
+>
+> ⚠️ 이것은 **계약이 넓어지는 변경이 아니다**(입력이 늘지 않는다). 그래도 산출물이 달라지므로
+> `workbench` 마이너를 컷한다.
 
 > **교차변수 validation** — `eks_cluster_name`과 `eks_cluster_arn`은 **함께 주거나 함께 비운다.**
 > 한쪽만 주면 kubeconfig는 만들어지는데 권한이 없거나(이름만), 권한은 있는데 kubeconfig가 없다(ARN만).

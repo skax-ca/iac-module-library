@@ -32,7 +32,7 @@
 | `20-eks-module.md` | EKS wrapper(facade) — addon 경계(D-ADDON-BOUNDARY), Karpenter, Access Entry, 노드 아키텍처(D-NODE-ARCH), external-dns zone 가드(D-EXTDNS-ZONE), 정책·백업 계층(§1.1) |
 | `21-gitops-bootstrap-seam.md` | ArgoCD seam **결정** — §1 D-GITOPS-SEAM(경로 선택 + 갈림점) · §2.7·§2.8 PoC 이관본 |
 | `22-day2-operations.md` | 업그레이드 런북 + Day 2 운영 프로파일(D-DAY2-PROFILE) + 백업·복구(§4) |
-| `23-argocd-self-managed.md` | ⏳ *(예정)* self-managed ArgoCD 설계 — helm 설치·인증·seed |
+| `23-argocd-self-managed.md` | self-managed ArgoCD 경로 — workbench seed + 자기 관리(D-ARGOCD-SM-BOOTSTRAP), 도달성·인증·HA·기능 표면. **`.tf` 산출물 없음** |
 | `24-argocd-managed-capability.md` | ⏳ *(예정)* 관리형 EKS Capability 설계 — `awscc_eks_capability`·IAM·IdC 바인딩 |
 | `30-gitops-repo.md` | GitOps 저장소 구조 — App-of-Apps + ApplicationSet, AppProject 테넌시, addon 3분류. **경로 무관 공통부** |
 | `40-workbench.md` | SSM 기반 workbench **모듈** — 도달 지점, `workbench_enabled` kill switch, EKS 접근 3층 소유 분할(D-WORKBENCH-SEAM) |

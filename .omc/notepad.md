@@ -1001,12 +1001,60 @@ us-east-1 대비 **약 25.6% 비쌈**. `aws pricing get-products --filters ...Fi
 > 있다"* 라고 **경고까지 적어 두고도** 재발했다.
 > 📌 **재사용할 판단: 중복 기록이 stale 해지면 "더 조심하자"가 아니라 한쪽을 지운다.**
 
-#### ⏭️ 다음 태스크 — **`23` self-managed ArgoCD 설계** (문서 · main 직접 커밋)
+#### ✅ **`23` self-managed ArgoCD 설계 완료** (2026-08-07). 문서 전용 · `.tf` 0
 
-계약면은 **`21 §1.7`**. 갈림점 5개 중 self-managed 열을 채운다.
-착수 시 정할 것: helm 설치 주체(workbench 사람 실행 vs `helm_release`) · 인증 방식 ·
-IRSA/Pod Identity 경계 · **root Application seed 인터페이스 1지점** · 배포 루트 이름.
-⚠️ upstream 확인은 `mcp__opentofu__get_module_details` / argo-helm chart 실물로. **추정 금지.**
+**결정 4개**: `D-ARGOCD-SM-BOOTSTRAP`(workbench seed 1회 + **자기 관리**) · `-REACH`(port-forward) ·
+`-AUTH`(local admin seed + OIDC 변수 개방, dex off) · `-HA`(chart 기본 단일 + 변수 개방).
+
+> ### ⭐ **갈림점 1은 자유 선택이 아니라 기존 결정의 논리적 귀결이었다**
+> ① `20 §3.1` private 기본 → 실측 `endpointPublicAccess: false`
+> ② `40 §1` GitHub Actions 공용 runner 는 private apiserver 에 못 닿는다
+> ③ `D-WORKBENCH-SCOPE` workbench 를 runner 로 겸용 안 함
+> ⇒ **`helm_release`·`kubernetes` provider 를 CI apply 경로에 넣을 수 없다.** helm 을 돌릴 곳은
+> workbench 하나이고 거기서는 **사람이** 실행한다(`22 §3.2` 프로파일 B 와 동일).
+> 🔑 **자유도가 줄어든 것은 좋은 신호다** — 새 설계 착수 시 **기존 결정이 이미 답을 정해 뒀는지 먼저 본다.**
+
+> ### 📌 **"upstream 이 있다"와 "upstream 을 쓸 수 있다"는 다르다**
+> **`aws-ia/eks-blueprints-addons` v1.24.3 에 `enable_argocd` 가 실재한다**(실측).
+> 그럼에도 못 쓴다 — `helm_release` 기반이라 **같은 도달성 벽**이다.
+> ⇒ CLAUDE.md *"발명하기 전에 찾는다"* 는 **찾은 뒤 우리 제약과 대조하는 것까지가 절차**다.
+> 찾았다고 채택하면 *plan 은 되는데 apply 가 안 되는* 설계가 된다.
+
+**chart 실측** (`argo-cd-10.3.0` · appVersion **v3.5.0** · `kubeVersion >=1.25.0-0`, 클러스터 1.35 ✅)
+- `crds.keep: **true**` ⚠️ **self-managed 에도 잔존물이 있다** —
+  *"관리형만 RETAIN 으로 지저분하게 남는다"* 는 **잘못된 대비**다. 차이는 잔존 여부가 아니라 **무엇이 남는가**.
+- `notifications.enabled: **true**`(기본) → **끈다**. 🔑 탈출 조건 ②에 쓰인 기능이라 모순처럼 보이나,
+  탈출 조건은 *"그 기능이 필요한 고객사"* 를 가리키고 그 고객사는 켠다 — **baseline 이 켜는 것과 다른 질문**.
+  📌 **탈출 조건에 쓰인 기능을 baseline 에 자동으로 켜지 않는다.**
+- `dex.enabled: true`(기본) → **끈다**(OIDC 직결이면 죽은 경로) · `redis-ha.enabled: false` ·
+  `server.service.type: ClusterIP` · `global.domain: argocd.example.com` → **소비자 입력**
+- ⭐ **`40` 열린항목 7 의 근거 확정**: **chart appVersion 과 `argocd` CLI 를 같은 값(v3.5.0)으로 묶는다.**
+  다르면 *"UI 는 되는데 CLI 가 안 된다"* 를 진단할 근거가 없다. **chart 올리면 CLI 핀도 같이 올린다.**
+
+**⚠️ 30 §4 의 근거 하나가 무효였다** — *"TF 가 seed 산출물을 소유하면 안 되는 이유"* 3개 중
+②(*TFC SaaS 러너 도달 불가*)는 TFC 전제다. **①(reconcile 대상을 TF 가 쥐면 self-heal 이 죽는다)과
+③은 유효**하고 그 둘만으로 결론이 선다. 🔑 **①은 도구 무관이라 스택이 바뀌어도 살아남았다.**
+
+**⚠️ 인용 정정**: 재사용 자산 요건(하드코딩 금지)의 SSOT 는 **`architecture/01 §4`** 다.
+CLAUDE.md 의 *"05 §5.4"* 는 **PoC repo 문서**를 가리키며, 이 repo `architecture/05` 에 §5.4 는 **없다**.
+
+#### 🔴 적용(apply) 경로에 **빠진 것 2개** (2026-08-07 실측)
+
+1. **배포 루트 `live/cicd/` 가 없다** — 소비 repo 는 `live/dev/{networking,eks}` 뿐.
+   `21 §2.8` 의 `live/cicd/gitops-hub` 는 **PoC 시절 이름**이고 `50` 이 채택한 적 없다.
+2. 🔴 **플랫폼 GitOps repo 자체가 없다** — `gh repo list skax-ca` = **`iac-module-library` ·
+   `iac-reference-infra` 둘뿐**. `30` 이 설계하는 대상이 실재하지 않는다.
+   ⇒ `23 §4` 가 선언한 인터페이스(*"root Application 매니페스트가 저장소에 존재한다"*)의
+   **저장소가 아직 없다.**
+
+#### ⏭️ 다음 태스크 — **`30` 개정** (`23` 이 요구하는 범위만)
+
+⛔ **전수 개정하지 않는다**(`23 §4` 가 접점을 1지점으로 격리해 뒀다).
+- 필수 범위: **root Application 매니페스트** + **저장소 접근 방식 재판정**
+  (⚠️ `30 §1` D-REPO-CODECONNECTIONS 는 **관리형 Capability 의 IAM role 전제 위에서** 내려졌다 —
+  self-managed 는 주체가 IRSA/Pod Identity 라 **재판정 대상**이다. `23` 열린항목 4)
+- 그 뒤 **GitOps repo 생성**(위 🔴 2) → 배포 루트(`50`) → 적용
+- ⏸ `24`(관리형) · `40` 열린항목 7(`argocd` CLI 핀 — **근거는 `23 §5` 에서 이미 확정**)
 
 #### ⏸ 뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**
 

@@ -284,7 +284,7 @@ aws sso-admin list-instances --profile team
 | [`22 §3.2`](22-day2-operations.md) | 프로파일 A의 seam이 갈린다 | ✅ 포인터 상자 |
 | [`22 §3.1`](22-day2-operations.md) | ⏸ **판별표가 흔들린다 — 아래** | ⏸ 포인터만 |
 | [`40` 열린 항목 7](40-workbench.md) | `argocd` CLI 핀의 근거가 확정됨 | ⏭️ 예정 |
-| **`23-argocd-self-managed.md`** 🆕 | self-managed 경로 상세 설계 | ⏳ **다음 태스크** — §1.7이 계약면 |
+| **[`23`](23-argocd-self-managed.md)** 🆕 | self-managed 경로 상세 설계 | ⏳ **다음 태스크** — §1.7이 계약면 |
 | **`24-argocd-managed-capability.md`** 🆕 | 관리형 경로 상세 설계 | ⏳ `23` 이후. §1.2 ⑨(IdC)가 전제 |
 | [`30`](30-gitops-repo.md) | ⚠️ 미개정 문서 · **경로 무관 공통부** | ⏳ `23`이 요구하는 범위만 개정(§1.7) |
 
@@ -305,7 +305,7 @@ aws sso-admin list-instances --profile team
 ### 1.7 갈림점 — **두 경로가 공유하는 단일 계약면** (2026-08-07 신설)
 
 §1.1이 두 경로를 열었으므로, **무엇이 갈리고 무엇이 갈리지 않는지**를 여기서 한 번만 정한다.
-`23-argocd-self-managed.md`(self-managed)과 `24-argocd-managed-capability.md`(관리형)는
+[`23`](23-argocd-self-managed.md)(self-managed)과 `24-argocd-managed-capability.md`(관리형)는
 **이 표의 갈림점만** 각자 채우고, 공통부는 [`30`](30-gitops-repo.md)을 함께 가리킨다.
 
 > ## ⛔ **문서를 경로별로 복제하지 않는다**

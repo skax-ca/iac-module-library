@@ -91,15 +91,20 @@ variable "ami_id" {
 
 variable "instance_type" {
   description = <<-EOT
-    인스턴스 타입. 기본 t4g.nano(arm64)는 조작 지점 용도에 충분하다(D-WORKBENCH-SCOPE —
-    self-hosted runner로 겸용하지 않으므로 빌드 부하를 고려하지 않는다).
+    인스턴스 타입. 기본 t4g.small(arm64, RAM 2GB) — D-WORKBENCH-SIZE(설계 §4.3).
+
+    🔴 **t4g.nano(0.5GB)로 내리지 말 것.** 부팅 중 `dnf`가 OOM-killer에 죽는다(2026-08-10 실측:
+    `Killed process (dnf) total-vm:976324kB`) — git이 설치되지 않아 GitOps 클론이 성립하지 않는다.
+    ⚠️ `free -m`이 보여주는 swap은 `/dev/zram0`(RAM 압축)이라 **여유 용량이 아니다.**
+    self-hosted runner로 겸용하지 않으므로 빌드 부하는 여전히 고려하지 않는다(D-WORKBENCH-SCOPE).
+    비용을 줄이려면 타입을 내리는 것이 아니라 workbench_enabled = false로 끈다.
 
     ⚠️ **ami_id의 아키텍처와 정합해야 한다.** 모듈은 검증하지 않는다 — 검증하려면 AMI를
     조회해야 하고(핀의 취지와 충돌), 타입 문자열에서 아키텍처를 유도하는 것은 닫힌 열거를
     새로 만드는 일이다. 불일치는 apply에서 드러난다(설계 §2.3).
   EOT
   type        = string
-  default     = "t4g.nano"
+  default     = "t4g.small"
 }
 
 variable "root_volume_size" {

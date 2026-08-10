@@ -82,7 +82,10 @@ if [ -n "$ARCH" ]; then
   if $CURL -o "$DL_DIR/argocd" "https://github.com/argoproj/argo-cd/releases/download/${argocd_version}/argocd-linux-$ARCH"; then
     install -m 0755 "$DL_DIR/argocd" /usr/local/bin/argocd
     rm -f "$DL_DIR/argocd"
-    argocd version --client || true
+    # ⚠️ HOME 을 붙이는 이유: cloud-init 환경에는 $HOME 이 없어 argocd 가
+    #    `level=fatal msg="$HOME is not defined"` 로 죽는다(2026-08-10 실측).
+    #    설치는 성공한 상태인데 **로그만 보면 실패로 오독한다** — 그 오독을 없애는 것이 목적이다.
+    HOME=/root argocd version --client || true
   else
     echo "[workbench] ⚠️ argocd 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
   fi

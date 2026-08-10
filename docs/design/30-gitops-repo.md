@@ -125,6 +125,10 @@
 > `revision` 해석 여부**다(Karpenter가 그 형태였으나 원인은 values 누락이었다) ·
 > OCI가 repository 등록 없이 동작 · `default` AppProject 실측(self-managed도 완전 개방,
 > 단 `sourceNamespaces` 필드 없음).
+> 2026-08-10 **§2.9에 IaC 제약 2건 추가** — 증분 ①(`iac-platform-gitops` PR #1) 작성 중 발견:
+> ① Karpenter 컨트롤러는 **`kube-system`** 에 배포해야 한다(Pod Identity association이 IaC 소유) ·
+> ② NodePool 아키텍처는 managed NG를 따라간다(§2.2의 `amd64`는 PoC의 x86 값, 현행은 **Graviton**).
+> 🔑 둘 다 **계층 1이 정해 둔 값을 계층 2가 다시 고르려다** 생기는 같은 형태다.
 
 **범위**: 이 문서는 **플랫폼 GitOps 저장소**(이 Terraform repo와 분리된 별도 repo)의 **구조·규약**을
 설계한다. 개별 매니페스트의 완성된 내용(AWS Load Balancer Controller values 전체 등)은 구현 단계 소관 — 여기서는
@@ -937,6 +941,44 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 > ⚠️ **모듈이 태그를 부여한다**까지가 이 repo의 판정이다. **실물 SG에 붙어 있는지**는 소비 repo
 > 소관이며, 증분 착수 시 `aws ec2 describe-security-groups` 조회로 몇 초 만에 닫을 수 있다
 > ([`CLAUDE.md`](../../CLAUDE.md) — *"동작한다"의 기준은 `tofu test` + 예제 `validate`까지*).
+
+### 🔴 **IaC가 GitOps에 부과하는 제약 2개 — §2.2 본문에 없다** (2026-08-10 증분에서 발견)
+
+증분 ①(ALBC·Karpenter) 작성 중 실측으로 드러났다. **둘 다 §2.2를 그대로 베끼면 밟는다.**
+
+#### ① **Karpenter 컨트롤러는 `kube-system`에 배포해야 한다 — `karpenter` ns가 아니다**
+
+| | 값 | 출처 |
+|---|---|---|
+| Pod Identity association | **`kube-system` / `karpenter`** | `aws eks list-pod-identity-associations` 실측 |
+| 왜 그 값인가 | upstream `terraform-aws-modules/eks//modules/karpenter` **v21.24.1의 기본값** | `modules/eks-cluster/main.tf`가 override하지 않는다 |
+
+⇒ Karpenter **공식 문서의 관례**(전용 `karpenter` 네임스페이스)를 따르면
+**association이 매칭되지 않아 컨트롤러가 AWS 자격증명을 못 받는다.**
+⚠️ 증상은 *"파드는 Running인데 노드가 안 뜬다"* 라서 **원인을 가리키지 않는다.**
+
+🔑 **일반화 — 컨트롤러의 네임스페이스는 GitOps가 고르는 값이 아니다.**
+Pod Identity association이 `(cluster, ns, SA)` 3튜플로 바인딩하므로 **IaC가 먼저 정한다.**
+📌 addon을 추가할 때 **helm 차트의 기본 ns가 아니라 association을 먼저 본다.**
+(ALBC는 우리 모듈이 `iam.tf`에서 `kube-system`을 명시하므로 같은 결론이다.)
+
+#### ② **NodePool의 아키텍처는 클러스터를 따라간다 — §2.2의 `amd64`는 PoC 값이다**
+
+`§2.2` NodePool 스펙은 `kubernetes.io/arch In [amd64]`인데, 이 클러스터의 managed NG는
+**`AL2023_ARM_64_STANDARD` · `t4g.medium`(Graviton)** 이다(실측).
+그대로 쓰면 arm64 클러스터에 amd64 노드가 섞이고 **멀티아키 이미지가 없는 워크로드가 죽는다.**
+
+⇒ 증분 ①은 **`arm64`** 로 넣었다. ⚠️ 이것도 고정값이 아니다 —
+**소비 루트의 `ami_type`(D-NODE-ARCH)이 정하는 값**이라 Graviton을 쓰지 않는 고객사에서는 뒤집힌다.
+🔑 **재사용 자산 관점에서 옳은 표현은 "arm64"가 아니라 *"managed NG와 같은 아키텍처"* 다.**
+
+> ### 📌 **재사용할 판단 — 두 함정이 같은 형태다**
+>
+> 둘 다 **계층 1(Terraform)이 이미 정해 둔 값을 계층 2가 다시 고르려다** 생긴다.
+> `30 §0`의 3계층 소유 모델은 *"누가 무엇을 소유하는가"* 를 정했지만,
+> **소유하지 않는 계층이 그 값을 어떻게 알아내는가**는 적지 않았다.
+> ⇒ **addon 매니페스트를 쓰기 전에 `list-pod-identity-associations`와 `describe-nodegroup`을 본다.**
+> ⚠️ cluster Secret 라벨은 그 답의 일부일 뿐이다 — 라벨에 없는 제약이 이렇게 존재한다.
 
 ---
 

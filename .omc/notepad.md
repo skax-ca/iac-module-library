@@ -1639,15 +1639,62 @@ seed 스크립트는 GitOps 저장소 vendoring 으로 넘어갔다.
 `docs/design/AGENTS.md` — **확정 절 열거를 삭제**하고 README 를 가리키게 했다.
 📌 *"중복 기록이 stale 해지면 더 조심하자가 아니라 한쪽을 지운다"* 의 **세 번째 적용**이다.
 
-**⏭️ 그다음(9-②)**: `iac-platform-gitops` 에 `addons/baseline/` 신설.
-⚠️ **실물은 이 repo 가 아니다** — 여기는 `.yaml` 을 소유하지 않는다(3계층 소유 모델).
-착수 시 순서: **egress canary → 차트 버전 실측 → ApplicationSet + whitelist 개방(같은 PR)**.
-- 이미 준비된 것: cluster Secret 이 `environment`·`vpcId`·`karpenterNodeRole` 라벨을 담고 있어
-  **`addons/` 만 추가하면 된다**(Secret 무수정, 새 클러스터도 O(1)).
-- `platform.yaml` 에서 열 것 2곳: `sourceRepos`(차트 repo) · `clusterResourceWhitelist`
-  (ALBC 5 kind → Karpenter 3 kind, **증분마다 나눠서**). 목록 전문은 `30 §3.1`.
-- 🆕 self-managed 에서만 필요한 것: `https://argoproj.github.io/argo-helm` 을 `sourceRepos` 에
-  (ArgoCD 자기 관리 — `23 §2.1`).
+#### ✅ **9-② addon 증분 ① 완료 — PR 대기 중** (2026-08-10)
+
+**순서대로 ①egress canary → ②버전 실측 → ③매니페스트 전부 실행했다.**
+
+| 단계 | 결과 |
+|---|---|
+| ① canary | ✅ **3호스트 전부 통과**(배포 0으로 확인 후 삭제). `30 §2.9` 에 기록 |
+| ② 버전 실측 | ALBC **3.5.0**(PoC 3.4.2) · Karpenter **1.14.0**(PoC 1.13.0) |
+| ③ 매니페스트 | 🔵 **[`iac-platform-gitops` PR #1](https://github.com/skax-ca/iac-platform-gitops/pull/1)** — **미머지** |
+
+🔴 **머지 = 배포다.** `root-app` 이 `automated.selfHeal` 이라 머지 즉시 sync 된다.
+사용자 결정으로 **브랜치+PR** 을 택했다 — 머지 시점이 곧 배포 시점이라 PR 이 형식이 아니라
+**실질 게이트**다(`30 §3` 이 whitelist 개방을 "리뷰 지점"이라 부른 이유와 같다).
+
+> ### ⭐ **canary 가 실제로 오독을 막았다 — 이번 세션 최대 수확**
+>
+> `canary-karpenter` 가 **rendered 0 + `ComparisonError`** 였다. `30 §2.2` 의 판독법
+> (*"연결 실패면 rendered 0 + ComparisonError"*)대로면 **egress 실패**로 읽힌다.
+> 실제 원인은 `Chart cannot be installed without a valid settings.clusterName!` — **values 누락**이었다.
+> 🔑 **1차 신호는 rendered 가 아니라 `revision` 해석 여부다.** revision 이 `1.14.0` 으로 채워졌다는
+> 것 자체가 차트를 이미 받아왔다는 증거다(못 받으면 채울 수 없다).
+> ⇒ 오독했으면 *"public.ecr.aws 에 못 나간다 → ECR 미러링 검토"* 로 갔을 것이다.
+> ⛔ **없는 문제를 푸는 설계**를 canary 하나가 막았다. `30 §2.9` 에 판별표로 승격했다.
+
+> ### 🔴 **설계를 그대로 베꼈으면 밟았을 함정 3개** (전부 `30 §2.9` 에 등재)
+>
+> ① **Karpenter 를 `karpenter` ns 에 배포하면 안 된다** — Pod Identity association 이
+> **`kube-system`/`karpenter`** 다(upstream `modules/karpenter` v21.24.1 기본값을 우리 모듈이 그대로 씀).
+> Karpenter **공식 관례를 따르면 컨트롤러가 AWS 자격증명을 못 받는다.**
+> 증상이 *"파드는 Running 인데 노드가 안 뜬다"* 라 원인을 안 가리킨다.
+> ② **NodePool 은 `arm64`** — 클러스터가 `AL2023_ARM_64_STANDARD`·t4g.medium(Graviton)인데
+> `30 §2.2` 스펙은 **PoC 의 x86 기준 `amd64`** 다.
+> ③ 위 canary 판독법.
+>
+> 🔑 **①②는 같은 형태다 — 계층 1(Terraform)이 이미 정한 값을 계층 2가 다시 고르려다 생긴다.**
+> `30 §0` 3계층 모델은 *"누가 소유하는가"* 는 정했지만 *"소유하지 않는 계층이 그 값을 어떻게
+> 알아내는가"* 는 안 적었다. 📌 **addon 매니페스트 전에 `list-pod-identity-associations` 와
+> `describe-nodegroup` 을 본다.** cluster Secret 라벨은 답의 일부일 뿐이다.
+
+> ### 📌 **실측이 설계 목록을 한 항목 줄였다**
+>
+> `clusterResourceWhitelist` 를 canary 의 `status.resources` 에서 **namespace 없는 항목만** 추려
+> 실측으로 확정했다. `30 §3` 의 ALBC 5종은 **정확히 일치**했고, Karpenter 컨트롤러의 3종은
+> **ALBC 와 완전 중복**이라 추가가 0 이었다(§3 이 예측한 대로).
+> ⛔ **`karpenter.sh/NodeClaim` 은 뺐다** — 컨트롤러가 만드는 중간 리소스라 **ArgoCD 가 배포하지
+> 않는다.** `30 §3` 초안에 있었으나 최소권한이 원칙이고, 틀렸다면 신호가
+> `resource not permitted in project` 로 명확하다.
+
+**로컬 helm 차트를 둔 이유**(`addons/karpenter/nodepool/`): ApplicationSet 의 fasttemplate 은
+**Application spec 에만** 적용되고 git 경로 안 파일에는 안 된다 ⇒ per-cluster 값을 CR 에 넣을
+다른 수단이 없다. ⛔ 그래서 `root-app` 의 `exclude` 가 한 줄 늘었다.
+✅ 반대로 `addons/baseline/*.yaml` 은 제외하지 않는다(진짜 매니페스트, root App 이 흡수해야 함).
+
+**⏭️ 다음**: PR #1 머지 → apply 판정 5건(PR 본문 체크리스트) → `30` 에 기록 →
+그 뒤 ArgoCD 자기 관리 증분(`argoproj.github.io/argo-helm`, egress 는 이미 확인됨) → `24`(관리형).
+⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 사용자 몫이다.
 
 #### ⏸ ~~뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**~~ ✅ **해소**(2026-08-10) — 아래는 그때의 조사 기록
 

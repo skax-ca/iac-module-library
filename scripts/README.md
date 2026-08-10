@@ -218,6 +218,49 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 
 ---
 
+## 🔁 vendoring — GitOps 저장소의 사본 (D-WORKBENCH-REPO 결정 ②, 2026-08-10 이행)
+
+**이 파일이 SSOT다.** 사본이 `skax-ca/iac-platform-gitops`의 `bootstrap/argocd-seed.sh`에 있다.
+근거·기각안은 [`40 §2.5`](../docs/design/40-workbench.md).
+
+⛔ **사본을 편집하지 않는다.** 고칠 일이 생기면 **여기를 고치고 다시 복사**한다.
+⚠️ 경쟁 SSOT가 아니라 vendoring이다 — 구분 기준은 *"어디를 고치는가"* 하나다.
+
+### 다시 vendoring 하는 법
+
+```bash
+SRC=scripts/argocd-seed.sh          # 이 파일 (모듈 repo 루트에서 실행)
+DST=<gitops>/bootstrap/argocd-seed.sh
+
+# 배너의 '출처' SHA를 지금 값으로 갱신한 뒤 실행한다
+git log -1 --format='%H (%ad)' --date=short -- "$SRC"
+
+# 배너(모든 줄이 #V#로 시작)를 보존한 채 본문만 갈아끼운다
+{ head -1 "$SRC"; grep '^#V#' "$DST"; tail -n +2 "$SRC"; } > "$DST.new"
+mv "$DST.new" "$DST" && chmod +x "$DST"
+```
+
+### 🔍 드리프트 검사 — 한 줄
+
+```bash
+diff <(grep -v '^#V#' <gitops>/bootstrap/argocd-seed.sh) scripts/argocd-seed.sh
+```
+
+배너를 뺀 나머지는 **바이트 단위로 같아야 한다.** 배너의 모든 줄에 `#V#` 접두를 둔 이유가 이것이다 —
+헤더를 붙이는 순간 사본이 SSOT와 달라져 *"편집하지 않았다"* 를 검증할 수 없게 되므로,
+**검사가 한 줄로 끝나도록** 접두를 설계했다.
+
+> 📌 **"출처 태그"의 실제 형태는 커밋 SHA다.** `40 §2.5`는 *"출처 태그"* 라고 적었지만
+> `scripts/`에는 **태그 축이 없다** — 태그는 모듈별 semver(`vpc-v0.3.0`)이고 이 스크립트는
+> `?ref=`로 소싱되지 않는다. 새 태그 축을 발명하는 대신 SHA로 핀했다.
+> 🔁 **여러 고객사 저장소로 사본이 늘어나면** 그때 태그 축을 재검토한다 — 지금은 사본이 1개다.
+
+> ⚠️ **이 절차에도 게이트가 없다.** 아래 열린 항목과 같은 공백이며, 드리프트 검사를 **사람이
+> 기억해서** 돌려야 한다. `verify.yml`에 `.sh` 게이트를 넣을 때 이 검사도 함께 검토한다
+> (사본이 있는 저장소를 CI가 읽어야 하므로 **같은 작업이 아니다** — 별도 판단이 필요하다).
+
+---
+
 ## ⚠️ 열린 항목 — 이 디렉토리는 **어떤 게이트도 통과하지 않는다**
 
 실측(2026-08-07): `.githooks/pre-commit`은 `.tf`/`.tfvars`/lock/설정만 보고,

@@ -1407,6 +1407,28 @@ modules 44 tests(eks 20·vpc 13·**wb 11**) · examples 2 validate · lock regis
 > 정하면서 그 전제가 뒤집혔다. ⇒ `helm_version = "v3.21.3"`(`23 §5` 핀) 을 넣는다.
 > 🔑 이 repo 는 2026-08-10 에 **변수 설명과 예제를 참에 맞췄다** — 집행은 소비 repo 몫이다.
 
+#### ✅ **`argocd-seed.sh` vendoring 완료** (2026-08-10) — `iac-platform-gitops` `ba9d079`
+
+D-WORKBENCH-REPO 결정 ② 이행. 사본 = `bootstrap/argocd-seed.sh`. **SSOT 는 이 repo 의
+`scripts/argocd-seed.sh`** — ⛔ 사본을 편집하지 않는다. 절차는 **`scripts/README.md` 「vendoring」 절**이 소유.
+
+> ### 🔑 **재사용할 판단 3건**
+>
+> ① **"출처 태그"는 커밋 SHA 로 이행했다.** `scripts/` 에는 **태그 축이 없다** — 태그는 모듈별
+> semver 이고 이 스크립트는 `?ref=` 로 소싱되지 않는다. 새 축을 발명하지 않았다.
+> 🔁 사본이 여러 고객사 저장소로 늘면 그때 재검토.
+> ② ⭐ **배너를 붙이면 *"편집하지 않았다"* 를 검증할 수 없게 된다**(바이트가 달라지므로).
+> ⇒ 배너 **모든 줄에 `#V#` 접두** → 검사가 한 줄: `diff <(grep -v '^#V#' <사본>) scripts/argocd-seed.sh`.
+> **규칙은 검사할 수 있어야 규칙이다** — 아니면 권고에 그친다.
+> ③ **root App `exclude` 에 `.sh` 를 넣지 않았다.** ArgoCD directory 소스는 `.yaml`·`.yml`·`.json`
+> 만 읽는다(공식 문서 확인 — 추정하지 않았다). 스캔도 안 되는 것을 제외하면 **죽은 설정**이고
+> 다음 사람이 *".sh 도 스캔된다"* 로 잘못 읽는다. `argocd-values.yaml` 이 제외된 이유는
+> **그것이 `.yaml` 이라 실제로 스캔되기 때문** — 둘의 차이가 거기 있다.
+
+⚠️ **gitops repo README 도 낡아 있었다**(세 번째 repo에서 같은 실패 유형 재현):
+*"seed 3종 작성 완료 — 아직 적용되지 않았다"* 가 남아 있었다. 2026-08-07 에 실제로 적용됐다.
+정정 + 판정표 + 남은 완료 조건(비밀번호 교체)을 등재했다.
+
 #### ⏭️ **다음 태스크 (2026-08-07 세션 종료 시점)** — 우선순위 순
 
 > 🔴 **먼저 알 것: workbench 의 `git`·`helm`·`argocd-seed.sh` 는 전부 수동 설치 상태다.**
@@ -1414,9 +1436,7 @@ modules 44 tests(eks 20·vpc 13·**wb 11**) · examples 2 validate · lock regis
 > 🔑 설계는 **전부 끝나 있다** — 남은 건 구현이다. 설계부터 다시 하지 말 것.
 
 1. ✅ **완료 — `workbench-v0.2.0` 릴리스됨**(2026-08-10, PR #15). 위 절이 SSOT.
-2. 🔴 **지금 여기부터** — **`iac-platform-gitops` — `bootstrap/argocd-seed.sh` vendoring**
-   (D-WORKBENCH-REPO 결정 ②).
-   사본 헤더에 **출처 태그**를 적는다. ⛔ **사본을 편집하지 않는다**(SSOT 는 이 repo).
+2. ✅ **완료 — vendoring**(2026-08-10, gitops `ba9d079`). 아래 절 참조.
 3. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).
    ⚠️ **대화형 SSM 세션이 필요**하다(`send-command` 로는 port-forward 터널이 안 선다).
    ⛔ 초기 비밀번호를 `send-command` 로 조회하지 말 것 — 출력이 CloudTrail·히스토리에 남는다.

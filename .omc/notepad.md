@@ -41,8 +41,9 @@
 
 ### 🔢 현행 릴리스 (2026-08-05 D-VERSION 이후)
 
-> **최신 (2026-08-06 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
-> **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) · **`workbench-v0.1.0`**.
+> **최신 (2026-08-10 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
+> **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) ·
+> **`workbench-v0.2.0`**(git 설치, PR #15 `782f710` — 🔴 **업그레이드 시 인스턴스 교체**).
 > ⚠️ **`bastion-v0.1.0` 은 존재하지 않는다** — 2026-08-06 개명 때 `workbench-v0.1.0` 으로
 > 대체·삭제됐다(D-WORKBENCH-RENAME). 아래 8/5 서술에 남은 이름은 **그때의 사실 기록**이다.
 > ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
@@ -1355,11 +1356,12 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem              # workbench 안의 파일. �
    ⛔ 마지막에 **초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제**(완료 조건이다).
 3. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
-#### ✅ **workbench `git` 구현 — 브랜치 `feat/workbench-git-v0.2.0`** (2026-08-10)
+#### ✅ **`workbench-v0.2.0` 릴리스 완료** (2026-08-10) — PR [#15](https://github.com/skax-ca/iac-module-library/pull/15) 머지 `782f710`
 
-커밋 3개(분리 유지): `26965c4`(git 설치+T-9) · `180d7ca`(helm 설명) · `bc141fc`(문서 정합).
-로컬에서 **CI 게이트 6개 전부 통과** — modules 44 tests(eks 20·vpc 13·wb 11) · examples 2 validate ·
-lock registry 혼입 0.
+브랜치에서 커밋 4개로 작업(분리 유지: git 설치+T-9 / helm 설명 / 문서 정합 / notepad) 후 squash 머지.
+**CI run [`31344989804`](https://github.com/skax-ca/iac-module-library/actions/runs/31344989804) 게이트 6/6** —
+modules 44 tests(eks 20·vpc 13·**wb 11**) · examples 2 validate · lock registry 혼입 0.
+🔑 **로컬 훅과 CI 가 같은 숫자를 냈다** — 도구 버전을 양쪽에 핀해 둔 이유가 이것이다.
 
 > ### 🔑 **재사용할 실측 3건** — 이번에 처음 확인한 것
 >
@@ -1411,9 +1413,9 @@ lock registry 혼입 0.
 > **인스턴스가 교체되면 전부 사라진다.** 1번이 그 부채를 갚는 태스크다.
 > 🔑 설계는 **전부 끝나 있다** — 남은 건 구현이다. 설계부터 다시 하지 말 것.
 
-1. ✅ **구현 완료 — 브랜치 `feat/workbench-git-v0.2.0`** (2026-08-10). 아래 절이 SSOT.
-   ⏳ 남은 것은 **PR 머지 + `workbench-v0.2.0` 태그**뿐이다.
-2. **`iac-platform-gitops` — `bootstrap/argocd-seed.sh` vendoring** (D-WORKBENCH-REPO 결정 ②).
+1. ✅ **완료 — `workbench-v0.2.0` 릴리스됨**(2026-08-10, PR #15). 위 절이 SSOT.
+2. 🔴 **지금 여기부터** — **`iac-platform-gitops` — `bootstrap/argocd-seed.sh` vendoring**
+   (D-WORKBENCH-REPO 결정 ②).
    사본 헤더에 **출처 태그**를 적는다. ⛔ **사본을 편집하지 않는다**(SSOT 는 이 repo).
 3. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).
    ⚠️ **대화형 SSM 세션이 필요**하다(`send-command` 로는 port-forward 터널이 안 선다).

@@ -1587,7 +1587,67 @@ seed 스크립트는 GitOps 저장소 vendoring 으로 넘어갔다.
    - ⛔ 비밀번호는 **사용자가 정할 값**이다.
 8. ✅ **완료 — 판정 ③**: `argocd admin cluster stats -n argocd` 결과 **서버 항목이 하나뿐**
    ⇒ cluster Secret 이 내장 `in-cluster` 를 **대체했다. 중복이 아니다.**
-9. 그 뒤 `addons/` 증분 → `24`(관리형 ArgoCD).
+9. `addons/` 증분 → `24`(관리형 ArgoCD). **9-①(설계 선행)은 완료** — 아래 절 참조.
+
+#### ✅ **`30` 2차 부분 개정 완료 — addon 증분 착수 조건이 갖춰졌다** (2026-08-10, `bf6162c`)
+
+문서 전용 · `.tf` 0 · **main 직접 커밋**(브랜치 없음). 9번의 **선행 작업**이었다 —
+`30` 이 미개정인 채로 addon 매니페스트를 쓰면 `23` 이 피하려던 *"미개정 문서 위에 서는 설계"* 를
+그대로 반복하게 되기 때문. **`23` 과 달리 addon 증분은 `30` 본문 위에 정면으로 선다**(떼어낼 수 없다).
+
+**신설 절 2개** — 본문을 다시 쓰지 않고 **새 절이 판정을 소유**한다(§1.1·§4.1 방식 그대로):
+- **`30 §2.9`** addon 증분 경로별 분기 — 승계(팬아웃 기계 전체) / 갈림 4개
+- **`30 §3.1`** `platform` AppProject 경로별 값 + 선결 과제 재판정
+
+> ## ⭐ **가장 값진 산출 — 선결 과제 2건이 1건이 됐다**
+>
+> `30 §3` 이 *"addon 증분의 선결 과제 2건"* 이라고 적은 것 중 **두 번째(Access Entry → apiserver
+> RBAC)는 self-managed 경로에 존재하지 않는다.** 실측 3건:
+> ① `argo-cd 10.3.0` 기본값 `createClusterRoles: true` + `controller.clusterRoleRules.enabled: false`
+>   ⇒ application controller ClusterRole 이 `apiGroups/resources/verbs = *` (chart 원문)
+> ② `argocd admin cluster stats -n argocd` → **Successful · resources 536** — 관리형이 막혔던
+>   cluster-wide read 가 그대로 된다
+> ③ chart `templates/` 에 AppProject 가 **없다** ⇒ `default` 는 런타임 생성물
+> ⇒ **D-ARGOCD-CLUSTER-READ / -WRITE 는 관리형 경로의 결정**이다. 원인이던 auto-managed Access
+> Entry 의 빈 `kubernetesGroups` 라는 산출물 자체가 self-managed 엔 없다.
+>
+> ### ⛔ **뒤집어 읽지 말 것 — "더 안전하다"가 아니라 "더 넓게 열려 있다"이다**
+> 관리형의 벽은 **최소권한의 부작용**이었고, 넓히는 결정이 곧 리뷰였다. self-managed 는 chart
+> 기본이 cluster-admin 이라 **그 리뷰 지점이 아예 안 생긴다.**
+> 🔑 ⇒ **AppProject `clusterResourceWhitelist` 가 유일한 실질 가드레일이 된다.**
+> `[]` 로 시작하는 선택은 관리형보다 self-managed 에서 **더** 중요하다.
+> ⛔ *"어차피 controller 가 cluster-admin 이니 whitelist 는 형식"* 은 **틀렸다** — ClusterRole 은
+> apiserver 가 막고 whitelist 는 ArgoCD 가 막는다. 후자는 *"저장소에 실수로 들어온 매니페스트"* 를
+> 막는 층이고, **그게 GitOps 에서 실제로 일어나는 사고다.**
+
+> ### 🔑 **재사용할 판단 3건**
+>
+> ① ⭐ **실증은 값이 아니라 방법이 자산이다.** 2026-07-27 egress canary 는 **관리형 repo-server**
+> 기준이라 승계하지 않는다(self-managed 는 우리 노드 위 파드 — 나가는 경로가 다르다). 그러나
+> *"`syncPolicy` 없는 canary 를 심고 rendered 수를 본다"* 는 **그대로 쓴다.** 버전 핀도 같다 —
+> ALBC `3.4.2`·Karpenter `1.13.0` 은 버리고 **구조는 쓰고 숫자만 다시 실측**한다.
+> ② ⭐ **stale 정정 2건이 개정의 절반이었다.** 헤더가 *"⚠️ 아직 apply 되지 않았다"* 를 **3일간**
+> 유지했고(seed 는 8/7 완료), `§2.2` 의 Karpenter SG 태그 선결 과제는 이미 해소돼 있었다
+> (`20 §5.2` 에서 계약으로 승격). **새 절을 붙이기 전에 거짓부터 걷어낸다** — 안 그러면 새 절이
+> 거짓 위에 선다.
+> ③ 🔴 **번호 함정 — 접두 없는 `§2.6`(9곳)·`§2.6a`·`§2.7`·`§2.8`(17곳)은 전부 `20` 의 절이다.**
+> 그래서 새 절이 `§2.6` 이 아니라 **`§2.9`** 다. ⚠️ **그 경고를 쓴 절 안에서 같은 실수를 한 번 냈다**
+> (`§3.1` 이 `20` 의 것인데 접두를 뺐다 — 고침). 📌 **절 신설 전
+> `grep -o "§[0-9.a-z-]*" <파일> | sort | uniq -c` 로 점유 현황을 먼저 본다.** 경고로는 못 막는다.
+
+**동반 갱신**: `docs/README.md` 상태표(절 단위 인용 가능 여부) ·
+`docs/design/AGENTS.md` — **확정 절 열거를 삭제**하고 README 를 가리키게 했다.
+📌 *"중복 기록이 stale 해지면 더 조심하자가 아니라 한쪽을 지운다"* 의 **세 번째 적용**이다.
+
+**⏭️ 그다음(9-②)**: `iac-platform-gitops` 에 `addons/baseline/` 신설.
+⚠️ **실물은 이 repo 가 아니다** — 여기는 `.yaml` 을 소유하지 않는다(3계층 소유 모델).
+착수 시 순서: **egress canary → 차트 버전 실측 → ApplicationSet + whitelist 개방(같은 PR)**.
+- 이미 준비된 것: cluster Secret 이 `environment`·`vpcId`·`karpenterNodeRole` 라벨을 담고 있어
+  **`addons/` 만 추가하면 된다**(Secret 무수정, 새 클러스터도 O(1)).
+- `platform.yaml` 에서 열 것 2곳: `sourceRepos`(차트 repo) · `clusterResourceWhitelist`
+  (ALBC 5 kind → Karpenter 3 kind, **증분마다 나눠서**). 목록 전문은 `30 §3.1`.
+- 🆕 self-managed 에서만 필요한 것: `https://argoproj.github.io/argo-helm` 을 `sourceRepos` 에
+  (ArgoCD 자기 관리 — `23 §2.1`).
 
 #### ⏸ ~~뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**~~ ✅ **해소**(2026-08-10) — 아래는 그때의 조사 기록
 

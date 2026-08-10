@@ -43,8 +43,9 @@
 
 > **최신 (2026-08-10 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
 > **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) ·
-> **`workbench-v0.3.0`**(PR #16 `1c0de0d`, `argocd` CLI — 직전 `v0.2.0` PR #15 는 `git` 설치.
-> 🔴 **업그레이드 시 인스턴스 교체** — ⭐ 둘을 한 번에 올리면 교체는 **1회**다).
+> **`workbench-v0.4.0`**(PR #17 `c928205`, **D-WORKBENCH-SIZE** — 기본 `instance_type` `t4g.small`.
+> v0.3.0 의 dnf OOM 을 닫는다. 직전: `v0.3.0` argocd CLI · `v0.2.0` git 설치.
+> 🔴 **업그레이드 시 인스턴스 교체**).
 > ⚠️ **`bastion-v0.1.0` 은 존재하지 않는다** — 2026-08-06 개명 때 `workbench-v0.1.0` 으로
 > 대체·삭제됐다(D-WORKBENCH-RENAME). 아래 8/5 서술에 남은 이름은 **그때의 사실 기록**이다.
 > ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
@@ -1508,8 +1509,8 @@ nano $3.8 · micro $7.6 · **small $15.2** · medium $30.4. `§9` 비용표 월 
 3. ✅ **완료 — `workbench-v0.3.0` 릴리스됨**(PR #16 `1c0de0d`, CI run
    [`31349388448`](https://github.com/skax-ca/iac-module-library/actions/runs/31349388448) 6/6 · 46 tests).
 4. ✅ **완료 — 소비 repo 갱신 + apply**(PR #20, run `31352399365`). ⚠️ **부분 실패** — 위 절 참조.
-5. 🔴 **지금 여기부터 — `workbench-v0.4.0` 릴리스 + 소비 repo 재핀 + apply**
-   - 브랜치 `feat/workbench-size-v0.4.0` 구현 완료. 남은 것은 PR 머지 + 태그.
+5. 🔴 **`workbench-v0.4.0` 릴리스 ✅ 완료**(PR #17 `c928205`, CI 6/6 · 47 tests).
+   **지금 여기부터 — 소비 repo 재핀 + apply.**
    - ⚠️ 기본값 변경이라 `instance_type` 미지정 루트는 **인스턴스가 또 교체된다** — 그 교체가
      곧 **`git` 설치의 회수 지점**이다.
 6. **원래 4번이었던 것 — 남은 확인**

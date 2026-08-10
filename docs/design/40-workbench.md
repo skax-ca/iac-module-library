@@ -407,6 +407,7 @@ variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS
 # ── 도구 (user_data) ─────────────────────────────────────────────────────
 variable "kubectl_version" { type = string, default = null }  # null = 미설치. 예: "v1.35.7"
 variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.21.3" (핀 SSOT 는 23 §5)
+variable "argocd_version"  { type = string, default = null }  # null = 미설치. 예: "v3.5.0"  (핀 SSOT 는 23 §5)
 # git 은 변수가 없다 — 항상 설치한다(D-WORKBENCH-REPO §2.5). 근거는 바로 아래.
 
 # ── EKS 연동 — 1층만 (D-WORKBENCH-SEAM) ────────────────────────────────────
@@ -430,6 +431,38 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
 >
 > ⚠️ 이것은 **계약이 넓어지는 변경이 아니다**(입력이 늘지 않는다). 그래도 산출물이 달라지므로
 > `workbench` 마이너를 컷한다.
+
+> ### ⭐ **`argocd` CLI는 왜 nullable 핀인가** — 그리고 왜 도구 3개를 일반화하지 않는가 (2026-08-10)
+>
+> **`git`과 정반대 이유로 변수가 필요하다.** `argocd` CLI의 버전은 **chart `appVersion`에 결합**된다
+> ([`23 §5`](23-argocd-self-managed.md)가 핀의 SSOT: chart `argo-cd 10.3.0` ↔ `v3.5.0`). 서로 다른
+> 값을 쓰면 *"UI에서 되는데 CLI에서 안 된다"* 를 진단할 근거가 사라진다. **소비자가 고를 실제 값이
+> 있으므로** `kubectl_version`·`helm_version`과 같은 nullable 핀이다.
+> ⚠️ **chart를 올리면 CLI 핀도 같이 올린다** — CI와 로컬 훅의 도구 버전을 맞추는 규율과 같다.
+>
+> **왜 두는가 — "로그인해서 쓴다"가 아니다.** 근거가 둘이다:
+> - **`23 §2.3` 완료 조건**: `argocd account update-password`로 초기 비밀번호를 교체한다.
+>   ⭐ CLI가 없으면 `kubectl port-forward` + **대화형 SSM 세션**이 필요한데, `send-command`로는
+>   터널이 서지 않는다(2026-08-07 실측). **CLI가 그 의존을 없앤다.**
+> - **`30` 판정 ③**: cluster Secret이 내장 `in-cluster`를 **대체하는가 중복인가** 는
+>   `argocd cluster list`로만 보인다. `kubectl` 조회로는 절반까지만 판정된다(2026-08-07).
+>
+> ⚠️ **관리형으로 전환하면 사용법이 달라진다**([`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)):
+> `argocd login` 미지원(계정·프로젝트 토큰) · `argocd admin` 미지원 · `--grpc-web` 필수 ·
+> 앱 지정에 namespace 접두. **지금(self-managed)은 `login`이 되지만 절차서를 `login` 전제로 쓰지
+> 않는다** — 전환할 때 절차 전체를 다시 써야 하기 때문이다.
+>
+> ### 📌 **도구가 3개가 되어도 일반화하지 않는다**
+>
+> | 도구 | 배포 형태 |
+> |---|---|
+> | `kubectl` | `dl.k8s.io` **단일 바이너리** |
+> | `helm` | `get.helm.sh` **tarball**(해제 후 `linux-<arch>/helm`) |
+> | `argocd` | **GitHub Releases 단일 바이너리**(`argocd-linux-<arch>`) |
+>
+> 셋의 URL 조립·설치 절차가 **전부 다르다.** `{name → url_template}` 맵으로 묶으면 템플릿 안에
+> tarball 분기가 도로 생겨 **분기가 줄지 않고 한 겹 숨는다** — 열린 항목 6의 *"분기가 계약을 흐린다"* 와
+> 같은 이유로 **명시 블록을 유지**한다. 🔑 반복처럼 보이는 것과 실제 공통 구조는 다르다.
 
 > **교차변수 validation** — `eks_cluster_name`과 `eks_cluster_arn`은 **함께 주거나 함께 비운다.**
 > 한쪽만 주면 kubeconfig는 만들어지는데 권한이 없거나(이름만), 권한은 있는데 kubeconfig가 없다(ARN만).
@@ -473,8 +506,14 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
 
 ### 4.3 user_data
 
-`kubectl`·`helm` 바이너리를 **명시 핀 버전**으로 설치하고, `eks_cluster_name`이 있으면 kubeconfig를
-시스템 전역(`/etc/kubernetes/kubeconfig` + `/etc/profile.d`)에 생성한다.
+`git`을 **항상** 설치하고(§2.5), `kubectl`·`helm`·`argocd` 바이너리를 **명시 핀 버전**으로 설치하며,
+`eks_cluster_name`이 있으면 kubeconfig를 시스템 전역(`/etc/kubernetes/kubeconfig` + `/etc/profile.d`)에
+생성한다.
+
+> **`argocd`는 tarball이 아니라 단일 바이너리다** — `helm` 블록을 복사하면 안 된다.
+> `curl -o` → `install -m 0755` 로 끝이며 해제·중간 디렉토리 정리가 없다. 실측(2026-08-06·08-10):
+> `https://github.com/argoproj/argo-cd/releases/download/<ver>/argocd-linux-<arch>` — `arm64`·`amd64`
+> 둘 다 `200`. `t4g.nano`(arm64)에서 동작한다.
 
 > **⚠️ 다운로드 경로는 `/tmp`가 아니라 `/var/tmp`다 — 승계된 함정 중 가장 값진 것**
 >
@@ -645,6 +684,7 @@ aws ssm start-session --target <id> --region <region> \
 | T-7 | EKS 연동 **음성** ×2 | 한쪽만 지정 → **plan 거부**(§4.1 가드) |
 | T-8 | 음성 — kill switch × 가드 | `workbench_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
 | T-9 | **`git`의 무조건성**(§2.5·§4.1) | `kubectl_version`·`helm_version`이 **둘 다 `null`**인 최소 형상에서도 `user_data`에 `dnf install -y git-core`가 있을 것 |
+| T-10 | **`argocd` CLI 양성·음성**(§4.1) | 지정 시 `user_data`에 그 버전의 릴리스 URL이 있을 것 · **`null`이면 없을 것**(기본값이 미설치라는 계약) |
 
 > ⭐ **T-9가 지키는 것은 "설치되는가"가 아니라 무조건성이다.** `git`에 변수를 다시 붙이거나 다른
 > 도구 옆의 조건 분기 안으로 옮기면 이 케이스만 깨진다 — 그 형태가 정확히 §4.1이 기각한 것이다.
@@ -833,16 +873,12 @@ SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수
    SSM 접속은 인스턴스 ID를 지정하므로 이중화의 값은 "가용성"이 아니라 "AZ 장애 시 대체 진입"이다.
 6. **Windows/기타 OS 도구 세트** — user_data는 AL2023 + arm64/x86 리눅스를 전제한다. 다른 OS 요구가
    생기면 user_data를 변수로 여는 것이 아니라 **별도 모듈**을 검토한다(분기가 계약을 흐린다).
-7. ⏭️ **`argocd` CLI 추가** — 예정 (2026-08-06 사용자 결정, **`21` 개정 후 착수**).
-   `kubectl_version`·`helm_version`과 동일한 nullable 핀 패턴이라 계약 형태는 이미 정해져 있다.
-   릴리스 자산 실측(2026-08-06): `argocd-linux-arm64` **단일 바이너리**(v3.5.0 기준, GitHub Releases) —
-   `t4g.nano`의 arm64에서 동작하고 tarball 해제가 없어 `helm`보다 절차가 짧다.
-   - ⛔ **`21`보다 먼저 넣지 않는다.** [`21`](21-gitops-bootstrap-seam.md)이 **관리형 EKS Capability vs
-     self-managed ArgoCD**를 아직 안 갈랐다. 어느 쪽이든 CLI는 쓰지만, *"어떤 버전을 무슨 용도로
-     핀하는가"* 의 근거가 그 결정에서 나온다 — 근거 없는 핀은 다음 사람이 못 고친다.
-   - ⚠️ **`velero` CLI는 이 항목에서 제외됐다.** 같은 날 [D-BACKUP-AWS](22-day2-operations.md)가
+7. ✅ **`argocd` CLI 추가 — 해소**(2026-08-10, `workbench-v0.3.0`). **이 항목은 닫혔다.**
+   결정 본문은 [`§4.1`의 상자](#41-variables)(왜 nullable 핀인가 · 왜 도구 3개를 일반화하지 않는가)와
+   [`§4.3`](#43-user_data)(단일 바이너리라 `helm` 블록을 복사하지 않는다)이 소유하고,
+   판정은 [`§7.1` T-10](#71-이-repo에서-판정하는-것--tofu-testplan-단계)이 한다.
+   - 착수 조건이던 *"[`21`](21-gitops-bootstrap-seam.md) 개정 후"* 는 2026-08-07 **D-GITOPS-SEAM**으로
+     충족됐다. 핀 값의 근거는 [`23 §5`](23-argocd-self-managed.md) — chart `appVersion`과 같은 값이다.
+   - ⚠️ **`velero` CLI는 이 항목에서 제외됐다**(그대로 유효). [D-BACKUP-AWS](22-day2-operations.md)가
      백업을 **AWS Backup(에이전트 없음)** 으로 확정해 **클러스터 안에서 실행할 CLI가 없어졌다.**
      Velero 예외 경로([`22 §4.5`](22-day2-operations.md))를 여는 고객사가 생기면 그때 함께 연다.
-   - 📌 **도구가 3개가 되어도 일반화하지 않는다.** 다운로드 형태가 전부 다르다
-     (`dl.k8s.io` 단일 · `get.helm.sh` tarball · GitHub Releases 단일). 맵 기반 추상화는 URL 조립
-     분기를 오히려 늘린다 — 열린 항목 6의 *"분기가 계약을 흐린다"* 와 같은 이유로 **명시 블록을 유지**한다.

@@ -1301,7 +1301,11 @@ D-KEY-TRANSFER 가 *"workbench 가 스스로 Parameter Store 에서 당긴다"* 
   (조회하면 send-command 출력 경로로 CloudTrail·히스토리에 남는다).
 - 경로: workbench 에서 `kubectl -n argocd port-forward svc/argocd-server 8080:443` →
   `https://localhost:8080`(자체 서명 경고 정상) → admin 로그인 → 변경 → Secret 삭제.
-  ⚠️ port-forward 는 **대화형 SSM 세션**이 필요하다(send-command 로는 터널이 안 선다).
+  🔴 **정정(2026-08-10)**: *"send-command 로는 터널이 안 선다"* 는 **틀렸다** — 인스턴스 안에서
+  백그라운드 port-forward + 같은 스크립트의 CLI 호출로 `argocd-server: v3.5.0` 응답을 받았다.
+  그 문장은 **운영자 노트북까지의 터널**을 두고 한 말이었다.
+  ⛔ 그럼에도 **대화형 세션으로 한다** — 새 비밀번호가 send-command 파라미터에 평문으로 남기 때문이다
+  (**기술 제약이 아니라 비밀 취급**).
 - 또는 **`argocd` CLI v3.5.0**(`23 §5` 가 이미 핀함)을 넣어 `argocd account update-password`.
   ⇒ 이 경로를 택하면 **`40` 열린 항목 7 과 같은 작업**이 된다.
 
@@ -1441,7 +1445,8 @@ D-WORKBENCH-REPO 결정 ② 이행. 사본 = `bootstrap/argocd-seed.sh`. **SSOT 
 > `workbench-v0.2.0` 업그레이드는 어차피 **인스턴스를 교체**한다(`user_data_replace_on_change`).
 > `argocd` CLI 를 같이 넣으면 소비 repo 가 교체를 **한 번만** 겪는다. 따로 하면 두 번이다.
 > 🔑 그리고 **4번이 3번을 쉽게 만든다**: `argocd account update-password` 경로가 열려
-> **대화형 SSM 세션 + port-forward 의존이 사라진다**(`send-command` 로는 터널이 안 선다).
+> **브라우저 UI 의존과 운영자 노트북까지의 터널이 사라진다.** 🔴 **port-forward 자체는 남는다** —
+> `argocd-server` 가 `ClusterIP` 라 CLI 가 있어도 필요하다(2026-08-10 정정).
 
 > ### 🔑 **재사용할 판단 2건**
 >
@@ -1543,9 +1548,15 @@ nano $3.8 · micro $7.6 · **small $15.2** · medium $30.4. `§9` 비용표 월 
 6. ✅ **완료 — 도구 자동 설치 확인**: `git 2.50.1` · `kubectl v1.35.7` · `helm v3.21.3` ·
    `argocd v3.5.0`. **손으로 넣은 것이 하나도 없다.**
 7. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).
-   - ⭐ **`argocd` CLI 는 이미 실물에 있다**(v0.3.0 apply 로 확인) ⇒ `argocd account
-     update-password` 로 끝난다. 대화형 SSM 세션·port-forward 가 **불필요하다**
-     (`send-command` 로는 터널이 안 선다).
+   - ⭐ **`argocd` CLI 는 이미 실물에 있다** ⇒ `argocd account update-password` 로 끝난다.
+     🔴 **정정(2026-08-10)**: *"port-forward·대화형 세션이 불필요하다"* 는 **틀렸다.**
+     `argocd-server` 는 **`ClusterIP`** 라 CLI 가 있어도 **port-forward 가 필요**하고,
+     `send-command` 안에서도 터널은 **선다**(실측). ⛔ 그럼에도 **대화형 세션으로 한다** —
+     새 비밀번호가 send-command 파라미터에 **평문으로 CloudTrail·히스토리에 남기** 때문이다.
+     🔑 **"기술적으로 가능하다"와 "그렇게 해도 된다"는 다르다.**
+     ⭐ CLI 가 실제로 없앤 것: **브라우저 UI 의존**과 **운영자 노트북까지의 터널**
+     (port-forward 가 인스턴스 로컬 루프백으로 축소된다). 그리고 `argocd admin` 계열은
+     port-forward 자체가 불필요하다 — **판정 ③이 그 증거다.**
    - ⛔ 초기 비밀번호를 `send-command` 로 **조회하지 말 것** — 출력이 CloudTrail·히스토리에 남는다.
    - ⛔ 비밀번호는 **사용자가 정할 값**이다.
 8. ✅ **완료 — 판정 ③**: `argocd admin cluster stats -n argocd` 결과 **서버 항목이 하나뿐**

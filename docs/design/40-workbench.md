@@ -441,11 +441,30 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
 > ⚠️ **chart를 올리면 CLI 핀도 같이 올린다** — CI와 로컬 훅의 도구 버전을 맞추는 규율과 같다.
 >
 > **왜 두는가 — "로그인해서 쓴다"가 아니다.** 근거가 둘이다:
+> - **`30` 판정 ③**: cluster Secret이 내장 `in-cluster`를 **대체하는가 중복인가**.
+>   ✅ **2026-08-10 종결** — `argocd admin cluster stats -n argocd`로 닫았다(§7.3-4).
+>   ⭐ `argocd admin` 계열은 **API 서버가 아니라 k8s를 직접 읽으므로 port-forward도 login도 없다.**
 > - **`23 §2.3` 완료 조건**: `argocd account update-password`로 초기 비밀번호를 교체한다.
->   ⭐ CLI가 없으면 `kubectl port-forward` + **대화형 SSM 세션**이 필요한데, `send-command`로는
->   터널이 서지 않는다(2026-08-07 실측). **CLI가 그 의존을 없앤다.**
-> - **`30` 판정 ③**: cluster Secret이 내장 `in-cluster`를 **대체하는가 중복인가** 는
->   `argocd cluster list`로만 보인다. `kubectl` 조회로는 절반까지만 판정된다(2026-08-07).
+>   단, 아래 정정을 함께 읽는다.
+>
+> > ### 🔴 **정정 — "CLI가 port-forward·대화형 세션 의존을 없앤다"는 틀렸다** (2026-08-10 실측)
+> >
+> > 최초 서술은 *"CLI가 없으면 port-forward + 대화형 SSM 세션이 필요한데 CLI가 그 의존을 없앤다"* 였다.
+> > **두 군데가 틀렸다. 이 서술을 되살리지 말 것.**
+> >
+> > | 주장 | 실측 |
+> > |---|---|
+> > | *"CLI가 port-forward를 없앤다"* | ❌ **`argocd-server`는 `ClusterIP`다**(실측 `172.20.144.3`). workbench는 클러스터 **밖** 호스트라 **CLI가 있어도 port-forward가 필요하다.** 없어지는 것은 `argocd admin` 계열뿐이다 |
+> > | *"`send-command`로는 터널이 서지 않는다"* | ❌ **선다.** 백그라운드 `kubectl port-forward` + 같은 스크립트에서 CLI 호출로 `argocd-server: v3.5.0` 응답을 받았다. 원래 이 문장은 **운영자 노트북까지의 터널**을 두고 한 말이었고 **인스턴스 로컬 루프백에는 해당하지 않는다** |
+> >
+> > ⭐ **CLI가 실제로 없애는 것**: ① `argocd admin` 계열은 port-forward 자체가 불필요하다 ·
+> > ② 비밀번호 교체가 **브라우저 UI 없이, 인스턴스 안에서** 끝난다 — port-forward가
+> > **운영자 노트북까지 가지 않고 로컬 루프백으로 축소**된다.
+> >
+> > ⛔ **그럼에도 비밀번호 교체는 대화형 세션으로 한다.** 이유는 **기술 제약이 아니라 비밀 취급**이다 —
+> > 새 비밀번호를 `send-command` 파라미터에 실으면 **평문으로 CloudTrail·명령 히스토리에 남는다**
+> > (D-KEY-TRANSFER가 키를 그렇게 보내지 않은 것과 같은 이유).
+> > 🔑 **"기술적으로 가능하다"와 "그렇게 해도 된다"를 구분한다.**
 >
 > ⚠️ **관리형으로 전환하면 사용법이 달라진다**([`21 §1.2 ⑥`](21-gitops-bootstrap-seam.md)):
 > `argocd login` 미지원(계정·프로젝트 토큰) · `argocd admin` 미지원 · `--grpc-web` 필수 ·

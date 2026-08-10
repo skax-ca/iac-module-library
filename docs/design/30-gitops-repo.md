@@ -23,7 +23,7 @@
 > | **§1** 저장소 호스팅·접근 방식 | ✅ **개정**(1차) | **§1.1** — D-REPO-CODECONNECTIONS 재판정 |
 > | **§2.1~§2.5** 등록·팬아웃·값 계약 | 🔶 **판정만 개정**(2차) | **§2.9** — 승계/갈림 판정. ⚠️ 본문 단독 인용 금지 |
 > | **§3** AppProject 테넌시 | 🔶 **판정만 개정**(2차) | **§3.1** — 경로별 구체값 + 선결 과제 재판정 |
-> | **§4** 부트스트랩 seed | ✅ **개정**(1차) | **§4.1** — 경로별 분기 |
+> | **§4** 부트스트랩 seed | ✅ **개정**(1차·2차) | **§4.1** 경로별 분기 · **§4.2** D-ROOTAPP-SKIP |
 > | **§5** addon 경계 | ✅ **경로 무관 확정**(2차) | §5 말미 상자 — 인용 제한 **해제** |
 >
 > ⛔ **미개정 본문을 다시 쓰지 않는 것은 의도다.** 기계적 치환은 **역사적 사실을 위조한다** —
@@ -131,6 +131,11 @@
 > 으로 세우고, **반증된 논거**(`system-cluster-critical`의 `kube-system` 전용 제약 — 실측상 **없다**)를
 > 명시적으로 폐기했다. 함께: NodePool 아키텍처는 managed NG를 따라간다(§2.2의 `amd64`는 PoC의 x86 값,
 > 현행은 **Graviton**). 🔑 둘 다 **계층 1이 정해 둔 값을 계층 2가 다시 고르려다** 생기는 같은 형태다.
+> 2026-08-10 **§4.2 신설 — D-ROOTAPP-SKIP** — 증분 ① 머지가 root App을 **두 번 깨뜨린** 기록.
+> ① `exclude` 확장이 **자기소멸 데드락**을 만들었다(spec 변경과 그 spec이 있어야 읽는 파일을 같은
+> 커밋에 넣을 수 없다) ② 마커로 바꾸며 **마커를 설명하는 주석까지 마커로 작동**해 root App이
+> 자기 자신을 스캔에서 제외했다. ⭐ **`prune: false`(§4)가 root App의 자기 삭제를 막았다** —
+> 방어 결정이 값을 회수한 순간. ⇒ **증분 ① apply 판정 완료**(§2.9 말미).
 
 **범위**: 이 문서는 **플랫폼 GitOps 저장소**(이 Terraform repo와 분리된 별도 repo)의 **구조·규약**을
 설계한다. 개별 매니페스트의 완성된 내용(AWS Load Balancer Controller values 전체 등)은 구현 단계 소관 — 여기서는
@@ -1025,6 +1030,27 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 > ⇒ **addon 매니페스트를 쓰기 전에 `list-pod-identity-associations`와 `describe-nodegroup`을 본다.**
 > ⚠️ cluster Secret 라벨은 그 답의 일부일 뿐이다 — 라벨에 없는 제약이 이렇게 존재한다.
 
+### ✅ **증분 ① apply 판정 — 전부 통과** (2026-08-10, `iac-platform-gitops` PR #1 머지 `10083ef` → 복구 `28cefaf`)
+
+| 판정 | 결과 |
+|---|---|
+| root App이 `addons/baseline`을 흡수했는가 | ✅ `Synced` `Healthy` · revision = **실제 SHA**(`28cefaf…`) · conditions 없음 |
+| ApplicationSet → Application | ✅ **3 → 3** (`aws-lbc` · `karpenter` · `karpenter-nodepool`) 전부 `Synced Healthy` |
+| 컨트롤러 기동 | ✅ `kube-system`에 `…-aws-lbc-aws-load-balancer-controller` **2/2** · `…-karpenter` **2/2** |
+| Karpenter CR | ✅ `NodePool/default` · `EC2NodeClass/default` 모두 **`Ready=True`** ⇒ CRD 순서(wave 5 + `SkipDryRunOnMissingResource`)가 작동했다 |
+| 노드 프로비저닝 | ✅ **2개 그대로**(managed NG). pending pod이 없으므로 Karpenter가 idle인 것이 정상 |
+
+⚠️ **여기까지가 "동작한다"의 범위다.** ALB 실제 생성·spot 중단 처리·consolidation은
+**워크로드가 들어와야** 검증되고, 그 판정은 이 절이 아니라 그때의 증분이 소유한다.
+
+> ### 🔴 **머지가 root App을 두 번 깨뜨렸다 — 원인과 교훈은 §4.2가 소유한다**
+>
+> ① `exclude` 확장이 만든 **자기소멸 데드락** ② 마커를 설명하는 주석이 **마커로 작동**.
+> ⭐ `prune: false`가 root App의 자기 삭제를 막았다.
+> 🔑 **`tofu test`도 canary도 이 둘을 잡을 수 없었다** — 둘 다 *"저장소 상태가 root App spec과
+> 어떻게 상호작용하는가"* 의 문제이고, **머지해서 reconcile을 돌려야만** 드러난다.
+> ⇒ [`CLAUDE.md`](../../CLAUDE.md)의 *"apply 판정은 소비 repo 몫"* 이 GitOps 계층에도 그대로 산다.
+
 ---
 
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)
@@ -1484,6 +1510,82 @@ GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단�
   root App 삭제가 플랫폼 리소스 전체의 cascade 삭제가 되지 않게 한다.
 
 **③ `targetRevision: main`** — 저장소 기본 브랜치. 태그·릴리스 승격 전략은 stg 도입 시 재검토.
+
+---
+
+## 4.2 🔴 **D-ROOTAPP-SKIP — root App 훑기에서 파일을 빼는 방법** (2026-08-10, 두 번의 실패에서)
+
+**`directory.exclude`를 늘리지 않는다. 파일 안에 `+argocd:skip-file-rendering` 마커를 넣는다.**
+
+증분 ①(ALBC·Karpenter)이 `{{ }}` 템플릿을 담은 로컬 helm 차트를 들여오면서 필요해졌고,
+**두 가지 방법으로 연속해서 실패했다.** 둘 다 §4의 자기소멸 원칙의 그림자다.
+
+### 실패 ① — `exclude` 확장은 **자기소멸 데드락**을 만든다
+
+같은 커밋에 ⓐ 차트 파일과 ⓑ 그것을 걸러낼 `exclude`를 함께 넣었더니 root App이 멈췄다:
+
+```
+Failed to unmarshal "ec2nodeclass.yaml": json: offset 2: invalid character '{' …
+```
+
+1. root App은 **자기 spec을 git에서 읽어 갱신**한다 — 그러려면 **먼저 저장소를 렌더**해야 한다
+2. 렌더는 **아직 적용되지 않은 옛 `exclude`** 로 수행된다
+3. 옛 `exclude`는 새 차트 템플릿을 못 걸러낸다 → 렌더 실패
+4. 렌더가 실패하니 **새 `exclude`가 영원히 적용되지 않는다** — 무한 루프
+
+> ### ⚠️ **글롭 문제로 오진할 뻔했다 — "설정이 틀렸나"보다 "적용되긴 했나"를 먼저 본다**
+>
+> 첫 가설은 *"`**` 패턴이 안 먹는다"* 였다. **틀렸다.** ArgoCD가 쓰는 `gobwas/glob`을
+> (separators 없이 컴파일하는) 실제 호출 방식 그대로 재현하니
+> `{…,addons/karpenter/nodepool/**}` 는 대상 경로에 **정확히 매치**했다.
+> 확증은 실물이었다 — `.spec.source.directory.exclude`가 **옛 값 그대로**였다.
+> 🔑 **패턴을 계속 고쳤다면 영원히 못 고쳤을 것이다.** 설정이 안 듣는 것처럼 보이면
+> **그 설정이 살아 있는 spec에 들어갔는지부터** 확인한다.
+
+### 실패 ② — **마커를 *설명하는* 주석도 마커다**
+
+마커로 바꾸면서 `bootstrap/root-app.yaml` **주석에 마커 문자열을 그대로 적었다.**
+판정은 파일 전체 **문자열 포함 검사**(`bytes.Contains`)라, 주석이든 뭐든 한 번 나타나면 그 파일이
+통째로 빠진다 ⇒ **root App이 자기 자신을 스캔에서 제외**했다.
+
+증상이 조용하다 — 에러가 없고 이것만 나온다:
+```
+RESULT PruneSkipped Application/root-app :: ignored (requires pruning)
+log: Skipping auto-sync: need to prune extra resources only but automated prune is disabled
+```
+저장소 렌더 결과에 root App이 없으니 **live에만 있는 여분 리소스**가 되어 영구 `OutOfSync`다.
+
+> ## ⭐ **`prune: false`가 재앙을 막았다 — §4의 결정이 값을 회수한 순간**
+>
+> root App이 *"저장소에 없는 리소스"* 로 분류됐으므로, `prune: true`였다면
+> **root App이 스스로를 삭제**하고 seed 5단계를 처음부터 다시 밟아야 했다.
+> §4가 *"root 레벨에서 prune을 켜면 저장소 실수 하나가 `platform` AppProject와 cluster Secret까지
+> 지워 seed를 다시 밟게 한다"* 고 적은 시나리오가 **정확히 실현됐다.**
+> 🔑 **방어 결정의 값은 사고가 나야 회수된다** — 그때까지는 비용처럼만 보인다.
+
+### ⇒ 규칙
+
+| | `exclude` | **마커** |
+|---|---|---|
+| 어디에 사는가 | root App **spec** | **파일 자신** |
+| 새 파일 추가 시 | spec 변경 필요 → **데드락 가능** | 변경 없음 |
+| 파일 이동·개명 | 패턴을 같이 고쳐야 함 | **따라간다** |
+| 판정 | 경로 글롭(`gobwas/glob`) | 내용 검사(`bytes.Contains`) |
+
+- 평문 YAML: `# +argocd:skip-file-rendering` · helm 템플릿: `{{- /* … */ -}}`
+  (**파일 내용에는 남고 렌더 출력에는 안 남는다** — 검증됨)
+- ⛔ **다른 `.yaml`에 마커 문자열을 적지 않는다.** 문서(`.md`)는 안전하다 —
+  스캔 대상은 `^.*\.(yaml|yml|json|jsonnet)$` 뿐이다.
+- 기존 `exclude` 항목은 **그대로 둔다**(동작 중인 것을 건드리지 않는다). **늘리지만 않는다.**
+- **자기 점검**: `grep -rl 'argocd:skip-file-rendering' --include='*.yaml' …` 로
+  의도 밖 파일이 마커를 물고 있지 않은지 본다. 출력이 있으면 **조용히 빠지고 있다.**
+
+> ### 📌 **재사용할 판단 — 자기소멸 모델의 일반 위험**
+>
+> *"root App이 자기 자신을 관리한다"* 는 **자기 spec을 바꾸는 변경에 순서 제약을 만든다.**
+> ⇒ **root App spec 변경과, 그 변경이 있어야 처리되는 파일을, 같은 커밋에 넣을 수 없다.**
+> 해법은 둘 중 하나다: **①커밋을 둘로 쪼갠다** 또는 **②spec을 안 건드리는 수단을 쓴다.**
+> ⭐ 마커가 ②이고, 순서 제약이 **사라지므로** 우월하다.
 
 ---
 

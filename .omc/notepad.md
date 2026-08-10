@@ -1692,9 +1692,68 @@ seed 스크립트는 GitOps 저장소 vendoring 으로 넘어갔다.
 다른 수단이 없다. ⛔ 그래서 `root-app` 의 `exclude` 가 한 줄 늘었다.
 ✅ 반대로 `addons/baseline/*.yaml` 은 제외하지 않는다(진짜 매니페스트, root App 이 흡수해야 함).
 
-**⏭️ 다음**: PR #1 머지 → apply 판정 5건(PR 본문 체크리스트) → `30` 에 기록 →
-그 뒤 ArgoCD 자기 관리 증분(`argoproj.github.io/argo-helm`, egress 는 이미 확인됨) → `24`(관리형).
-⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 사용자 몫이다.
+#### 🎉 **증분 ① 머지·배포 완료 — 다만 root App 을 두 번 깨뜨렸다** (2026-08-10)
+
+PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Synced Healthy`**.
+
+| 판정 | 결과 |
+|---|---|
+| root App | ✅ `Synced Healthy` · revision **실제 SHA** · conditions 없음 |
+| ApplicationSet → Application | ✅ **3 → 3** 전부 `Synced Healthy` |
+| 컨트롤러 | ✅ `kube-system` 에 ALBC **2/2** · Karpenter **2/2** |
+| Karpenter CR | ✅ `NodePool`·`EC2NodeClass` 둘 다 **Ready=True** (wave 5 + SkipDryRun 작동) |
+| 노드 | ✅ **2개 그대로** — pending pod 없으니 Karpenter idle 이 정상 |
+
+> ## 🔴 **머지가 root App 을 두 번 깨뜨렸다 — `30 §4.2` D-ROOTAPP-SKIP 신설**
+>
+> **① `exclude` 확장이 자기소멸 데드락을 만들었다.** 같은 커밋에 ⓐ 로컬 helm 차트와
+> ⓑ 그것을 걸러낼 `exclude` 를 함께 넣었다 ⇒ root App 은 자기 spec 을 git 에서 읽어 갱신하는데
+> 그러려면 **먼저 저장소를 렌더**해야 하고, 렌더는 **아직 적용 안 된 옛 exclude** 로 수행된다 ⇒
+> 렌더 실패 ⇒ 새 exclude 가 영원히 적용 안 됨. **무한 루프.**
+> 🔑 **root App spec 변경과, 그 변경이 있어야 읽히는 파일을, 같은 커밋에 넣을 수 없다.**
+>
+> **② 마커로 바꿨더니 이번엔 마커를 *설명하는 주석*이 마커로 작동했다.** 판정이
+> `bytes.Contains(파일전체, "+argocd:skip-file-rendering")` 라 주석도 걸린다 ⇒
+> **root-app.yaml 이 자기 자신을 스캔에서 제외**했다. 증상이 조용하다 —
+> 에러 없이 `PruneSkipped Application/root-app :: ignored (requires pruning)` 뿐이다.
+>
+> ### ⭐ **`prune: false` 가 재앙을 막았다 — 방어 결정이 값을 회수한 순간**
+> root App 이 *"저장소에 없는 리소스"* 로 분류됐으니 `prune: true` 였으면 **스스로를 삭제**하고
+> seed 를 다시 밟아야 했다. `30 §4` 가 적어 둔 시나리오가 **정확히 실현됐다.**
+> 🔑 방어 결정의 값은 **사고가 나야 회수된다** — 그때까지는 비용처럼만 보인다.
+
+> ### 🔑 **재사용할 판단 3건**
+>
+> ① ⭐ **"설정이 틀렸나"보다 "그 설정이 적용되긴 했나"를 먼저 본다.** 첫 가설은 *"`**` 글롭이
+> 안 먹는다"* 였고 **틀렸다** — ArgoCD 가 쓰는 `gobwas/glob` 을 실제 호출 방식(separators 없이
+> compile)대로 재현하니 **정확히 매치**했다. 확증은 실물 `.spec.…exclude` 가 **옛 값 그대로**인 것.
+> **패턴을 계속 고쳤다면 영원히 못 고쳤다.**
+> ② ⭐ **`tofu test` 도 canary 도 이 둘을 못 잡는다.** 둘 다 *"저장소 상태 ↔ root App spec 상호작용"*
+> 의 문제라 **머지해서 reconcile 을 돌려야** 드러난다. *"apply 판정은 소비 repo 몫"* 이 GitOps
+> 계층에도 그대로 산다.
+> ③ 📌 **문자열 포함 검사로 동작하는 마커는 그 마커를 문서화할 수 없다**(같은 확장자 안에서는).
+> `.md` 는 스캔 대상이 아니라(`^.*\.(yaml|yml|json|jsonnet)$`) 안전하다. 자기 점검 한 줄을
+> gitops README 에 넣었다.
+
+> ### 🔴 **설계를 그대로 베꼈으면 밟았을 함정 (앞 절 ①②) + D-ADDON-NS**
+>
+> 사용자 질문(*"전용 ns 가 나은가"*)으로 **공식 문서 리서치**를 했고 **D-ADDON-NS** 가 나왔다:
+> **계층 2 addon 은 전용 ns 신설이 기본, 예외는 ALBC·Karpenter → `kube-system` 둘뿐.**
+> - ⭐ 예외의 기술 근거는 **Karpenter 의 APF FlowSchema** 다 — `kube-system` 의 호출만
+>   `leader-election`·`workload-high` 우선순위로 간다. 다른 ns 면 **custom FlowSchema 2개를
+>   우리가 소유**해야 한다(공식 스크립트 실측).
+> - ⛔ **내가 근거로 떠올린 것 하나는 실측 반증됐다** — *"`system-cluster-critical` 은 `kube-system`
+>   전용"* 은 **틀렸다**(`default` ns server-side dry-run 통과 · k8s master·1.31 소스에 제약 없음).
+>   구버전 기억이다. 문서에 *"되살리지 말 것"* 으로 박아 뒀다.
+> - 🔑 **가역적이다** — upstream 이 `namespace` 변수를 노출한다. facade 가 안 넘길 뿐이라
+>   *"못 바꾼다"* 가 아니라 **"안 바꾼다"** 다(`ami_type`·`cluster_security_group_additional_rules` 패턴).
+
+**⏭️ 다음**: ArgoCD 자기 관리 증분(`argoproj.github.io/argo-helm` — egress 는 canary 로 이미 확인,
+`sourceRepos` 에 추가 필요) → 그 뒤 `24`(관리형 ArgoCD).
+- ⚠️ **첫 전용-ns addon 에서 판정할 것 2건**(`30 §2.9` D-ADDON-NS 집행 절):
+  ① `CreateNamespace=true` 로 생기는 Namespace 가 AppProject whitelist 적용을 받는가
+  ② `managedNamespaceMetadata` + `prune: true` 조합이 **addon 제거 시 ns 째 지우는가**
+- ⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 사용자 몫이다.
 
 #### ⏸ ~~뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**~~ ✅ **해소**(2026-08-10) — 아래는 그때의 조사 기록
 

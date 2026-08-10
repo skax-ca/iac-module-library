@@ -12,37 +12,58 @@
 > **모듈 이식 시점(D-OSS-STACK §6-2)에 재검토하며 개정한다.** 그 전까지 이 문서를
 > "이 repo의 확정 설계"로 인용하지 않는다.
 
-> # 🔶 **2026-08-07 부분 개정 — §1·§4만 개정됐다**
+> # 🔶 **부분 개정 상태 — 절 단위로 판정한다** (2026-08-10 갱신)
 >
-> [`23`](23-argocd-self-managed.md)이 요구하는 범위만 열었다. **§0·§2·§3·§5는 손대지 않았다.**
+> 전수 개정하지 않는다. **그때 필요한 절만** 연다. 1차(2026-08-07)는 [`23`](23-argocd-self-managed.md)이
+> 요구한 §1·§4를, 2차(2026-08-10)는 **addon 증분이 딛는 §2·§3·§5**를 열었다.
 >
-> | 절 | 상태 |
-> |---|---|
-> | **§1** 저장소 호스팅·접근 방식 | ✅ **개정** — D-REPO-CODECONNECTIONS **재판정**(§1.1 신설) |
-> | **§4** 부트스트랩 seed | ✅ **개정** — 경로별 분기(§4.1 신설) |
-> | §0 · §2 · §3 · §5 | ⚠️ **미개정 유지** — 인용 불가 |
+> | 절 | 상태 | 판정을 소유하는 절 |
+> |---|---|---|
+> | **§0 · §0.1** 3계층 소유 · CR 소유 경계 | ✅ **경로 무관 확정** | [`21 §1.7`](21-gitops-bootstrap-seam.md) *"갈리지 않는 것"* 이 판정. 본문 수정 불필요 |
+> | **§1** 저장소 호스팅·접근 방식 | ✅ **개정**(1차) | **§1.1** — D-REPO-CODECONNECTIONS 재판정 |
+> | **§2.1~§2.5** 등록·팬아웃·값 계약 | 🔶 **판정만 개정**(2차) | **§2.9** — 승계/갈림 판정. ⚠️ 본문 단독 인용 금지 |
+> | **§3** AppProject 테넌시 | 🔶 **판정만 개정**(2차) | **§3.1** — 경로별 구체값 + 선결 과제 재판정 |
+> | **§4** 부트스트랩 seed | ✅ **개정**(1차) | **§4.1** — 경로별 분기 |
+> | **§5** addon 경계 | ✅ **경로 무관 확정**(2차) | §5 말미 상자 — 인용 제한 **해제** |
 >
-> ⛔ **전수 개정하지 않은 것은 의도다.** [`23 §4`](23-argocd-self-managed.md)가 접점을
-> **root Application 1지점으로 격리**해 두었으므로, 전수 개정을 선행 조건으로 삼으면
-> 필요 없는 일을 먼저 하게 된다.
+> ⛔ **미개정 본문을 다시 쓰지 않는 것은 의도다.** 기계적 치환은 **역사적 사실을 위조한다** —
+> 2026-08-06 workbench 개명에서 실제로 3곳이 그렇게 됐고 되돌려야 했다.
+> ⇒ 새 절이 **판정을 소유**하고, 본문은 *"그때 그렇게 정했다"* 의 기록으로 남는다.
+>
+> 🔑 **`🔶 판정만 개정`의 뜻**: 그 절의 **설계 판단은 인용 가능**하되 **본문 단독으로는 안 된다.**
+> 반드시 판정 절과 함께 읽는다 — 본문에는 관리형 전제와 PoC 실증 서술이 남아 있다.
 > ⇒ **이 문서를 인용할 때 절 번호까지 쓴다.** *"30에 따르면"* 은 판정 근거가 못 된다.
 
 > # 🏗️ **현행 구현체 — [`skax-ca/iac-platform-gitops`](https://github.com/skax-ca/iac-platform-gitops)**
 >
 > 2026-08-07 신설(private · Team `iac`). 이 문서가 설계한 것의 **현행 실물**이다.
-> **경로는 self-managed**([`23`](23-argocd-self-managed.md)) — seed 3종(§4.1의 3·4·5단계) 작성 완료,
-> ⚠️ **아직 apply 되지 않았다.** `addons/`는 다음 증분.
+> **경로는 self-managed**([`23`](23-argocd-self-managed.md)). ✅ **seed 실행 완료(2026-08-07)** —
+> root App `Synced Healthy`. `addons/`는 다음 증분.
 >
-> | 파일 | seed 단계 |
-> |---|---|
-> | `projects/platform.yaml` | 3 |
-> | `clusters/dev/eks-ref-dev-an2-main-01/cluster-secret.yaml` | 4 |
-> | `bootstrap/root-app.yaml` | 5 |
+> | 파일 | 역할 | 소유 결정 |
+> |---|---|---|
+> | `bootstrap/argocd-values.yaml` | seed **0**단계 helm values — 이후 자기 관리의 SSOT | [`23 §2.1`](23-argocd-self-managed.md) |
+> | `bootstrap/argocd-seed.sh` | seed 절차 **vendored 사본**(SSOT는 이 repo) | [`40 §2.5`](40-workbench.md) D-WORKBENCH-REPO |
+> | `projects/platform.yaml` | seed **3** — AppProject 가드레일 | §3 · **§3.1** |
+> | `clusters/dev/eks-ref-dev-an2-main-01/cluster-secret.yaml` | seed **4** — 라벨과 이름 | §2.1 · **§4.1** |
+> | `bootstrap/root-app.yaml` | seed **5** — 자기 자신을 흡수 | §4 |
 >
 > **시작값을 좁게 잡았다** — `clusterResourceWhitelist: []` · `sourceRepos`는 이 저장소 하나.
-> **addon 증분마다 필요한 것만 연다**(그때마다 리뷰 지점).
-> ⚠️ **apply 시 판정할 것 2건**: ① `server: https://kubernetes.default.svc` Secret이 내장
-> `in-cluster`를 대체하는지 ② GitHub App 설치 범위에 이 저장소가 포함되는지.
+> **addon 증분마다 필요한 것만 연다**(그때마다 리뷰 지점 — **§3.1**이 그 목록을 소유).
+>
+> ### ✅ **apply 판정 3건 전부 종결**
+>
+> | 판정 | 결과 | 시점 |
+> |---|---|---|
+> | ① root App이 저장소 HEAD를 읽었는가 | ✅ `sync.revision`이 **실제 SHA** = HEAD 일치(`main` 아님) ⇒ **자기소멸 원칙이 작동**했다 | 2026-08-07 |
+> | ② GitHub App 설치 범위 | ✅ `GET /installation/repositories` → `total_count=1`, 이 저장소 하나 | 2026-08-07 |
+> | ③ `server: https://kubernetes.default.svc` Secret이 내장 `in-cluster`를 **대체**하는가 | ✅ **대체한다 — 중복이 아니다.** `argocd admin cluster stats -n argocd` → 서버 항목 **1개**(Successful · apps 1 · resources 536) | 2026-08-10 |
+>
+> > **③은 두 번에 걸쳐 닫혔다.** 2026-08-07엔 `kubectl`만 있어 *"해석은 된다"* 까지만 봤고
+> > (Secret 1개 + root App `Synced`), *"대체인가 중복인가"* 는 못 봤다. `argocd` CLI가
+> > workbench에 들어온 뒤([`40 §7.3-4`](40-workbench.md)) 닫혔다.
+> > 🔑 **`argocd admin`은 API 서버가 아니라 k8s를 직접 읽는다** — `argocd login`도, 초기 비밀번호
+> > 조회도 없이 판정할 수 있었던 이유다. **읽기 판정에 로그인을 전제하지 않는다.**
 
 > # 📚 **PoC 구현체 — `silverte/eks-platform-gitops`**
 >
@@ -88,6 +109,16 @@
 > ralplan 합의(D-SPOKE-SEAM, [`20-eks-module.md §2.8`](20-eks-module.md))의 GitOps 쪽 절반이다.
 > [`20-eks-module.md §1`](20-eks-module.md)의 Day 0/1↔Day 2 경계에서 **"Day 2 전부 = GitOps(ArgoCD)"**
 > 로 넘긴 것 중 **플랫폼 소관**의 저장소 구조를 정의한다. 01-strategy §8 열린 항목 4를 이 문서가 확정한다.
+>
+> **— 이 repo 이관 후 —**
+> 2026-08-07 **1차 부분 개정** — §1.1(D-REPO-CODECONNECTIONS 재판정: 경로마다 갈린다) · §4.1(seed 경로별 분기,
+> 4단계 자기 정정) 신설. §1에 `argocd-seed.sh` vendoring 포인터 상자.
+> 2026-08-10 **2차 부분 개정 — addon 증분 착수 조건** — **§2.9 신설**(§2.1~§2.5의 승계/갈림 판정 ·
+> egress 실증 비승계 · 버전 핀 비승계) · **§3.1 신설**(`platform` AppProject 경로별 구체값 +
+> ⭐ **선결 과제 2건 재판정 → 1건**: self-managed는 chart가 cluster-admin ClusterRole을 주므로
+> D-ARGOCD-CLUSTER-READ/WRITE 벽이 성립하지 않는다. 남은 `clusterResourceWhitelist`는 증분과
+> 같은 PR에서 여는 것이라 **착수를 막지 않는다**) · §5 인용 제한 해제 · 헤더 상태 상자 갱신
+> (seed apply 완료 + 판정 3건 종결 반영 — **"아직 apply 되지 않았다"가 stale이었다**).
 
 **범위**: 이 문서는 **플랫폼 GitOps 저장소**(이 Terraform repo와 분리된 별도 repo)의 **구조·규약**을
 설계한다. 개별 매니페스트의 완성된 내용(AWS Load Balancer Controller values 전체 등)은 구현 단계 소관 — 여기서는
@@ -461,6 +492,7 @@ stringData:
 > 하나를 공유**해 클러스터별 NodePool 차별화(§2.5 B)가 불가능하다. env는 디렉토리 그룹핑, `{{name}}`이 개별
 > 클러스터 값을 가른다. cluster-secret도 `clusters/<env>/<cluster-name>/`에 함께 둔다.
 - `server`는 **EKS 클러스터 ARN** — 관리형 Capability는 ARN으로 클러스터를 식별(kubernetes.default.svc 미지원).
+  📌 **self-managed는 `https://kubernetes.default.svc`다**(§4.1 정정 · §2.9 갈림점 1). 나머지 필드·라벨 규약은 공통.
 - 라벨은 **Terraform `spoke_clusters` 맵과 동일 소스**여야 한다(§2.8 pre-mortem 3 — 표류 방지). 로컬(dev)
   클러스터도 이 방식으로 명시 등록(§2.8: 자동 등록 안 됨 — 2026-07-24 실측: cluster-type Secret **0건**).
 
@@ -632,6 +664,10 @@ spec:
   limits: { cpu: '100' }
   disruption: { consolidationPolicy: WhenEmptyOrUnderutilized, consolidateAfter: 30s }
 ```
+> 📌 **이 선결 과제는 해소됐다**(2026-08-10 확인 — §2.9 말미 상자). `modules/eks-cluster`가
+> `enable_karpenter`일 때 `node_security_group_tags`로 태그를 부여하고 테스트가 assert한다.
+> 아래는 그때의 갭 기록이다.
+>
 > **⚠️ SG discovery 태그 선결(20 열린 항목 4 갭)**: subnet 태그는 node-uniq 그룹에 완비됐으나(실물 확인),
 > **노드 SG에는 `karpenter.sh/discovery` 태그가 없다**(실물 확인 2026-07-27 — eks-scale-lab 것만 존재).
 > `securityGroupSelectorTerms`가 빈 결과를 내면 Karpenter가 노드에 붙일 SG를 못 찾아 프로비저닝 실패.
@@ -744,6 +780,90 @@ NG, 앱·버스트 워크로드는 Karpenter 노드 — Karpenter 컨트롤러�
 
 ---
 
+## 2.9 🔀 addon 증분 — **경로별 분기** (2026-08-10 신설)
+
+§4.1이 seed 절차에 대해 한 일을 **addon 팬아웃**에 대해 한다. §2.1~§2.5 본문은 **관리형 Capability
+전제**이므로, 무엇이 승계되고 무엇이 갈리는지를 여기서 한 번만 판정한다.
+
+> ### ⚠️ **번호가 §2.6이 아닌 이유 — 그 자리는 이미 점유돼 있다**
+>
+> 이 문서 본문의 `§2.6`(9곳)·`§2.6a`(4곳)·`§2.7`(4곳)·`§2.8`(17곳)은 **전부
+> [`20`](20-eks-module.md)의 절**을 가리킨다. 문서 번호 접두가 빠진 PoC 시절 표기이고,
+> **이 문서에는 그 번호의 절이 없다.** 새 절에 `§2.6`을 쓰면 기존 참조 30여 곳이 이 절로 잘못 걸린다.
+> 📌 **재사용할 절차**: 절을 신설하기 전에 `grep -o "§[0-9.a-z-]*" <파일> | sort | uniq -c` 로
+> **번호 점유 현황을 먼저 본다.** 접두 없는 타 문서 참조가 남아 있는 문서에서는 번호가 자유롭지 않다.
+
+### ✅ 승계되는 것 — 경로 무관
+
+공식 근거: *"Applications and ApplicationSets work identically to upstream Argo CD **with no changes
+to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아웃 기계 전체가 공통부**다.
+
+| 절 | 승계 자산 | 왜 경로와 무관한가 |
+|---|---|---|
+| §2.1 | cluster Secret **이름 = 실제 EKS 클러스터명** 규약 · `project` 필드 함정 | `{{name}}`이 ALBC `clusterName`으로 흐르는 것은 **ArgoCD 기능**이지 ArgoCD **설치 형태**가 아니다 |
+| §2.2 | cluster generator + `matchLabels` 팬아웃 · fasttemplate 라벨 주입 · `ServerSideApply` · **`sourceRepos` 제3 가드레일** · AppProject 갱신 후 `refresh=hard` 전파 | 〃 |
+| §2.2 | **IMDS hop limit 상향 기각안**(파드→노드 권한 상승) | 논증에 ArgoCD가 등장하지 않는다 — 노드·파드 IAM 격리의 문제 |
+| §2.3 | per-spoke 값 계약 4종 · *"`targetRevision`은 valueFiles로 못 바꾼다"* | Application **Source 필드**의 성질 |
+| §2.4 | addon 3분류 · paved road · 버전 스큐 대응(values 핀 → 채널 라벨) | 소유·권한 경계의 문제 |
+| §2.5 | (A) 라벨→`targetRevision` · (B) multi-source `valueFiles` · (C) region 라벨화 | 같은 이음새의 파생 |
+
+### 🔀 갈리는 것 — 4개
+
+| # | 지점 | 관리형 (§2.x 본문) | **self-managed (현행 경로)** |
+|---|---|---|---|
+| 1 | cluster Secret `server` | EKS 클러스터 **ARN** | **`https://kubernetes.default.svc`** — §4.1 정정 |
+| 2 | `sourceRepos`에 등재할 저장소 URL | **CodeConnections 프록시 URL** | **GitHub URL** — §1.1 재판정 |
+| 3 | **public helm egress 실증** | ✅ 2026-07-27 canary | ⚠️ **승계되지 않는다** — 아래 |
+| 4 | ArgoCD 자신의 chart repo | ⛔ 해당 없음(AWS가 소유) | 🆕 **`https://argoproj.github.io/argo-helm`를 `sourceRepos`에 추가해야 한다** — 자기 관리([`23 §2.1`](23-argocd-self-managed.md)) |
+
+> ### ⚠️ **3 — egress 실증을 승계하지 않는 이유**
+>
+> §2.2의 canary가 물은 것은 *"**관리형 capability의** repo-server가 `https://aws.github.io/eks-charts`에
+> 닿는가"* 였다. self-managed의 repo-server는 **우리 노드 위의 파드**라 나가는 경로가 다르다
+> (노드 SG → NAT → IGW). ⇒ *"이미 확인됐다"* 로 쓰면 [`CLAUDE.md`](../../CLAUDE.md) 검증 절이
+> 금지한 **추정**이 된다.
+>
+> ⭐ **값은 버리고 방법은 그대로 재사용한다** — `syncPolicy` **없는**(=비교만 하는) canary
+> Application을 심고 `status.sync.revision`·rendered 리소스 수를 본다. 연결 실패면
+> rendered 0 + `ComparisonError`다. 🔑 **배포를 만들지 않으므로 addon 증분의 첫 스텝으로 두기 좋다.**
+> ⚠️ Karpenter의 `oci://public.ecr.aws/karpenter`는 **다른 호스트**라 따로 봐야 한다(§2.2가 이미 경고).
+
+> ### 📌 **버전 핀도 승계하지 않는다 — 자산은 값이 아니라 원칙이다**
+>
+> 본문의 ALBC `3.4.2` · Karpenter chart `1.13.0`은 **2026-07-27 PoC 시점 실측값**이다. 근거였던
+> *"클러스터 k8s 버전 ↔ 차트 호환성 매트릭스"* 는 유효하고 클러스터도 **여전히 1.35**지만,
+> **차트는 그동안 움직였다.**
+> ⇒ 증분 착수 시 `helm show chart`로 다시 실측한다 — §2.2가 이미 **"실측 핀"** 이라 부른 원칙이다.
+> ⚠️ **구조(`{{name}}`·`{{metadata.labels.vpcId}}`·sync-wave 분리)는 그대로 쓰고 숫자만 다시 잡는다.**
+
+### 🏗️ 현행 실물이 **이미 준비해 둔** 것
+
+`iac-platform-gitops`의 cluster Secret은 addon 증분이 소비할 라벨을 이미 담고 있다(2026-08-07 실측값):
+
+| 라벨 | 소비자 | 비고 |
+|---|---|---|
+| `environment: dev` | 팬아웃 `matchLabels` + `clusters/<env>/<name>/values.yaml` 경로 키 | §2.1·§2.5(B) |
+| `vpcId: vpc-00e16675363a702a5` | ALBC `--aws-vpc-id` **명시 주입** | §2.2 IMDS 정정 |
+| `karpenterNodeRole: Karpenter-eks-ref-dev-an2-main-01-…` | EC2NodeClass `spec.role` | Karpenter가 요구하는 값 중 **유일하게 클러스터명에서 파생 불가**(hash 접미) |
+
+⇒ **`addons/`만 추가하면 되고 cluster Secret은 손대지 않는다.** 새 클러스터도 Secret 1개 = O(1).
+
+> ### ✅ **§2.2가 경고한 Karpenter SG 태그 선결 과제는 해소됐다** (2026-08-10 확인)
+>
+> §2.2 Karpenter 증분 (3)은 *"노드 SG에 `karpenter.sh/discovery` 태그가 없다 → `modules/eks-cluster`에
+> `node_security_group_tags`를 넣고 재apply해야 이 증분이 성립한다"* 고 적었다. **그 일은 끝났다.**
+>
+> - `modules/eks-cluster/main.tf` — `node_security_group_tags = var.enable_karpenter ? {"karpenter.sh/discovery" = local.cluster_name} : {}`
+> - `outputs.tf`가 `karpenter_discovery_tag`로 노출하고 `tests/plan.tftest.hcl`이 값을 assert한다
+> - [`20 §5.2`](20-eks-module.md) — 열린 항목에서 **계약으로 승격**됨(`20 §3.1` 변수 계약 + Task 20.3)
+> - 소비 루트가 `enable_karpenter = true`로 apply 완료(2026-08-04)
+>
+> ⚠️ **모듈이 태그를 부여한다**까지가 이 repo의 판정이다. **실물 SG에 붙어 있는지**는 소비 repo
+> 소관이며, 증분 착수 시 `aws ec2 describe-security-groups` 조회로 몇 초 만에 닫을 수 있다
+> ([`CLAUDE.md`](../../CLAUDE.md) — *"동작한다"의 기준은 `tofu test` + 예제 `validate`까지*).
+
+---
+
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)
 
 관리형 ArgoCD는 Application이 단일 namespace라 **네임스페이스 격리 불가** → 테넌시는 **AppProject**로.
@@ -819,6 +939,8 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
 >
 > ⚠️ 이 선택은 addon 증분에서 **의도된 실패**를 만든다(sync 시 "resource not permitted in project").
 > 20 §2.8의 Access Entry ns 스코프 문제와 함께 그 증분의 선결 과제 2건이다.
+> 📌 **이 "2건"은 아래 §3.1이 재판정했다 — self-managed 경로에서는 두 번째가 성립하지 않는다.**
+> 첫 번째(whitelist)만 남는다.
 >
 > **⭐ 2026-07-25 개정 (addon 증분 · ALBC) — `clusterResourceWhitelist`를 명시 목록으로 개방**
 > 위에서 예고한 "권한 확대의 리뷰 지점"이 도래했다. ALBC 배포를 위해 `[]`(전면 차단) → 아래 kind 목록:
@@ -852,6 +974,115 @@ AppProject**에 둔다. `default`는 **사용하지 않는다**(삭제하지 않
   둘이 어긋나면 destination 해석에 실패하는데 증상이 원인을 가리키지 않는다.
 - **미검증 사항**: `default`를 방치할 때 누군가 실수로 그 프로젝트에 Application을 만들 수 있다.
   이를 막는 정책(Sentinel·admission)은 확산 단계 과제로 남긴다.
+
+---
+
+## 3.1 🔀 `platform` AppProject — 경로별 구체값 + **선결 과제 재판정** (2026-08-10 신설)
+
+§3 본문의 구체값은 **관리형 Capability 전제**다. 여기서 경로별 값을 확정하고, §3이 예고한
+*"addon 증분의 선결 과제 2건"* 을 다시 판정한다.
+
+### 경로별 구체값
+
+| 필드 | 관리형 (§3 본문) | **self-managed (현행 실물)** | 갈리는가 |
+|---|---|---|:---:|
+| `sourceNamespaces` | `[argocd]` — **강제**(capability가 단일 ns) | `[argocd]` — **규약으로 유지** | 🔶 강제성만 |
+| `sourceRepos` | CodeConnections 프록시 URL | **`https://github.com/skax-ca/iac-platform-gitops.git`** | 🔀 §1.1 |
+| `destinations` | `[{server: <EKS ARN>, namespace: '*'}]` | `[{server: https://kubernetes.default.svc, namespace: '*'}]` | 🔀 §4.1 |
+| `clusterResourceWhitelist` | `[]`에서 시작 → 증분마다 개방 | **동일** | ⛔ |
+| `namespaceResourceWhitelist` | `[{'*','*'}]` | **동일** | ⛔ |
+
+> ### 📌 **`sourceNamespaces`는 값이 같고 이유가 다르다 — 그래서 규약으로 남긴다**
+>
+> 관리형은 Application을 capability 네임스페이스 1개에만 둘 수 있어 **강제**다. self-managed는
+> upstream 전체를 쓰므로 **자유**다(apps-in-any-namespace 가능).
+> ⇒ 그럼에도 `[argocd]`로 고정한다: **경로를 바꿔도 매니페스트가 그대로 통하게** 하기 위해서다
+> ([`23 §3`](23-argocd-self-managed.md) 갈림점 4). 🔑 **자유로운 쪽을 제약 있는 쪽에 맞춰 두면
+> 이행이 무비용이 된다** — 반대로 열어 두면 관리형 전환 시 전수 수정이 된다.
+
+### ⭐ 승계되는 가장 값진 자산 — `clusterResourceWhitelist` 개방 목록
+
+§3이 두 번의 증분에서 실제로 열었던 kind 목록은 **경로와 무관하다**(k8s API 그룹의 사실이다).
+addon 증분은 이것을 그대로 쓴다.
+
+```yaml
+clusterResourceWhitelist:
+  # ── ALBC 증분 (2026-07-25) ──
+  - {group: apiextensions.k8s.io,         kind: CustomResourceDefinition}
+  - {group: rbac.authorization.k8s.io,    kind: ClusterRole}
+  - {group: rbac.authorization.k8s.io,    kind: ClusterRoleBinding}
+  - {group: admissionregistration.k8s.io, kind: ValidatingWebhookConfiguration}
+  - {group: admissionregistration.k8s.io, kind: MutatingWebhookConfiguration}
+  # ── Karpenter 증분 (2026-07-27) — 위 5종은 재사용된다 ──
+  - {group: karpenter.sh,                 kind: NodePool}
+  - {group: karpenter.sh,                 kind: NodeClaim}
+  - {group: karpenter.k8s.aws,            kind: EC2NodeClass}
+```
+⚠️ **한꺼번에 붙여넣지 않는다.** §3의 원칙은 *"그 addon이 실제로 만드는 kind만, 그 증분에서"* 이고
+그 시점이 곧 **권한 확대의 리뷰 지점**이다. 위 목록은 **도착지**이지 시작값이 아니다.
+
+---
+
+### 🔴 **선결 과제 재판정 — 2건이 아니라 1건이고, 그 1건은 차단 요인이 아니다** (self-managed 한정)
+
+§3은 이렇게 적었다:
+
+> ⚠️ 이 선택은 addon 증분에서 **의도된 실패**를 만든다(sync 시 "resource not permitted in project").
+> **20 §2.8의 Access Entry ns 스코프 문제와 함께 그 증분의 선결 과제 2건이다.**
+
+**두 번째(Access Entry → apiserver RBAC)는 self-managed 경로에 존재하지 않는다.**
+
+| 근거 | 실측 |
+|---|---|
+| ① ArgoCD가 **클러스터 안**에 있다 | §4.1 1단계 — Access Entry 자체가 불필요. apiserver 접근은 **ServiceAccount** |
+| ② chart가 **cluster-admin을 준다** | `argo-cd 10.3.0` 기본값 `createClusterRoles: true` · `controller.clusterRoleRules.enabled: false` ⇒ application controller의 ClusterRole이 `apiGroups: ['*'] / resources: ['*'] / verbs: ['*']` + `nonResourceURLs: ['*']` (chart 원문 실측) |
+| ③ 실물이 그렇게 동작한다 | `argocd admin cluster stats -n argocd` → **Successful · resources 536**(2026-08-10). 관리형이 막혔던 **cluster-wide read가 그대로 된다** |
+
+⇒ **D-ARGOCD-CLUSTER-READ**(20 §2.8 열린 항목)와 **D-ARGOCD-CLUSTER-WRITE**([`21 §2.8`](21-gitops-bootstrap-seam.md))는
+**관리형 경로의 결정**이다. self-managed에서는 **재현되지 않는다** — 관리형의 auto-managed Access Entry가
+`kubernetesGroups`를 비워 두는 것이 원인이었고, 그 산출물 자체가 여기엔 없다.
+
+⇒ **남는 것은 `clusterResourceWhitelist` 하나**다.
+
+> ### ⚠️ **"0건"이라고 쓰지 않는 이유 — 남은 1건은 사라진 것이 아니라 성격이 다르다**
+>
+> 사라진 쪽(Access Entry/RBAC)은 **다른 repo·다른 계층에서 먼저 끝나야 하는 일**이었다 —
+> 진짜 의미의 선행 과제다. 남은 쪽(whitelist)은 **같은 저장소·같은 PR에서 addon 매니페스트와
+> 함께 여는 것**이라 착수를 막지 않는다.
+> ⛔ 그럼에도 **"없다"고 쓰지 않는다.** 빠뜨리면 sync가 `resource not permitted in project`로
+> 실패하고, §3이 그것을 **"의도된 실패"** 라고 부른 이유가 바로 리뷰를 강제하기 위해서다.
+> 🔑 **차단 요인이 아닌 것과 잊어도 되는 것은 다르다.**
+
+> ## ⛔ **뒤집어 읽지 말 것 — 이건 "더 안전하다"가 아니라 "더 넓게 열려 있다"이다**
+>
+> 관리형에서 그 벽이 있었던 것은 **결함이 아니라 최소권한의 부작용**이었다. AWS가 준 Access Entry는
+> 좁았고, 그래서 넓히는 결정(D-ARGOCD-CLUSTER-WRITE)을 **명시적으로** 내려야 했다 — 그 결정이 곧 리뷰였다.
+>
+> self-managed는 **chart 기본값이 이미 cluster-admin**이라 그 리뷰 지점이 **아예 생기지 않는다.**
+> ⇒ 🔑 **AppProject `clusterResourceWhitelist`가 실질적으로 유일한 가드레일이 된다.**
+> §3이 `[]`에서 시작하기로 한 선택은 관리형보다 self-managed에서 **더** 중요하다.
+> ⛔ *"어차피 controller가 cluster-admin이니 whitelist는 형식"* 이라는 추론은 **틀렸다** —
+> 두 층은 다른 것을 막는다. ClusterRole은 **apiserver가** 막고, whitelist는 **ArgoCD가** 막는다.
+> 후자는 *"저장소에 실수로 들어온 매니페스트"* 를 막는 층이고, 그게 GitOps에서 실제로 일어나는 사고다.
+>
+> 📌 **재검토 조건**: controller ClusterRole을 좁히려면 `controller.clusterRoleRules`로 가능하다
+> (chart가 지원). ⚠️ 다만 ArgoCD가 관리할 **모든** kind를 열거해야 해서 addon이 늘 때마다
+> 부채가 된다([`CLAUDE.md`](../../CLAUDE.md) *"닫힌 열거는 값이 늘 때마다 부채가 된다"*).
+> **고객사 보안 요건이 실제로 요구할 때** 착수한다.
+
+> ### 🔶 **`default` AppProject — 결론은 같고 근거가 갈린다**
+>
+> §3의 근거는 *"capability가 만든 리소스라 우리가 수정했을 때 되돌리는지 **미검증**"* 이었다.
+> self-managed에는 그 전제가 없다 — **chart 템플릿에 AppProject가 없다**(argo-cd 10.3.0
+> `templates/` 전수 실측: `argocd-configs`·`crds`·컴포넌트별 디렉토리뿐). `default`는 **Argo CD
+> 런타임이 부재 시 생성**하는 upstream 산출물이다.
+>
+> ⇒ **결론은 유지된다: 쓰지 않는다.** 근거만 바뀐다 —
+> **`default`를 좁히면 그 변경이 Git 밖에 있게 되어 자기소멸 원칙(§4)을 정면으로 위반한다.**
+> 전용 `platform` 프로젝트는 **저장소가 소유**하므로 그 문제가 없다.
+>
+> 🔑 **관리형에서는 "되돌려질까 봐" 안 건드렸고, self-managed에서는 "Git에 없어서" 안 건드린다.**
+> ⇒ *"런타임이 수정을 reconcile 하는가"* 는 **판정할 필요가 없는 질문**이 됐다. 어차피 쓰지 않는다.
 
 ---
 
@@ -1124,7 +1355,26 @@ GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단�
 >   ⇒ 경로는 **helm**으로 확정된다. ⚠️ **②catalog라는 배치는 재확인하지 않았다.** 도입 시
 >   Kyverno와 같은 질문(*"어느 프로파일에 필요한가"*)을 먼저 통과시킨다.
 >
-> ⛔ **이 상자를 근거로 GitOps repo 구조를 확정하지 않는다.** 이 문서 전체의 개정은 별도 작업이다.
+> 🔴 **~~이 상자를 근거로 GitOps repo 구조를 확정하지 않는다.~~ 제한 해제 (2026-08-10)** — 아래 참조.
+
+> ## ✅ **§5 인용 제한 해제 — 이 절은 경로 무관하다** (2026-08-10, 2차 부분 개정)
+>
+> 위 상자는 *"이 문서가 미개정이라 인용 불가"* 라는 이유로 자기 자신에 제한을 걸었다.
+> **그 제한을 푼다.** 이 표에 PoC 전제가 **하나도 없기** 때문이다:
+>
+> - 표가 답하는 질문은 *"이 addon을 **Terraform이 까는가 GitOps가 까는가**"* 하나이고,
+>   그 판정 함수는 **D-ADDON-BOUNDARY**([`20 §1.1`](20-eks-module.md))다 —
+>   입력이 *"`aws_eks_addon`으로 설치되는가"* 라서 **ArgoCD의 설치 형태와 무관**하다.
+> - 실행 스택 종속부(TFC 워크스페이스·`workload=poc`·상대경로 소싱)가 이 절에는 **등장하지 않는다.**
+> - 2026-08-06 실측(Kyverno·KEDA)은 **이 repo에서 `describe-addon-versions`로 직접** 한 것이다 —
+>   PoC 승계 서술이 아니다.
+>
+> ⇒ **addon 증분은 이 표를 근거로 착수할 수 있다.** 함께 읽을 것: **§2.9**(팬아웃 경로 판정) ·
+> **§3.1**(AppProject 개방 목록).
+>
+> ⚠️ **여전히 유효한 제한 2개**:
+> ① 표의 `§2.6`·`§2.6a`는 **[`20`](20-eks-module.md)의 절**이다(§2.9 번호 상자).
+> ② **Kyverno의 "프로파일 A 한정" 범위는 `20 §1.1`에만 있다** — 위 표는 경로(helm)만 담는다.
 
 > 검증 7(§2.8): 이 표의 GitOps helm 목록(ALBC·Karpenter·②) == 20 §1 "Day 2 GitOps" 행. 컨트롤러가
 > Terraform addon인 것(cert-manager·external-dns·관측성)은 GitOps엔 **설정만** 존재. 불일치 시 규약 위반.

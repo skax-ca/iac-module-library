@@ -150,7 +150,7 @@ self-hosted runner는 "CI 자격증명 경계"가 하나 더 는다. SSM은 **�
 | **D-WORKBENCH-ACCESS** | **SSM Session Manager 전용** — SSH·키페어·공인 IP·인바운드 SG 규칙 **전부 없음** | ✅ 승계·유효 | SSM Agent가 **아웃바운드로** 연결을 맺고 세션이 그 연결을 역방향으로 흐른다. 인바운드가 원천적으로 불필요하다 → 키 관리·22번 노출·감사 공백이 **동시에** 사라진다. 도구 스택(TFC→OpenTofu)과 무관한 판단이라 그대로 살아 있다 |
 | **D-WORKBENCH-PLACEMENT** | **private 서브넷**에 배치. 단 모듈은 **`subnet_id`를 입력받고 서브넷 그룹 이름을 고정하지 않는다** | 🔧 **개정**(구 `D-BASTION-SUBNET`) | 아래 §2.2 |
 | **D-WORKBENCH-EGRESS** | 기존 **NAT 경유**. SSM VPCE 3종(`ssm`·`ssmmessages`·`ec2messages`) 미신설 | ✅ 승계·유효(단 §9-2) | 추가 비용 0, 구성 단순. SSM 제어 트래픽은 TLS로 보호되며 AWS 권장 구성 중 하나다. VPCE 3종 × AZ 수는 상시 시간당 요금이라 **NAT가 이미 있는 VPC에서는 중복 지출**이다. ⚠️ NAT 없는 완전 격리 VPC를 요구하는 고객사가 나오면 §9-2로 전환 |
-| **D-WORKBENCH-LIFECYCLE** | 상시 기동 **소형 인스턴스**(기본 `t4g.nano`) + **`workbench_enabled` kill switch** | 🔧 **개정** | 상시 기동 자체는 유효하다(인바운드가 없어 공격면 증가가 미미하고 월 $5 미만). **개정 지점은 kill switch** — 재사용 자산에서 "파기하려면 코드를 지운다"는 소비자에게 diff 폭을 강요한다. `vpc_enabled`·`cluster_enabled`와 동형의 토글을 낸다(`01 §4` 재사용 자산 요건) |
+| **D-WORKBENCH-LIFECYCLE** | 상시 기동 **소형 인스턴스**(기본 **`t4g.small`** — 2026-08-10 D-WORKBENCH-SIZE 로 `t4g.nano` 에서 상향) + **`workbench_enabled` kill switch** | 🔧 **개정** | 상시 기동 자체는 유효하다(인바운드가 없어 공격면 증가가 미미하고 월 $5 미만). **개정 지점은 kill switch** — 재사용 자산에서 "파기하려면 코드를 지운다"는 소비자에게 diff 폭을 강요한다. `vpc_enabled`·`cluster_enabled`와 동형의 토글을 낸다(`01 §4` 재사용 자산 요건) |
 | **D-WORKBENCH-AMI-PIN** | AMI ID **명시 핀**. 단 **모듈에 기본값을 두지 않는다**(필수 입력) | 🔧 **개정·강화** | 아래 §2.3 |
 | **D-WORKBENCH-SCOPE** | **self-hosted runner로 겸용하지 않는다.** workbench는 사람이 조작하는 지점이다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §2.4 — [`22 §5-2`](22-day2-operations.md)를 닫는다 |
 | **D-WORKBENCH-SEAM** | EKS 접근 3층 중 **1층(주체 IAM)만 workbench가 소유**하고 **2·3층(Access Entry·SG ingress)은 `eks-cluster`가 소유**한다 | 🆕 신설 (2026-08-05 사용자 결정) | 아래 §5 — ⛔ PoC의 `D-BASTION-K8S`(workbench가 3층 전부 소유) **철회** |
@@ -217,7 +217,7 @@ PoC는 `snet-poc-dev-an2-vm-uniq-a/c`라는 구체 서브넷을 지정했다. �
 
 | 축 | 겸용 안 함(채택) | 겸용(기각) |
 |----|------------------|-----------|
-| 인스턴스 타입 | `t4g.nano` 급으로 충분 | 빌드 부하를 견뎌야 함 → 타입 상향 + 비용 |
+| 인스턴스 타입 | 소형으로 충분 — **다만 `t4g.nano` 는 아니다**(§4.3 D-WORKBENCH-SIZE 가 `t4g.small` 로 정정. *"빌드 부하가 없다"* 만 보고 **패키지 관리자의 메모리 요구를 빠뜨렸다**) | 빌드 부하를 견뎌야 함 → 타입 대폭 상향 + 비용 |
 | IAM | SSM + (선택) `eks:DescribeCluster` | GitHub runner 등록·아티팩트 접근 권한 추가 |
 | 자격증명 | **추가 없음** | runner 등록 토큰(회전 대상)이 하나 늘어남 |
 | 상시 기동 | 조작할 때만 쓰는 유휴 인스턴스 | CI 대기 시간 때문에 상시가 **요구사항**이 됨 |
@@ -400,7 +400,7 @@ variable "subnet_id" { type = string }   # private 서브넷 전제(§2.2). 모�
 
 # ── 인스턴스 (D-WORKBENCH-AMI-PIN) ─────────────────────────────────────────
 variable "ami_id"        { type = string }                      # ⭐ 기본값 없음 = 필수 입력
-variable "instance_type" { type = string, default = "t4g.nano" } # ⚠️ ami_id 의 아키텍처와 정합할 것
+variable "instance_type" { type = string, default = "t4g.small" } # ⚠️ ami_id 의 아키텍처와 정합할 것
 variable "root_volume_size" { type = number, default = 10 }
 variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS 관리형 키
 
@@ -513,7 +513,44 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
 > **`argocd`는 tarball이 아니라 단일 바이너리다** — `helm` 블록을 복사하면 안 된다.
 > `curl -o` → `install -m 0755` 로 끝이며 해제·중간 디렉토리 정리가 없다. 실측(2026-08-06·08-10):
 > `https://github.com/argoproj/argo-cd/releases/download/<ver>/argocd-linux-<arch>` — `arm64`·`amd64`
-> 둘 다 `200`. `t4g.nano`(arm64)에서 동작한다.
+> 둘 다 `200`. arm64(`t4g` 계열)에서 동작한다 — 2026-08-10 apply 로 실물 설치까지 확인했다.
+>
+> ⚠️ **부팅 로그의 `argocd version --client` 는 `$HOME is not defined` 로 fatal 을 찍는다**(실측).
+> **설치 실패가 아니다** — 바이너리는 `/usr/local/bin/argocd` 에 정상으로 놓인다. cloud-init 에는
+> `$HOME` 이 없어 CLI 가 설정 경로를 못 정하는 것뿐이다. 로그만 보면 실패로 오독하므로
+> 검증 호출에 `HOME=/root` 를 붙인다.
+
+> ## 🔴 **D-WORKBENCH-SIZE — 기본 타입은 `t4g.small`이다** (2026-08-10, 사용자 결정)
+>
+> **최초 기본값 `t4g.nano`(RAM 512MB)는 실패한다.** `workbench-v0.3.0` 첫 apply 에서
+> `dnf install -y git-core`가 **부팅 중 OOM-killer 에 죽었다**(실측, 인스턴스 `i-0c3be7c…`):
+>
+> ```
+> oom-kill: task_memcg=/system.slice/cloud-final.service, task=dnf
+> Out of memory: Killed process 1656 (dnf) total-vm:976324kB
+> ```
+>
+> - ⚠️ **`free -m`의 swap 417MB 는 여유가 아니다.** 실물은 **`/dev/zram0`** — RAM 을 압축해 쓰는
+>   것이라 **용량이 늘지 않는다.** "swap 이 있는데 왜 죽나"로 오독하기 쉬운 지점이다.
+> - 🔑 **`dnf` 하나가 vm 976MB 를 요구한다.** 1GB(`t4g.micro`)면 부팅은 통과하겠지만
+>   helm 렌더링·`kubectl`·로그 조회가 겹치는 **실제 운영**에서 다시 아슬아슬해진다.
+>   **부팅만 통과시키는 크기는 "적정"이 아니다.**
+> - ⭐ **재사용 자산의 기본값은 고객사가 그대로 써도 안전해야 한다.** 기본값이 아슬아슬하면
+>   부팅 실패를 **고객사가** 겪는다 — 이 repo 산출물의 성격상 그 비용은 우리가 아니라 그쪽이 낸다.
+>
+> ⛔ **swapfile·재시도 같은 우회를 먼저 짜지 않는다.** 사용자 결정: *"비용만 생각하지 말고
+> 적정한 인스턴스 타입으로 전환도 고려하라."* 우회는 메커니즘을 늘리고 근본은 남긴다.
+>
+> | 타입 | RAM | 월(Seoul, on-demand 실측) | 판정 |
+> |---|---|---|---|
+> | `t4g.nano` | 0.5GB | $3.8 | ❌ dnf OOM(실측) |
+> | `t4g.micro` | 1GB | $7.6 | 부팅은 통과, 운영 여유 없음 |
+> | **`t4g.small`** | **2GB** | **$15.2** | ✅ **채택** |
+> | `t4g.medium` | 4GB | $30.4 | 현재 용도엔 과하다 |
+>
+> ⚠️ **`§2.4`(D-WORKBENCH-SCOPE)의 *"`t4g.nano` 급으로 충분"* 은 이 결정이 대체했다.**
+> 그 판단은 *"빌드 부하가 없다"* 만 봤고 **패키지 관리자의 메모리 요구를 계산하지 않았다.**
+> 겸용하지 않는다는 결론 자체는 그대로 유효하다 — 틀린 것은 크기 근거뿐이다.
 
 > **⚠️ 다운로드 경로는 `/tmp`가 아니라 `/var/tmp`다 — 승계된 함정 중 가장 값진 것**
 >
@@ -522,7 +559,12 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
 > 🔑 **"먼저 받은 것이 공간을 먹는 순서 의존"** 이라 수동 재시도도 실패한다.
 > → `/var/tmp`(루트 EBS)로 받고 `install` 직후 원본을 삭제한다.
 >
-> 이 함정은 **`instance_type` 기본값이 작은 한 계속 유효**하다. 실측 원문은
+> ⚠️ **D-WORKBENCH-SIZE 로 이 함정의 성격이 바뀌었다**(2026-08-10). `t4g.small`(2GB)에서 `/tmp` 는
+> 약 1GB라 **바이너리 3개로는 더 이상 터지지 않는다.** 그래도 `/var/tmp` 를 유지한다 —
+> 소비자가 `instance_type` 을 내리면 함정이 그대로 돌아오고, `/var/tmp` 는 그때도 옳다.
+> 🔑 **근거가 "필수"에서 "안전"으로 바뀐 것이지 결론이 바뀐 것이 아니다.**
+>
+> 이 함정은 **`instance_type` 을 소비자가 작게 내리는 한 계속 유효**하다. 실측 원문은
 > [`../reference/poc-findings.md`](../reference/poc-findings.md).
 
 - `curl --retry-all-errors`를 유지한다. tmpfs 문제의 해법은 아니지만 부팅 초기 일시적 네트워크 실패를
@@ -803,6 +845,33 @@ replace 없음). 실물 `describe-cluster`: **`endpointPublicAccess: false`** ·
 >    추가 + `Name`을 인스턴스 이름으로 변경). tofu가 매번 되돌리므로 **apply마다 반복되는 drift**다.
 >    무해하지만 "0 changed"를 기대할 수 없게 만든다 — 소비 repo의 미결 항목으로 추적한다.
 
+#### 🔴 7.3-3 **`workbench-v0.3.0` apply 판정 — 부분 실패** (2026-08-10, `iac-reference-infra`)
+
+apply run [`31352399365`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31352399365)
+= `Apply complete! Resources: 1 added, 0 changed, 1 destroyed.` — **replace 대상은 인스턴스 1개뿐**이었고
+IAM role·instance profile·SG·SG rule 은 plan 목록에 없었다 ⇒ **Access Entry(2층)·cluster SG
+ingress(3층) 유지 예측이 실증됐다.**
+
+| 항목 | 결과 |
+|---|---|
+| 인스턴스 교체 · SSM 재등록 | ✅ `PingStatus: Online` (교체 후 약 3분) |
+| kubeconfig 재생성 | ✅ **첫 시도에 성공** — IAM 전파 재시도 루프가 돌 필요조차 없었다 |
+| `kubectl v1.35.7` · `helm v3.21.3` · `argocd v3.5.0` | ✅ 3개 전부 자동 설치 |
+| **`git`** | ❌ **미설치 — `dnf` 가 OOM-kill 됐다** |
+
+> ### 🔑 **이 판정이 값진 이유 — `tofu test` 로는 절대 잡을 수 없는 결함이었다**
+>
+> T-9 는 *"`user_data` 에 `dnf install -y git-core` 가 있는가"* 를 판정하고 **통과했다.**
+> 계약은 맞았고 **실행이 실패했다.** plan 은 문자열까지만 보고 그 문자열이 512MB 머신에서
+> 무슨 일을 하는지는 모른다.
+> ⇒ ⭐ **`§7.1`의 경계선이 여기서 실증됐다**: 이 repo 는 `plan` 까지만 판정하고
+> **apply 판정은 소비 repo 몫**이라는 분업이 형식이 아니라는 뜻이다.
+> ⚠️ 그러니 *"`tofu test` 가 통과했으니 동작한다"* 고 쓰지 않는다.
+
+**조치**: 원인은 코드가 아니라 **크기**였다 ⇒ [D-WORKBENCH-SIZE](#43-user_data) 로 기본 타입을
+`t4g.small` 로 올리고 **`workbench-v0.4.0`** 을 컷한다. `helm`·`argocd`·kubeconfig 는 이미
+검증됐으므로 v0.4.0 은 **`git` 하나를 닫는 릴리스**다.
+
 ---
 
 ## 8. 구현 계획
@@ -843,12 +912,18 @@ replace 없음). 실물 `describe-cluster`: **`endpointPublicAccess: false`** ·
 
 | 항목 | 월 추정 (ap-northeast-2 기준, 상시) |
 |------|------------------------------------|
-| `t4g.nano` on-demand | 약 $3.8 |
+| **`t4g.small` on-demand** | **약 $15.2** (Price List API 실측, 2026-08-10) |
 | gp3 10GB | 약 $0.9 |
 | NAT 데이터 처리 | 미미 (제어 트래픽 위주) |
-| **합계** | **약 $5 미만** |
+| **합계** | **약 $17 내외** |
 
 SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수에 따라 달라지며 **견적이 아니라 규모감**이다.
+
+> ⚠️ **2026-08-10 이전 이 표는 `t4g.nano` 기준 "$5 미만"이었다.** D-WORKBENCH-SIZE(§4.3)가
+> 기본값을 올리면서 **월 약 $11 늘었다.** 그 차액이 사는 것은 *"고객사가 기본값 그대로 apply 해도
+> 부팅이 성공한다"* 이다 — nano 기본값에서는 실제로 실패했다(dnf OOM 실측).
+> 🔑 **비용을 낮추려면 `instance_type` 을 내리는 것이 아니라 `workbench_enabled = false` 로
+> 끈다**(D-WORKBENCH-LIFECYCLE). 필요할 때만 켜면 상시 비용 자체가 사라진다.
 
 ---
 

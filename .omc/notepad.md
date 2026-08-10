@@ -1355,19 +1355,64 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem              # workbench 안의 파일. �
    ⛔ 마지막에 **초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제**(완료 조건이다).
 3. 그 뒤 `addons/` 증분 → `24`(관리형) → `40` 열린항목 7(`argocd` CLI 핀, 근거는 `23 §5` 확정)
 
+#### ✅ **workbench `git` 구현 — 브랜치 `feat/workbench-git-v0.2.0`** (2026-08-10)
+
+커밋 3개(분리 유지): `26965c4`(git 설치+T-9) · `180d7ca`(helm 설명) · `bc141fc`(문서 정합).
+로컬에서 **CI 게이트 6개 전부 통과** — modules 44 tests(eks 20·vpc 13·wb 11) · examples 2 validate ·
+lock registry 혼입 0.
+
+> ### 🔑 **재사용할 실측 3건** — 이번에 처음 확인한 것
+>
+> ① **`templatefile()` 은 셸 주석도 파싱한다.** 주석 안에 `%{ if }` 를 **인용만 해도**
+> 진짜 지시자로 해석돼 `Invalid expression` 이 난다. 이스케이프(`%%{`)보다 **그 문법을 주석에
+> 쓰지 않는 쪽**이 낫다 — 다음 사람이 같은 함정을 밟는다.
+> ② ⭐ **plan 단계에서 `user_data` 는 원문 그대로 보인다.** `strcontains` 로 내용 판정이 된다
+> ⇒ **T-9** 가 그 위에 섰다. ⚠️ `40 §7.1` 의 *"미지정을 계약으로 삼는 항목은 plan 으로 못 지킨다"*
+> 를 여기까지 넓히면 틀린다. 안 되는 이유는 *"plan 이라서"* 가 아니라 **모킹이 값을 지어내기
+> 때문**이고, `user_data` 는 우리가 계산해 넣는 값이라 지어낼 여지가 없다. **경계는 거기다.**
+> ③ **trivy 를 훅과 다른 플래그로 돌리면 거짓 실패가 난다.** `--ignorefile .trivyignore.yaml`
+> `--tf-exclude-downloaded-modules` 를 빼면 **upstream EKS 모듈 코드**까지 스캔해 exit 1 이 된다.
+> 🔑 게이트를 손으로 재현할 땐 `.githooks/pre-commit` 의 명령을 **그대로** 복사한다.
+
+**설계 문서에서 잡은 것 2건** (구현하다 드러난 defect — 코드가 아니라 기록의 결함)
+
+| 지점 | 무엇이 틀렸나 |
+|---|---|
+| `40 §2.5` 귀결 상자 | *"nullable 패턴으로 열어야 한다"* ↔ `§4.1` *"변수 없이 항상 설치"* — **같은 날 쓰인 두 절이 정반대**였고 구현은 §4.1을 따랐다. §2.5를 **기각 기록**으로 바꿨다 |
+| `examples/eks-cluster-enterprise/README.md` | *"태그가 낡은 채 복사되면 굳는다"* 고 **경고해 놓고 자신이 걸려 있었다**(`eks-cluster-v0.2.0`·`v0.3.0` ← 현행 v0.4.0). 🔑 **경고문은 갱신을 강제하지 못한다** |
+
+> ### ⚠️ **머지 후 소비 repo 에서 일어날 일 — 인스턴스가 교체된다**
+>
+> `user_data_replace_on_change = true`(모듈 `main.tf:118`) 라서 `?ref` 를 올리면
+> plan 에 **`# forces replacement`** 가 뜨고 workbench 가 destroy/create 된다. **의도된 계약**이다
+> (user_data 는 부팅 시에만 실행되므로 in-place 갱신은 *"코드와 실물이 다른"* 상태를 만든다).
+>
+> | 유지 | 사라짐 |
+> |---|---|
+> | IAM role·instance profile ⇒ **Access Entry(2층) 그대로** | `git` → ✅ 이번 커밋이 자동화 |
+> | SG ID ⇒ **cluster SG ingress(3층) 그대로** | `helm` → ⚠️ **소비 repo 가 `helm_version` 을 안 준다** |
+> | kubeconfig(user-data 가 재생성) | `argocd-seed.sh` → ⚠️ **태스크 2(vendoring)** 가 소유 |
+>
+> ⛔ **태스크 2 전에 소비 repo 를 apply 하지 말 것** — 재생성된 workbench 에 seed 스크립트가 없어
+> base64 배달 임시방편을 반복하게 된다. 🔴 그리고 **재생성 중에는 클러스터 도달 경로가 끊긴다**
+> (public endpoint 가 닫혀 있어 workbench 가 유일한 도달 지점). ArgoCD 는 클러스터 안에서
+> 자율로 도므로 영향 없다.
+
+> ### 📌 **소비 repo 에 남은 작업 — `helm_version` 을 켜야 한다** (공백 2 의 실체)
+>
+> `iac-reference-infra/live/dev/eks/main.tf` 가 *"GitOps(pull) 전제라 helm 직접 운영이 현재 요구가
+> 아니다"* 라는 **낡은 근거로 helm 을 명시적으로 끄고 있다.** `23` 이 seed 를 `helm install` 로
+> 정하면서 그 전제가 뒤집혔다. ⇒ `helm_version = "v3.21.3"`(`23 §5` 핀) 을 넣는다.
+> 🔑 이 repo 는 2026-08-10 에 **변수 설명과 예제를 참에 맞췄다** — 집행은 소비 repo 몫이다.
+
 #### ⏭️ **다음 태스크 (2026-08-07 세션 종료 시점)** — 우선순위 순
 
 > 🔴 **먼저 알 것: workbench 의 `git`·`helm`·`argocd-seed.sh` 는 전부 수동 설치 상태다.**
 > **인스턴스가 교체되면 전부 사라진다.** 1번이 그 부채를 갚는 태스크다.
 > 🔑 설계는 **전부 끝나 있다** — 남은 건 구현이다. 설계부터 다시 하지 말 것.
 
-1. ⛔ **`modules/workbench` — `.tf` PR** (`workbench-v0.2.0`). 설계 = `40 §2.5` + `40 §4.1` 상자.
-   - `user-data.sh.tftpl` 에 **`dnf install -y git-core`** — ⚠️ **변수를 만들지 않는다**(항상 설치).
-     근거는 `40 §4.1` 의 *"`git` 은 왜 nullable 핀이 아닌가"* 상자.
-   - `variables.tf` 의 **`helm_version` 설명 정정** — *"프로파일 B 에서 쓴다"* 는 `23` 이전 세계다.
-     helm 은 **프로파일과 무관하게 seed 필수**(`23 §2.1`·`§5`).
-   - 커밋은 **분리**한다: git 추가(산출물 변경) / 설명 정정(계약 무관).
-   - ⚠️ 예제·`docs/README.md` 상태표(`40` 행의 *".tf 미반영 = PR 대기"*)를 **같이 지운다.**
+1. ✅ **구현 완료 — 브랜치 `feat/workbench-git-v0.2.0`** (2026-08-10). 아래 절이 SSOT.
+   ⏳ 남은 것은 **PR 머지 + `workbench-v0.2.0` 태그**뿐이다.
 2. **`iac-platform-gitops` — `bootstrap/argocd-seed.sh` vendoring** (D-WORKBENCH-REPO 결정 ②).
    사본 헤더에 **출처 태그**를 적는다. ⛔ **사본을 편집하지 않는다**(SSOT 는 이 repo).
 3. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).

@@ -287,3 +287,26 @@ run "reject_empty_egress" {
 
   expect_failures = [var.egress_cidr_blocks]
 }
+
+# ── T-9 — git 은 변수 없이 **항상** 설치된다 (D-WORKBENCH-REPO, 설계 §2.5·§4.1) ──
+#
+# ⭐ 이 테스트가 지키는 것은 "설치되는가"가 아니라 **무조건성**이다. git 에 변수를 다시 붙이거나
+#    다른 도구 옆의 조건 분기 안으로 옮기면 여기서 깨진다 — 그 형태가 정확히 설계가 기각한 것이다.
+# ⚠️ kubectl·helm 을 둘 다 null 로 둔 상태에서 본다. 기본값이 null 이라 이것이 최소 형상이고,
+#    "다른 도구를 켜야 git 도 온다"는 결합이 생기면 이 케이스만 실패한다.
+#
+# 🔑 재사용할 실측(2026-08-10): plan 단계에서 `user_data` 는 **원문 그대로 보인다.**
+#    (`key_name` 처럼 모킹이 값을 지어내는 항목과 달라 §7.1의 "plan 으로 못 지키는 항목"이 아니다.)
+run "git_always_installed" {
+  command = plan
+
+  variables {
+    kubectl_version = null
+    helm_version    = null
+  }
+
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "dnf install -y git-core")
+    error_message = "git-core 설치가 user_data 에 없다 — GitOps seam 의 클론이 성립하지 않는다."
+  }
+}

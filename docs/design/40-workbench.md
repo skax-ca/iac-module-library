@@ -292,12 +292,21 @@ PoC는 `snet-poc-dev-an2-vm-uniq-a/c`라는 구체 서브넷을 지정했다. �
 > ⚠️ 이 조각이 길어지기 시작하면 그것이 **다른 배달 경로(S3 안)가 필요하다는 신호**다 —
 > 기각안 표의 재검토 조건 ①과 같은 지점에서 만난다.
 
-> ### 📌 **귀결 — `git`이 모듈 계약에 들어온다**
+> ### 📌 **귀결 — `git`이 모듈 산출물에 들어온다** — ✅ 구현 완료 (2026-08-10)
 >
-> 클론을 하려면 `git`이 있어야 하는데 **`§4.1`에 그 변수가 없다.** `kubectl_version`·`helm_version`과
-> 같은 nullable 패턴으로 열어야 한다. ⛔ **`.tf` 변경이라 브랜치 → PR**이며 **모듈 계약 변경**이므로
-> `workbench` 마이너를 컷한다([`05`](../architecture/05-versioning-policy.md) — `0.y.z`라 전부 마이너).
-> ⚠️ 2026-08-07 seed는 `git`을 **수동 설치**해서 넘겼다 — **인스턴스 교체 시 사라지는 상태**다.
+> 클론을 하려면 `git`이 있어야 하는데 **`§4.1`에 그것이 없었다.**
+> ⚠️ 2026-08-07 seed는 `git`을 **수동 설치**해서 넘겼다 — `user_data_replace_on_change = true`라
+> **인스턴스 교체와 함께 사라지는 상태**였다. `workbench-v0.2.0`이 그 부채를 갚는다.
+>
+> ⛔ **최초 서술은 *"`kubectl_version`·`helm_version`과 같은 nullable 패턴으로 열어야 한다"* 였다.
+> 그 문장을 되살리지 말 것** — [`§4.1`의 상자](#41-variables)가 같은 날 **기각**했고 구현은 그쪽을
+> 따랐다. 기각 사유는 `git`에는 **핀할 값이 없다**는 것이다(배포판 패키지). 변수를 두면
+> [열린 항목 6](#10-열린-항목)이 경고한 **선택지 없는 분기**만 남는다.
+> 🔑 두 절이 같은 날 갈린 것 자체가 기록할 값어치다 — *"같은 패턴을 기계적으로 복사하지 않는다"* 가
+> 이 결정의 요지이고, 그 판단은 §2.5를 쓴 뒤에 나왔다.
+>
+> **계약(입력)은 넓어지지 않았고 산출물만 달라졌다.** 그래도 `workbench` 마이너를 컷한다
+> ([`05`](../architecture/05-versioning-policy.md) — `0.y.z`라 전부 마이너).
 
 **기각안**
 
@@ -380,7 +389,7 @@ variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS
 
 # ── 도구 (user_data) ─────────────────────────────────────────────────────
 variable "kubectl_version" { type = string, default = null }  # null = 미설치. 예: "v1.35.7"
-variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.16.4"
+variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.21.3" (핀 SSOT 는 23 §5)
 # git 은 변수가 없다 — 항상 설치한다(D-WORKBENCH-REPO §2.5). 근거는 바로 아래.
 
 # ── EKS 연동 — 1층만 (D-WORKBENCH-SEAM) ────────────────────────────────────
@@ -618,6 +627,11 @@ aws ssm start-session --target <id> --region <region> \
 | T-6 | EKS 연동 **양성** | `eks_cluster_name` + `eks_cluster_arn` 지정 시 인라인 정책이 **그 ARN으로 한정**되어 계획됨 |
 | T-7 | EKS 연동 **음성** ×2 | 한쪽만 지정 → **plan 거부**(§4.1 가드) |
 | T-8 | 음성 — kill switch × 가드 | `workbench_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
+| T-9 | **`git`의 무조건성**(§2.5·§4.1) | `kubectl_version`·`helm_version`이 **둘 다 `null`**인 최소 형상에서도 `user_data`에 `dnf install -y git-core`가 있을 것 |
+
+> ⭐ **T-9가 지키는 것은 "설치되는가"가 아니라 무조건성이다.** `git`에 변수를 다시 붙이거나 다른
+> 도구 옆의 조건 분기 안으로 옮기면 이 케이스만 깨진다 — 그 형태가 정확히 §4.1이 기각한 것이다.
+> 음성 확인(설치 줄 제거 → 실패)까지 마쳤다: 통과하는 가짜 테스트가 아니다.
 
 > ⭐ **T-8이 D-EXTDNS-ZONE에서 배운 것의 회수 지점이다.** 가드에 `&& var.workbench_enabled`를 넣지 않으면
 > 이 케이스가 실패하고, 그것이 곧 **파기 불가능한 kill switch**를 뜻한다.
@@ -631,7 +645,12 @@ aws ssm start-session --target <id> --region <region> \
 > **자기 자신의 모킹 설정**을 검증하게 된다. 통과하는 가짜 테스트는 없는 것보다 나쁘다.
 >
 > 🔑 **일반화: "미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.** 이 둘의 회귀 방지는
-> 코드 리뷰와 §4.2의 하드닝 목록에 남는다. 공인 IP는 추가로 서브넷의 `map_public_ip_on_launch`에도
+> 코드 리뷰와 §4.2의 하드닝 목록에 남는다.
+>
+> ⚠️ **이 일반화를 `user_data`까지 넓히지 말 것**(2026-08-10 실측). `user_data`는 plan에서
+> **원문 문자열 그대로** 보이므로 `strcontains`로 내용을 판정할 수 있다 — T-9가 그 위에 선다.
+> 위 두 항목이 안 되는 이유는 "plan이라서"가 아니라 **모킹이 값을 지어내기 때문**이고,
+> `user_data`는 우리가 계산해 넣는 값이라 지어낼 여지가 없다. 경계는 거기다. 공인 IP는 추가로 서브넷의 `map_public_ip_on_launch`에도
 > 달려 있어 **모듈 단독 판정이 애초에 불가능**하다 — 소비 repo의 apply 판정 몫이다(§7.3).
 
 ### 7.2 예제 — **기존 `examples/eks-cluster-enterprise`에 넣는다**(신규 예제를 만들지 않는다)

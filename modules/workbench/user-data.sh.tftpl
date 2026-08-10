@@ -17,6 +17,23 @@ echo "[workbench] bootstrap start $(date -Is)"
 DL_DIR=/var/tmp/workbench-tools
 mkdir -p "$DL_DIR"
 
+# ── git (D-WORKBENCH-REPO — 설계 §2.5) ────────────────────────────────────────
+#
+# ⭐ 이 블록에만 조건 분기가 없다. git 은 **변수 없이 항상 설치**한다.
+#    kubectl·helm 이 nullable 핀인 이유는 버전이 클러스터·차트에 결합되기 때문인데, git 은
+#    배포판 패키지라 소비자가 고를 값이 없다 — 변수를 두면 선택지 없는 분기만 남는다(설계 §4.1 상자).
+# ⚠️ GitOps seam 은 workbench 가 저장소를 클론하는 것을 전제한다. git 이 없으면 부트스트랩이 멈춘다.
+#    2026-08-07 seed 는 이것을 수동 설치로 넘겼고, 그 상태는 인스턴스 교체와 함께 사라졌다.
+# git-core 는 최소 구성 패키지다 — clone/fetch 에 필요한 것이 전부 들어 있다(AL2023 실측 2.50.1).
+# 아키텍처와 무관하고 $CURL 도 쓰지 않으므로 바이너리 다운로드보다 앞에 둔다.
+echo "[workbench] git-core 설치"
+if dnf install -y git-core; then
+  git --version || true
+else
+  # 다른 도구와 같은 규약: 실패해도 부팅을 멈추지 않는다. SSM 으로 들어가 진단할 수 있어야 한다.
+  echo "[workbench] ⚠️ git-core 설치 실패 — SSM 으로 접속해 수동 설치한다"
+fi
+
 ARCH_RAW="$(uname -m)"
 case "$ARCH_RAW" in
   aarch64) ARCH=arm64 ;;

@@ -1498,31 +1498,58 @@ nano $3.8 · micro $7.6 · **small $15.2** · medium $30.4. `§9` 비용표 월 
 - **T-11 신설** — 지키는 것은 "OOM 이 안 난다"가 아니라 **결정이 조용히 되돌아가지 않는 것**이다.
   가장 그럴듯한 회귀는 *"비용을 줄이려고 기본값을 내리는 변경"* 이다.
 
+#### ✅ **`workbench-v0.4.0` apply 판정 — 전부 통과** (2026-08-10, run [`31353547193`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31353547193))
+
+`1 added, 0 changed, 1 destroyed`(다시 replace 는 인스턴스 1개뿐).
+**`git version 2.50.1`** ✅ · `kubectl v1.35.7` · `helm v3.21.3` · `argocd v3.5.0` ·
+메모리 총 1846MB/available 1544MB · **OOM 0건** · 노드 2개 Ready · root-app `Synced Healthy`.
+
+> ### ⏱️ **부팅이 3분+ → 32초로 줄었다**
+>
+> 도구가 하나 늘었는데 더 빨라졌다 — 늘어난 시간의 정체는 **`dnf` 가 메모리를 구하지 못해
+> 헤매던 시간**이었다. 🔑 **OOM 은 "죽는 것"만이 아니라 "죽기 전까지 느려지는 것"으로도 나타난다.**
+
+> ### 🔑 **재사용할 실측 2건**
+>
+> ① **`t4g.small` 에는 zram swap 이 아예 없다**(`Swap: 0`). AL2023 은 **저메모리 인스턴스에만**
+> zram 을 켠다(`t4g.nano` 에는 `/dev/zram0` 418MB 가 있었다). ⇒ *"swap 이 사라졌으니 나빠졌다"* 가
+> 아니라 **압축 swap 이 필요 없을 만큼 실제 RAM 이 생겼다**는 뜻이다.
+> ② 🔴 **`argocd admin ...` 에 `-n argocd` 를 빠뜨리면 `argocd-cm 을 찾을 수 없다`** 는 경고가 난다.
+> **설정 공백이 아니라 네임스페이스 누락**이다 — 실제로 한 번 오독했다.
+
+> ### ✅ **덤으로 `30` 판정 ③이 닫혔다**
+>
+> `argocd admin cluster stats -n argocd` → 서버 항목이 **`https://kubernetes.default.svc` 하나뿐**
+> (Successful · apps 1 · resources 536). ⇒ cluster Secret 이 내장 `in-cluster` 를 **대체했다.
+> 중복이 아니다.** 2026-08-07 에 `kubectl` 만으로 절반만 판정됐던 항목이다.
+> ⚠️ **`argocd login` 없이 닫았다** — `argocd admin` 은 API 서버가 아니라 **k8s 를 직접 읽는다.**
+> 초기 비밀번호를 조회하지 않고도 판정할 수 있었던 이유다.
+
 #### ⏭️ **다음 태스크 (2026-08-10 갱신)** — 우선순위 순
 
-> 🔴 **`git` 이 아직 실물에 없다.** `helm`·`argocd` 는 v0.3.0 apply 로 자동 설치가 확인됐지만
-> `git` 은 **dnf OOM 으로 실패**했다(위 절). `workbench-v0.4.0`(`t4g.small`)이 그것을 회수한다 —
-> **5번이 그 태스크다.** seed 스크립트는 이미 GitOps 저장소에 vendoring 됐다.
+> ✅ **workbench 부채가 전부 정리됐다**(2026-08-10). `git`·`kubectl`·`helm`·`argocd` 4종이
+> `user_data` 로 자동 설치되고, seed 스크립트는 GitOps 저장소에 vendoring 됐다.
+> **손으로 넣은 것이 하나도 없다.** 🔴 **남은 것은 7번(초기 비밀번호 교체)뿐이고 사용자 몫이다.**
 
 1. ✅ **완료 — `workbench-v0.2.0`**(PR #15, `git` 설치).
 2. ✅ **완료 — vendoring**(gitops `ba9d079`).
 3. ✅ **완료 — `workbench-v0.3.0` 릴리스됨**(PR #16 `1c0de0d`, CI run
    [`31349388448`](https://github.com/skax-ca/iac-module-library/actions/runs/31349388448) 6/6 · 46 tests).
 4. ✅ **완료 — 소비 repo 갱신 + apply**(PR #20, run `31352399365`). ⚠️ **부분 실패** — 위 절 참조.
-5. 🔴 **`workbench-v0.4.0` 릴리스 ✅ 완료**(PR #17 `c928205`, CI 6/6 · 47 tests).
-   **지금 여기부터 — 소비 repo 재핀 + apply.**
+5. ✅ **완료 — `workbench-v0.4.0` 릴리스 + 소비 repo 재핀 + apply**(PR #17 `c928205` ·
+   소비 PR #21 · apply run `31353547193`). **전부 통과** — 아래 절 참조.
    - ⚠️ 기본값 변경이라 `instance_type` 미지정 루트는 **인스턴스가 또 교체된다** — 그 교체가
      곧 **`git` 설치의 회수 지점**이다.
-6. **원래 4번이었던 것 — 남은 확인**
-   - ✅ `git`(v0.4.0 이 회수) · `helm v3.21.3` · `argocd v3.5.0` 이 전부 자동 설치된 것을 확인
+6. ✅ **완료 — 도구 자동 설치 확인**: `git 2.50.1` · `kubectl v1.35.7` · `helm v3.21.3` ·
+   `argocd v3.5.0`. **손으로 넣은 것이 하나도 없다.**
 7. ⛔ **seed 완료 조건 마무리** — 초기 비밀번호 교체 + `argocd-initial-admin-secret` 삭제(`23 §2.3`).
    - ⭐ **`argocd` CLI 는 이미 실물에 있다**(v0.3.0 apply 로 확인) ⇒ `argocd account
      update-password` 로 끝난다. 대화형 SSM 세션·port-forward 가 **불필요하다**
      (`send-command` 로는 터널이 안 선다).
    - ⛔ 초기 비밀번호를 `send-command` 로 **조회하지 말 것** — 출력이 CloudTrail·히스토리에 남는다.
    - ⛔ 비밀번호는 **사용자가 정할 값**이다.
-8. **판정 ③ 마무리** — `argocd cluster list` 로 cluster Secret 이 내장 `in-cluster` 를
-   **대체하는가 중복인가**. ✅ 도구(`argocd` CLI)는 이미 실물에 있다 — 바로 착수 가능하다.
+8. ✅ **완료 — 판정 ③**: `argocd admin cluster stats -n argocd` 결과 **서버 항목이 하나뿐**
+   ⇒ cluster Secret 이 내장 `in-cluster` 를 **대체했다. 중복이 아니다.**
 9. 그 뒤 `addons/` 증분 → `24`(관리형 ArgoCD).
 
 #### ⏸ ~~뒤로 밀린 것 — **`40` 열린 항목 7 (`argocd` CLI 핀)**~~ ✅ **해소**(2026-08-10) — 아래는 그때의 조사 기록

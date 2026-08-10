@@ -878,6 +878,46 @@ ingress(3층) 유지 예측이 실증됐다.**
 `t4g.small` 로 올리고 **`workbench-v0.4.0`** 을 컷한다. `helm`·`argocd`·kubeconfig 는 이미
 검증됐으므로 v0.4.0 은 **`git` 하나를 닫는 릴리스**다.
 
+#### ✅ 7.3-4 **`workbench-v0.4.0` apply 판정 — 전부 통과** (2026-08-10)
+
+apply run [`31353547193`](https://github.com/skax-ca/iac-reference-infra/actions/runs/31353547193)
+= `1 added, 0 changed, 1 destroyed`(다시 **replace 는 인스턴스 1개뿐**).
+
+| 항목 | 결과 |
+|---|---|
+| `git` | ✅ **`git version 2.50.1`** — §7.3-3 의 실패가 닫혔다 |
+| `kubectl` · `helm` · `argocd` | ✅ `v1.35.7` · `v3.21.3` · `v3.5.0` |
+| 메모리 | ✅ 총 **1846MB** · available **1544MB** · **OOM 0건** |
+| kubeconfig · 클러스터 | ✅ 첫 시도 성공 · 노드 2개 `Ready` |
+| ArgoCD | ✅ root-app `Synced` `Healthy` · pod 5개 Running |
+
+> ### ⏱️ **부팅이 3분+ → 32초로 줄었다**
+>
+> `03:49:39 → 03:50:11`. 도구가 하나 늘었는데 더 빨라졌다 — 늘어난 시간의 정체는
+> **`dnf` 가 메모리를 구하지 못해 헤매던 시간**이었다. 🔑 OOM 은 "죽는 것"만이 아니라
+> **죽기 전까지 느려지는 것**으로도 나타난다.
+
+> ### 🔑 **재사용할 실측 — `t4g.small` 에는 zram swap 이 아예 없다**
+>
+> `free -m` 의 **`Swap: 0`** 이다. AL2023 은 **저메모리 인스턴스에만 zram 을 켠다**
+> (`t4g.nano` 에서는 `/dev/zram0` 418MB 가 있었다). ⇒ *"swap 이 줄었으니 나빠졌다"* 가 아니다 —
+> **압축 swap 이 필요 없을 만큼 실제 RAM 이 생겼다**는 뜻이다.
+
+> ### ✅ **덤으로 `30` 판정 ③이 닫혔다** — `argocd` CLI 를 넣은 두 근거 중 하나
+>
+> `argocd admin cluster stats -n argocd`:
+> ```
+> SERVER                          SHARD  CONNECTION  NAMESPACES  APPS  RESOURCES
+> https://kubernetes.default.svc  0      Successful  1           1     536
+> ```
+> **서버 항목이 하나뿐이다** ⇒ cluster Secret 이 내장 `in-cluster` 를 **대체했다. 중복이 아니다.**
+> 2026-08-07 에 `kubectl` 만으로는 *"해석은 되지만 대체인지 중복인지 모른다"* 로 절반만 판정됐던 항목이다.
+>
+> ⚠️ **`argocd login` 없이 판정했다** — `argocd admin` 은 API 서버가 아니라 **k8s 를 직접 읽는다.**
+> 초기 비밀번호를 조회하지 않고도 닫을 수 있었던 이유다(`23 §2.3` 완료 조건은 여전히 미이행).
+> 🔴 **함정**: `-n argocd` 를 빠뜨리면 `argocd-cm 을 찾을 수 없다`는 경고가 나온다.
+> **설정 공백이 아니라 네임스페이스 누락**이다 — 실제로 한 번 오독했다.
+
 ---
 
 ## 8. 구현 계획

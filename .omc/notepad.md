@@ -43,7 +43,8 @@
 
 > **최신 (2026-08-10 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
 > **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) ·
-> **`workbench-v0.2.0`**(git 설치, PR #15 `782f710` — 🔴 **업그레이드 시 인스턴스 교체**).
+> **`workbench-v0.3.0`**(PR #16 `1c0de0d`, `argocd` CLI — 직전 `v0.2.0` PR #15 는 `git` 설치.
+> 🔴 **업그레이드 시 인스턴스 교체** — ⭐ 둘을 한 번에 올리면 교체는 **1회**다).
 > ⚠️ **`bastion-v0.1.0` 은 존재하지 않는다** — 2026-08-06 개명 때 `workbench-v0.1.0` 으로
 > 대체·삭제됐다(D-WORKBENCH-RENAME). 아래 8/5 서술에 남은 이름은 **그때의 사실 기록**이다.
 > ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
@@ -1462,7 +1463,8 @@ GitHub Releases 단일. 맵으로 묶으면 tarball 분기가 템플릿 안으�
 
 1. ✅ **완료 — `workbench-v0.2.0`**(PR #15, `git` 설치).
 2. ✅ **완료 — vendoring**(gitops `ba9d079`).
-3. ✅ **완료 — `workbench-v0.3.0`**(`argocd` CLI, `40` 열린 항목 7 해소).
+3. ✅ **완료 — `workbench-v0.3.0` 릴리스됨**(PR #16 `1c0de0d`, CI run
+   [`31349388448`](https://github.com/skax-ca/iac-module-library/actions/runs/31349388448) 6/6 · 46 tests).
 4. 🔴 **지금 여기부터 — 소비 repo `iac-reference-infra` 갱신 + apply**
    - `?ref=workbench-v0.3.0` · **`helm_version = "v3.21.3"`**(지금 낡은 근거로 꺼져 있다) ·
      **`argocd_version = "v3.5.0"`**

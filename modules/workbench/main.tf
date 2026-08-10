@@ -22,6 +22,7 @@ locals {
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
     kubectl_version = var.kubectl_version
     helm_version    = var.helm_version
+    argocd_version  = var.argocd_version
     # kubeconfig 생성 조건을 로컬과 일치시킨다 — 권한 없이 kubeconfig만 만들지 않는다.
     eks_cluster_name = local.eks_integration_enabled ? var.eks_cluster_name : null
     region           = data.aws_region.current.region

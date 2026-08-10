@@ -149,6 +149,9 @@ module "workbench" {
   #    workbench 에서 `helm install` 로 돌기 때문에 필수다(23 §2.1). 핀은 차트에 결합돼 있어
   #    23 §5 가 SSOT 다: argo-cd 10.3.0 과 짝이 되는 helm v3(v4 아님 — 근거는 23 §5).
   helm_version = "v3.21.3"
+  # ⭐ chart appVersion 과 **같은 값**을 쓴다(23 §5). 다른 값을 핀하면 "UI 에서 되는데 CLI 에서
+  #    안 된다"를 진단할 근거가 사라진다. chart 를 올리면 이 핀도 같이 올린다.
+  argocd_version = "v3.5.0"
 
   # EKS 접근 3층 중 **1층만** 여기서 성립한다(D-WORKBENCH-SEAM).
   # 2층(Access Entry)·3층(SG ingress)은 아래 eks 블록이 소유한다.

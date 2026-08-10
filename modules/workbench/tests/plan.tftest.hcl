@@ -310,3 +310,32 @@ run "git_always_installed" {
     error_message = "git-core 설치가 user_data 에 없다 — GitOps seam 의 클론이 성립하지 않는다."
   }
 }
+
+# ── T-10 — argocd CLI 는 nullable 핀이다 (설계 §4.1 상자) ──────────────────────
+#
+# ⭐ git(T-9)과 **정반대 계약**이라 양성·음성을 둘 다 본다. argocd 는 버전이 chart appVersion 에
+#    결합되므로(23 §5) 소비자가 고르는 값이고, 지정하지 않으면 **설치되지 않는 것이 계약**이다.
+# ⚠️ 음성 케이스를 빼면 "항상 설치"로 바뀌어도 통과한다 — 그러면 T-9 와 구분되지 않는다.
+run "argocd_cli_installed_when_pinned" {
+  command = plan
+
+  variables {
+    argocd_version = "v3.5.0"
+  }
+
+  assert {
+    # 버전을 URL 에 넣어 본다 — 단순 "argocd" 문자열은 주석에도 있어 통과가 무의미하다.
+    condition     = strcontains(aws_instance.this[0].user_data, "releases/download/v3.5.0/argocd-linux-")
+    error_message = "argocd_version 을 지정했는데 릴리스 URL 이 user_data 에 없다."
+  }
+}
+
+run "argocd_cli_absent_by_default" {
+  command = plan
+
+  assert {
+    # 기본값(null)에서 다운로드 URL 이 나오면 "미설치가 기본"이라는 계약이 깨진 것이다.
+    condition     = !strcontains(aws_instance.this[0].user_data, "releases/download/")
+    error_message = "argocd_version 이 null 인데 argocd 다운로드가 계획됐다 — 기본값 계약 위반."
+  }
+}

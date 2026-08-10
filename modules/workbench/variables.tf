@@ -143,6 +143,21 @@ variable "helm_version" {
   default     = null
 }
 
+variable "argocd_version" {
+  description = <<-EOT
+    설치할 argocd CLI 버전(예: "v3.5.0"). null이면 설치하지 않는다.
+
+    ⭐ **chart appVersion과 같은 값을 쓴다** — 핀의 SSOT는 23 §5다. 서로 다른 값을 쓰면
+    "UI에서 되는데 CLI에서 안 된다"를 진단할 근거가 사라진다. chart를 올리면 이 핀도 같이 올린다.
+
+    용도는 "로그인해서 쓴다"가 아니다: ① 초기 비밀번호 교체(23 §2.3 완료 조건) —
+    CLI가 없으면 port-forward + 대화형 SSM 세션이 필요하다 · ② `argocd cluster list`로
+    cluster Secret이 내장 in-cluster를 대체하는지 판정(30 판정 ③).
+  EOT
+  type        = string
+  default     = null
+}
+
 # ── EKS 연동 — 3층 중 1층만 (D-WORKBENCH-SEAM) ──────────────────────────────────
 #
 # ⛔ 이 모듈은 Access Entry(2층)도 cluster SG ingress(3층)도 만들지 않는다.

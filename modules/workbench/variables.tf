@@ -133,8 +133,11 @@ variable "kubectl_version" {
 
 variable "helm_version" {
   description = <<-EOT
-    설치할 helm 버전(예: "v3.16.4"). null이면 설치하지 않는다.
-    Day 2 운영 프로파일 B(helm 직접 운영, 22 §3)에서 쓴다.
+    설치할 helm 버전(예: "v3.21.3"). null이면 설치하지 않는다.
+
+    ⚠️ **Day 2 운영 프로파일과 무관하게, self-managed ArgoCD를 쓰면 필수다**(23 §2.1·§5).
+    seed를 workbench에서 `helm install`로 하기 때문이다 — 핀 값의 SSOT는 23 §5(차트에 결합).
+    프로파일 B(helm 직접 운영, 22 §3)도 이 변수를 쓴다.
   EOT
   type        = string
   default     = null

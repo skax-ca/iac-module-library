@@ -380,7 +380,7 @@ variable "root_volume_kms_key_id" { type = string, default = null } # null = AWS
 
 # ── 도구 (user_data) ─────────────────────────────────────────────────────
 variable "kubectl_version" { type = string, default = null }  # null = 미설치. 예: "v1.35.7"
-variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.16.4"
+variable "helm_version"    { type = string, default = null }  # null = 미설치. 예: "v3.21.3" (핀 SSOT 는 23 §5)
 # git 은 변수가 없다 — 항상 설치한다(D-WORKBENCH-REPO §2.5). 근거는 바로 아래.
 
 # ── EKS 연동 — 1층만 (D-WORKBENCH-SEAM) ────────────────────────────────────

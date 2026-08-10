@@ -145,8 +145,10 @@ module "workbench" {
 
   # 도구는 명시 핀. kubectl 은 클러스터 마이너와 맞춘다(1.35 → v1.35.x).
   kubectl_version = "v1.35.7"
-  # 프로파일 B(helm 직접 운영, 22 §3)를 쓰는 고객사는 여기서 helm 을 받는다.
-  helm_version = "v3.16.4"
+  # ⚠️ helm 은 프로파일 B(22 §3) 전용이 아니다 — self-managed ArgoCD 를 쓰면 seed 가
+  #    workbench 에서 `helm install` 로 돌기 때문에 필수다(23 §2.1). 핀은 차트에 결합돼 있어
+  #    23 §5 가 SSOT 다: argo-cd 10.3.0 과 짝이 되는 helm v3(v4 아님 — 근거는 23 §5).
+  helm_version = "v3.21.3"
 
   # EKS 접근 3층 중 **1층만** 여기서 성립한다(D-WORKBENCH-SEAM).
   # 2층(Access Entry)·3층(SG ingress)은 아래 eks 블록이 소유한다.

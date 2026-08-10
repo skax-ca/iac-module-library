@@ -330,6 +330,22 @@ run "argocd_cli_installed_when_pinned" {
   }
 }
 
+# ── T-11 — 기본 인스턴스 타입은 dnf 가 살아남는 크기여야 한다 (D-WORKBENCH-SIZE) ──
+#
+# 🔴 이 테스트는 **실제 사고에서 나왔다**(설계 §7.3-3). t4g.nano(0.5GB)에서 부팅 중 dnf 가
+#    OOM-killer 에 죽어 git 이 설치되지 않았다 — T-9 는 통과했는데 실행이 실패했다.
+# ⚠️ plan 테스트가 OOM 을 예측할 수는 없다. 여기서 지키는 것은 **그때 내린 결정이 조용히
+#    되돌아가지 않는 것**뿐이다 — 비용을 줄이려고 기본값을 내리는 변경이 가장 그럴듯한 회귀다.
+#    (비용은 instance_type 이 아니라 workbench_enabled 로 줄인다.)
+run "default_instance_type_survives_dnf" {
+  command = plan
+
+  assert {
+    condition     = aws_instance.this[0].instance_type == "t4g.small"
+    error_message = "기본 instance_type 이 t4g.small 이 아니다 — 더 작은 타입은 부팅 중 dnf 가 OOM 으로 죽는다(설계 §4.3 D-WORKBENCH-SIZE, §7.3-3 실측)."
+  }
+}
+
 run "argocd_cli_absent_by_default" {
   command = plan
 

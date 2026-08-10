@@ -727,6 +727,12 @@ aws ssm start-session --target <id> --region <region> \
 | T-8 | 음성 — kill switch × 가드 | `workbench_enabled = false` + 한쪽만 지정 → **거부되지 않을 것**(파기 경로 보호) |
 | T-9 | **`git`의 무조건성**(§2.5·§4.1) | `kubectl_version`·`helm_version`이 **둘 다 `null`**인 최소 형상에서도 `user_data`에 `dnf install -y git-core`가 있을 것 |
 | T-10 | **`argocd` CLI 양성·음성**(§4.1) | 지정 시 `user_data`에 그 버전의 릴리스 URL이 있을 것 · **`null`이면 없을 것**(기본값이 미설치라는 계약) |
+| T-11 | **기본 `instance_type`**(D-WORKBENCH-SIZE) | 기본값이 `t4g.small`일 것 — 더 작은 타입은 부팅 중 `dnf`가 OOM으로 죽는다(§7.3-3) |
+
+> ⚠️ **T-11이 지키는 것은 "OOM이 안 난다"가 아니다** — plan 테스트는 그것을 예측할 수 없다.
+> 지키는 것은 **그때 내린 결정이 조용히 되돌아가지 않는 것**이고, 가장 그럴듯한 회귀는
+> *"비용을 줄이려고 기본값을 내리는 변경"* 이다. 비용은 `instance_type`이 아니라
+> `workbench_enabled`로 줄인다(§9).
 
 > ⭐ **T-9가 지키는 것은 "설치되는가"가 아니라 무조건성이다.** `git`에 변수를 다시 붙이거나 다른
 > 도구 옆의 조건 분기 안으로 옮기면 이 케이스만 깨진다 — 그 형태가 정확히 §4.1이 기각한 것이다.

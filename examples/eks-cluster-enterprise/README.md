@@ -76,7 +76,7 @@ data "aws_subnets" "pod" {
 
 ```hcl
 source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.4.0"
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.3.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.4.0"
 ```
 
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로

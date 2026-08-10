@@ -42,7 +42,7 @@
 |---|---|---|
 | **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
 | **Route53 zone** | **같은 루트에서 함께 생성**(`aws_route53_zone.internal`) | **만들지 않는다.** external-dns를 끄거나(기본), 기존 zone을 `data`로 **조회만** — 아래 **"external-dns"** 절 |
-| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.2.0` (**현행 릴리스**) |
+| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.4.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
@@ -75,14 +75,17 @@ data "aws_subnets" "pod" {
 ### 소싱 태그를 어떻게 고르나
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.3.0"
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.1.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.4.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.2.0"
 ```
 
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로
 확인한다. 위 표의 태그가 낡은 채 복사되면 그대로 굳는데, 이 모듈은 실패 방식이 특히 나쁘다:
 `eks-cluster-v0.2.0`이 넣은 external-dns 가드가 빠지면 **문제 조합의 `plan`이 통과하고 `apply`가
-죽는다**(D-EXTDNS-ZONE). 릴리스 이력은 각 태그의 annotated 메시지(`git show eks-cluster-v0.3.0`)와
+죽는다**(D-EXTDNS-ZONE). ⚠️ 2026-08-10에 이 README 자신이 그 함정에 걸려 있던 것을 고쳤다 —
+`eks-cluster`가 `v0.4.0`인데 표와 예시가 `v0.2.0`·`v0.3.0`에 멈춰 있었다. **경고문이 있어도
+갱신은 릴리스 작업에 실제로 붙여 두지 않으면 빠진다.** 릴리스 이력은 각 태그의
+annotated 메시지(`git show eks-cluster-v0.4.0`)와
 [`docs/design/20-eks-module.md §4.1·§4.2`](../../docs/design/20-eks-module.md)에 있다.
 
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고

@@ -125,10 +125,12 @@
 > `revision` 해석 여부**다(Karpenter가 그 형태였으나 원인은 values 누락이었다) ·
 > OCI가 repository 등록 없이 동작 · `default` AppProject 실측(self-managed도 완전 개방,
 > 단 `sourceNamespaces` 필드 없음).
-> 2026-08-10 **§2.9에 IaC 제약 2건 추가** — 증분 ①(`iac-platform-gitops` PR #1) 작성 중 발견:
-> ① Karpenter 컨트롤러는 **`kube-system`** 에 배포해야 한다(Pod Identity association이 IaC 소유) ·
-> ② NodePool 아키텍처는 managed NG를 따라간다(§2.2의 `amd64`는 PoC의 x86 값, 현행은 **Graviton**).
-> 🔑 둘 다 **계층 1이 정해 둔 값을 계층 2가 다시 고르려다** 생기는 같은 형태다.
+> 2026-08-10 **§2.9에 ⭐ D-ADDON-NS 신설**(사용자 결정) — *"계층 2 addon은 **전용 네임스페이스를
+> 신설**한다. 예외는 **ALBC·Karpenter → `kube-system`** 둘뿐"*. 예외 근거를 공식 문서 리서치로
+> 세 겹(Karpenter **APF FlowSchema** 기술 근거 · ALBC AWS/upstream 공식 · Pod Identity association)
+> 으로 세우고, **반증된 논거**(`system-cluster-critical`의 `kube-system` 전용 제약 — 실측상 **없다**)를
+> 명시적으로 폐기했다. 함께: NodePool 아키텍처는 managed NG를 따라간다(§2.2의 `amd64`는 PoC의 x86 값,
+> 현행은 **Graviton**). 🔑 둘 다 **계층 1이 정해 둔 값을 계층 2가 다시 고르려다** 생기는 같은 형태다.
 
 **범위**: 이 문서는 **플랫폼 GitOps 저장소**(이 Terraform repo와 분리된 별도 repo)의 **구조·규약**을
 설계한다. 개별 매니페스트의 완성된 내용(AWS Load Balancer Controller values 전체 등)은 구현 단계 소관 — 여기서는
@@ -942,27 +944,70 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 > 소관이며, 증분 착수 시 `aws ec2 describe-security-groups` 조회로 몇 초 만에 닫을 수 있다
 > ([`CLAUDE.md`](../../CLAUDE.md) — *"동작한다"의 기준은 `tofu test` + 예제 `validate`까지*).
 
-### 🔴 **IaC가 GitOps에 부과하는 제약 2개 — §2.2 본문에 없다** (2026-08-10 증분에서 발견)
+## ⭐ **D-ADDON-NS — addon 네임스페이스 규칙** (2026-08-10 확정, 사용자 결정)
 
-증분 ①(ALBC·Karpenter) 작성 중 실측으로 드러났다. **둘 다 §2.2를 그대로 베끼면 밟는다.**
+> ## 규칙
+>
+> **계층 2(GitOps helm addon)는 addon마다 전용 네임스페이스를 신설한다.**
+> **예외는 둘뿐이다 — `aws-load-balancer-controller` · `karpenter` → `kube-system`.**
+>
+> ⛔ 예외를 늘리려면 **아래 세 근거에 준하는 것**을 대야 한다. *"차트 기본값이 `kube-system`이라서"* 는
+> 근거가 아니다.
 
-#### ① **Karpenter 컨트롤러는 `kube-system`에 배포해야 한다 — `karpenter` ns가 아니다**
+### 예외 2개의 근거 — 세 겹으로 선다
 
-| | 값 | 출처 |
+| # | 근거 | 성격 |
 |---|---|---|
-| Pod Identity association | **`kube-system` / `karpenter`** | `aws eks list-pod-identity-associations` 실측 |
-| 왜 그 값인가 | upstream `terraform-aws-modules/eks//modules/karpenter` **v21.24.1의 기본값** | `modules/eks-cluster/main.tf`가 override하지 않는다 |
+| **1** | **Karpenter 공식 문서가 `kube-system`을 기본으로 하고 이유를 밝힌다** — `system-leader-election`·`kube-system-service-accounts` **FlowSchema**가 `kube-system`의 호출을 `leader-election`·`workload-high` PriorityLevelConfiguration으로 보낸다. *"If you install Karpenter in a different namespace … you will need to create **custom FlowSchemas**"* | ⭐ **기술적** — API Priority & Fairness. 다른 ns면 apiserver 스로틀링 시 **Karpenter가 굶는다** |
+| **2** | **ALBC도 공식이 `kube-system`이다** — AWS EKS User Guide(`eksctl create iamserviceaccount --namespace=kube-system` + `helm ... -n kube-system`)와 upstream `kubernetes-sigs` 설치 가이드가 **둘 다** | 관례(기술 근거는 명시 없음) |
+| **3** | **Pod Identity association이 이미 `kube-system`이다** — ALBC는 `modules/eks-cluster/iam.tf`가 명시, Karpenter는 upstream `modules/karpenter` v21.24.1 기본값 | **집행 장치** — 어기면 자격증명이 안 붙는다 |
 
-⇒ Karpenter **공식 문서의 관례**(전용 `karpenter` 네임스페이스)를 따르면
-**association이 매칭되지 않아 컨트롤러가 AWS 자격증명을 못 받는다.**
-⚠️ 증상은 *"파드는 Running인데 노드가 안 뜬다"* 라서 **원인을 가리키지 않는다.**
+> ### ⚠️ **근거 3은 근거 1·2를 대체하지 못한다 — 순서가 중요하다**
+>
+> *"association이 `kube-system`이니까 거기 배포한다"* 만 적으면 **논리가 뒤집힌다.** 그건 우리가 고른
+> 값이 아니라 **upstream 기본값을 받은 것**이고, 그렇게 읽으면 다음 사람이 *"IaC 우연에 GitOps를
+> 맞췄구나"* 로 이해한다. **공식 권고(1·2)가 먼저 있고, 3은 그것을 어길 수 없게 만드는 장치다.**
+>
+> 🔑 실제로 가역적이다 — upstream이 `namespace` 변수를 노출한다(기본 `kube-system`).
+> 우리 facade가 안 넘기고 있을 뿐이며, `ami_type`(D-NODE-ARCH)·`cluster_security_group_additional_rules`와
+> **같은 패턴**이다. ⇒ 바꾸고 싶으면 변수 하나면 되고, **그래서 "못 바꾼다"가 아니라 "안 바꾼다"** 다.
 
-🔑 **일반화 — 컨트롤러의 네임스페이스는 GitOps가 고르는 값이 아니다.**
-Pod Identity association이 `(cluster, ns, SA)` 3튜플로 바인딩하므로 **IaC가 먼저 정한다.**
-📌 addon을 추가할 때 **helm 차트의 기본 ns가 아니라 association을 먼저 본다.**
-(ALBC는 우리 모듈이 `iam.tf`에서 `kube-system`을 명시하므로 같은 결론이다.)
+### 🔴 **근거로 쓰지 말 것 — 실측으로 반증됐다**
 
-#### ② **NodePool의 아키텍처는 클러스터를 따라간다 — §2.2의 `amd64`는 PoC 값이다**
+*"두 차트 모두 `priorityClassName: system-cluster-critical`(기본값)이고 그 PriorityClass는
+`kube-system`에서만 쓸 수 있다"* — **틀렸다.**
+
+- `default` 네임스페이스에 server-side dry-run → **`pod/... created (server dry run)`** 통과(실측 2026-08-10)
+- k8s `master`·`release-1.31`의 priority admission plugin 소스에 **그 제약이 없다**
+
+⚠️ 구버전 제약의 기억이다. **이 논거를 되살리지 말 것.**
+
+### 왜 나머지는 전용 네임스페이스인가
+
+전용 ns가 주는 것(정책 스코프·quota·RBAC 경계·삭제 안전성)은 **addon 수가 늘수록** 값이 커지는데,
+`kube-system`은 **한번 들어가면 되돌리기 어렵다**(EKS managed addon과 뒤섞이고 삭제도 불가).
+⇒ **기본을 전용 ns로 두고 예외에 근거를 요구**하는 편이 비대칭을 올바른 방향으로 잡는다.
+
+⛔ **계층 1(Terraform managed/community addon)은 이 규칙의 대상이 아니다.** 그쪽 ns는 AWS·차트가
+정하고 우리가 고르지 않는다. 실측(2026-08-10)상 결과적으로 규칙과 어긋나지도 않는다:
+
+| ns | 도는 것 | 계층 |
+|---|---|---|
+| `kube-system` | coredns · ebs-csi-controller · metrics-server | 1 (EKS managed addon) |
+| `cert-manager` | cert-manager · cainjector · webhook | 1 (community addon) |
+| `external-dns` | external-dns | 1 (community addon — `iam.tf`가 association을 이 ns로 만든다) |
+
+### 🔧 집행 — 전용 ns addon을 넣을 때
+
+- ApplicationSet template의 `syncPolicy.syncOptions`에 **`CreateNamespace=true`** 를 넣는다.
+- ⚠️ **첫 전용-ns addon에서 판정할 것 2건**(argo-cd 문서에 서술이 없다):
+  ① 생성되는 Namespace가 AppProject `clusterResourceWhitelist`의 적용을 받는가
+  (받으면 `{group: "", kind: Namespace}` 를 열어야 한다)
+  ② `managedNamespaceMetadata`를 쓰면 ArgoCD가 그 ns를 **추적 대상으로 삼는다**(공식 서술:
+  *"allowing the platform to manage namespace lifecycle operations like deletion"*)
+  ⇒ 🔴 **`prune: true`와 겹치면 addon 제거가 네임스페이스째 지운다.** 쓰기 전에 이 조합을 판정한다.
+
+### 🔴 **부수 발견 — NodePool의 아키텍처는 클러스터를 따라간다** (§2.2의 `amd64`는 PoC 값이다)
 
 `§2.2` NodePool 스펙은 `kubernetes.io/arch In [amd64]`인데, 이 클러스터의 managed NG는
 **`AL2023_ARM_64_STANDARD` · `t4g.medium`(Graviton)** 이다(실측).
@@ -972,7 +1017,7 @@ Pod Identity association이 `(cluster, ns, SA)` 3튜플로 바인딩하므로 **
 **소비 루트의 `ami_type`(D-NODE-ARCH)이 정하는 값**이라 Graviton을 쓰지 않는 고객사에서는 뒤집힌다.
 🔑 **재사용 자산 관점에서 옳은 표현은 "arm64"가 아니라 *"managed NG와 같은 아키텍처"* 다.**
 
-> ### 📌 **재사용할 판단 — 두 함정이 같은 형태다**
+> ### 📌 **재사용할 판단 — 네임스페이스와 아키텍처가 같은 형태다**
 >
 > 둘 다 **계층 1(Terraform)이 이미 정해 둔 값을 계층 2가 다시 고르려다** 생긴다.
 > `30 §0`의 3계층 소유 모델은 *"누가 무엇을 소유하는가"* 를 정했지만,
@@ -1487,8 +1532,12 @@ GitHub App private key가 k8s Secret으로 들어가므로 **helm install(0단�
 > - 2026-08-06 실측(Kyverno·KEDA)은 **이 repo에서 `describe-addon-versions`로 직접** 한 것이다 —
 >   PoC 승계 서술이 아니다.
 >
-> ⇒ **addon 증분은 이 표를 근거로 착수할 수 있다.** 함께 읽을 것: **§2.9**(팬아웃 경로 판정) ·
-> **§3.1**(AppProject 개방 목록).
+> ⇒ **addon 증분은 이 표를 근거로 착수할 수 있다.** 함께 읽을 것: **§2.9**(팬아웃 경로 판정 ·
+> **D-ADDON-NS** 네임스페이스 규칙) · **§3.1**(AppProject 개방 목록).
+>
+> 🔑 **이 표에 네임스페이스 열을 만들지 않는다** — **D-ADDON-NS**(§2.9)가 규칙으로 소유한다.
+> *"계층 2 addon은 전용 ns를 신설한다. 예외는 ALBC·Karpenter → `kube-system` 둘뿐."*
+> ⇒ 표에 값을 적으면 addon이 늘 때마다 두 곳이 갈린다. **규칙 하나가 표 전체를 덮는다.**
 >
 > ⚠️ **여전히 유효한 제한 2개**:
 > ① 표의 `§2.6`·`§2.6a`는 **[`20`](20-eks-module.md)의 절**이다(§2.9 번호 상자).

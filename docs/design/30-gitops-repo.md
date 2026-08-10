@@ -119,6 +119,12 @@
 > D-ARGOCD-CLUSTER-READ/WRITE 벽이 성립하지 않는다. 남은 `clusterResourceWhitelist`는 증분과
 > 같은 PR에서 여는 것이라 **착수를 막지 않는다**) · §5 인용 제한 해제 · 헤더 상태 상자 갱신
 > (seed apply 완료 + 판정 3건 종결 반영 — **"아직 apply 되지 않았다"가 stale이었다**).
+> 2026-08-10 **§2.9에 실계정 판정 추가** — **egress canary 3호스트 전부 통과**(ALBC·argo-helm·
+> Karpenter OCI, 배포 0으로 확인 후 삭제) · 차트 핀 실측(`3.5.0`·`1.14.0`) ·
+> ⭐ **판독법 정정**: *"연결 실패 = rendered 0 + ComparisonError"* 는 불충분하고 **1차 신호는
+> `revision` 해석 여부**다(Karpenter가 그 형태였으나 원인은 values 누락이었다) ·
+> OCI가 repository 등록 없이 동작 · `default` AppProject 실측(self-managed도 완전 개방,
+> 단 `sourceNamespaces` 필드 없음).
 
 **범위**: 이 문서는 **플랫폼 GitOps 저장소**(이 Terraform repo와 분리된 별도 repo)의 **구조·규약**을
 설계한다. 개별 매니페스트의 완성된 내용(AWS Load Balancer Controller values 전체 등)은 구현 단계 소관 — 여기서는
@@ -824,17 +830,87 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 > 금지한 **추정**이 된다.
 >
 > ⭐ **값은 버리고 방법은 그대로 재사용한다** — `syncPolicy` **없는**(=비교만 하는) canary
-> Application을 심고 `status.sync.revision`·rendered 리소스 수를 본다. 연결 실패면
-> rendered 0 + `ComparisonError`다. 🔑 **배포를 만들지 않으므로 addon 증분의 첫 스텝으로 두기 좋다.**
-> ⚠️ Karpenter의 `oci://public.ecr.aws/karpenter`는 **다른 호스트**라 따로 봐야 한다(§2.2가 이미 경고).
+> Application을 심고 `status.sync.revision`·rendered 리소스 수를 본다.
+> 🔑 **배포를 만들지 않으므로 addon 증분의 첫 스텝으로 두기 좋다.**
+> ⚠️ Karpenter의 `public.ecr.aws/karpenter`는 **다른 호스트**라 따로 봐야 한다(§2.2가 이미 경고).
+
+### ✅ **egress canary 실행 완료 — 3 호스트 전부 통과** (2026-08-10, workbench SSM)
+
+`project: default`·`syncPolicy` 없음으로 Application 3개를 심고 판정 후 삭제했다
+(**클러스터 배포 0** — `root-app` 외 Application 0, ALBC deployment 없음, `karpenter` ns 없음으로 확인).
+
+| canary | 호스트 | 핀 | `revision` | rendered | 판정 |
+|---|---|---|---|---|---|
+| `canary-albc` | `https://aws.github.io/eks-charts` | `3.5.0` | **3.5.0** | **19** | ✅ conditions 없음 |
+| `canary-argocd` | `https://argoproj.github.io/argo-helm` | `10.3.0` | **10.3.0** | **55** | ✅ conditions 없음 — **갈림점 4가 성립한다** |
+| `canary-karpenter` | `public.ecr.aws/karpenter` (**OCI**) | `1.14.0` | **1.14.0** | 0 | 🔶 egress ✅ · **values 누락**으로 template 실패 — 아래 |
+
+> ## 🔑 **재사용할 판독법 — 1차 신호는 rendered가 아니라 `revision`이다**
+>
+> ⚠️ **§2.2가 적은 *"연결 실패면 rendered 0 + `ComparisonError`"* 는 판별식으로 불충분하다.**
+> `canary-karpenter`가 **정확히 그 형태**(rendered 0 + `ComparisonError`)였는데 원인은 egress가
+> **전혀 아니었다**:
+>
+> ```
+> failed to execute helm template command: … `helm template . --name-template canary-karpenter
+> --namespace karpenter --kube-version 1.35.6 --include-crds` failed exit status 1:
+> Error: execution error at (karpenter/templates/deployment.yaml:151:25):
+>   Chart cannot be installed without a valid settings.clusterName!
+> ```
+>
+> ⇒ **`revision`이 `1.14.0`으로 해석됐다는 것 자체가 차트를 이미 받아왔다는 증거다.**
+> 못 받았으면 revision을 채울 수 없다. 게다가 `deployment.yaml:151`까지 렌더가 진행됐다 —
+> **네트워크 단계는 이미 지났다.**
+>
+> | 신호 | 뜻 |
+> |---|---|
+> | `revision` 비어 있음 + `ComparisonError` | **fetch 실패** — egress·인증·버전 부재 |
+> | `revision` 해석됨 + rendered 0 + `ComparisonError` | **fetch 성공, render 실패** — values·`kubeVersion`·차트 버그 |
+> | `revision` 해석됨 + rendered > 0 | ✅ **완전 통과** |
+>
+> 📌 **이것이 canary를 먼저 두는 이유다.** 실제 ApplicationSet에서 같은 에러를 만났다면
+> *"public.ecr.aws에 못 나가는구나 → 미러링을 검토하자"* 로 갔을 것이다. **없는 문제를 푸는 설계**다.
+
+> ### ⭐ **덤으로 확인된 것 3건**
+>
+> ① **OCI helm은 repository 사전 등록 없이 동작한다.** `repoURL: public.ecr.aws/karpenter`(scheme 없음)
+> \+ `chart: karpenter`만으로 argo-cd v3.5.0이 pull했다 — `enableOCI` 설정이나 Repository Secret이
+> **필요 없었다**. ⇒ §2.2 Karpenter 증분 (1)이 남긴 *"배포 시 재실측"* 은 이것으로 닫힌다.
+> ② **클러스터 실제 버전은 `1.35.6`** — repo-server가 `helm template --kube-version 1.35.6`으로
+> 렌더한다. 🔑 **차트의 `kubeVersion` 제약은 이 값으로 판정된다**(`.Capabilities`도 여기서 온다).
+> ③ **`default` AppProject는 self-managed에도 존재하고 완전 개방이다**(실측:
+> `sourceRepos: ['*']` · `destinations: [{'*','*'}]` · `clusterResourceWhitelist: [{'*','*'}]`).
+> ⇒ §3.1의 *"쓰지 않는다"* 결론이 **추론이 아니라 실측으로** 뒷받침된다.
+> ⚠️ **관리형과 한 곳 다르다 — `sourceNamespaces` 필드가 아예 없다**(관리형 실물엔 `[argocd]`가
+> 있었다, §3). apps-in-any-namespace가 꺼져 있는 upstream 기본값이다.
+>
+> > **canary에 `project: default`를 쓴 것은 의도된 한정 예외다** — 차트 repo를 물으려면
+> > `sourceRepos: ['*']`가 필요한데, 진단 하나 때문에 `platform`의 가드레일을 미리 열 수는 없다.
+> > ⛔ **판정 직후 삭제하는 것까지가 절차다.** 남기면 §3.1이 금지한 *"`default`에 올라간
+> > 가드레일 없는 Application"* 이 그대로 된다.
 
 > ### 📌 **버전 핀도 승계하지 않는다 — 자산은 값이 아니라 원칙이다**
 >
 > 본문의 ALBC `3.4.2` · Karpenter chart `1.13.0`은 **2026-07-27 PoC 시점 실측값**이다. 근거였던
 > *"클러스터 k8s 버전 ↔ 차트 호환성 매트릭스"* 는 유효하고 클러스터도 **여전히 1.35**지만,
 > **차트는 그동안 움직였다.**
-> ⇒ 증분 착수 시 `helm show chart`로 다시 실측한다 — §2.2가 이미 **"실측 핀"** 이라 부른 원칙이다.
+> ⇒ 증분 착수 시 registry에서 다시 실측한다 — §2.2가 이미 **"실측 핀"** 이라 부른 원칙이다.
 > ⚠️ **구조(`{{name}}`·`{{metadata.labels.vpcId}}`·sync-wave 분리)는 그대로 쓰고 숫자만 다시 잡는다.**
+>
+> #### ✅ **2026-08-10 실측 — 둘 다 움직였다**
+>
+> | 차트 | PoC 핀 | **현행 핀** | 근거 |
+> |---|---|---|---|
+> | `aws-load-balancer-controller` | `3.4.2` | **`3.5.0`** (appVersion `v3.5.0`) | `https://aws.github.io/eks-charts/index.yaml` 전수(80개) semver 정렬. **`kubeVersion` 제약 없음** |
+> | `karpenter` (OCI) | `1.13.0` | **`1.14.0`** | ECR Public 태그 전수(2,317개, 페이지네이션) + 호환성 매트릭스 원문 **`1.35 → >= 1.9`** |
+>
+> 🔑 **ECR OCI 태그를 읽으면 §2.2가 경고한 *"git 태그 v1.14.0인데 Chart.yaml은 1.13.0"* 함정에
+> 걸리지 않는다.** OCI 스펙상 helm 차트의 **태그가 곧 차트 버전**이고, `--version`·`targetRevision`에
+> 그대로 넣는 값이다. 📌 **GitHub 릴리스는 그 질문에 답할 수 없는 소스다** —
+> 소스마다 대답할 수 있는 질문이 다르다.
+> ⚠️ ECR Public `tags/list`는 **1,000개에서 잘린다.** `Link` 헤더로 페이지네이션하지 않으면
+> `1.13.x`가 통째로 빠진 목록을 보게 된다(실제로 첫 조회가 그랬다).
+> ⚠️ 참고 — 매트릭스는 **`1.36 → >= 1.13`** 이다. 클러스터를 1.36으로 올릴 때 `1.14.0`은 이미 충족한다.
 
 ### 🏗️ 현행 실물이 **이미 준비해 둔** 것
 

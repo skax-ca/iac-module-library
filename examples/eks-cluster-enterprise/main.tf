@@ -153,6 +153,15 @@ module "workbench" {
   #    안 된다"를 진단할 근거가 사라진다. chart 를 올리면 이 핀도 같이 올린다.
   argocd_version = "v3.5.0"
 
+  # ── 진단·조작 도구 (D-WORKBENCH-TOOLING, 40 §4.3-2) ─────────────────────────
+  # 노드별 CPU/메모리 할당과 비용을 한 화면에서 본다 — Karpenter 가 만든 노드가 실제로
+  # 어떻게 채워졌는지 보는 용도다.
+  eks_node_viewer_version = "v0.7.4"
+  # krew 는 KREW_ROOT=/usr/local/krew 로 **시스템 설치**된다(모듈이 처리). 플러그인 목록은
+  # 모듈 기본값(ctx·ns·neat·rbac-tool·view-secret·whoami)을 그대로 받는다 —
+  # ⛔ 기본값과 같은 값을 여기 다시 적지 않는다(중복은 곧 drift다).
+  krew_version = "v0.5.0"
+
   # EKS 접근 3층 중 **1층만** 여기서 성립한다(D-WORKBENCH-SEAM).
   # 2층(Access Entry)·3층(SG ingress)은 아래 eks 블록이 소유한다.
   eks_cluster_name = local.cluster_name

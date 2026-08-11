@@ -388,14 +388,134 @@ run "kubeconfig_is_readonly_and_inherited" {
   }
 
   assert {
-    # 음성: 전역 export 가 되살아나면 홈 사본이 죽은 경로가 되고 전역 오염이 재발한다.
+    # 음성: **공유 정본**을 전역 KUBECONFIG 로 export 하면 홈 사본이 죽은 경로가 되고
+    #       전역 오염이 재발한다. 그것이 §4.3-1 이 막으려는 유일한 메커니즘이다.
     #
-    # 🔑 **판정 대상은 파일 이름이 아니라 "쓰는 행위"(리다이렉트)다.**
-    #    처음에 `strcontains(..., "/etc/profile.d/kubeconfig.sh")` 로 썼다가 **실패했다** —
-    #    user_data 의 *"이 파일을 만들지 않는다"* 는 **주석이 그 문자열을 포함**했기 때문이다.
-    #    ⚠️ 이 repo 에서 **두 번째**다: `30 §4.2` D-ROOTAPP-SKIP **실패 ②**(*"마커를 설명하는
-    #    주석도 마커다"*)와 같은 형태다. ⇒ **이름으로 판정하면 설명까지 걸린다.**
-    condition     = !strcontains(aws_instance.this[0].user_data, "> /etc/profile.d/")
-    error_message = "profile.d 에 전역 KUBECONFIG export 를 쓰고 있다 — 환경변수가 홈 사본보다 우선하므로 사용자별 사본이 무의미해진다(설계 §4.3-1)."
+    # 🔑 **판정 대상은 파일 이름도, `profile.d` 자체도 아니다 — "공유 정본을 가리키는 export"다.**
+    #    이 조건은 두 번 좁혀졌고 두 번 다 이유가 있었다:
+    #      ① `"/etc/profile.d/kubeconfig.sh"`(이름) → **실패**. user_data 의 *"이 파일을 만들지
+    #         않는다"* 는 **주석이 그 문자열을 포함**했다. `30 §4.2` D-ROOTAPP-SKIP **실패 ②**
+    #         (*"마커를 설명하는 주석도 마커다"*)와 같은 형태이고 이 repo 에서 두 번째다.
+    #      ② `"> /etc/profile.d/"`(행위) → **너무 넓었다**. §4.3-2 가 alias·PATH·KREW_ROOT 를
+    #         넣으려면 그 파일이 필요한데 이 조건이 **정당한 요구를 막았다**(같은 날 실제로 걸렸다).
+    #    ⚠️ **넓은 음성 판정은 미래의 요구를 부당하게 막는다.** 위험 그 자체를 지목해야 한다.
+    condition     = !strcontains(aws_instance.this[0].user_data, "export KUBECONFIG=/etc/kubernetes")
+    error_message = "공유 정본을 전역 KUBECONFIG 로 export 하고 있다 — 환경변수가 홈 사본보다 우선하므로 사용자별 사본이 무의미해진다(설계 §4.3-1)."
+  }
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 🔑 **규칙 — 음성 assertion 은 "이름"이 아니라 "행위"를 지목한다**
+#
+# user_data 는 **주석이 본문의 일부**다. 어떤 것을 *하지 않는다* 고 설명하는 주석은
+# 그 이름을 반드시 포함하므로, 이름으로 음성 판정을 걸면 **설명까지 걸린다.**
+#
+# 실측 이력 — 같은 형태가 네 번:
+#   ① `30 §4.2` D-ROOTAPP-SKIP 실패 ② — 마커를 설명하는 주석이 마커로 작동
+#   ② `"/etc/profile.d/kubeconfig.sh"`  → "만들지 않는다" 주석이 걸림
+#   ③ `"> /etc/profile.d/"`             → 너무 넓어 §4.3-2 의 정당한 요구를 막음
+#   ④ `"KREW_ROOT"`                     → "설정(alias·PATH·KREW_ROOT·…)" 주석이 걸림
+#
+# ⇒ 지목할 것은 **실행 구문**이다: `export KREW_ROOT=` · `export KUBECONFIG=/etc/kubernetes`.
+#   설명문에는 등장하지 않고, 실제로 그 행위를 할 때만 등장한다.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── T-13·T-14·T-15 — 진단 도구 + 로그인 프로파일 (D-WORKBENCH-TOOLING, 설계 §4.3-2) ──
+#
+# ⭐ 기존 3종(kubectl·helm·argocd)과 **같은 nullable 핀 계약**이라 양성·음성을 둘 다 본다.
+#    음성이 없으면 "항상 설치"로 바뀌어도 통과해 T-9(git 의 무조건성)와 구분되지 않는다.
+run "tooling_installed_when_pinned" {
+  command = plan
+
+  variables {
+    kubectl_version         = "v1.35.7"
+    eks_node_viewer_version = "v0.7.4"
+    krew_version            = "v0.5.0"
+  }
+
+  assert {
+    # ⚠️ 자산 이름이 `_Linux_<arch>` 다. 이 문자열이 깨지면 x86 에서 404 가 난다 —
+    #    다른 도구를 복사해 `amd64` 로 쓰는 것이 가장 그럴듯한 회귀다(설계 §4.3-2).
+    condition     = strcontains(aws_instance.this[0].user_data, "eks-node-viewer/releases/download/v0.7.4/eks-node-viewer_Linux_")
+    error_message = "eks_node_viewer_version 을 지정했는데 릴리스 URL 이 user_data 에 없다."
+  }
+
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "x86_64")
+    error_message = "eks-node-viewer 의 x86 자산 이름 매핑(x86_64)이 없다 — amd64 로 쓰면 404 다(설계 §4.3-2 실측)."
+  }
+
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "krew/releases/download/v0.5.0/krew-linux_")
+    error_message = "krew_version 을 지정했는데 릴리스 URL 이 user_data 에 없다."
+  }
+
+  # T-14 — krew 는 시스템 설치다. 기본값($HOME/.krew)이면 root 홈에 갇힌다.
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "KREW_ROOT=/usr/local/krew")
+    error_message = "KREW_ROOT 가 없다 — krew 기본값은 $HOME/.krew 라 user_data(root)에서 /root/.krew 에 갇힌다(설계 §4.3-2 결정 1)."
+  }
+
+  assert {
+    # 기본 플러그인 세트가 실제로 렌더되는가(목록 변수가 템플릿까지 도달하는지).
+    condition     = strcontains(aws_instance.this[0].user_data, "ctx ns neat rbac-tool view-secret whoami")
+    error_message = "krew_plugins 기본값이 user_data 에 렌더되지 않았다."
+  }
+
+  # T-15 — 로그인 프로파일. 지키는 것은 alias 가 아니라 **completion 로드**다.
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "alias k=kubectl")
+    error_message = "alias k 가 프로파일에 없다."
+  }
+
+  assert {
+    # 🔴 실측: `complete -F <없는함수> k` 는 bash 가 **에러 없이** 받아들인다 ⇒ 이 줄을
+    #    빼먹으면 "설정했는데 안 되는" 상태가 아무 신호 없이 남는다. 그래서 테스트가 지킨다.
+    condition     = strcontains(aws_instance.this[0].user_data, "kubectl completion bash")
+    error_message = "kubectl completion 로드가 없다 — __start_kubectl 이 정의되지 않아 complete 줄이 조용히 무용지물이 된다(설계 §4.3-2 결정 3)."
+  }
+
+  assert {
+    # ⛔ 리전 하드코딩 금지 — 이 모듈은 리전 이식성이 계약이다(CLAUDE.md 재사용 자산 요건).
+    #    mock provider 의 리전이 그대로 렌더되면 통과하고, 문자열을 박아 넣으면 그 값이 남는다.
+    condition     = strcontains(aws_instance.this[0].user_data, "export AWS_DEFAULT_REGION=")
+    error_message = "AWS_DEFAULT_REGION export 가 프로파일에 없다."
+  }
+}
+
+run "tooling_absent_by_default" {
+  command = plan
+
+  variables {
+    kubectl_version = "v1.35.7" # kubectl 은 있지만 진단 도구는 기본값(null)
+  }
+
+  assert {
+    condition     = !strcontains(aws_instance.this[0].user_data, "eks-node-viewer")
+    error_message = "eks_node_viewer_version 이 null 인데 설치가 계획됐다 — 기본값 계약 위반."
+  }
+
+  assert {
+    # 🔑 **"행위"를 지목한다 — 이름이 아니라.** `"KREW_ROOT"` 로 잡았다가 실패했다:
+    #    프로파일 블록의 주석이 *"설정(alias·PATH·KREW_ROOT·…)"* 이라고 그 이름을 쓴다.
+    #    ⚠️ 오늘만 **세 번째**다(§4.3-1 의 두 번 + 이번). 규칙은 아래 상자가 소유한다.
+    condition     = !strcontains(aws_instance.this[0].user_data, "export KREW_ROOT=")
+    error_message = "krew_version 이 null 인데 krew 설정이 계획됐다 — 기본값 계약 위반."
+  }
+}
+
+# ⭐ krew 는 kubectl 없이는 의미가 없다 — 그 결합을 모듈(main.tf)이 접는다.
+#    이 케이스가 없으면 "kubectl 없이 krew 만 깔린" 형상이 조용히 만들어진다.
+run "krew_requires_kubectl" {
+  command = plan
+
+  variables {
+    kubectl_version = null
+    krew_version    = "v0.5.0"
+  }
+
+  assert {
+    condition     = !strcontains(aws_instance.this[0].user_data, "export KREW_ROOT=")
+    error_message = "kubectl 이 없는데 krew 가 계획됐다 — 플러그인을 실행할 kubectl 이 없다(설계 §4.3-2)."
   }
 }

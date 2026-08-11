@@ -163,6 +163,53 @@ variable "argocd_version" {
   default     = null
 }
 
+# ── 진단·조작 도구 (D-WORKBENCH-TOOLING — 설계 §4.3-2) ─────────────────────────
+
+variable "eks_node_viewer_version" {
+  description = <<-EOT
+    설치할 eks-node-viewer 버전(예: "v0.7.4"). null이면 설치하지 않는다.
+
+    노드별 CPU/메모리 할당과 비용을 한 화면에서 본다 — Karpenter 가 만든 노드가
+    실제로 어떻게 채워졌는지 보는 용도다(그 판정을 kubectl 로 하면 여러 명령이 필요하다).
+
+    ⚠️ **릴리스 자산 이름이 다른 도구와 다르다** — `_Linux_arm64` / `_Linux_x86_64` 이고
+    x86 쪽이 `amd64` 가 **아니다**. user-data 템플릿이 전용 매핑을 갖는 이유다(설계 §4.3-2).
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "krew_version" {
+  description = <<-EOT
+    설치할 krew(kubectl 플러그인 관리자) 버전(예: "v0.5.0"). null이면 설치하지 않는다.
+
+    ⭐ **`KREW_ROOT=/usr/local/krew` 로 시스템 설치한다.** krew 의 기본값은 `$HOME/.krew` 인데,
+    user_data 는 root 로 돌기 때문에 그대로 두면 **`/root/.krew` 에 갇힌다** — kubeconfig 에서
+    똑같이 겪은 문제다(D-WORKBENCH-KUBECONFIG §4.3-1).
+    🔑 플러그인은 *상태* 가 아니라 *바이너리* 라 kubeconfig 와 **반대로 공유가 옳다.**
+
+    ⚠️ kubectl 이 있어야 의미가 있다 — `kubectl_version` 이 null 이면 이 값도 무시된다.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "krew_plugins" {
+  description = <<-EOT
+    krew 로 설치할 플러그인 목록. `krew_version` 이 null 이면 무시된다.
+
+    기본값은 이 팀이 실제로 쓰는 세트다(전부 krew-index 존재 확인, 2026-08-11):
+      ctx(컨텍스트 전환) · ns(네임스페이스 전환) · neat(출력에서 관리 필드 제거) ·
+      rbac-tool(권한 조회) · view-secret(Secret 복호화 조회) · whoami(현재 신원)
+
+    ⚠️ **닫힌 열거가 아니다** — 고객사가 다른 세트를 원하면 이 변수로 바꾼다.
+    ⛔ 그러나 모듈이 플러그인 이름을 **검증하지는 않는다**. 없는 이름을 주면 부팅 중
+    그 플러그인만 실패하고 나머지는 설치된다(user_data 는 부팅을 멈추지 않는다 — 설계 §4.3).
+  EOT
+  type        = list(string)
+  default     = ["ctx", "ns", "neat", "rbac-tool", "view-secret", "whoami"]
+}
+
 # ── EKS 연동 — 3층 중 1층만 (D-WORKBENCH-SEAM) ──────────────────────────────────
 #
 # ⛔ 이 모듈은 Access Entry(2층)도 cluster SG ingress(3층)도 만들지 않는다.

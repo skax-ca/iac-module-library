@@ -92,6 +92,71 @@ if [ -n "$ARCH" ]; then
 fi
 %{ endif ~}
 
+%{ if eks_node_viewer_version != null ~}
+# ── eks-node-viewer (D-WORKBENCH-TOOLING — 설계 §4.3-2) ──────────────────────
+#
+# ⚠️ **위 세 블록을 복사하지 말 것 — 아키텍처 이름이 다르다.**
+#    이 릴리스의 자산은 `_Linux_arm64` / `_Linux_x86_64` 이고, x86 쪽이 `amd64` 가 **아니다**
+#    (실측 2026-08-11, awslabs/eks-node-viewer v0.7.4 자산 전수).
+#    ⇒ $ARCH(arm64|amd64) 를 그대로 쓰면 x86 에서 404 가 난다. 전용 매핑을 둔다.
+#    📌 설계 §4.1 상자가 "도구마다 배포 형태가 달라 블록을 합치지 않는다" 고 한 근거에
+#       **이름 규칙 축**이 하나 더 붙은 것이다.
+if [ -n "$ARCH" ]; then
+  case "$ARCH" in
+    arm64) ENV_ARCH=arm64 ;;
+    amd64) ENV_ARCH=x86_64 ;;
+    *)     ENV_ARCH= ;;
+  esac
+  if [ -n "$ENV_ARCH" ]; then
+    echo "[workbench] eks-node-viewer ${eks_node_viewer_version} ($ENV_ARCH) 설치"
+    if $CURL -o "$DL_DIR/eks-node-viewer" \
+         "https://github.com/awslabs/eks-node-viewer/releases/download/${eks_node_viewer_version}/eks-node-viewer_Linux_$ENV_ARCH"; then
+      install -m 0755 "$DL_DIR/eks-node-viewer" /usr/local/bin/eks-node-viewer
+      rm -f "$DL_DIR/eks-node-viewer"
+      eks-node-viewer --version || true
+    else
+      echo "[workbench] ⚠️ eks-node-viewer 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+    fi
+  fi
+fi
+%{ endif ~}
+
+%{ if krew_version != null ~}
+# ── krew + 플러그인 (D-WORKBENCH-TOOLING — 설계 §4.3-2 결정 1) ───────────────
+#
+# 🔴 **`KREW_ROOT` 를 반드시 지정한다.** krew 의 기본 설치 위치는 `$HOME/.krew` 이고
+#    이 스크립트는 root 로 도니 그대로 두면 **/root/.krew 에 갇힌다** — kubeconfig 에서
+#    똑같이 겪은 실패다(D-WORKBENCH-KUBECONFIG). 🔑 플러그인은 *상태* 가 아니라
+#    *바이너리* 라 kubeconfig 와 **반대로 공유가 옳다**(사용자마다 복제할 이유가 없다).
+# ⚠️ 이 블록은 kubectl 이 있을 때만 렌더된다 — 조건은 모듈(main.tf)에서 접었다.
+if [ -n "$ARCH" ]; then
+  echo "[workbench] krew ${krew_version} ($ARCH) 설치"
+  export KREW_ROOT=/usr/local/krew
+  if $CURL -o "$DL_DIR/krew.tar.gz" \
+       "https://github.com/kubernetes-sigs/krew/releases/download/${krew_version}/krew-linux_$ARCH.tar.gz"; then
+    tar -xzf "$DL_DIR/krew.tar.gz" -C "$DL_DIR"
+    # 부팅 중에는 PATH 를 쓰지 않고 바이너리를 직접 부른다 —
+    # `kubectl krew` 는 PATH 탐색에 의존하는데 그 PATH 는 아래 프로파일이 만들고, 아직 없다.
+    if "$DL_DIR/krew-linux_$ARCH" install krew; then
+      for _plugin in ${join(" ", krew_plugins)}; do
+        echo "[workbench] krew plugin: $_plugin"
+        # 하나가 실패해도 나머지는 계속한다 — user_data 는 부팅을 멈추지 않는다(설계 §4.3).
+        "$KREW_ROOT/bin/kubectl-krew" install "$_plugin" \
+          || echo "[workbench] ⚠️ krew plugin 설치 실패: $_plugin"
+      done
+      # 모든 사용자가 읽고 실행할 수 있게 하되, 쓰기는 root 만 — 추가 설치는
+      #   sudo KREW_ROOT=/usr/local/krew kubectl krew install <x>
+      chmod -R a+rX "$KREW_ROOT"
+    else
+      echo "[workbench] ⚠️ krew 자기 설치 실패 — 플러그인도 건너뛴다"
+    fi
+    rm -rf "$DL_DIR/krew.tar.gz" "$DL_DIR/krew-linux_$ARCH" "$DL_DIR/LICENSE"
+  else
+    echo "[workbench] ⚠️ krew 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+  fi
+fi
+%{ endif ~}
+
 %{ if eks_cluster_name != null ~}
 # ── kubeconfig (설계 §5 1층의 사용처) ────────────────────────────────────────
 #
@@ -147,5 +212,45 @@ for attempt in 1 2 3 4 5; do
   sleep $((attempt * 10))
 done
 %{ endif ~}
+
+# ── 로그인 프로파일 (D-WORKBENCH-TOOLING — 설계 §4.3-2 결정 2·3) ──────────────
+#
+# 🔑 **§4.3-1 이 `profile.d/kubeconfig.sh` 를 없앤 것과 모순이 아니다.** 가르는 기준은
+#    *전역이냐* 가 아니라 **상태냐 설정이냐**다:
+#      · **상태**(kubeconfig)는 사용자가 바꾸므로 **사용자별 사본**. 전역 KUBECONFIG 는 그 사본을
+#        **덮어써서 무력화**하기 때문에 금지된다.
+#      · **설정**(alias·PATH·KREW_ROOT·AWS_DEFAULT_REGION)은 사용자가 바꿀 이유가 없고, 사용자별로
+#        두면 갱신 지점만 늘어난다 ⇒ 전역이 옳다.
+#    ⛔ 그러므로 이 파일에 **KUBECONFIG 를 넣지 않는다.**
+#
+# ⛔ 리전을 하드코딩하지 않는다 — data.aws_region 이 주입한 값을 쓴다(리전 이식성이 계약이다).
+PROFILE=/etc/profile.d/workbench.sh
+{
+  echo "# workbench 로그인 프로파일 — 설계 docs/design/40-workbench.md §4.3-2"
+  echo "# ⛔ KUBECONFIG 를 여기 넣지 말 것 — 사용자별 사본(\$HOME/.kube/config)을 무력화한다(§4.3-1)."
+  echo "export AWS_DEFAULT_REGION=${region}"
+%{ if krew_version != null ~}
+  echo 'export KREW_ROOT=/usr/local/krew'
+  echo 'export PATH="$PATH:$KREW_ROOT/bin"'
+%{ endif ~}
+%{ if eks_node_viewer_version != null ~}
+  # 도구가 실제로 깔렸을 때만 alias 를 건다 — 다운로드가 실패해도 로그인이 지저분해지지 않는다.
+  echo 'command -v eks-node-viewer >/dev/null 2>&1 && alias nv='"'"'eks-node-viewer --resources cpu,memory'"'"''
+%{ endif ~}
+%{ if kubectl_version != null ~}
+  # ⚠️ `complete -F __start_kubectl` 는 그 함수가 **먼저 정의돼 있어야** 동작한다.
+  #    정의하는 것은 `kubectl completion bash` 다. 🔴 실측(2026-08-11): 함수가 없어도
+  #    bash 는 **에러를 내지 않는다** — 그래서 빼먹으면 "설정했는데 안 되는" 상태가
+  #    아무 신호 없이 남는다. 그것이 이 두 줄을 한 묶음으로 두는 이유다.
+  # ⚠️ `source <(...)` 는 bash 전용이라 BASH_VERSION 으로 감싼다(POSIX sh 가 읽으면 문법 오류).
+  echo 'if [ -n "$BASH_VERSION" ] && command -v kubectl >/dev/null 2>&1; then'
+  echo '  alias k=kubectl'
+  echo '  source <(kubectl completion bash)'
+  echo '  complete -o default -F __start_kubectl k'
+  echo 'fi'
+%{ endif ~}
+} > "$PROFILE"
+chmod 0644 "$PROFILE"
+echo "[workbench] 로그인 프로파일 생성 완료 ($PROFILE)"
 
 echo "[workbench] bootstrap end $(date -Is)"

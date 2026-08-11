@@ -43,9 +43,12 @@
 
 > **최신 (2026-08-11 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
 > **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) ·
-> **`workbench-v0.5.0`**(PR **#19** `916950b`, **D-WORKBENCH-KUBECONFIG** — kubeconfig 정본 `0444`
-> 잠금 + `/etc/skel` 상속 + 사용자별 `0600` 사본, `profile.d` 전역 export 제거.
-> 직전: `v0.4.0` D-WORKBENCH-SIZE(`t4g.small`) · `v0.3.0` argocd CLI · `v0.2.0` git 설치.
+> **`workbench-v0.6.0`**(PR **#20** `f9631a8`, **D-WORKBENCH-TOOLING** — `eks-node-viewer v0.7.4` ·
+> `krew v0.5.0` + 플러그인 6종 · `/etc/profile.d/workbench.sh`(alias `k`·`nv` · kubectl completion ·
+> `AWS_DEFAULT_REGION`)).
+> 직전: `v0.5.0` **D-WORKBENCH-KUBECONFIG**(정본 `0444` + `/etc/skel` 상속 + 사용자별 `0600` 사본,
+> `profile.d` 전역 KUBECONFIG export 제거) · `v0.4.0` D-WORKBENCH-SIZE(`t4g.small`) ·
+> `v0.3.0` argocd CLI · `v0.2.0` git 설치.
 > 🔴 **업그레이드 시 인스턴스 교체** — ⭐ 그러나 그것이 이 릴리스의 목적이다. 교체 후에도
 > kubeconfig 가 자동으로 서고, 손으로 만든 사본에 의존하지 않는다).
 > ⚠️ **`bastion-v0.1.0` 은 존재하지 않는다** — 2026-08-06 개명 때 `workbench-v0.1.0` 으로
@@ -2142,6 +2145,33 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 📌 **T-12 음성 assertion 을 파일 이름으로 잡았다가 실패했다** — user_data 의 *"만들지 않는다"* 주석이
 그 문자열을 포함했다. `30 §4.2` **D-ROOTAPP-SKIP 실패 ②** 와 같은 형태(이 repo **두 번째**).
 ⇒ **판정 대상을 이름이 아니라 "쓰는 행위"(리다이렉트)로** 바꿨다.
+
+##### ✅ **이어서 `workbench-v0.6.0` — D-WORKBENCH-TOOLING** (PR **#20** `f9631a8`)
+
+사용자 요청: `eks-node-viewer` · `krew`(ctx·ns·neat·rbac-tool·view-secret·whoami) ·
+프로파일에 `alias k`/`nv` · kubectl completion · 리전 export. 설계 = **`40 §4.3-2`**.
+
+**실측이 잡은 함정 3건** (전부 추정했으면 틀렸을 것)
+
+| # | 함정 |
+|---|---|
+| 1 | `eks-node-viewer` 자산은 **`_Linux_x86_64`** — 우리 `$ARCH`(`amd64`)를 그대로 쓰면 **x86 에서 404**. 전용 매핑을 뒀다 |
+| 2 | 🔴 `krew` 기본값은 **`$HOME/.krew`** — user_data 는 root 라 **`/root/.krew` 에 갇힌다**(v0.5.0 이 방금 고친 문제의 재발) ⇒ **`KREW_ROOT=/usr/local/krew`** 시스템 설치 |
+| 3 | `complete -o default -F __start_kubectl k` 는 **`source <(kubectl completion bash)`** 가 있어야 동작. ⚠️ **함수가 없어도 bash 가 에러를 안 낸다**(실측) ⇒ 조용히 무용지물 |
+
+⭐ **`profile.d` 를 다시 쓴다 — v0.5.0 과 모순이 아니다.** 가르는 기준을 명문화했다:
+**상태**(kubeconfig)는 **사용자별 사본** / **설정**(alias·`PATH`·`KREW_ROOT`·리전)은 **전역**.
+🔑 v0.5.0 이 막은 것은 *`profile.d` 자체* 가 아니라 **"공유 정본을 `KUBECONFIG` 로 전역 export"** 였다.
+🔑 플러그인은 *상태* 가 아니라 *바이너리* 라 kubeconfig 와 **반대로 공유가 옳다.**
+
+> ### 🔑 **오늘 네 번 반복된 규칙 — `user_data` 음성 assertion 은 "이름"이 아니라 "행위"를 지목한다**
+>
+> `user_data` 는 **주석이 본문의 일부**다. *"하지 않는다"* 고 설명하는 주석이 그 이름을 포함하므로
+> **이름으로 음성 판정을 걸면 설명까지 걸린다.**
+> ① `30 §4.2` D-ROOTAPP-SKIP 실패 ② ② `"/etc/profile.d/kubeconfig.sh"`
+> ③ `"> /etc/profile.d/"`(**너무 넓어** 다음 증분의 정당한 요구를 막았다) ④ `"KREW_ROOT"`
+> ⇒ 지목할 것은 **실행 구문**: `export KREW_ROOT=` · `export KUBECONFIG=/etc/kubernetes`.
+> ⚠️ ③이 별개 교훈이다 — **넓은 음성 판정은 미래의 정당한 요구를 막는다.**
 
 ##### 🖥️ **ArgoCD 웹 UI 로컬 접속 — 2홉 (2026-08-11 실측 성공)**
 

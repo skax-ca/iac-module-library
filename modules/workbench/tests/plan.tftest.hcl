@@ -355,3 +355,47 @@ run "argocd_cli_absent_by_default" {
     error_message = "argocd_version 이 null 인데 argocd 다운로드가 계획됐다 — 기본값 계약 위반."
   }
 }
+
+# ── T-12 — kubeconfig 배포 방식 (D-WORKBENCH-KUBECONFIG, 설계 §4.3-1) ─────────
+#
+# 🔴 이 테스트도 **실제 사고에서 나왔다.** 2026-08-11 에 정본이 **0666(world-writable)** 이 되어
+#    있었고 기본 네임스페이스가 전역 오염돼 있었다. kubeconfig 는 `users[].user.exec` 로 임의
+#    명령을 지정할 수 있어, world-writable 은 **로컬 권한 상승 경로**다.
+# ⚠️ **여기서 지키는 것은 "kubeconfig 가 생기는가"가 아니다** — 그것은 T-6 이 이미 본다.
+#    지키는 것은 두 가지이고, 둘 다 *"편의를 위해 되돌리기 쉬운"* 형태다:
+#      ① 정본이 쓰기 가능해지지 않는 것(`0444` 를 지우면 조작이 잠깐 편해진다)
+#      ② `ssm-user` 상속 경로가 사라지지 않는 것(`/etc/skel` — 그 사용자는 user_data 시점에
+#         **아직 존재하지 않는다**. 실측: 부팅 03:49 · user_data 03:50 · ssm-user 홈 06:26)
+#      ③ `/etc/profile.d` 전역 export 가 되살아나지 않는 것(그것이 있으면 KUBECONFIG 가
+#         홈 사본보다 우선해 ①②가 통째로 무의미해진다)
+run "kubeconfig_is_readonly_and_inherited" {
+  command = plan
+
+  variables {
+    eks_cluster_name = "eks-acme-prd-an2-main-01"
+    eks_cluster_arn  = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01"
+    kubectl_version  = "v1.35.7"
+  }
+
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "chmod 0444 \"$KUBECONFIG_PATH\"")
+    error_message = "정본 kubeconfig 를 읽기 전용으로 잠그지 않는다 — world-writable 이 되면 exec 자격증명 명령을 바꿔 심을 수 있다(설계 §4.3-1)."
+  }
+
+  assert {
+    condition     = strcontains(aws_instance.this[0].user_data, "/etc/skel/.kube/config")
+    error_message = "skel 상속이 없다 — ssm-user 는 user_data 시점에 존재하지 않으므로 이 경로가 사라지면 그 사용자는 kubeconfig 를 못 받는다(설계 §4.3-1)."
+  }
+
+  assert {
+    # 음성: 전역 export 가 되살아나면 홈 사본이 죽은 경로가 되고 전역 오염이 재발한다.
+    #
+    # 🔑 **판정 대상은 파일 이름이 아니라 "쓰는 행위"(리다이렉트)다.**
+    #    처음에 `strcontains(..., "/etc/profile.d/kubeconfig.sh")` 로 썼다가 **실패했다** —
+    #    user_data 의 *"이 파일을 만들지 않는다"* 는 **주석이 그 문자열을 포함**했기 때문이다.
+    #    ⚠️ 이 repo 에서 **두 번째**다: `30 §4.2` D-ROOTAPP-SKIP **실패 ②**(*"마커를 설명하는
+    #    주석도 마커다"*)와 같은 형태다. ⇒ **이름으로 판정하면 설명까지 걸린다.**
+    condition     = !strcontains(aws_instance.this[0].user_data, "> /etc/profile.d/")
+    error_message = "profile.d 에 전역 KUBECONFIG export 를 쓰고 있다 — 환경변수가 홈 사본보다 우선하므로 사용자별 사본이 무의미해진다(설계 §4.3-1)."
+  }
+}

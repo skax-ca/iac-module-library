@@ -1976,19 +1976,60 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 환경마다 다르고(실측), 앵커가 있으면 **정상인데도 4줄이 출력된다.**
 🔑 **거짓 경보를 내는 점검은 곧 무시당한다 — 점검 장치의 결함은 점검 대상의 결함만큼 나쁘다.**
 
-##### ⏭️ **다음 태스크 (2026-08-11)**
+##### ✅ **머지·apply 판정 전부 완료** (2026-08-11 같은 세션, workbench SSM 실물 조회)
 
-1. 🔴 **PR #2 리뷰·머지 → workbench 에서 `argocd app diff argocd` 판정** — 위 위험 3건을 읽는다.
-   머지해도 **아무것도 배포되지 않는다**(`automated` 없음).
-2. 판정 통과 시 **PR-②b**(`automated: {selfHeal: true, prune: false}`) 를 별도로 낸다.
-3. PR #3 머지 → **머지 = 배포다.** 위 apply 판정 5건(특히 `ghcr.io` pull · ns whitelist 실증).
-4. PR #4 머지 → 라벨 옵트인 실증 + `APIService` ↔ `metrics-server` 무영향 확인.
-5. 판정 결과를 **`30 §2.10` 에 받아 적는다**(`§2.9` 증분 ① 판정표와 같은 형식).
-6. 그 뒤 **`24`(관리형 ArgoCD)**.
+| # | PR | 커밋 | 결과 |
+|---|---|---|---|
+| ① | 모듈 repo **#18** | `fb2d6f4` | CI 플러그인 캐시. main 에서 `Installing` **13 → 5** 확인 |
+| ② | gitops **#2** | `3cecd80` | `Application/argocd` 생성 · **파드 재시작 0** |
+| ③ | gitops **#5**(구 #3) | `b13e9ea` | Kyverno 4 컨트롤러 + ClusterPolicy 11개 `Ignore`/`Audit` |
+| ④ | gitops **#4** | `1bb27e9` | KEDA 3 파드 · `APIService` Available · **`Synced Healthy`** |
+
+판정 전문은 **`30 §2.10.5`**(SSOT). 통과 7건 — `ghcr.io` 이미지 pull(새 축) · 판정 ① 실증 ·
+정책 값 · `APIService` ↔ `metrics-server` 무영향 · **라벨 옵트인 인과 실증** · 기존 워크로드 무영향 · 재시작 0.
+
+> ### 🔴 **핵심 발견 — `ServerSideApply` 는 *적용* 만 바꾸고 *diff* 는 안 바꾼다**
+>
+> `OutOfSync` 세 건이 **전부 같은 원인**이었다 — *우리가 선언하지 않은 필드를 다른 매니저가 소유*:
+> ② 37개(`helm` → `meta.helm.sh/*`) · ③ CRD 11개(`kube-apiserver` → 스키마 기본값) ·
+> ③ ClusterPolicy 11개(`kyverno` → 자기 mutating webhook 주입).
+> ⇒ **`ServerSideDiff` 는 별개 스위치다.**
+> ⭐ **KEDA 가 대조군**이다 — 같은 옵션인데 혼자 `Synced` 다(자기 리소스를 변형하지 않는다)
+> ⇒ *"ArgoCD 설정 문제"* 가설이 배제됐다. **증분을 나눈 덕에 대조군이 생겼다.**
+> 🔴 기능은 정상(`phase=Succeeded`)이지만 **항상 OutOfSync 면 진짜 drift 신호가 죽는다** —
+> 이 세션에서 **같은 범주가 세 번째**다(`^./` 앵커 · CI "8회" · 이것).
+
+##### ⏭️ **다음 태스크 (2026-08-11 갱신 — 머지 후)**
+
+1. 🔴 **`OutOfSync` 고착 해소 증분(②-b·③-b)** — `ServerSideDiff=true` vs 대상별 `ignoreDifferences`.
+   ⛔ **즉흥으로 넣지 않는다** — 실측 후 결정하고 근거를 함께 적는다.
+2. **PR-②b** — `automated: {selfHeal: true, prune: false}`. ⚠️ 켜면 **37개 리소스에 sync 가 걸린다**
+   (`Deployment` 4 · `StatefulSet` 1 포함). 1번을 먼저 푸는 편이 안전하다.
+3. 🔴 **`40` 열린 항목 8 — workbench kubeconfig** (2026-08-11 신설). 판정하려는데 **kubeconfig 가
+   없었다** — `workbench-v0.4.0` 인스턴스 교체 때 사라졌다. 선택지 ⓐ user_data(⚠️ `40 §5.1-1` 순환
+   재발) ⓑ 절차서 ⓒ 소비 루트 주입. **미결정.**
+4. 그 뒤 **`24`(관리형 ArgoCD)**.
 - ⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 **사용자 몫**이다(대화형 세션 — 평문이
   CloudTrail 에 남지 않게).
 - ⚠️ **Kyverno 를 Enforce 로 올릴 때 먼저 답할 질문**: `argocd` ns 를 webhook `namespaceSelector`
   제외에 넣을 것인가. Enforce + `Fail` 은 **순환 의존**이다(Kyverno 장애 → ArgoCD 막힘 → 고칠 수단 상실).
+
+##### 📌 **절차 교훈 — 스택 PR 을 squash + `--delete-branch` 로 머지하면 자식이 닫힌다**
+
+#2 를 `--delete-branch` 로 머지하자 **#3 이 자동 CLOSED** 됐고, 닫힌 PR 은 base 를 못 바꿔
+**#5 로 새로 열어야 했다**(squash 라 자식 브랜치엔 부모 원본 커밋이 남아 `CONFLICTING` 이기도 했다).
+⇒ **규칙**: ⓐ `--delete-branch` 를 쓰지 않고 ⓑ 다음 PR 을 main 으로 리베이스+retarget 한 뒤
+ⓒ 마지막에 브랜치를 지운다. 🔑 **브랜치가 원격에 남아 잃은 것은 없었다** — 복구 가능성이 사고 크기를 정한다.
+
+##### 🔧 **workbench 조회 경로 (재사용)**
+
+- 인스턴스 **`i-0675ba8c5ad9dd507`**(`ec2-ref-dev-an2-workbench-01`).
+- ⚠️ **aws-api MCP 로는 안 된다** — `READ_OPERATIONS_ONLY: true` 라 `ssm send-command` 가
+  *"denied by security policy"* 다. **로컬 `aws --profile team` 으로 보낸다.**
+- kubeconfig 가 없으면 먼저: `aws eks update-kubeconfig --region ap-northeast-2 --name eks-ref-dev-an2-main-01`
+  (⚠️ `--name` 필수 — `eks:ListClusters` 권한이 없다).
+- ⚠️ `kubectl -o jsonpath` 는 **map 순회(`$k,$v :=`)를 지원하지 않는다** → `-o go-template` 을 쓴다.
+- ⛔ 비밀번호·Secret **값**은 조회하지 않는다(CloudTrail 에 남는다). 키 이름까지만.
 
 ---
 

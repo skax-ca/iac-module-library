@@ -1022,3 +1022,35 @@ SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수
    - ⚠️ **`velero` CLI는 이 항목에서 제외됐다**(그대로 유효). [D-BACKUP-AWS](22-day2-operations.md)가
      백업을 **AWS Backup(에이전트 없음)** 으로 확정해 **클러스터 안에서 실행할 CLI가 없어졌다.**
      Velero 예외 경로([`22 §4.5`](22-day2-operations.md))를 여는 고객사가 생기면 그때 함께 연다.
+8. 🔴 **kubeconfig 가 인스턴스 교체와 함께 사라진다** (2026-08-11 신설 — 실제로 겪었다)
+
+   [`30 §2.10.5`](30-gitops-repo.md) 판정을 시작하려는데 workbench **어디에도 kubeconfig 가 없었다**
+   (`find` 전수 0건). `workbench-v0.4.0`(**D-WORKBENCH-SIZE**)이 인스턴스를 교체했고,
+   이전 세션이 손으로 만든 kubeconfig 는 **그때 함께 사라졌다.**
+
+   > ### 🔑 **`user_data` 가 도구를 넣는 것과 "도구가 쓸 수 있는 상태"는 다르다**
+   >
+   > §4.3 이 `git`·`kubectl`·`helm`·`argocd` 4종을 넣어 *"손으로 넣은 것이 하나도 없다"* 를 달성했지만,
+   > **`kubectl` 은 kubeconfig 없이는 아무것도 못 한다.** 도구 설치 부채는 0이 됐는데
+   > **설정 부채가 남아 있었고, 그것이 인스턴스 교체마다 되살아난다.**
+   > ⚠️ 이 repo 의 *"동작한다"* 기준(`tofu test` + 예제 `validate`)으로는 **영원히 안 잡힌다** —
+   > plan 은 도구가 실제로 쓸 수 있는지를 묻지 않는다.
+
+   **실측(2026-08-11, workbench role `iamr-ref-dev-an2-workbench-01`)**
+
+   | 호출 | 결과 |
+   |---|---|
+   | `eks:DescribeCluster` | ✅ 통과 |
+   | `eks:ListClusters` | ⛔ `AccessDeniedException` |
+   | `eks:ListAccessEntries` | ⛔ `AccessDeniedException` |
+   | Access Entry 등재 | ✅ 등재돼 있다 — **kubeconfig 만 만들면 `kubectl` 이 통한다** |
+
+   ⇒ `aws eks update-kubeconfig --region <r> --name <이름>` 은 **클러스터 이름을 알면 동작한다.**
+   ⛔ 이름 없이 목록에서 찾는 흐름은 막힌다 — 절차서에 **이름을 쓰게** 해야 한다.
+
+   **아직 결정하지 않았다** — 선택지가 셋이고 각각 대가가 다르다:
+   - ⓐ `user_data` 가 `aws eks update-kubeconfig` 를 실행한다 → ⚠️ workbench 모듈이 **클러스터 이름을
+     알아야** 하고, 그것은 [`§5.1-1`](#51-1-️-이-배치는-모듈-간-순환을-만든다--결정적-네이밍이-끊는다)이 다룬 **순환**을 다시 부른다
+   - ⓑ 운영 절차서(§6)에 **1회 명령으로 명문화** → 가장 단순하되 사람이 기억해야 한다
+   - ⓒ 소비 루트가 `user_data` 추가 스크립트로 주입 → 모듈은 안 건드리지만 계약이 하나 는다
+   🔑 **ⓐ가 매력적으로 보이지만 순환을 다시 여는 대가를 먼저 값매김해야 한다.** §5.1-1 을 읽고 결정한다.

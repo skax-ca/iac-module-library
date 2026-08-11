@@ -1450,6 +1450,91 @@ clusterResourceWhitelist:
 
 ---
 
+### 2.10.5 ✅ **apply 판정 — 증분 ②③④ 전부 배포 완료** (2026-08-11, workbench SSM 실물 조회)
+
+| 증분 | 커밋 | 결과 |
+|---|---|---|
+| ② | `3cecd80` (PR #2) | ✅ `Application/argocd` 생성 · **파드 재시작 0** · root App 무결 |
+| ③ | `b13e9ea` (PR #5) | ✅ Kyverno 4 컨트롤러 Running · ClusterPolicy 11개 `Ignore`/`Audit` |
+| ④ | `1bb27e9` (PR #4) | ✅ KEDA 3 파드 Running · `APIService` **Available** · **`Synced Healthy`** |
+
+⚠️ PR 번호가 ③만 **#3 → #5**로 바뀌었다. 절차 사고이며 아래 「📌 절차」가 소유한다.
+
+#### ✅ 통과한 판정
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | 🆕 **노드의 `ghcr.io` 이미지 pull** | ✅ **통과** — `reg.kyverno.io/kyverno/*` 4종 · `ghcr.io/kedacore/*` 3종 전부 기동. §2.10.0이 *"canary로 앞당길 수 없다"* 고 남긴 축이 **열렸다** |
+| 2 | **판정 ① 실증** — `CreateNamespace` ↔ whitelist | ✅ ns `kyverno`·`keda` 생성, `not permitted` 오류 **0건**. `{group:"", kind: Namespace}` 를 **미리 연 것이 맞았다** |
+| 3 | Kyverno 정책 | ✅ 11개 전부 `failurePolicy=Ignore` · `background=true` · `Succeeded` — **의도한 값 그대로** |
+| 4 | 🔴 `APIService` ↔ `metrics-server` | ✅ `v1beta1.external.metrics.k8s.io` **Available/Passed**, `v1beta1.metrics.k8s.io` **그대로 Passed** — 그룹이 달라 충돌하지 않는다는 예측이 **실측으로 확인** |
+| 5 | ⭐ **라벨 옵트인**(②경로 첫 실증) | ✅ **인과적으로 보였다** — cluster Secret 라벨이 `<no value>` → `enabled` 로 바뀐 **직후** Application 이 나타났다 |
+| 6 | 기존 워크로드 무영향 | ✅ ALBC · Karpenter · NodePool · root-app 전부 `Synced Healthy` 유지 |
+| 7 | ② 파드 재시작 | ✅ **0회** — argocd 파드 5개의 `startTime` 이 **2026-08-07 그대로**. `automated` 를 안 켠 것이 실제로 아무것도 건드리지 않았다 |
+
+#### 🔴 **핵심 발견 — `ServerSideApply=true` 는 *적용* 만 바꾸고 *diff* 는 바꾸지 않는다**
+
+> ## ⭐ **세 개의 `OutOfSync` 가 전부 같은 원인이었다**
+>
+> | 대상 | non-Synced | live 를 쓴 field manager |
+> |---|---|---|
+> | ② `Application/argocd` | **37개 전부** | **`helm`** — `meta.helm.sh/release-name`·`release-namespace` 애노테이션. `helm install` 이 붙이고 `helm template` 은 안 붙인다 |
+> | ③ `kyverno` | CRD **11개**(`policies.kyverno.io`) | **`kube-apiserver`** — 스키마 기본값을 채운다 |
+> | ③ `kyverno-policies` | ClusterPolicy **11개** | **`kyverno`** — 자기 mutating webhook(`kyverno-policy-mutating-webhook-cfg`)이 admission 에서 주입한다 |
+>
+> **셋 다 "우리가 선언하지 않은 필드를 다른 매니저가 소유"** 다. `ServerSideApply=true` 는 그 필드를
+> **건드리지 않게** 해 주지만(그래서 `argocd-secret` 이 안전했다), ArgoCD 의 **diff 계산은 여전히
+> 클라이언트 측**이라 그 필드가 차이로 잡힌다.
+> ⇒ 🔑 **`ServerSideApply` 와 `ServerSideDiff` 는 별개 스위치다.** 하나를 켰다고 다른 하나가 켜지지 않는다.
+>
+> ### ⭐ **KEDA 가 대조군이 되어 진단을 확증했다**
+> 같은 날 **같은 옵션**(`ServerSideApply=true`·`CreateNamespace=true`)으로 배포했는데 KEDA만
+> **`Synced Healthy`** 다. 차이는 **KEDA는 자기 리소스를 런타임에 변형하지 않는다**는 것뿐이다.
+> ⇒ *"ArgoCD 설정이 잘못됐다"* 가설이 **배제된다.** 📌 **증분을 나눈 덕에 대조군이 생겼다.**
+>
+> ### 🔴 **방치하면 안 되는 이유는 sync 실패가 아니라 신호 오염이다**
+> 두 Application 모두 `phase=Succeeded` · *"successfully synced (all tasks run)"* 이고 리소스는
+> 정상 동작한다. **기능적으로는 문제가 없다.**
+> ⛔ 그러나 **항상 `OutOfSync` 이면 "`OutOfSync` = 문제"라는 신호가 죽는다** — 진짜 drift 가
+> 들어와도 구분할 수 없다.
+> 🔑 이 세션에서 같은 범주의 사고가 **세 번째**다(D-ROOTAPP-SKIP 자기 점검의 `^./` 앵커 ·
+> CI 캐시 판정 기준 "8회") — **거짓 신호를 내는 장치는 곧 무시당한다.**
+>
+> ⏭️ **후속 증분(②-b·③-b)이 소유한다.** `ServerSideDiff=true` 또는 대상별 `ignoreDifferences` 중
+> 무엇을 쓸지는 **실측 후 결정**한다. ⛔ 지금 즉흥으로 넣지 않는다 — 근거 없이 넣은 옵션은
+> 다음 사람에게 *"이게 왜 있지"* 로 남는다.
+
+#### ⏭️ 증분 ②의 2단계(PR-②b)에 남은 질문
+
+`automated` 를 켜면 **37개 리소스에 sync 가 걸린다**(`Deployment` 4 · `StatefulSet` 1 포함).
+`meta.helm.sh/*` 는 `helm` 매니저 소유라 SSA로 **제거되지 않으므로**, 켜도 `Synced` 가 안 되고
+`selfHeal` 이 계속 재시도할 수 있다.
+⭐ **이 질문을 배포 없이 물을 수 있다는 것이 결정 5(2단계 분리)의 값이다** — 한 번에 켰다면
+**ArgoCD 자신을 재시작시키며** 답을 배웠을 것이다.
+
+#### 📌 절차 — **스택 PR을 squash + `--delete-branch` 로 머지하면 자식 PR이 닫힌다**
+
+②(#2)를 `--delete-branch` 로 머지하자 그 브랜치를 base 로 삼던 **#3이 자동으로 CLOSED** 됐고,
+**닫힌 PR은 base 를 바꿀 수 없어**(`Cannot change the base branch of a closed pull request`)
+새 PR(#5)을 열어야 했다. 게다가 squash 라 자식 브랜치에는 부모의 **원본 커밋**이 남아 `CONFLICTING` 이었다.
+
+⇒ **규칙**: 스택을 머지할 때는 ⓐ `--delete-branch` 를 쓰지 않고, ⓑ 다음 PR 을 `main` 으로
+**리베이스 + retarget** 한 뒤, ⓒ 마지막에 브랜치를 지운다.
+🔑 브랜치가 원격에 남아 있어 **잃은 것은 없었다** — 복구 가능성이 사고의 크기를 결정한다.
+
+#### ⚠️ 부수 발견 — workbench 의 kubeconfig 는 **인스턴스 교체와 함께 사라진다**
+
+판정을 시작하려는데 workbench 어디에도 kubeconfig 가 없었다(`find` 전수 0건).
+`workbench-v0.4.0`(D-WORKBENCH-SIZE)이 **인스턴스를 교체**했고, 손으로 만든 kubeconfig 는
+그때 사라졌다. ⇒ [`40`](40-workbench.md)이 소유하는 문제로 넘긴다.
+
+- 실측: workbench role `iamr-ref-dev-an2-workbench-01` 은 **`eks:DescribeCluster` 는 되고
+  `eks:ListClusters`·`eks:ListAccessEntries` 는 안 된다** ⇒ `aws eks update-kubeconfig --name <이름>` 은
+  **클러스터 이름을 알면 동작한다**(이름 없이 목록으로 찾는 흐름은 막힌다).
+- ✅ Access Entry 에는 등재돼 있다 — kubeconfig 만 만들면 `kubectl` 이 통한다.
+
+---
+
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)
 
 관리형 ArgoCD는 Application이 단일 namespace라 **네임스페이스 격리 불가** → 테넌시는 **AppProject**로.

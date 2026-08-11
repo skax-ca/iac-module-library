@@ -1697,6 +1697,85 @@ ArgoCD 자신이 소유할 필드다. `ServerSideDiff` 는 *선언하지 않은*
 **실제 diff 를 한 번도 열지 않은** 데서 나왔다. `argocd app diff --core` 는 로그인 없이 kubeconfig 로
 도는데도 쓰이지 않았다. ⇒ **`OutOfSync` 를 다룰 때는 원인을 추론하기 전에 diff 를 먼저 출력한다.**
 
+### 2.10.8 🔴 **PR-②b — D-ARGOCD-ADOPT 2단계: `automated` 를 켠다** (2026-08-11, 배포 전 실측)
+
+결정 5(§2.10.1)의 2단계 조건은 *"차이가 없거나 **설명 가능하면**"* 이었다. §2.10.7 이 차이를
+`tracking-id` 37개로 특정했으므로 **조건은 충족됐다.** 이 절은 그 위에서 **새로 드러난 것**을 소유한다.
+
+#### 🔴 실측 1 — **`argocd app sync --dry-run` 은 클라이언트 사이드 apply 로 돈다**
+
+`ServerSideApply=true` 가 켜져 있는데도 dry-run 의 모든 리소스 메시지가
+*"missing the `kubectl.kubernetes.io/last-applied-configuration` annotation which is required by apply"* 다.
+이는 **클라이언트 사이드 apply** 의 경고다 — 실제 sync 로그는 `serverside-applied` 라고 찍힌다(kyverno 실측).
+⛔ **⇒ `argocd app sync --dry-run` 의 `Phase: Succeeded` 를 "SSA 가 성공한다"의 증거로 쓰지 않는다.**
+✅ 그래도 답한 것은 있다: **hook 이 정상 번역된다**(`Job/argocd-redis-secret-init` 이 `PreSync` 로
+생성 — §2.10.1 **위험 2** 가 예측한 그대로다).
+
+#### 🔴 실측 2 — 실제 렌더본으로 SSA 를 돌리면 **`helm` 과 2건 충돌한다**
+
+`argocd app manifests argocd`(= ArgoCD 가 apply 할 실물 40개)로 `kubectl apply --server-side
+--dry-run=server --field-manager=argocd-controller` 를 돌렸다. **37개 통과, 2개 충돌**:
+
+| 충돌 지점 | 필드 |
+|---|---|
+| `Deployment/argocd-applicationset-controller` | `.spec.template.spec.containers[applicationset-controller].env[NAMESPACE].valueFrom.fieldRef` |
+| `NetworkPolicy` (4개) | `.spec.ingress` |
+
+둘 다 **atomic 구조체**다. 차트 렌더본에는 없고 live 에는 **apiserver 가 채운 기본값**이 있어
+(`fieldRef.apiVersion: v1` · `ports[].protocol: TCP` 등) 구조체 **전체가 다르다**고 판정된다.
+
+> ## ⭐ **`argocd app diff` 는 깨끗한데 SSA 는 충돌한다**
+>
+> §2.10.7 의 diff 에는 이 2건이 **나오지 않았다** — ArgoCD 의 diff 가 **기본값을 정규화해 지우기** 때문이다.
+> 🔑 **diff 가 깨끗한 것은 apply 가 충돌하지 않는다는 뜻이 아니다.** 둘은 다른 질문이고,
+> §2.10.6 이 *"이 실측은 PR-②b 의 conflict 질문에 답하지 않는다"* 고 남긴 자리가 정확히 여기였다.
+
+#### ✅ 그러나 이 충돌은 **sync 를 막지 않는다** — ArgoCD 는 이미 force 로 apply 한다
+
+[공식 문서](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/): `ServerSideApply=true` 는
+**`kubectl apply --server-side --force-conflicts`** 로 실행되고, field manager 는 **`argocd-controller`** 다.
+
+- ⛔ **`Force=true` 를 넣지 않는다.** 공식 문서상 그것은 *"`kubectl delete/create` 로 동기화"* 다 —
+  **이 증분이 피하려는 사고 시나리오 그 자체**(적용 대상이 application-controller 자신이다).
+- ⛔ **`Replace=true` 도 금지** — 문서가 *"`Replace=true` 가 `ServerSideApply=true` 보다 **우선**한다"*
+  고 명시한다. 넣으면 SSA 보호가 **조용히 무력화**된다(§2.10.1 위험 1 = 자격증명 소실).
+- 🔑 **이름이 비슷한 세 값이 전혀 다른 축이다** — `ServerSideApply`(apply 방식) · `Force`(delete/create) ·
+  `ServerSideDiff`(비교 방식). §2.10.2 의 `validationFailureAction` ↔ `failurePolicy` 와 **같은 함정**이다.
+
+#### ✅ force-conflicts 예측 — **값 변경 0, 따라서 재시작 없어야 한다**
+
+같은 dry-run 을 `--force-conflicts` 로 다시 돌려 predicted 를 live 와 비교했다.
+
+| 대상 | 결과 |
+|---|---|
+| pod template — `argocd-server`·`repo-server`·`redis`·`applicationset-controller`·`application-controller`(sts) | **5개 전부 IDENTICAL** |
+| `NetworkPolicy.spec` 4개 | **전부 IDENTICAL** |
+| `Secret/argocd-secret` data | **5키 보존** |
+
+⇒ **충돌 해소는 소유권이 `helm` → `argocd-controller` 로 옮겨가는 것일 뿐이고, 값은 바뀌지 않는다.**
+⭐ 이것이 흡수(adopt)의 정의 그 자체다 — 리소스는 그대로 두고 **소유권만 저장소로 옮긴다.**
+
+#### 변경 — `bootstrap/argocd-app.yaml` 한 곳
+
+```yaml
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: false      # ⛔ 결정 5·§4 가 정한 대로. 결정 6의 helm 잔존물이 "저장소에 없는 리소스"가 된다
+```
+
+#### 📋 판정 항목
+
+| # | 보는 것 | 기대 |
+|---|---|---|
+| 1 | `Application/argocd` | **`Synced Healthy`** — §2.10.7 이 남긴 마지막 고착 해소 |
+| 2 | 🔴 **파드 재시작** | **0회** (`startTime` 2026-08-07 유지) — 위 예측이 맞다면 |
+| 3 | `Secret/argocd-secret` | data 5키 유지 |
+| 4 | `Job/argocd-redis-secret-init` | **생성됨 + `Succeeded`** (위험 2 — 정상 동작) |
+| 5 | field manager 이동 | 충돌 2건의 소유자가 `argocd-controller` 로 바뀐다 |
+| 6 | 다른 앱 + root-app | 무영향 |
+| 7 | ⚠️ 반증 조건 | 파드가 하나라도 재시작하면 **원인을 규명해 여기 적는다** — 예측이 틀린 것이다 |
+
 ---
 
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)

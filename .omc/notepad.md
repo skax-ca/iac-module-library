@@ -1914,15 +1914,20 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 사용자 지시: *"A부터 진행하자 그런데 kyverno, KEDA도 addon으로 추가하고 싶어."*
 ⇒ 설계는 이 repo(`30 §2.10` 신설, **main 직접 커밋** `40608af`·`7b2b363`), 구현은 `iac-platform-gitops`.
 
-| PR | 브랜치 → base | 내용 |
-|---|---|---|
-| [#2](https://github.com/skax-ca/iac-platform-gitops/pull/2) | `feat/argocd-self-management` → **main** | 증분 ② ArgoCD 자기 관리 **1단계(비교만)** |
-| [#3](https://github.com/skax-ca/iac-platform-gitops/pull/3) | `feat/kyverno-baseline` → **#2** | 증분 ③ Kyverno 3.8.2 + PSS 정책(Audit) |
-| [#4](https://github.com/skax-ca/iac-platform-gitops/pull/4) | `feat/keda-catalog` → **#3** | 증분 ④ KEDA 2.20.2, `addons/catalog/` 첫 사용 |
+> 🔴 **아래 표는 세션 중반에 쓴 것이고 그대로 두면 stale 이다** — 세션 끝에 **전부 머지됐고
+> ③의 PR 번호가 바뀌었다.** 최종 상태는 이 절 아래 「✅ 머지·apply 판정 전부 완료」가 소유한다.
+
+| 증분 | PR (최종) | 머지 커밋 | 비고 |
+|---|---|---|---|
+| ② ArgoCD 자기 관리 1단계(비교만) | **#2** ✅ | `3cecd80` | — |
+| ③ Kyverno 3.8.2 + PSS 정책(Audit) | ~~#3~~ → **#5** ✅ | `b13e9ea` | ⚠️ #2 를 `--delete-branch` 로 머지하자 **#3 이 자동 CLOSED** 돼 새로 열었다 |
+| ④ KEDA 2.20.2, `addons/catalog/` 첫 사용 | **#4** ✅ | `1bb27e9` | — |
 
 > ⭐ **PR 을 스택으로 쌓아 머지 순서를 구조로 강제했다.** 설계가 정한 ② → ③ → ④ 는 우선순위가
-> 아니라 **의존**이다(ArgoCD 가 ③④를 배포하는 주체). 앞 PR 이 머지되면 GitHub 이 base 를 자동 재지정한다.
+> 아니라 **의존**이다(ArgoCD 가 ③④를 배포하는 주체).
 > 🔑 증분 ①에서 *"머지해야만 드러나는 결함"* 이 2건이었다 — 셋을 한 PR 에 넣으면 원인을 못 가른다.
+> 🔴 **그러나 *"앞 PR 이 머지되면 GitHub 이 base 를 자동 재지정한다"* 는 틀렸다** — 실측상
+> **base 브랜치가 삭제되면 자식 PR 은 재지정되지 않고 닫힌다.** 절차는 아래 「📌 절차 교훈」이 소유한다.
 
 **사용자 결정 3건**(2026-08-11): ① Kyverno = **①baseline**(*옵트인 가드레일은 가드레일이 아니다*)
 ② 정책 = **컨트롤러 + PSS(Audit)** ③ KEDA AWS 스케일러 **미포함**(⇒ IAM 0, 계층 2 안에서 닫힘).

@@ -2042,7 +2042,9 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 
 ##### 🔧 **workbench 조회 경로 (재사용)**
 
-- 인스턴스 **`i-0675ba8c5ad9dd507`**(`ec2-ref-dev-an2-workbench-01`).
+- 인스턴스 **`i-0e7440e9e0350f731`**(`ec2-ref-dev-an2-workbench-01`).
+  ⚠️ **2026-08-11 `workbench-v0.6.0` apply 로 교체됐다**(구 `i-0675ba8c5ad9dd507` 은 없다).
+  ⭐ 이제 kubeconfig·도구·프로파일이 **user_data 산출물**이라 손으로 만들 것이 없다.
 - ⚠️ **aws-api MCP 로는 안 된다** — `READ_OPERATIONS_ONLY: true` 라 `ssm send-command` 가
   *"denied by security policy"* 다. **로컬 `aws --profile team` 으로 보낸다.**
 - kubeconfig 가 없으면 먼저: `aws eks update-kubeconfig --region ap-northeast-2 --name eks-ref-dev-an2-main-01`
@@ -2173,6 +2175,24 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 > ⇒ 지목할 것은 **실행 구문**: `export KREW_ROOT=` · `export KUBECONFIG=/etc/kubernetes`.
 > ⚠️ ③이 별개 교훈이다 — **넓은 음성 판정은 미래의 정당한 요구를 막는다.**
 
+##### ✅ **소비 repo apply 완료 — `v0.6.0` 이 실물로 섰다** (`iac-reference-infra` PR **#23** `9387201`)
+
+plan **`1 to add, 0 to change, 1 to destroy`**(replace 는 workbench 인스턴스 **1건뿐**) →
+dispatch apply 성공 → 새 인스턴스 **`i-0e7440e9e0350f731`**. 부팅 **73초**, 판정 8항목 전부 통과.
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | 도구 6종 + krew 플러그인 6개 | 전부 설치 |
+| 2 | 정본 `0444` | `ssm-user` 쓰기 **불가** |
+| 3 | ⭐ **`/etc/skel` 상속 실증** | `/home/ssm-user/.kube/config` 가 **`ssm-user:ssm-user 0600`**. user_data 는 `root`·`ec2-user` 만 순회하므로 **skel 이 작동했다는 직접 증거**다 |
+| 4 | 전역 오염 차단 | `ssm-user` 의 `set-context` 가 **자기 사본만** 바꾸고 정본은 그대로 |
+| 5 | 로그인 프로파일 | 5요소 전부 활성(completion 포함) |
+| 6 | 도달성 | `KUBECONFIG` **없이** `kubectl get nodes` → 2대 |
+| 7 | ArgoCD | 8개 Application **`Synced Healthy` 유지** |
+
+🔑 **이 두 릴리스가 회수한 것은 "손으로 만든 상태"다.** 이제 kubeconfig·도구·프로파일이
+전부 user_data 산출물이라, **다음 교체에서도 자동으로 선다.**
+
 ##### 🖥️ **ArgoCD 웹 UI 로컬 접속 — 2홉 (2026-08-11 실측 성공)**
 
 EKS 엔드포인트는 **public=false**라 로컬에서 API 서버에 직접 못 붙는다. workbench 를 경유한다.
@@ -2185,7 +2205,7 @@ setsid nohup kubectl -n argocd port-forward svc/argocd-server 18080:443 \
 
 # ② 로컬에서 SSM 포트 포워딩
 aws --profile team --region ap-northeast-2 ssm start-session \
-  --target i-0675ba8c5ad9dd507 --document-name AWS-StartPortForwardingSession \
+  --target i-0e7440e9e0350f731 --document-name AWS-StartPortForwardingSession \
   --parameters '{"portNumber":["18080"],"localPortNumber":["18080"]}'
 ```
 ⇒ 브라우저 **https://localhost:18080** (자체 서명 인증서 경고는 통과). 계정 `admin`.

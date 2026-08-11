@@ -23,6 +23,12 @@ locals {
     kubectl_version = var.kubectl_version
     helm_version    = var.helm_version
     argocd_version  = var.argocd_version
+
+    # 진단·조작 도구 (D-WORKBENCH-TOOLING §4.3-2)
+    eks_node_viewer_version = var.eks_node_viewer_version
+    # krew 는 kubectl 없이는 의미가 없다 — 조건을 여기서 접어 템플릿 분기를 하나로 줄인다.
+    krew_version = var.kubectl_version != null ? var.krew_version : null
+    krew_plugins = var.krew_plugins
     # kubeconfig 생성 조건을 로컬과 일치시킨다 — 권한 없이 kubeconfig만 만들지 않는다.
     eks_cluster_name = local.eks_integration_enabled ? var.eks_cluster_name : null
     region           = data.aws_region.current.region

@@ -2006,10 +2006,11 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 
 ##### ⏭️ **다음 태스크 (2026-08-11 갱신 — 머지 후)**
 
-1. 🔴 **`OutOfSync` 고착 해소 증분(②-b·③-b)** — `ServerSideDiff=true` vs 대상별 `ignoreDifferences`.
-   ⛔ **즉흥으로 넣지 않는다** — 실측 후 결정하고 근거를 함께 적는다.
-2. **PR-②b** — `automated: {selfHeal: true, prune: false}`. ⚠️ 켜면 **37개 리소스에 sync 가 걸린다**
-   (`Deployment` 4 · `StatefulSet` 1 포함). 1번을 먼저 푸는 편이 안전하다.
+1. ~~🔴 **`OutOfSync` 고착 해소 증분(②-b·③-b)**~~ ✅ **완료**(2026-08-11 세션 ② — 아래 절).
+   ③은 `ServerSideDiff=true` 로 해소, ②는 **원인이 달라** PR-②b 로 넘어갔다.
+2. 🔴 **PR-②b** — `automated: {selfHeal: true, prune: false}`. ⭐ **위험 근거가 완화됐다** —
+   실측상 37개의 차이는 **`tracking-id` 애노테이션 하나뿐**이라 sync 가 pod template 을 건드리지
+   않는다 ⇒ **재시작이 없어야 한다**(그것이 판정 항목이다). 근거는 `30 §2.10.7`.
 3. 🔴 **`40` 열린 항목 8 — workbench kubeconfig** (2026-08-11 신설). 판정하려는데 **kubeconfig 가
    없었다** — `workbench-v0.4.0` 인스턴스 교체 때 사라졌다. 선택지 ⓐ user_data(⚠️ `40 §5.1-1` 순환
    재발) ⓑ 절차서 ⓒ 소비 루트 주입. **미결정.**
@@ -2035,6 +2036,73 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
   (⚠️ `--name` 필수 — `eks:ListClusters` 권한이 없다).
 - ⚠️ `kubectl -o jsonpath` 는 **map 순회(`$k,$v :=`)를 지원하지 않는다** → `-o go-template` 을 쓴다.
 - ⛔ 비밀번호·Secret **값**은 조회하지 않는다(CloudTrail 에 남는다). 키 이름까지만.
+
+---
+
+#### 🔚 **2026-08-11 세션 ② — `OutOfSync` 고착: 2/3 해소, 그리고 원인 귀인 3건이 전부 틀렸다**
+
+직전 세션의 「다음 태스크 1번」을 실측으로 닫았다. 설계 SSOT = **`30 §2.10.6`(D-SSDIFF) + `§2.10.7`(판정)**.
+
+| repo | 커밋/PR |
+|---|---|
+| 모듈(설계) | `8ec6e1b` §2.10.6 신설 · `3b324a7` §2.10.7 판정 (**main 직접**, 문서 전용) |
+| gitops | **PR #6** `3a66228`(적용) → **PR #7** `61a70bf`(argocd 앱 **철회**) |
+
+**결과**: `kyverno`·`kyverno-policies` ✅ **`Synced Healthy`**(CRD 11 + ClusterPolicy 11 해소) ·
+`argocd` 🔴 **`OutOfSync` 37개 그대로**(원인이 달랐다) · **파드 재시작 0** · 다른 앱 무영향.
+
+##### 🔴 **§2.10.5의 원인 귀인 3건이 전부 틀렸다 — 같은 실수 하나에서 나왔다**
+
+| # | 기록된 원인 | 실측 |
+|---|---|---|
+| ③ CRD | *"`kube-apiserver` 가 스키마 기본값을 채운다"* | 그 매니저는 **`status` 서브리소스만** 소유. 차이는 **`spec.conversion`**(무소유 필드) |
+| ③ ClusterPolicy | *"`kyverno` 자기 mutating webhook 이 주입"* | `kyverno` 도 **`status` 만** 소유. 차이는 **`spec.admission`·`emitWarning`** = CRD 스키마 `default:` |
+| ② argocd 37개 | *"`helm` 이 소유한 `meta.helm.sh/*`"* | 🔴 **`meta.helm.sh` 는 diff 에 0회 등장.** 차이는 **전부 한 줄** — `argocd.argoproj.io/tracking-id` |
+
+🔑 **셋 다 `managedFields` 만 보고 실제 diff 를 한 번도 열지 않은 데서 나왔다.**
+`argocd app diff <app> --core` 는 **로그인 없이 kubeconfig 로** 도는데도 쓰이지 않았다.
+⇒ ⛔ **`OutOfSync` 를 다룰 때는 원인을 추론하기 전에 diff 를 먼저 출력한다.**
+
+##### ⭐ **②의 진짜 의미 — 위험 신호가 아니라 안전 증거였다**
+
+37개에서 **유일한 차이가 ArgoCD 자신의 추적 애노테이션**이라는 것은 **흡수해도 실질 변경이 0**.
+대조군이 증명한다 — kyverno `ClusterPolicy` live 에는 tracking-id 가 **있고**(apply 했으니까),
+`argocd-cm` 에는 **없다**(한 번도 sync 된 적이 없으니까).
+⇒ **PR-②b 가 할 일이 특정됐다: 애노테이션 37개 추가, 그 외 0.** `Deployment`·`StatefulSet` 의
+**pod template 을 안 건드리므로 재시작이 없어야 한다** — §2.10.5 의 위험 근거가 **완화**됐다.
+🔑 **숫자(37)를 읽고 내용을 안 읽으면 정반대로 해석된다.**
+
+##### ⚠️ 운영 사실 2건 (재사용)
+
+1. **애노테이션 도착만으로는 diff 가 재계산되지 않는다.** `kubectl -n argocd annotate app <name>
+   argocd.argoproj.io/refresh=hard --overwrite` 를 넣자 그때 `Synced` 가 됐다
+   (`diff_ms=6720`, `comparison-level=3`). ⇒ **diff 전략 변경 증분은 hard refresh 를 판정 절차에 넣는다.**
+2. **SSM RunShellScript 에는 `HOME` 이 없다.** `kubectl` 이 `localhost:8080` 으로 붙고
+   `argocd` CLI 는 `$HOME is not defined` 로 죽는다 ⇒ 스크립트 첫 줄에 **`export HOME=/root`** 와
+   **`export KUBECONFIG=/root/.kube/config`** 를 항상 넣는다. `--parameters` 는 **JSON 파일**로 준다
+   (인라인 `commands=[...]` 는 개행을 뭉갠다 — 실측).
+
+##### 🖥️ **ArgoCD 웹 UI 로컬 접속 — 2홉 (2026-08-11 실측 성공)**
+
+EKS 엔드포인트는 **public=false**라 로컬에서 API 서버에 직접 못 붙는다. workbench 를 경유한다.
+
+```bash
+# ① workbench 에서 port-forward (SSM send-command, setsid nohup 로 살려 둔다)
+export HOME=/root KUBECONFIG=/root/.kube/config
+setsid nohup kubectl -n argocd port-forward svc/argocd-server 18080:443 \
+  --address 127.0.0.1 > /tmp/argocd-pf.log 2>&1 < /dev/null &
+
+# ② 로컬에서 SSM 포트 포워딩
+aws --profile team --region ap-northeast-2 ssm start-session \
+  --target i-0675ba8c5ad9dd507 --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["18080"],"localPortNumber":["18080"]}'
+```
+⇒ 브라우저 **https://localhost:18080** (자체 서명 인증서 경고는 통과). 계정 `admin`.
+- ⛔ **비밀번호를 `send-command` 로 조회하지 않는다** — 출력이 SSM 에 저장된다.
+  **대화형 세션**(`aws ssm start-session --target …`)에서 사람이 직접 읽는다:
+  `sudo KUBECONFIG=/root/.kube/config kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`
+- ⚠️ **kubeconfig 도 port-forward 도 인스턴스 교체와 함께 사라진다** — 여전히 `40` 열린 항목 8이다.
+  이 절차는 **해결이 아니라 우회**다.
 
 ---
 

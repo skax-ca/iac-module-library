@@ -107,11 +107,40 @@ for attempt in 1 2 3 4 5; do
        --name "${eks_cluster_name}" \
        --region "${region}" \
        --kubeconfig "$KUBECONFIG_PATH"; then
-    chmod 0644 "$KUBECONFIG_PATH"
-    # 로그인 셸 전역에 노출한다 — 세션마다 export 를 치게 하지 않는다.
-    echo "export KUBECONFIG=$KUBECONFIG_PATH" > /etc/profile.d/kubeconfig.sh
-    chmod 0644 /etc/profile.d/kubeconfig.sh
-    echo "[workbench] kubeconfig 생성 완료"
+    # ── D-WORKBENCH-KUBECONFIG (설계 §4.3-1) ────────────────────────────────
+    #
+    # 🔴 **정본을 읽기 전용으로 잠근다.** 2026-08-11 에 이 파일이 실물로 **0666(world-writable)**
+    #    이 되어 있었고 기본 네임스페이스가 전역 오염돼 있었다. kubeconfig 는
+    #    `users[].user.exec` 로 **임의 명령**을 지정할 수 있으므로(EKS 는 `aws eks get-token` 을 쓴다),
+    #    world-writable kubeconfig 는 편의 문제가 아니라 **로컬 권한 상승 경로**다.
+    chmod 0444 "$KUBECONFIG_PATH"
+
+    # ⭐ **`/etc/skel` 이 이 결정의 핵심이다 — `ssm-user` 는 지금 존재하지 않는다.**
+    #    실측(2026-08-10): 부팅 03:49:28 · 이 스크립트 완료 03:50:11 ·
+    #    **`/home/ssm-user` 생성 06:26:37** — 2시간 37분 뒤다. SSM Agent 가 **첫 세션에서**
+    #    `useradd -m` 으로 만든다. ⇒ user_data 는 "그 사용자의 홈"에 아무것도 놓을 수 없다.
+    #    `/etc/skel` 은 **아직 없는 사용자**에게 파일을 넘기는 표준 장치다.
+    install -d -m 0700 /etc/skel/.kube
+    install -m 0600 "$KUBECONFIG_PATH" /etc/skel/.kube/config
+
+    # 이미 존재하는 홈에는 직접 넣는다(skel 은 **앞으로 만들어질** 사용자에게만 적용된다).
+    # ⚠️ 사용자마다 **자기 사본**을 갖는 것이 요점이다 — `kubectl config set-context` 가
+    #    남의 세션에 영향을 주지 않는다. 심볼릭 링크로 바꾸면 전역 오염이 그대로 돌아온다.
+    for _home_user in root ec2-user; do
+      _home="$(getent passwd "$_home_user" | cut -d: -f6)"
+      [ -n "$_home" ] && [ -d "$_home" ] || continue
+      install -d -m 0700 "$_home/.kube"
+      install -m 0600 "$KUBECONFIG_PATH" "$_home/.kube/config"
+      chown -R "$_home_user":"$(id -gn "$_home_user")" "$_home/.kube"
+    done
+
+    # ⛔ **`/etc/profile.d/kubeconfig.sh` 를 만들지 않는다.** `KUBECONFIG` 환경변수는
+    #    `$HOME/.kube/config` 보다 **우선**하므로, 남기면 위 사본들이 죽은 경로가 되고
+    #    모두가 다시 공유 정본을 가리킨다(= 전역 오염 재발).
+    # ⚠️ 그 대신 **비로그인 셸**(SSM RunShellScript)은 `$HOME` 자체가 없어 여전히 못 찾는다.
+    #    그것은 user_data 로 닫을 수 없고 **자동화 규약**(설계 §6)이 소유한다:
+    #        export HOME=/root; export KUBECONFIG=/root/.kube/config
+    echo "[workbench] kubeconfig 생성 완료 (정본 0444 · skel 상속 · 사용자별 사본)"
     break
   fi
   echo "[workbench] 실패 — IAM 전파 대기 후 재시도"

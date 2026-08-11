@@ -592,6 +592,72 @@ variable "egress_cidr_blocks" { type = list(string), default = ["0.0.0.0/0"] } #
   전파 지연으로 권한 오류가 날 수 있다. **Terraform에 `time_sleep`을 넣기보다 부팅 스크립트가 스스로
   견디는 편**이 재생성마다 반복되는 이 상황에 맞다.
 
+### 4.3-1 ⭐ **D-WORKBENCH-KUBECONFIG — 정본은 읽기 전용, 사용자마다 자기 사본** (2026-08-11 확정)
+
+[열린 항목 8](#10-열린-항목)이 미결로 둔 것을 닫는다. ⚠️ **그 항목의 전제부터 틀렸으므로 함께 정정한다.**
+
+#### 🔴 정정 — kubeconfig 는 **없지 않았다**
+
+| 열린 항목 8 서술 | 실측 (2026-08-11, workbench SSM) |
+|---|---|
+| *"workbench 어디에도 kubeconfig 가 없었다(`find` 전수 0건)"* | 🔴 **틀렸다.** `/etc/kubernetes/kubeconfig` 가 **있었고**, 부팅 로그에 `update-kubeconfig 시도 1` → `kubeconfig 생성 완료` 가 남아 있다 |
+| *"선택지 ⓐ user_data 실행 → §5.1-1 순환을 다시 부른다"* | 🔴 **ⓐ는 이미 구현돼 있고 동작했다.** `eks_cluster_name` 은 소비자 입력이라 순환은 **결정적 네이밍으로 이미 끊겨 있다**(§5.1-1 이 의도한 대로) |
+
+🔑 **어떻게 틀렸나**: 홈 디렉토리만 확인했거나, **비로그인 셸에서 `kubectl` 이 실패한 것을 "kubeconfig 없음"으로 오독**했다.
+⛔ 2026-08-11 세션에서 **같은 오독이 반복됐다** — `ls /home/ec2-user/.kube` 실패 하나로 "없다"고 확정하고
+`/root/.kube/config` 를 손으로 만들어 **사본을 하나 더 늘렸다.** 열린 항목 8 이 경계한 그 행위 자체다.
+
+#### 🔴 진짜 결함은 셋이고, 전부 **"설치"가 아니라 "누가 쓸 수 있나"** 의 문제였다
+
+| # | 결함 | 실측 |
+|---|---|---|
+| 1 | **비로그인 셸에 전달되지 않는다** | `/etc/profile.d/*.sh` 는 **로그인 셸에서만** 실행된다. 대화형 SSM 세션(`ssm-user`)은 `KUBECONFIG` 를 받지만, **SSM RunShellScript(자동화)는 못 받는다** ⇒ `kubectl` 이 `localhost:8080` 으로 붙는다 |
+| 2 | 🔴 **공유 정본이 쓰기 가능해져 전역 오염** | 실물이 **`-rw-rw-rw-`(0666, world-writable)** 였고 기본 네임스페이스가 `argocd` 로 **바뀌어 있었다**. `kubectl config set-context` 한 번이 **모든 사용자**에게 반영된다 |
+| 3 | 손으로 만든 사본이 는다 | `/root/.kube/config` (위 오독의 산물) |
+
+> ### ⛔ **2번은 편의 문제가 아니라 보안 문제다**
+> kubeconfig 는 `users[].user.exec` 로 **임의 명령**을 지정할 수 있다(EKS 는 실제로 `aws eks get-token` 을 쓴다).
+> world-writable kubeconfig 는 그 자리에 다른 명령을 심을 수 있다는 뜻이고,
+> 그것을 root 가 쓰는 순간 **로컬 권한 상승 경로**가 된다.
+
+#### 결정 — **정본 `0444` + `/etc/skel` 상속 + 사용자별 `0600` 사본**
+
+```
+① aws eks update-kubeconfig → /etc/kubernetes/kubeconfig   (정본)
+② chmod 0444                                               ← 아무도 못 쓴다
+③ /etc/skel/.kube/config 에 복사 (0600)                    ← 아직 없는 사용자에게 상속
+④ 이미 존재하는 홈(root·ec2-user)에 복사 + chown (0600)
+⑤ /etc/profile.d/kubeconfig.sh 는 만들지 않는다
+```
+
+> ### ⭐ **`/etc/skel` 이 핵심이다 — `ssm-user` 는 user_data 시점에 존재하지 않는다**
+>
+> **실측**: 부팅 `03:49:28` · user_data 완료 `03:50:11` · **`/home/ssm-user` 생성 `06:26:37`**
+> — **2시간 37분 뒤**다. SSM Agent 가 **첫 세션에서** `useradd -m` 으로 만든다.
+> ⇒ user_data 는 *"그 사용자의 홈"* 에 아무것도 놓을 수 없다. 그래서 원래 설계가 `/etc/profile.d`
+> 전역 export 를 택한 것이고, **그 판단은 합리적이었다** — 다만 결함 1·2를 남겼다.
+> 🔑 **`/etc/skel` 은 "아직 없는 사용자"에게 파일을 넘기는 표준 장치다.** `useradd -m` 이 복사한다
+> (실증: `.bashrc`·`.bash_profile`·`.bash_logout` 3종이 `ssm-user` 홈에 그대로 상속돼 있다).
+
+#### ⛔ 기각한 대안
+
+| 안 | 기각 근거 |
+|---|---|
+| **전용 사용자 신설** (*"root 로 실행하지 않게"*) | SSM 대화형은 **항상 `ssm-user`**, RunShellScript 는 **항상 root** 로 붙는다. 새 사용자를 만들어도 **아무도 그 사용자로 들어오지 않는다.** ⚠️ 게다가 `ssm-user` 는 `/etc/sudoers.d/ssm-agent-users` 에 **`NOPASSWD:ALL`**(실측)이라 이미 root 와 동등하다 — **root 회피가 보안 경계를 만들지 못한다.** ⇒ 바꿀 수 있는 것은 *"누가 실행하나"* 가 아니라 **"산출물이 누구 것이 되나"** 다 |
+| **홈에 심볼릭 링크**(공유 정본 1개) | 갱신 지점은 1곳이지만 **컨텍스트 변경이 그대로 전역 오염**이다 — 결함 2가 구조적으로 반복된다. `0444` 로 막으면 `kubectl config set-context` 자체가 실패해 일상 조작이 불편해진다 |
+| **`/etc/profile.d` 유지 + 사본 병행** | `KUBECONFIG` 환경변수가 `$HOME/.kube/config` 보다 **우선**하므로 사본을 만들어도 **다시 공유본을 가리킨다.** ⇒ 남기면 사본이 죽은 경로가 된다(CLAUDE.md *"죽은 경로를 남기지 않는다"*) |
+
+#### ⚠️ 이 결정이 닫지 **못하는** 것 — 비로그인 셸
+
+`$HOME` 자체가 없는 실행 경로(SSM RunShellScript)는 **user_data 로 닫을 수 없다.**
+`/etc/profile.d` 도 `/etc/environment` 도 읽히지 않는다. ⇒ **자동화 규약으로 닫고 §6 에 적는다**:
+
+```bash
+export HOME=/root
+export KUBECONFIG=/root/.kube/config
+```
+⚠️ `argocd` CLI 는 `HOME` 이 없으면 **`$HOME is not defined` 로 죽는다**(2026-08-10·08-11 두 번 실측).
+
 ### 4.4 outputs
 
 | 출력 | 설명 |
@@ -707,10 +773,28 @@ SG rule을 별도 리소스로 분리해 순환을 푸는 §2.2와 **같은 역�
 # 접속 (인바운드 없음 — IAM 인증만으로 셸에 들어간다)
 aws ssm start-session --target <workbench_instance_id> --region <region>
 
-# 클러스터 조작 (kubeconfig 는 user_data 가 전역에 생성)
+# 클러스터 조작 — kubeconfig 는 **자기 홈의 사본**을 쓴다(D-WORKBENCH-KUBECONFIG, §4.3-1)
 kubectl get nodes
 helm upgrade --install <release> <chart> -n <ns>
 ```
+
+> ### ⚠️ **자동화 경로(SSM RunShellScript)는 위와 다르다 — 스크립트가 스스로 열어야 한다**
+>
+> `ssm send-command` 로 실행되는 셸은 **비로그인 셸**이고 **`HOME` 이 아예 없다**(실측).
+> `/etc/profile.d` 도 `/etc/environment` 도 읽히지 않으므로 `kubectl` 은 `localhost:8080` 으로 붙고,
+> `argocd` CLI 는 **`$HOME is not defined` 로 죽는다**(2026-08-10·08-11 두 번 실측).
+> ⇒ **자동화 스크립트의 첫 줄에 항상 넣는다**:
+>
+> ```bash
+> export HOME=/root
+> export KUBECONFIG=/root/.kube/config
+> ```
+>
+> 📌 `--parameters` 는 **JSON 파일**로 준다 — 인라인 `commands=[...]` 축약형은 **개행을 뭉갠다**(실측).
+> 📌 `argocd` CLI 를 클러스터에서 직접 쓰려면 `export ARGOCD_OPTS='--core'` 와
+> **네임스페이스 지정**(`kubectl config set-context --current --namespace=argocd`)이 **둘 다** 필요하다.
+> ⚠️ 같은 CLI 안에서도 네임스페이스를 받는 방식이 다르다 —
+> `argocd admin initial-password` 는 `-n` 을 받고 `argocd account update-password` 는 **받지 않는다.**
 
 **로컬 포트포워딩**(VPC 안 엔드포인트를 노트북 브라우저로 보는 경우):
 
@@ -747,6 +831,12 @@ aws ssm start-session --target <id> --region <region> \
 | T-9 | **`git`의 무조건성**(§2.5·§4.1) | `kubectl_version`·`helm_version`이 **둘 다 `null`**인 최소 형상에서도 `user_data`에 `dnf install -y git-core`가 있을 것 |
 | T-10 | **`argocd` CLI 양성·음성**(§4.1) | 지정 시 `user_data`에 그 버전의 릴리스 URL이 있을 것 · **`null`이면 없을 것**(기본값이 미설치라는 계약) |
 | T-11 | **기본 `instance_type`**(D-WORKBENCH-SIZE) | 기본값이 `t4g.small`일 것 — 더 작은 타입은 부팅 중 `dnf`가 OOM으로 죽는다(§7.3-3) |
+| T-12 | 🆕 **kubeconfig 배포 방식**(D-WORKBENCH-KUBECONFIG §4.3-1) | `eks_cluster_name` 지정 시 `user_data`에 **`chmod 0444`**(정본 잠금)와 **`/etc/skel/.kube/config`**(아직 없는 사용자 상속)가 있을 것. ⛔ **`/etc/profile.d/kubeconfig.sh` 는 **없을 것**(전역 export 는 죽은 경로) |
+
+> ⭐ **T-12가 지키는 것은 "kubeconfig 가 생기는가"가 아니다** — 그건 T-6이 이미 본다.
+> 지키는 것은 **정본이 쓰기 가능해지지 않는 것**과 **`ssm-user` 상속 경로가 사라지지 않는 것**이다.
+> 🔑 둘 다 *"편의를 위해 되돌리기 쉬운"* 형태다 — `0444` 를 지우면 조작이 편해지고,
+> `profile.d` 를 되살리면 `$HOME` 없는 경로가 잠깐 편해진다. **그때 결함 1·2가 그대로 돌아온다.**
 
 > ⚠️ **T-11이 지키는 것은 "OOM이 안 난다"가 아니다** — plan 테스트는 그것을 예측할 수 없다.
 > 지키는 것은 **그때 내린 결정이 조용히 되돌아가지 않는 것**이고, 가장 그럴듯한 회귀는
@@ -1048,9 +1138,23 @@ SSM Session Manager 자체는 추가 요금이 없다. ⚠️ 리전·환경 수
    ⇒ `aws eks update-kubeconfig --region <r> --name <이름>` 은 **클러스터 이름을 알면 동작한다.**
    ⛔ 이름 없이 목록에서 찾는 흐름은 막힌다 — 절차서에 **이름을 쓰게** 해야 한다.
 
-   **아직 결정하지 않았다** — 선택지가 셋이고 각각 대가가 다르다:
-   - ⓐ `user_data` 가 `aws eks update-kubeconfig` 를 실행한다 → ⚠️ workbench 모듈이 **클러스터 이름을
-     알아야** 하고, 그것은 [`§5.1-1`](#51-1-️-이-배치는-모듈-간-순환을-만든다--결정적-네이밍이-끊는다)이 다룬 **순환**을 다시 부른다
-   - ⓑ 운영 절차서(§6)에 **1회 명령으로 명문화** → 가장 단순하되 사람이 기억해야 한다
-   - ⓒ 소비 루트가 `user_data` 추가 스크립트로 주입 → 모듈은 안 건드리지만 계약이 하나 는다
-   🔑 **ⓐ가 매력적으로 보이지만 순환을 다시 여는 대가를 먼저 값매김해야 한다.** §5.1-1 을 읽고 결정한다.
+   > ## 🔴 **이 항목의 전제는 틀렸다 — 2026-08-11 실측으로 반증됐다**
+   >
+   > kubeconfig 는 **있었다**(`/etc/kubernetes/kubeconfig`, 부팅 로그에 생성 기록).
+   > **ⓐ 는 이미 구현돼 있었고 순환도 없었다** — `eks_cluster_name` 이 소비자 입력이라
+   > §5.1-1 이 의도한 대로 결정적 네이밍이 끊고 있었다.
+   > 위 *"`find` 전수 0건"* 은 **홈 디렉토리만 봤거나, 비로그인 셸에서 `kubectl` 이 실패한 것을
+   > "kubeconfig 없음"으로 오독**한 것이다.
+   >
+   > **진짜 결함은 셋**이었고 전부 *"설치"가 아니라 "누가 쓸 수 있나"* 였다 —
+   > ① `/etc/profile.d` 는 **로그인 셸에서만** 읽힌다(자동화 경로가 못 받는다)
+   > ② 공유 정본이 **`0666` world-writable** 이 되어 전역 오염 + **로컬 권한 상승 경로**
+   > ③ 손으로 만든 사본이 는다
+   >
+   > ✅ **해소 — [`§4.3-1` D-WORKBENCH-KUBECONFIG](#43-1--d-workbench-kubeconfig--정본은-읽기-전용-사용자마다-자기-사본-2026-08-11-확정)**:
+   > 정본 `0444` + `/etc/skel` 상속 + 사용자별 `0600` 사본 + `profile.d` 제거.
+   > ⛔ *"전용 사용자 신설"* 은 기각했다(§4.3-1 기각표) — `ssm-user` 가 이미 `NOPASSWD:ALL` 이다.
+   > ⚠️ 비로그인 셸은 user_data 로 닫을 수 없어 **§6 자동화 규약**이 소유한다.
+   >
+   > 🔑 **이 항목이 남긴 교훈은 kubeconfig 가 아니라 판정 방법이다** —
+   > **증상에서 원인을 추론하고 실물을 열지 않으면, 없는 문제를 설계하게 된다.**

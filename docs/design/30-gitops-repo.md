@@ -12,10 +12,11 @@
 > **모듈 이식 시점(D-OSS-STACK §6-2)에 재검토하며 개정한다.** 그 전까지 이 문서를
 > "이 repo의 확정 설계"로 인용하지 않는다.
 
-> # 🔶 **부분 개정 상태 — 절 단위로 판정한다** (2026-08-10 갱신)
+> # 🔶 **부분 개정 상태 — 절 단위로 판정한다** (2026-08-11 갱신)
 >
 > 전수 개정하지 않는다. **그때 필요한 절만** 연다. 1차(2026-08-07)는 [`23`](23-argocd-self-managed.md)이
 > 요구한 §1·§4를, 2차(2026-08-10)는 **addon 증분이 딛는 §2·§3·§5**를 열었다.
+> **§2.10 이하는 승계본이 아니라 이 repo에서 새로 쓴 절**이다(2026-08-11) — 인용 제한이 없다.
 >
 > | 절 | 상태 | 판정을 소유하는 절 |
 > |---|---|---|
@@ -25,6 +26,7 @@
 > | **§3** AppProject 테넌시 | 🔶 **판정만 개정**(2차) | **§3.1** — 경로별 구체값 + 선결 과제 재판정 |
 > | **§4** 부트스트랩 seed | ✅ **개정**(1차·2차) | **§4.1** 경로별 분기 · **§4.2** D-ROOTAPP-SKIP |
 > | **§5** addon 경계 | ✅ **경로 무관 확정**(2차) | §5 말미 상자 — 인용 제한 **해제** |
+> | **§2.10** addon 증분 ②③④ + diff 전략 | ✅ **신규 집필**(2026-08-11) | 자기 자신. **§2.10.6 = D-SSDIFF** 가 §2.10.5의 원인 귀인 2건을 **정정**한다 — 둘을 함께 읽는다 |
 >
 > ⛔ **미개정 본문을 다시 쓰지 않는 것은 의도다.** 기계적 치환은 **역사적 사실을 위조한다** —
 > 2026-08-06 workbench 개명에서 실제로 3곳이 그렇게 됐고 되돌려야 했다.
@@ -1479,8 +1481,13 @@ clusterResourceWhitelist:
 > | 대상 | non-Synced | live 를 쓴 field manager |
 > |---|---|---|
 > | ② `Application/argocd` | **37개 전부** | **`helm`** — `meta.helm.sh/release-name`·`release-namespace` 애노테이션. `helm install` 이 붙이고 `helm template` 은 안 붙인다 |
-> | ③ `kyverno` | CRD **11개**(`policies.kyverno.io`) | **`kube-apiserver`** — 스키마 기본값을 채운다 |
-> | ③ `kyverno-policies` | ClusterPolicy **11개** | **`kyverno`** — 자기 mutating webhook(`kyverno-policy-mutating-webhook-cfg`)이 admission 에서 주입한다 |
+> | ③ `kyverno` | CRD **11개**(`policies.kyverno.io`) | ~~**`kube-apiserver`** — 스키마 기본값을 채운다~~ 🔴 **틀렸다 → §2.10.6** |
+> | ③ `kyverno-policies` | ClusterPolicy **11개** | ~~**`kyverno`** — 자기 mutating webhook 이 admission 에서 주입한다~~ 🔴 **틀렸다 → §2.10.6** |
+>
+> 🔴 **뒤 두 줄의 귀인은 2026-08-11 같은 날 실측으로 반증됐다**(§2.10.6). 두 매니저 모두 실제로는
+> **`status` 서브리소스만** 소유하고, 차이나는 필드는 **apiserver 가 CRD 스키마의 `default:` 로 채운
+> 무소유 필드**였다. **mutation webhook 은 관여하지 않는다.**
+> ⚠️ 결론(*"선언하지 않은 필드를 우리가 안 가졌다"*)은 유효하고 아래 문단도 유효하다 — **틀린 것은 범인 이름**이다.
 >
 > **셋 다 "우리가 선언하지 않은 필드를 다른 매니저가 소유"** 다. `ServerSideApply=true` 는 그 필드를
 > **건드리지 않게** 해 주지만(그래서 `argocd-secret` 이 안전했다), ArgoCD 의 **diff 계산은 여전히
@@ -1500,9 +1507,10 @@ clusterResourceWhitelist:
 > 🔑 이 세션에서 같은 범주의 사고가 **세 번째**다(D-ROOTAPP-SKIP 자기 점검의 `^./` 앵커 ·
 > CI 캐시 판정 기준 "8회") — **거짓 신호를 내는 장치는 곧 무시당한다.**
 >
-> ⏭️ **후속 증분(②-b·③-b)이 소유한다.** `ServerSideDiff=true` 또는 대상별 `ignoreDifferences` 중
-> 무엇을 쓸지는 **실측 후 결정**한다. ⛔ 지금 즉흥으로 넣지 않는다 — 근거 없이 넣은 옵션은
-> 다음 사람에게 *"이게 왜 있지"* 로 남는다.
+> ✅ **닫혔다 — §2.10.6 (D-SSDIFF)**: 실측 후 **`ServerSideDiff=true`** 로 결정했다.
+> ⭐ *"즉흥으로 넣지 않는다"* 를 지킨 값이 실제로 나왔다 — 실측이 **위 표의 귀인 2건을 반증**했고,
+> 그 정정이 `IncludeMutationWebhook` 을 넣지 않는 근거가 됐다. 바로 넣었다면 원인을 틀리게 안 채로
+> 맞는 옵션을 골랐을 것이고, **다음에 비슷한 증상이 오면 같은 오진을 반복**했을 것이다.
 
 #### ⏭️ 증분 ②의 2단계(PR-②b)에 남은 질문
 
@@ -1532,6 +1540,104 @@ clusterResourceWhitelist:
   `eks:ListClusters`·`eks:ListAccessEntries` 는 안 된다** ⇒ `aws eks update-kubeconfig --name <이름>` 은
   **클러스터 이름을 알면 동작한다**(이름 없이 목록으로 찾는 흐름은 막힌다).
 - ✅ Access Entry 에는 등재돼 있다 — kubeconfig 만 만들면 `kubectl` 이 통한다.
+
+---
+
+### 2.10.6 🔴 **D-SSDIFF — `OutOfSync` 고착은 `ServerSideDiff` 로 푼다** (2026-08-11 확정)
+
+§2.10.5가 후속 증분(②-b·③-b)에 넘긴 질문 — *`ServerSideDiff=true` 인가 대상별 `ignoreDifferences` 인가* —
+을 **실측으로 닫는다.** 전제 실측: ArgoCD **v3.5.0**(`quay.io/argoproj/argocd:v3.5.0`),
+ServerSideDiff 는 **v3.1.0 에서 stable**([공식 문서](https://argo-cd.readthedocs.io/en/stable/user-guide/diff-strategies/)).
+
+#### 🔴 먼저 — §2.10.5의 원인 서술 2건이 틀렸다
+
+| §2.10.5 서술 | 실측 (`--show-managed-fields`) |
+|---|---|
+| ② `argocd-cm` = `helm` 소유 | ✅ **맞다.** 다만 매니저가 **`helm` 하나뿐**이다 — `argocd-controller` 가 **아예 없다**(automated 를 안 켰으니 당연). ArgoCD 는 이 37개를 **한 번도 적용한 적이 없다** |
+| ③ CRD = *"`kube-apiserver` 가 스키마 기본값을 채운다"* | 🔴 **틀렸다.** `kube-apiserver` 는 **`subresource: status` 만** 소유한다. `spec` 은 `argocd-controller`(Apply) 단독이고, 실제 차이는 **`spec.conversion`** — managedFields 어디에도 없는 **무소유 필드**다 |
+| ③ ClusterPolicy = *"`kyverno` 자기 mutating webhook 이 주입한다"* | 🔴 **틀렸다.** `kyverno` 매니저도 **`status` 만** 소유한다. 실제 차이는 **`spec.admission`·`spec.emitWarning`** — **Kyverno CRD openAPI 스키마의 `default:`** 를 apiserver 가 채운 것이다 |
+
+⇒ 원인은 **세 가지가 아니라 두 가지**다: **① `helm` 이 소유한 애노테이션** · **② apiserver defaulting**(CRD·ClusterPolicy 공통).
+🔑 **mutation webhook 은 애초에 관여하지 않았다** — 이 사실이 아래 **결정 2**를 직접 가른다.
+🔑 **어떻게 틀렸나**: 판정 당시 *"다른 매니저가 소유"* 까지만 보고 **어느 매니저가 무엇을 소유하는지**
+(`managedFields[].subresource`)를 열지 않았다. ⛔ **요약이 맞아 보이면 한 겹 더 열지 않게 된다** —
+§2.10.5의 상위 결론(`ServerSideApply` ≠ `ServerSideDiff`)이 맞았기 때문에 하위 귀인이 검증을 통과해 버렸다.
+
+#### ✅ 실측 — SSA dry-run 은 비파괴이고, `ServerSideDiff` 가 하는 일 그 자체다
+
+**방법**: live 객체에서 *우리가 선언하지 않은 필드* 를 제거해 desired 를 합성하고
+`kubectl apply --server-side --dry-run=server --field-manager=argocd-controller` 로 predicted 를 얻어
+live 와 비교했다. 클러스터를 바꾸지 않는다.
+
+| 대상 | desired 에서 뺀 것 | predicted vs live |
+|---|---|---|
+| `ClusterPolicy/disallow-host-path` | `spec.admission`·`spec.emitWarning` | **IDENTICAL** (predicted 가 둘을 되살렸다) |
+| `CRD/mutatingpolicies.policies.kyverno.io` | `spec.conversion` | **IDENTICAL** |
+| `ConfigMap/argocd-cm` | 애노테이션 **전부** | `meta.helm.sh/*` **보존됨** |
+| 🔴 `Secret/argocd-secret` (§2.10.1 위험 1) | `data` **전체** | 5개 키(`admin.password`·`admin.passwordMtime`·`server.secretkey`·`tls.crt`·`tls.key`) **전부 보존됨** |
+
+⇒ **`ServerSideDiff=true` 하나로 세 Application 이 전부 `Synced` 가 된다.**
+
+#### 결정 1 — **`ServerSideDiff=true`. `ignoreDifferences` 가 아니다**
+
+원인이 *"선언하지 않은 필드는 live 를 따른다"* **하나**이고, SSA dry-run 이 그것을 그대로 구현한다.
+`ignoreDifferences` 는 **같은 원인을 세 모양으로 세 번** 열거해야 한다(애노테이션 2개 ·
+`spec.conversion` · `spec.admission`+`emitWarning`), 그리고 **차트가 기본값을 늘릴 때마다 다시** 열거해야 한다.
+⚠️ `CLAUDE.md` 「닫힌 열거는 값이 늘 때마다 부채가 된다」가 정확히 이 형태다.
+- ⛔ **`managedFieldsManagers: [helm]` 변형도 기각한다** — apiserver 기본값은 **소유자가 없어서**
+  그 방식으로 잡히지 않는다(위 실측: `spec.conversion` 은 managedFields 어디에도 없다). ②만 풀고 ③은 남는다.
+
+#### 결정 2 — **`IncludeMutationWebhook` 은 넣지 않는다** (기본값 `false` 유지)
+
+gitops-engine `pkg/diff/diff.go`: `ignoreMutationWebhook` 일 때
+`removeWebhookMutation(predictedLive, live, gvkParser, manager)` 가 **manager 소유가 아닌 필드를
+live 값으로 되살린다** — 우리 네 케이스가 정확히 그 형태다. 위 정정대로 **웹훅 주입은 없었으므로
+켤 이유가 없다.** ⚠️ 켜면 반대로 웹훅 변형까지 diff 에 들어와 새 고착을 만든다.
+
+#### 결정 3 — **앱 3개 애노테이션. 전역 스위치가 아니다** (2026-08-11 사용자 결정)
+
+전역(`argocd-cmd-params-cm` 의 `controller.diff.server.side: "true"`)은 한 줄이지만
+ⓐ application-controller **재시작**이 필요하고 ⓑ 현재 `Synced` 인 앱들(ALBC·Karpenter·NodePool·KEDA·root-app)의
+diff 계산까지 **동시에** 바꾼다.
+⭐ **KEDA 가 대조군인 것이 이 증분이 번 자산이다**(§2.10.5) — 전역으로 켜면 **그 대조군을 잃는다.**
+⏭️ **승격 조건**: 신규 addon 이 같은 이유로 `OutOfSync` 가 되는 사례가 **2건 더** 나오면 전역으로
+올리고 controller 재시작 1회를 감수한다. 그 전에는 올리지 않는다.
+
+#### 🔴 대가 — 바꾸는 것은 표시 방식이 아니라 **"무엇을 drift 로 볼 것인가"의 정의**다
+
+ServerSideDiff 는 *우리가 선언하지 않은 필드* 의 변경을 **더 이상 drift 로 보고하지 않는다.**
+누가 `argocd-cm` 에 애노테이션을 하나 더 붙여도 `Synced` 다.
+그럼에도 택하는 이유는 §2.10.5 가 적은 것과 같다 — **항상 `OutOfSync` 이면 신호가 죽는다.**
+🔑 **좁지만 살아 있는 신호가, 넓지만 아무도 안 보는 신호보다 낫다.**
+⚠️ **부하**: 리소스마다 dry-run apply 1회. 캐시되며 refresh·revision·resourceVersion 변경 때만 재요청한다(공식 문서).
+
+#### ⚠️ 이 실측이 **답하지 않은 것** — PR-②b 의 conflict 질문은 여전히 열려 있다
+
+위 dry-run 은 `--force-conflicts` **없이도 통과**했지만, 그것을 *"실제 sync 도 conflict 없이 된다"* 로
+읽으면 안 된다 — desired 를 **live 에서 합성**했으므로 값이 같아 conflict 가 **날 수 없는 구성**이었다.
+차트 렌더본과 live 가 다른 필드에서 `helm` 매니저와 부딪히는지는 **미판정**이다.
+- 확인한 것: diff 경로의 구조적 병합은 `Apply(..., force=true)` 로 호출된다(`pkg/diff/diff.go`).
+  ⛔ **sync(실제 apply) 경로의 force 여부는 확인하지 않았다** — PR-②b 가 소유한다.
+
+#### 적용 대상 3곳 (`iac-platform-gitops`)
+
+| 파일 | 대상 | 위치 |
+|---|---|---|
+| `bootstrap/argocd-app.yaml` | `Application/argocd` | `metadata.annotations` **신설** |
+| `addons/baseline/kyverno.yaml` | ApplicationSet `kyverno` | `template.metadata.annotations` (`sync-wave` 옆) |
+| `addons/baseline/kyverno.yaml` | ApplicationSet `kyverno-policies` | 〃 |
+
+값은 세 곳 모두 `argocd.argoproj.io/compare-options: ServerSideDiff=true`.
+
+#### 📋 판정 항목 (머지 후)
+
+| # | 항목 | 기대 |
+|---|---|---|
+| 1 | 세 Application | `Synced Healthy` |
+| 2 | **파드 재시작 0** | diff 전략은 apply 를 하지 않는다. `argocd` 앱은 `automated` 가 꺼져 있어 더더욱 |
+| 3 | `Secret/argocd-secret` | data 5키 유지 (§2.10.1 위험 1 — dry-run 이 이미 예측했다) |
+| 4 | 현재 `Synced` 인 앱 + root-app | **무영향** — 애노테이션을 안 건드렸으니 그래야 한다 |
+| 5 | ⚠️ 반증 조건 | 셋 중 **하나라도** `OutOfSync` 로 남으면 그 대상만 `ignoreDifferences` 로 보완하고 **근거를 여기 적는다** |
 
 ---
 

@@ -269,7 +269,28 @@ if (( ! DRY_RUN )) && want 5; then
           -o jsonpath='{.data.password}' | base64 -d
 
      ⛔ 마지막으로 **비밀번호를 바꾸고 초기 Secret 을 지운다**(23 §2.3 — 선택이 아니라 완료 조건):
+
+        export ARGOCD_OPTS='--port-forward --port-forward-namespace $ARGOCD_NAMESPACE --insecure'
+        argocd login --username admin                        # 프롬프트 — 에코 없음
+        argocd account update-password 2>/tmp/argocd-pw.err   # 현재 → 신규 → 확인
         kubectl -n $ARGOCD_NAMESPACE delete secret argocd-initial-admin-secret
+
+        🔴 ARGOCD_OPTS='--core' 로는 update-password 가 실패한다(실측 2026-08-11):
+             "failed to get issue time: unable to extract token claims"
+           --core 는 argocd-server 를 **우회**해 kube-apiserver 로 직접 가므로 세션 토큰이 없다.
+           신원이 필요한 작업(비밀번호·계정·토큰)은 --core 로 하지 않는다. 근거 = 23 §2.3-1.
+        ⚠️ --insecure 는 **클라이언트** 검증 생략이다(서버 TLS 를 끄는 server.insecure 와 다르다).
+           port-forward 주소가 localhost:<random> 이라 인증서 CN 이 맞지 않기 때문이다.
+        ⚠️ --port-forward 는 포워더를 CLI 프로세스 안에서 돌려 teardown 마다 broken pipe 가
+           stderr 로 나온다. **실패가 아니다** — 위처럼 2> 로 프롬프트(stdout)와 분리한다.
+        ⚠️ 새 비밀번호는 ^.{8,32}$ 를 만족해야 한다(argocd-cm.passwordPattern 미설정 시 기본값).
+
+     5) 교체 판정 (자동으로 성공을 선언하지 않는다):
+        kubectl -n $ARGOCD_NAMESPACE get secret argocd-secret \\
+          -o jsonpath='{.data.admin\\.passwordMtime}' | base64 -d; echo   # 시각이 갱신됐는가
+        kubectl -n $ARGOCD_NAMESPACE get secret argocd-initial-admin-secret   # NotFound 여야 한다
+        ⭐ 교체 후에도 argocd Application 이 Synced 로 남는다 — 차트가 argocd-secret 을
+           data 없이 렌더하므로 admin.password 는 ArgoCD 소유 필드가 아니다(30 §2.10.1).
 VERIFY
 fi
 

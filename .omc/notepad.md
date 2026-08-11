@@ -2027,13 +2027,10 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
    (PR **#20** `f9631a8`). `eks-node-viewer` · `krew`+플러그인 6종 · 로그인 프로파일.
    ✅ **소비 repo apply 까지 완료** — `iac-reference-infra` PR **#23** `9387201`,
    새 인스턴스 **`i-0e7440e9e0350f731`**, 판정 8항목 전부 통과(⭐ `/etc/skel` 상속 실증).
-4. 🔴 **`23 §2.3` 초기 비밀번호 교체 — 사용자 몫, 미이행.** 교체 후 남은 완료 조건:
-   **`argocd-initial-admin-secret` 삭제**(⚠️ 실측 확인: 렌더 매니페스트에 **없고** tracking-id 도
-   없어 **selfHeal 이 되살리지 않는다** — `prune: false` 라 ArgoCD 가 지우지도 않는다).
-   기준선 지문: `admin.password` sha256 `a6cd2e06…` · mtime `2026-08-07T06:25:04Z`.
-5. 그 뒤 **`24`(관리형 ArgoCD)**.
-- ⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 **사용자 몫**이다(대화형 세션 — 평문이
-  CloudTrail 에 남지 않게).
+4. ~~🔴 **`23 §2.3` 초기 비밀번호 교체**~~ ✅ **완료**(2026-08-11 세션 ③ — 아래 절).
+   mtime `2026-08-07T06:25:04Z` → **`2026-08-11T06:35:19Z`** · `argocd-initial-admin-secret`
+   **삭제됨** · Application 8개 `Synced Healthy` 유지. 판정·절차 SSOT = **`23 §2.3-1`**(신설).
+5. 🔵 **다음 착수 — `24`(관리형 ArgoCD)**. `23` 이 완결됐으므로 여기가 다음 자리다.
 - ⚠️ **Kyverno 를 Enforce 로 올릴 때 먼저 답할 질문**: `argocd` ns 를 webhook `namespaceSelector`
   제외에 넣을 것인가. Enforce + `Fail` 은 **순환 의존**이다(Kyverno 장애 → ArgoCD 막힘 → 고칠 수단 상실).
 
@@ -2218,6 +2215,71 @@ aws --profile team --region ap-northeast-2 ssm start-session \
   `sudo KUBECONFIG=/root/.kube/config kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d`
 - ⚠️ **kubeconfig 도 port-forward 도 인스턴스 교체와 함께 사라진다** — 여전히 `40` 열린 항목 8이다.
   이 절차는 **해결이 아니라 우회**다.
+
+---
+
+#### 🔚 **2026-08-11 세션 ③ — `23 §2.3` seed 완결. 그리고 절차서의 빈칸이 함정을 만들었다**
+
+「다음 태스크 4번」을 닫았다. 설계 SSOT = **`23 §2.3-1`**(신설).
+
+| 대상 | 변경 |
+|---|---|
+| `docs/design/23-argocd-self-managed.md` | **§2.3-1 신설** — `--core` 실패 근거 · 정정 절차 · 완료 판정 · 웹 UI 2홉 |
+| `scripts/argocd-seed.sh` | 4)·5) 보강 — **비밀번호 교체 명령을 채웠다**(아래 🔴) |
+
+##### 🔴 **`ARGOCD_OPTS='--core'` 로는 `argocd account update-password` 가 안 된다**
+
+`failed to get issue time: unable to extract token claims`.
+`server/account/account.go`: `issuer := session.Iss(ctx)` 가 core 모드에선 **`""`** →
+분기 조건이 `issuer != "argocd"` **하나뿐**이라 **"SSO 사용자"로 오분류** → `session.Iat(ctx)`
+(`util/session/sessionmanager.go:687`)가 클레임 없음으로 죽는다.
+
+- 🔑 **`--core` 는 "인증 우회"가 아니라 "인증 부재"다.** argocd-server 를 **우회**하므로 세션이 없다.
+  ⇒ **신원이 필요한 작업(비밀번호·계정·토큰)은 `--core` 로 하지 않는다.**
+- ⭐ 해법도 CLI 안에 있었다 — **`--port-forward`**(`cmd/argocd/commands/login.go:67-74`:
+  이 플래그면 **SERVER 인자를 요구하지 않고** `server = "port-forward"` 컨텍스트를 만든다).
+  사용자가 `ARGOCD_OPTS` 를 쓴 감각이 옳았고 **플래그만 틀렸다** —
+  CLAUDE.md 「발명하기 전에 찾는다」의 그 형태다(없는 게 아니라 안 넘기고 있었을 뿐).
+- ⚠️ **`--insecure`(클라이언트 검증 생략) ≠ `server.insecure`(서버 TLS off).** 우리는 후자를
+  건드리지 않으므로 자체 서명 TLS 이고, `localhost:<random>` 이라 CN 이 안 맞아 전자가 필수다.
+
+##### ⭐ **"에러처럼 보이는 것"과 "실패"를 가른 기준 — 로그 레벨이 아니라 산출물**
+
+`update-password` 실행 중 `broken pipe` 가 error 레벨 JSON 으로 쏟아졌다. **실패가 아니었다** —
+`--port-forward` 는 포워더를 **CLI 프로세스 안에서** 돌려 커넥션 teardown 마다 그 로그를
+**stderr** 로 내고, 프롬프트는 **stdout**(`util/cli/cli.go:167`)이라 한 줄에 겹쳤을 뿐이다.
+🔑 **판정 근거는 프롬프트에 찍힌 `(admin)`** 이었다 — 서버에서 받아온 값이므로 앞 호출 성공의 직접 증거.
+⇒ `2>/tmp/argocd-pw.err` 로 분리한다.
+
+##### 🔴 **진짜 결함은 CLI 가 아니라 우리 절차서에 있었다**
+
+`scripts/argocd-seed.sh:271` 이 *"비밀번호를 **바꾸고** 초기 Secret 을 지운다"* 라고 써 놓고
+**삭제 명령만** 있었다. **그 빈칸에서 `--core` 를 집어들게 된다.**
+⇒ 교체 명령 3줄 + 함정 3건 + **5) 교체 판정** 절을 채웠다. `bash -n` + heredoc 렌더 실측 확인.
+🔑 **"완료 조건"이라고 선언한 행동은 명령까지 적어야 한다** — 조건만 적고 수단을 비우면
+읽는 사람이 그 자리를 스스로 메우고, 그 메움이 틀린다.
+
+##### ✅ 완료 판정 (SSM send-command 실측)
+
+| 항목 | 결과 |
+|---|---|
+| `admin.passwordMtime` | `2026-08-07T06:25:04Z` → **`2026-08-11T06:35:19Z`** |
+| `argocd-initial-admin-secret` | **`DELETED`** |
+| Application 8개 | **전부 `Synced`/`Healthy`** |
+
+⭐ **`selfHeal` 이 비밀번호를 되돌리지 않는다는 추론이 실물로 닫혔다.** 차트가 `argocd-secret` 을
+**`data` 없이** 렌더하므로(`30 §2.10.1`) 런타임에 채워진 `admin.password` 는 **ArgoCD 소유 필드가
+아니다**(`ServerSideDiff=true` 하 SSA 필드 소유권 — `30 §2.10.6`). 교체 후 `Synced` 유지가 증거다.
+
+##### 🖥️ 웹 UI 2홉 — **포트 18080 으로 실측 성공** (`{"Version":"v3.5.0"}` · `200`)
+
+절차 전문은 **`23 §2.3-1`** 이 소유한다(notepad 앞 절의 판본을 대체). 요지만:
+- 안쪽 홉이 필요한 이유 = **`ClusterIP` 가 가상 IP**(노드가 아닌 workbench 엔 kube-proxy 룰이 없다).
+  바깥 홉이 필요한 이유 = **workbench 인바운드 0**(`modules/workbench/main.tf:43`).
+  ⭐ **둘 다 SG 를 열지 않는다** — 기존 인증 채널 위에 스트림만 얹으므로 "공개 표면 0" 이 유지된다.
+- ⛔ **pod IP 직결로 우회하지 않는다.** VPC CNI 라 pod 는 실제 VPC IP 를 갖지만 재스케줄마다 바뀌고
+  SG 두 층을 뚫어야 한다 — **재현 불가능한 임시방편**이다.
+- ⚠️ 여전히 **인스턴스 교체와 함께 사라진다**(수동). `23` 열린 항목 1이 그 자리다.
 
 ---
 

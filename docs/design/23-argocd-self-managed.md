@@ -119,6 +119,105 @@ chart 기본값이 `server.service.type: ClusterIP`다(실측). **바꾸지 않�
 그러나 **기본값으로 삼지 않는다**: self-managed를 택하는 대표 이유가 *IdC 미보유*(탈출 조건 ①)라
 기본값이 IdC를 요구하면 **경로의 존재 이유와 모순**된다. 쓰고 싶으면 위 OIDC 변수로 넣는다.
 
+### 2.3-1 seed 마무리 실행 — **비밀번호 교체는 `--core`로 못 한다** (2026-08-11 실측·완료)
+
+§2.3이 **완료 조건**으로 규정한 seed 마무리를 실행했다. 절차 자체에 함정이 있어 여기 남긴다.
+
+#### 🔴 `ARGOCD_OPTS='--core'` 로는 `argocd account update-password` 가 실패한다
+
+```
+rpc error: code = Unknown desc = failed to get issue time: unable to extract token claims
+```
+
+argo-cd `server/account/account.go` `UpdatePassword()`:
+
+```go
+issuer := session.Iss(ctx)                          // core 모드엔 JWT 클레임이 없어 "" 를 반환
+...
+if issuer == session.SessionManagerClaimsIssuer {   // "argocd" 와 불일치 → else 로 빠진다
+    // 로컬 사용자 경로: 현재 비밀번호 검증
+} else {
+    iat, err := session.Iat(ctx)                    // util/session/sessionmanager.go:687
+    if err != nil {
+        return nil, fmt.Errorf("failed to get issue time: %w", err)
+    }
+```
+
+`Iat()` 는 클레임이 없으면 `errors.New("unable to extract token claims")` 를 낸다.
+
+- 🔑 **`--core` 는 "인증 우회"가 아니라 "인증 부재"다.** CLI 가 argocd-server 를 **우회**해
+  kube-apiserver 에 직접 붙으므로 세션 토큰이 아예 없다.
+  ⇒ **신원이 필요한 작업(비밀번호·계정·토큰)은 `--core` 로 하지 않는다.**
+- ⚠️ 분기 조건이 `issuer != "argocd"` **하나뿐**이라 core 모드가 **"SSO 사용자"로 오분류**된다.
+  설계자가 *"argocd 발급 토큰 아니면 SSO"* 로 가정했으나 core 는 **제3의 상태(토큰 없음)** 다 —
+  **닫힌 열거가 새 상태를 만난 형태**(CLAUDE.md 「닫힌 열거는 값이 늘 때마다 부채가 된다」).
+
+#### ✅ 정정된 절차 — `--port-forward`(CLI 내장, 별도 `kubectl` 불필요)
+
+`cmd/argocd/commands/login.go:67-74` 가 `--port-forward` 일 때 **SERVER 인자를 요구하지 않고**
+`server = "port-forward"` 컨텍스트를 만든다. CLI 가 스스로 터널을 뚫는다.
+
+```bash
+export ARGOCD_OPTS='--port-forward --port-forward-namespace argocd --insecure'
+kubectl -n argocd get secret argocd-initial-admin-secret \
+  -o jsonpath='{.data.password}' | base64 -d; echo      # ⛔ 대화형 세션에서만
+argocd login --username admin                            # 프롬프트(에코 없음)
+argocd account update-password 2>/tmp/argocd-pw.err
+```
+
+- ⚠️ **`--insecure`(클라이언트)와 `server.insecure`(서버)는 다르다.** 우리는 후자를 건드리지 않아
+  argocd-server 가 자체 서명 TLS 를 한다. 접속 주소가 `localhost:<random>` 이라 CN 이 절대 안 맞으므로
+  **클라이언트 검증만** 건너뛴다. 서버 TLS 를 끄는 것이 아니다.
+- ⚠️ **`--port-forward` 는 포워더를 CLI 프로세스 안에서 돌린다** → 커넥션 teardown 마다
+  `broken pipe` 가 **stderr** 로 쏟아져 프롬프트(**stdout**, `util/cli/cli.go:167`)와 한 줄에 겹친다.
+  **실패가 아니다** — `2>` 로 분리한다. 🔑 프롬프트에 서버에서 받아온 `(admin)` 이 찍힌 것이
+  **앞 호출이 성공했다는 증거**다(로그 레벨이 아니라 산출물을 본다).
+- ⚠️ 새 비밀번호는 **`^.{8,32}$`** 를 만족해야 한다(`common/common.go:145` —
+  `argocd-cm.passwordPattern` 미설정 시 기본값).
+
+#### ✅ 완료 판정 (2026-08-11)
+
+| 항목 | 결과 |
+|---|---|
+| `admin.passwordMtime` | `2026-08-07T06:25:04Z` → **`2026-08-11T06:35:19Z`** |
+| `argocd-initial-admin-secret` | **삭제됨** — §2.3 완료 조건 충족 |
+| Application 8개 | **전부 `Synced`/`Healthy`** — 교체가 GitOps 에 무영향 |
+
+> ### ⭐ **`selfHeal` 이 비밀번호를 되돌리지 않는다 — 추론이 실물로 닫혔다**
+>
+> [`30 §2.10.1`](30-gitops-repo.md)이 기록한 대로 차트가 `Secret/argocd-secret` 을 **`data` 없이**
+> (메타데이터 + `type: Opaque` 만) 렌더한다. 그래서 argocd-server 가 런타임에 채운 `admin.password` 는
+> **ArgoCD 의 소유 필드가 아니다**(`ServerSideDiff=true` 하 SSA 필드 소유권 — [`30 §2.10.6`](30-gitops-repo.md)).
+> 교체 후에도 `argocd` Application 이 `Synced` 를 유지한 것이 직접 증거다.
+
+#### 🖥️ 웹 UI 접속 — 2홉 (§2.2 의 실행형)
+
+```bash
+# ① workbench (SSM send-command — root 로 돌므로 HOME/KUBECONFIG 를 명시한다)
+export HOME=/root KUBECONFIG=/root/.kube/config
+setsid nohup kubectl -n argocd port-forward svc/argocd-server 18080:443 \
+  --address 127.0.0.1 > /tmp/argocd-pf.log 2>&1 < /dev/null &
+
+# ② 로컬
+aws --profile <profile> --region ap-northeast-2 ssm start-session \
+  --target <instance-id> --document-name AWS-StartPortForwardingSession \
+  --parameters '{"portNumber":["18080"],"localPortNumber":["18080"]}'
+```
+
+⇒ 브라우저 **https://localhost:18080** (계정 `admin`). 실측: `200` / `{"Version":"v3.5.0"}`.
+
+- 🔑 **두 홉의 이유가 서로 다르다.** 안쪽은 **`ClusterIP` 가 가상 IP** 라서다 — 실재하는 주소가 아니라
+  각 **노드**의 kube-proxy 가 iptables/IPVS 로 DNAT 할 뿐이고, 노드가 아닌 workbench 엔 그 룰이 없다.
+  바깥쪽은 workbench 에 **인바운드가 0** 이라서다(`modules/workbench/main.tf:43`).
+  ⭐ **둘 다 SG 를 열지 않는다** — 기존 인증 채널(kube-apiserver 443 · SSM) 위에 스트림만 얹으므로
+  §2.2 의 *"새 인프라 0 · 공개 표면 0"* 이 그대로 유지된다.
+- ⛔ **pod IP 직결로 우회하지 않는다.** VPC CNI 라 pod 는 **실제 VPC IP** 를 가져 이론상 도달 가능하지만,
+  그 주소는 재스케줄마다 바뀌고(계약이 아니다) SG 두 층을 뚫어야 한다 —
+  **재현 불가능한 임시방편**이다(CLAUDE.md 「임시방편으로 넘기지 않는다」).
+- ⚠️ **이 두 홉은 인스턴스 교체와 함께 사라진다.** kubeconfig·도구는 [`40 §4.3-1/-2`](40-workbench.md)가
+  user_data 로 회수했지만 **port-forward 는 여전히 수동**이다 — §2.2 가 명시한 *"상시 UI 가 아니다"* 의
+  대가이고, 앱팀 셀프서비스 요구가 서면 **열린 항목 1**로 돌아간다.
+
 ### 2.4 D-ARGOCD-SM-HA — **chart 기본값(단일) + 변수로 개방**
 
 `redis-ha.enabled: false` · controller `replicas: 1`(chart 기본, 실측)을 **그대로 받는다.**

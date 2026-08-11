@@ -2023,6 +2023,10 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
    진짜 결함은 ① `profile.d` 가 **로그인 셸에서만** 읽힘(자동화 경로 누락) ② 공유 정본이
    **0666 world-writable** 이 되어 전역 오염(= **로컬 권한 상승 경로**) ③ 손 사본 증가.
    ⇒ **D-WORKBENCH-KUBECONFIG**(`40 §4.3-1`): 정본 `0444` + `/etc/skel` 상속 + 사용자별 `0600` 사본.
+3-1. ✅ **`workbench-v0.6.0` (D-WORKBENCH-TOOLING)** — 사용자 요청으로 3번에 이어서 진행했다
+   (PR **#20** `f9631a8`). `eks-node-viewer` · `krew`+플러그인 6종 · 로그인 프로파일.
+   ✅ **소비 repo apply 까지 완료** — `iac-reference-infra` PR **#23** `9387201`,
+   새 인스턴스 **`i-0e7440e9e0350f731`**, 판정 8항목 전부 통과(⭐ `/etc/skel` 상속 실증).
 4. 🔴 **`23 §2.3` 초기 비밀번호 교체 — 사용자 몫, 미이행.** 교체 후 남은 완료 조건:
    **`argocd-initial-admin-secret` 삭제**(⚠️ 실측 확인: 렌더 매니페스트에 **없고** tracking-id 도
    없어 **selfHeal 이 되살리지 않는다** — `prune: false` 라 ArgoCD 가 지우지도 않는다).

@@ -1776,6 +1776,34 @@ ArgoCD 자신이 소유할 필드다. `ServerSideDiff` 는 *선언하지 않은*
 | 6 | 다른 앱 + root-app | 무영향 |
 | 7 | ⚠️ 반증 조건 | 파드가 하나라도 재시작하면 **원인을 규명해 여기 적는다** — 예측이 틀린 것이다 |
 
+#### ✅ **apply 판정 — 전 항목 통과** (2026-08-11, gitops PR #8 `45f1db2`)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | `Application/argocd` | ✅ **`Synced Healthy`** — ⭐ **8개 Application 이 처음으로 전부 `Synced Healthy`** 다 |
+| 2 | 🔴 파드 재시작 | ✅ **0회.** 5개 파드 `startTime` **2026-08-07T06:24:5x 그대로**, `restartCount` 전부 0. 새로 뜬 것은 PreSync Job 파드 하나뿐(`argocd-redis-secret-init-br75c`) |
+| 3 | `Secret/argocd-secret` | ✅ data 5키 유지 |
+| 4 | `Job/argocd-redis-secret-init` | ✅ `SuccessCriteriaMet` · `succeeded=1` — **위험 2 가 예측한 정상 동작** |
+| 5 | field manager 이동 | ✅ `argocd-controller`(**Apply**) 가 추가됐다 |
+| 6 | 다른 앱 + root-app | ✅ 무영향 |
+| — | sync 결과 | `Succeeded` · *"successfully synced (all tasks run)"* |
+
+> ### ⭐ **예측이 그대로 맞았다 — 그리고 그 값이 여기 있다**
+>
+> `--force-conflicts` dry-run 이 *"pod template 전부 IDENTICAL"* 이라고 한 그대로 **재시작 0** 이었다.
+> 🔑 **배포 전에 답을 알고 들어갔기 때문에, 판정은 확인이지 발견이 아니었다.**
+> 이 증분은 설계가 *"적용 대상이 application-controller 자신"* 이라며 가장 무서워한 단계였는데,
+> 실제 실행은 **가장 조용했다.** 무서움을 없앤 것은 신중함이 아니라 **측정**이다.
+
+##### 📌 부수 관찰 — **`helm` 매니저는 사라지지 않는다. 공존한다**
+
+판정 5의 실물: `[{argocd-controller, Apply}, {helm, Update}, {kube-controller-manager, Update/status}]`.
+SSA force-conflicts 는 **우리가 선언한 필드의 소유권만** 가져오고, `helm` 이 소유한 나머지
+(`meta.helm.sh/*` 등)는 **그대로 둔다.**
+⇒ **결정 6**(*"helm release Secret 은 남는다. 지우지 않는다"*)과 같은 결이다 —
+흡수는 **삭제가 아니라 소유권 이전**이고, 그래서 되돌릴 수 있다.
+⚠️ 그러므로 `prune: true` 는 여전히 켜지 않는다.
+
 ---
 
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)

@@ -2008,9 +2008,10 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
 
 1. ~~🔴 **`OutOfSync` 고착 해소 증분(②-b·③-b)**~~ ✅ **완료**(2026-08-11 세션 ② — 아래 절).
    ③은 `ServerSideDiff=true` 로 해소, ②는 **원인이 달라** PR-②b 로 넘어갔다.
-2. 🔴 **PR-②b** — `automated: {selfHeal: true, prune: false}`. ⭐ **위험 근거가 완화됐다** —
-   실측상 37개의 차이는 **`tracking-id` 애노테이션 하나뿐**이라 sync 가 pod template 을 건드리지
-   않는다 ⇒ **재시작이 없어야 한다**(그것이 판정 항목이다). 근거는 `30 §2.10.7`.
+2. ~~🔴 **PR-②b** — `automated: {selfHeal: true, prune: false}`~~ ✅ **완료**(2026-08-11 세션 ②,
+   gitops PR **#8** `45f1db2`). **전 항목 통과 · 재시작 0** — 판정 전문은 **`30 §2.10.8`**.
+   ⭐ **8개 Application 이 처음으로 전부 `Synced Healthy`** 이고, `23 §2.1` 의 3단계가 **다 찼다**
+   (ArgoCD 의 SSOT 가 완전히 저장소로 넘어왔다).
 3. 🔴 **`40` 열린 항목 8 — workbench kubeconfig** (2026-08-11 신설). 판정하려는데 **kubeconfig 가
    없었다** — `workbench-v0.4.0` 인스턴스 교체 때 사라졌다. 선택지 ⓐ user_data(⚠️ `40 §5.1-1` 순환
    재발) ⓑ 절차서 ⓒ 소비 루트 주입. **미결정.**
@@ -2081,6 +2082,29 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
    `argocd` CLI 는 `$HOME is not defined` 로 죽는다 ⇒ 스크립트 첫 줄에 **`export HOME=/root`** 와
    **`export KUBECONFIG=/root/.kube/config`** 를 항상 넣는다. `--parameters` 는 **JSON 파일**로 준다
    (인라인 `commands=[...]` 는 개행을 뭉갠다 — 실측).
+
+##### ✅ **이어서 PR-②b 도 완료 — ArgoCD 자기 관리 3단계가 다 찼다** (gitops PR **#8** `45f1db2`)
+
+`automated: {selfHeal: true, prune: false}` 를 켰다. **전 항목 통과 · 파드 재시작 0** ·
+⭐ **8개 Application 이 처음으로 전부 `Synced Healthy`**. 설계 SSOT = **`30 §2.10.8`**.
+
+**배포 전 실측 3건이 판정을 미리 답했다** — 판정은 확인이지 발견이 아니었다.
+
+| # | 질문 | 답 |
+|---|---|---|
+| 1 | sync 가 무엇을 바꾸나 | `tracking-id` 37개뿐 ⇒ 실질 변경 0 |
+| 2 | SSA 가 `helm` 과 충돌하나 | 🔴 **한다** — 실제 렌더본으로 2건(`env[NAMESPACE].valueFrom.fieldRef` · `NetworkPolicy.spec.ingress`). **atomic 구조체 + apiserver 기본값** |
+| 3 | 충돌이 sync 를 막나 | ✅ 아니다 — `ServerSideApply=true` 는 공식 문서상 **`--force-conflicts` 로 실행**된다 |
+
+- ⭐ **`argocd app diff` 는 깨끗한데 SSA 는 충돌한다** — ArgoCD diff 가 **기본값을 정규화해 지우기**
+  때문이다. 🔑 **diff 가 깨끗한 것은 apply 가 충돌하지 않는다는 뜻이 아니다.**
+- ⛔ **`argocd app sync --dry-run` 은 클라이언트 사이드 apply 로 돈다**(`ServerSideApply=true` 여도).
+  ⇒ 그 `Phase: Succeeded` 를 SSA 성공의 증거로 쓰지 않는다. **`argocd app manifests` → `kubectl apply
+  --server-side --dry-run=server --field-manager=argocd-controller`** 로 직접 확인한다.
+- 🔑 **이름만 비슷한 세 축**: `ServerSideApply`(apply 방식·force 포함) · ⛔`Force`(**delete/create**) ·
+  ⛔`Replace`(**SSA 보다 우선** ⇒ Secret 보호 무력화) · `ServerSideDiff`(비교 방식).
+- 📌 **`helm` 매니저는 사라지지 않고 공존한다** — SSA 는 **우리가 선언한 필드의 소유권만** 가져온다.
+  ⇒ 흡수 = **삭제가 아니라 소유권 이전**. 되돌릴 수 있다. ⚠️ 그래서 `prune: true` 는 여전히 안 켠다.
 
 ##### 🖥️ **ArgoCD 웹 UI 로컬 접속 — 2홉 (2026-08-11 실측 성공)**
 

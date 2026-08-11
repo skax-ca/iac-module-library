@@ -410,6 +410,14 @@ variable "helm_version"    { type = string, default = null }  # null = 미설치
 variable "argocd_version"  { type = string, default = null }  # null = 미설치. 예: "v3.5.0"  (핀 SSOT 는 23 §5)
 # git 은 변수가 없다 — 항상 설치한다(D-WORKBENCH-REPO §2.5). 근거는 바로 아래.
 
+# ── 진단·조작 도구 (D-WORKBENCH-TOOLING §4.3-2, 2026-08-11) ────────────────
+variable "eks_node_viewer_version" { type = string, default = null } # null = 미설치. 예: "v0.7.4"
+variable "krew_version"            { type = string, default = null } # null = 미설치. 예: "v0.5.0"
+variable "krew_plugins" {                                            # krew_version 이 null 이면 무시된다
+  type    = list(string)
+  default = ["ctx", "ns", "neat", "rbac-tool", "view-secret", "whoami"]
+}
+
 # ── EKS 연동 — 1층만 (D-WORKBENCH-SEAM) ────────────────────────────────────
 variable "eks_cluster_name" { type = string, default = null }  # null 이면 kubeconfig 생성 안 함
 variable "eks_cluster_arn"  { type = string, default = null }  # eks:DescribeCluster 를 이 ARN 으로 한정
@@ -658,6 +666,93 @@ export KUBECONFIG=/root/.kube/config
 ```
 ⚠️ `argocd` CLI 는 `HOME` 이 없으면 **`$HOME is not defined` 로 죽는다**(2026-08-10·08-11 두 번 실측).
 
+### 4.3-2 ⭐ **D-WORKBENCH-TOOLING — `eks-node-viewer` · `krew` 플러그인 · 로그인 프로파일** (2026-08-11 사용자 요청)
+
+#### 무엇을 넣는가
+
+| 항목 | 값 | 계약 |
+|---|---|---|
+| `eks-node-viewer` | `v0.7.4`(실측 최신) | **nullable 핀** — 기존 3종과 같은 계약 |
+| `krew` | `v0.5.0`(실측 최신) | **nullable 핀** |
+| krew 플러그인 | `ctx` `ns` `neat` `rbac-tool` `view-secret` `whoami` | **`krew_plugins` 변수, 기본값 = 이 6개.** ⚠️ `krew_version = null` 이면 무시된다 |
+| 로그인 프로파일 | `k` alias · `nv` alias · kubectl 완성 · `AWS_DEFAULT_REGION` | **변수 없음** — 아래 |
+
+⛔ **`AWS_DEFAULT_REGION` 을 하드코딩하지 않는다.** `data.aws_region.current.region` 이 이미
+템플릿에 주입돼 있다(`${region}`). 리전 이식성은 이 모듈의 계약이다(CLAUDE.md 재사용 자산 요건).
+
+#### 🔴 결정 1 — **`krew` 는 `KREW_ROOT` 로 시스템 설치한다. `$HOME/.krew` 가 아니다**
+
+krew 의 기본 설치 위치는 **`$HOME/.krew`** 다. user_data 는 root 로 도니 **`/root/.krew` 에 갇힌다** —
+**[§4.3-1](#43-1--d-workbench-kubeconfig--정본은-읽기-전용-사용자마다-자기-사본-2026-08-11-확정)이 방금 고친 문제의 재발**이다.
+
+⇒ **`KREW_ROOT=/usr/local/krew`** 로 설치하고 `chmod -R a+rX` 한다. `PATH` 에 `$KREW_ROOT/bin` 을 더한다.
+- 🔑 **플러그인은 *상태* 가 아니라 *바이너리* 다.** kubeconfig 와 반대로 **공유가 옳다** — 사용자마다
+  복제할 이유가 없고, 복제하면 갱신 지점만 늘어난다.
+- ⚠️ 사용자가 플러그인을 **추가**하려면 root 가 필요하다: `sudo KREW_ROOT=/usr/local/krew kubectl krew install <x>`.
+  `ssm-user` 는 `NOPASSWD:ALL` 이라(§4.3-1 실측) 막히지 않는다.
+- 📌 부팅 중에는 `PATH` 를 쓰지 않고 **`$KREW_ROOT/bin/kubectl-krew` 를 직접 호출**한다 —
+  `kubectl krew` 는 PATH 탐색에 의존하는데 그 PATH 는 아직 우리가 만들지 않았다.
+
+#### 🔴 결정 2 — **`/etc/profile.d` 를 다시 쓴다. §4.3-1 과 모순이 아니다**
+
+§4.3-1 은 `/etc/profile.d/kubeconfig.sh` 를 **없앴는데** 여기서 프로파일 파일을 **만든다.**
+모순처럼 보이지만 **가르는 기준이 있다**:
+
+| 성격 | 예 | 배치 | 이유 |
+|---|---|---|---|
+| **상태(state)** | kubeconfig | **사용자별 사본** | 사용자가 **바꾼다**(`kubectl config set-context`). 공유하면 한 사람의 변경이 전원에게 간다 |
+| **설정(configuration)** | alias · `PATH` · `KREW_ROOT` · `AWS_DEFAULT_REGION` | **전역 `/etc/profile.d`** | 사용자가 바꿀 이유가 없고, 사용자별 사본을 두면 **갱신 지점만 늘어난다** |
+
+🔑 **§4.3-1 이 `profile.d` 를 없앤 진짜 이유는 "전역이라서"가 아니다** — `KUBECONFIG` 환경변수가
+`$HOME/.kube/config` 보다 **우선해서 사용자별 사본을 무력화하기** 때문이다.
+⇒ ⛔ **금지되는 것은 `profile.d` 자체가 아니라 "공유 정본을 `KUBECONFIG` 로 전역 export 하는 것"** 이다.
+⚠️ **T-12 의 음성 판정이 이 구분보다 넓었다** — `> /etc/profile.d/` 자체를 금지했다. **좁힌다**(§7.1).
+
+#### 🔴 결정 3 — 요청 스니펫의 **결함 1건을 고쳐서 넣는다**
+
+요청 원문은 `complete -o default -F __start_kubectl k` 인데, 그 함수는
+**`source <(kubectl completion bash)` 가 정의**한다. 없으면 alias `k` 에 완성이 붙지 않는다.
+
+> ### ⚠️ **그런데 실측상 에러가 나지 않는다 — 그래서 더 위험하다**
+> `complete -F <없는함수> k` 는 bash 가 **조용히 받아들인다**(실측: 출력 0).
+> ⇒ *"설정했는데 안 되는"* 상태가 **아무 신호 없이** 남는다.
+> 🔑 오늘 반복된 그 범주다 — **실패가 조용하면 아무도 고치지 않는다.**
+
+- ✅ `bash-completion` 은 **AL2023 에 기본 설치**돼 있다(실측 `2.11-2.amzn2023.0.2`) — 패키지를 더 넣지 않는다.
+- 각 줄은 **해당 도구가 설치될 때만** 프로파일에 들어간다(`nv` 는 eks-node-viewer, 완성은 kubectl).
+  ⛔ **이를 위해 새 변수를 만들지 않는다** — 이미 있는 nullable 핀이 조건이다(§4.1 *"선택지 없는 분기"* 회피).
+
+생성되는 `/etc/profile.d/workbench.sh`:
+
+```bash
+export AWS_DEFAULT_REGION=<region>            # 항상
+export KREW_ROOT=/usr/local/krew              # krew_version != null 일 때
+export PATH="$PATH:$KREW_ROOT/bin"            #  〃
+alias k=kubectl                               # kubectl_version != null 일 때
+source <(kubectl completion bash)             #  〃  ← 이것이 __start_kubectl 을 정의한다
+complete -o default -F __start_kubectl k      #  〃
+alias nv='eks-node-viewer --resources cpu,memory'   # eks_node_viewer_version != null 일 때
+```
+
+#### ⚠️ 아키텍처 이름이 **도구마다 다르다** — 네 번째 배포 형태
+
+| 도구 | 배포 형태 | arm64 자산 이름 |
+|---|---|---|
+| `kubectl` | 단일 바이너리 | `.../linux/arm64/kubectl` |
+| `helm` | tarball | `helm-<v>-linux-arm64.tar.gz` |
+| `argocd` | 단일 바이너리 | `argocd-linux-arm64` |
+| 🆕 `eks-node-viewer` | 단일 바이너리 | **`eks-node-viewer_Linux_arm64`** · x86 은 **`_Linux_x86_64`** ← ⚠️ `amd64` **아님** |
+| 🆕 `krew` | tarball | `krew-linux_arm64.tar.gz`(안에 `krew-linux_arm64` 실행파일) |
+
+⇒ **`$ARCH`(arm64/amd64) 하나로 다 못 만든다.** eks-node-viewer 전용 매핑을 따로 둔다.
+📌 §4.1 상자가 *"세 도구의 배포 형태가 전부 달라 블록을 합치지 않는다"* 고 한 근거에
+**이름 규칙 축이 하나 더 붙었다** — 맵으로 묶으려는 시도를 다시 기각하는 근거다.
+
+#### ✅ egress — 새 축이 아니다 (실측)
+
+`eks-node-viewer`·`krew` 릴리스와 `krew-index` 원문 3종 전부 **HTTP 200**(workbench 에서 직접 확인).
+전부 `github.com` / `raw.githubusercontent.com` 이고, `argocd` CLI 가 이미 같은 경로를 쓴다.
+
 ### 4.4 outputs
 
 | 출력 | 설명 |
@@ -831,12 +926,26 @@ aws ssm start-session --target <id> --region <region> \
 | T-9 | **`git`의 무조건성**(§2.5·§4.1) | `kubectl_version`·`helm_version`이 **둘 다 `null`**인 최소 형상에서도 `user_data`에 `dnf install -y git-core`가 있을 것 |
 | T-10 | **`argocd` CLI 양성·음성**(§4.1) | 지정 시 `user_data`에 그 버전의 릴리스 URL이 있을 것 · **`null`이면 없을 것**(기본값이 미설치라는 계약) |
 | T-11 | **기본 `instance_type`**(D-WORKBENCH-SIZE) | 기본값이 `t4g.small`일 것 — 더 작은 타입은 부팅 중 `dnf`가 OOM으로 죽는다(§7.3-3) |
-| T-12 | 🆕 **kubeconfig 배포 방식**(D-WORKBENCH-KUBECONFIG §4.3-1) | `eks_cluster_name` 지정 시 `user_data`에 **`chmod 0444`**(정본 잠금)와 **`/etc/skel/.kube/config`**(아직 없는 사용자 상속)가 있을 것. ⛔ **`/etc/profile.d/kubeconfig.sh` 는 **없을 것**(전역 export 는 죽은 경로) |
+| T-12 | 🆕 **kubeconfig 배포 방식**(D-WORKBENCH-KUBECONFIG §4.3-1) | `eks_cluster_name` 지정 시 `user_data`에 **`chmod 0444`**(정본 잠금)와 **`/etc/skel/.kube/config`**(아직 없는 사용자 상속)가 있을 것. ⛔ 음성: **공유 정본을 `KUBECONFIG` 로 전역 export 하지 않을 것** |
+| T-13 | 🆕 **진단 도구 nullable 핀**(D-WORKBENCH-TOOLING §4.3-2) | `eks_node_viewer_version`·`krew_version` 지정 시 각 릴리스 URL이 있을 것 · **둘 다 `null`이면 없을 것**(기본이 미설치라는 계약). ⚠️ eks-node-viewer 는 `_Linux_x86_64`/`_Linux_arm64` 로 **`amd64` 가 아니다** |
+| T-14 | 🆕 **krew 는 시스템 설치**(§4.3-2 결정 1) | `KREW_ROOT=/usr/local/krew` 가 있을 것 · ⛔ 음성: **`$HOME/.krew` 기본 경로에 의존하지 않을 것** — 그러면 `/root` 에 갇힌다 |
+| T-15 | 🆕 **로그인 프로파일**(§4.3-2 결정 3) | kubectl 지정 시 `alias k=kubectl` **와 함께 `kubectl completion bash` 로드**가 있을 것 · `AWS_DEFAULT_REGION` 이 **하드코딩이 아니라 `${region}`** 일 것 |
 
 > ⭐ **T-12가 지키는 것은 "kubeconfig 가 생기는가"가 아니다** — 그건 T-6이 이미 본다.
 > 지키는 것은 **정본이 쓰기 가능해지지 않는 것**과 **`ssm-user` 상속 경로가 사라지지 않는 것**이다.
 > 🔑 둘 다 *"편의를 위해 되돌리기 쉬운"* 형태다 — `0444` 를 지우면 조작이 편해지고,
-> `profile.d` 를 되살리면 `$HOME` 없는 경로가 잠깐 편해진다. **그때 결함 1·2가 그대로 돌아온다.**
+> 공유 정본을 다시 전역 export 하면 `$HOME` 없는 경로가 잠깐 편해진다. **그때 결함 1·2가 그대로 돌아온다.**
+>
+> ### 🔴 **T-12 의 음성 판정을 좁혔다** (2026-08-11, §4.3-2 를 쓰면서)
+> 처음엔 **`> /etc/profile.d/` 자체를 금지**했다. 그러나 §4.3-2 가 `alias`·`PATH`·`KREW_ROOT` 를
+> 넣으려면 그 파일이 필요하다. 🔑 **금지 대상은 `profile.d` 가 아니라 "공유 정본을 `KUBECONFIG` 로
+> 전역 export 하는 것"** 이다 — 그것이 사용자별 사본을 무력화하는 유일한 메커니즘이다.
+> ⇒ 판정을 `export KUBECONFIG=/etc/kubernetes` 부재로 바꿨다.
+> ⚠️ **넓은 음성 판정은 나중 요구를 부당하게 막는다** — 오늘 하루 만에 그 비용이 실제로 나왔다.
+
+> ⭐ **T-15 가 지키는 것은 alias 가 아니라 completion 로드다.** 실측상
+> `complete -F <없는함수> k` 는 **에러 없이 통과**한다 ⇒ `source <(kubectl completion bash)` 를
+> 빼먹어도 **아무 신호가 없다.** 🔑 **조용히 실패하는 설정은 테스트가 지켜야 한다.**
 
 > ⚠️ **T-11이 지키는 것은 "OOM이 안 난다"가 아니다** — plan 테스트는 그것을 예측할 수 없다.
 > 지키는 것은 **그때 내린 결정이 조용히 되돌아가지 않는 것**이고, 가장 그럴듯한 회귀는

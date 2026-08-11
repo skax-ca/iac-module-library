@@ -1,5 +1,35 @@
 # Notepad — iac-module-library
 
+## 🔴🔴 **2026-08-11 세션 종료 시점 — 인프라가 파기된 상태다** 🔴🔴
+
+> ### ⛔ **다음 세션이 가장 먼저 알아야 할 것: `ref-dev` 환경이 없다.**
+>
+> Wave 4 실증(문서 검증용 destroy → recreate)의 **destroy 까지만 완료**했다.
+> **재구축이 아직 안 됐다.** 이것은 사고가 아니라 **계획된 상태**다.
+>
+> | 레이어 | 상태 |
+> |---|---|
+> | L3 ArgoCD + Application 8개 | **없음** |
+> | L2 EKS `eks-ref-dev-an2-main-01` · 노드 2대 · workbench | **없음** |
+> | L1 VPC `vpc-00e16675363a702a5` | **없음** |
+> | **L0** state 버킷 · OIDC IdP · IAM Role 2단 | ✅ **살아 있음** (CI 정상) |
+>
+> `teardown-verify.sh` **잔존물 0 · exit 0** 로 확인했다.
+>
+> ### ▶ 재개 절차 (`docs/03-new-project.md` 초안 검증을 겸한다)
+> 1. 🔴 **`deletion_protection = true` 복원** — 소비 repo 두 루트(`live/dev/eks`·`networking`)에
+>    **`false` 가 main 에 커밋돼 있다**. PR 로 되돌린다. **이것을 잊으면 보호 없이 재구축된다.**
+> 2. `gh workflow run deploy-network.yml --ref main -f action=apply` → VPC
+> 3. `gh workflow run deploy-eks.yml --ref main -f action=apply` → EKS + workbench
+> 4. workbench 에서 `scripts/argocd-seed.sh` → ArgoCD + Application 8개
+> 5. 완료 판정 6개(`03 §7`) — 특히 root-app `revision` 이 **커밋 SHA** 인지
+> 6. ⚠️ 재구축 중 막힌 지점을 전부 기록한다 — 그것이 `03` 의 빈칸이다(Wave 5 입력)
+>
+> ⚠️ **workbench 인스턴스 ID 가 바뀐다.** 구 `i-0e7440e9e0350f731` 은 없다.
+> ⚠️ ArgoCD 접속 2홉·비밀번호도 전부 새로 세운다(`07-runbooks.md` 2·3절).
+
+---
+
 ## Priority Context
 
 **OSS IaC 모듈 자산 SSOT** — 2026-07-29 신설. 원격: `skax-ca/iac-module-library`(**private**, 무료 org).
@@ -2295,9 +2325,10 @@ aws --profile team --region ap-northeast-2 ssm start-session \
 | 0 아카이브 + 기각 항목 190→34 선별 | ✅ | 태그 |
 | 1 README 재작성 (사실 오류 해소) | ✅ | `c650b58` |
 | 2 `01-architecture` · `02-choose-your-path` | ✅ | `c650b58` |
-| 3 `03`~`08` + `scripts/teardown-verify.sh` | ✅ | 아래 |
-| **4 🔴 실증 destroy→recreate (L1~L3)** | ⏸ **사용자 확인 대기** | |
-| 5 실증 결과를 `03`·`04`에 반영 | ⏳ | |
+| 3 `03`~`08` + `scripts/teardown-verify.sh` | ✅ | `3d65edf` |
+| **4-a 실증 destroy (L1~L3)** | ✅ **완료** — 잔존물 0 | gitops PR **#24** |
+| **4-b 실증 recreate** | 🔴 **미완 — 최상단 상자 참조** | |
+| 5 실증 결과를 `03`·`04`에 반영 | ⏳ **발견 8건 아래 기록** | |
 | 6 (Wave 3에 흡수됨) | ✅ | |
 | 7 구 문서 삭제 + 참조 305개 정리 + `CLAUDE.md` | ⏳ | |
 | 8 gitops·reference-infra README | ⏳ | |
@@ -2330,6 +2361,63 @@ P7 **정정 서술 금지**(현재 사실만).
 NAT·EC2 3대·EKS·VPC·로그그룹을 **정확히 우리 것만** 잡고 `exit 1`
 (VPC 27개 중 1개 · EKS 3개 중 1개 — 공용 계정에서 태그 스코핑이 동작한다는 증거).
 ⛔ **삭제는 자동화하지 않는다** — `bootstrap.sh` 는 멱등성이 안전망이지만 teardown 은 아니다.
+
+##### 🔬 **Wave 4-a 실증 발견 8건 — Wave 5의 입력이다** (scratchpad 소실 대비 전문 이관)
+
+⭐ **destroy 를 실제로 해봤기 때문에 나온 것들이다.** 문서만 써서는 절대 나오지 않는다.
+
+| # | 발견 | 성격 |
+|---|---|---|
+| G1 | `backend.hcl` 이 **루트마다** 필요한데 `04` 에 없다. `live/dev/eks/` 것이 로컬에 없었다(gitignore) | 보완 |
+| G2 | destroy 는 워크플로 경로가 없었다 | **해결**(PR #24) |
+| **G4** | 🔴 **로컬에서 destroy 실행 불가 — 설계 갭** | **해결**(PR #24) |
+| G3 | `execution_role_arn` 이 required 인데 출처가 문서에 없다 → **`gh variable list`** | 보완 |
+| G5 | pre-push 훅의 `validate` 가 backend 자격증명을 요구 → **`AWS_PROFILE=team git push`** | 보완 |
+| G6 | syncPolicy 는 **root-app 부터** 꺼야 한다(App-of-Apps) | 보완 |
+| **G7** | 🔴 **syncPolicy 를 꺼도 되돌려진다** | **초안 결함** |
+| **G8** | 🔴 **Flow Logs 로그 그룹이 destroy 도중 재생성된다** | **초안 결함** |
+
+> ### 🔴 **G4 — 현재 이 환경은 IaC 로 삭제할 수 없었다** (가장 큰 발견)
+>
+> 세 사실이 겹쳐 파기 경로가 **존재하지 않았다**: ① 워크플로에 destroy 잡 없음
+> ② provider 가 `assume_role` 로 실행 Role 사용 ③ 실행 Role 신뢰가 **입구 Role 하나뿐**.
+> 실측: `aws sts assume-role … -> AccessDenied` (로컬 user 는 `AWStf_admin` 인데도).
+> ⇒ **D27-1 의 의도된 귀결이다 — 결함이 아니라 누락**이다. 생성만 만들고 파기를 안 만들었다.
+> **해결**: `iac-reference-infra` PR **#24**(`b060fc3`) — `workflow_dispatch` 입력 `action=destroy`.
+> ⭐ **`apply` job 은 한 줄도 안 바꿨다** — 저장된 plan 파일을 적용하는 구조라 파기 계획도 그대로 흐른다.
+> 신뢰 경계를 **우회하지 않고 그 안에** 경로를 만들었다. `confirm` 에 루트 이름을 손으로 적게 했다.
+
+> ### 🔴 **G7 — `syncPolicy` 를 끄는 것만으로는 부족하다**
+>
+> 실측: 자식 Application 7개를 patch 했는데 **확인 시점에 6개가 원래 값으로 되돌아가 있었고**
+> NodePool 도 삭제 직후 되살아났다(`NodePool: 1`).
+> **원인**: `kubectl patch` 로 GitOps 리소스를 바꾸는 것은 **경쟁 상태**다 — 컨트롤러가 계속 살아서
+> 큐에 있던 sync 가 Git 의 desired state 로 되돌린다.
+> **해법**: `kubectl -n argocd scale statefulset argocd-application-controller --replicas=0`
+> (+ `applicationset-controller`). 실측 확인 — 정지 후 삭제하니 30초 뒤에도 **NodePool 0 유지**.
+> ⚠️ **전체 파기에서만 옳다.** *"GitOps 만 걷어내기"* 부분 삭제에서는 **Git 에서 지우는 것**이 정석.
+
+> ### 🔴 **G8 — Flow Logs 로그 그룹이 destroy 도중 재생성된다**
+>
+> destroy 완료 후 `teardown-verify.sh` 가 로그 그룹 하나를 잡았다.
+> 생성 시각 **2026-08-11 14:20 UTC**(= destroy 도중) · `retentionInDays` **`None`**
+> (모듈 `flow-logs.tf:39` 는 항상 값을 설정한다).
+> ⇒ 원본은 지워졌고, **아직 살아 있던 Flow Logs 가 로그를 쓰자 CloudWatch 가 자동 생성**했다.
+> 자동 생성이라 **보존 무기한** — 저장 비용이 영원히 나가는 고아다.
+> 🔑 **`tofu destroy` 는 성공을 보고했고 state 에도 없어 다음 apply 에서도 안 보인다.**
+> ⇒ `04 §5` 에 로그 그룹을 **경쟁 상태 항목**으로 승격하고 "destroy 후 재확인"을 절차에 넣는다.
+
+> ### ⭐ **G7·G8 이 같은 형태다 — "명령은 성공했는데 상태가 원래대로"**
+>
+> 분산 시스템에서 삭제는 **한 번의 명령이 아니라 수렴 과정**이다.
+> ⇒ teardown 절차는 **"지운 뒤 다시 확인한다"** 를 단계로 가져야 한다.
+> 🔑 *"삭제는 사람이, 검증은 기계가"* 라는 설계 판단이 여기서 값을 냈다 —
+> **자동 삭제 스크립트였다면 G8 을 못 봤다**(지우고 끝냈을 테니까).
+
+##### ✅ `teardown-verify.sh` 양성·음성 양쪽 검증됨
+
+자원이 있을 때 **정확히 우리 것만** 잡고 `exit 1`(VPC 27개 중 1개·EKS 3개 중 1개),
+전부 지운 뒤 **잔존물 0 · `exit 0`**. 공용 계정 태그 스코핑이 실증됐다.
 
 ##### 📌 Wave 0의 발견 — 재작성의 값을 보여주는 지표
 

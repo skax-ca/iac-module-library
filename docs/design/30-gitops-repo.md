@@ -1191,9 +1191,14 @@ sources:
 
 | 단계 | 커밋 | 내용 |
 |---|---|---|
-| **1** | PR-②a | `syncPolicy` **없이** 심는다 = **비교만 한다** |
-| — | (판정) | workbench에서 `argocd app diff argocd-self` — helm install ↔ helm template 차이를 **사람이 읽는다** |
+| **1** | PR-②a | `syncPolicy.syncOptions`만 두고 **`automated`를 넣지 않는다** = **비교만 한다** |
+| — | (판정) | workbench에서 `argocd app diff argocd` — helm install ↔ helm template 차이를 **사람이 읽는다** |
 | **2** | PR-②b | 차이가 없거나 설명 가능하면 `automated: {selfHeal: true, prune: false}` 추가 |
+
+> ⚠️ **1단계에서 `syncPolicy`를 통째로 비우지 않는다 — `syncOptions`는 처음부터 넣는다.**
+> `ServerSideApply=true`가 있으면 ArgoCD의 diff가 **server-side dry-run apply**로 계산된다.
+> 없으면 1단계에서 본 diff와 2단계에서 실제로 적용될 결과가 **다른 계산**이 되고, 그러면 1단계가
+> 판정으로서 값을 잃는다. 🔑 **판정 단계와 실행 단계는 같은 방식으로 계산해야 한다.**
 
 > ### 🔴 **왜 한 번에 켜지 않는가 — 적용 대상이 application-controller 자신이다**
 >
@@ -1205,6 +1210,37 @@ sources:
 > 여기서 **두 번째 용도**를 얻는다.
 > 📌 ⚠️ **`prune: true`는 2단계에서도 켜지 않는다** — root App과 같은 이유(§4)에 더해, 아래 결정 6의
 > helm 잔존물이 *"저장소에 없는 리소스"* 로 분류된다.
+
+#### 🔴 1단계에서 **반드시 읽어야 할 판정 3건** (렌더 실측에서 미리 특정했다)
+
+1단계의 값은 *"diff가 비어 있길 바란다"* 가 아니라 **"무엇이 나올지 미리 알고 본다"** 에 있다.
+로컬 렌더(`helm template argo-cd 10.3.0 -f argocd-values.yaml`)로 **세 지점을 미리 특정했다.**
+
+| # | 지점 | 무엇을 보는가 | 위험 |
+|---|---|---|---|
+| **1** | 🔴 **`Secret/argocd-secret`** | 차트가 이것을 **`data` 없이**(메타데이터 + `type: Opaque`만) 렌더한다 — **argocd-server가 런타임에 admin 비밀번호 해시·`server.secretkey`·TLS를 채우는** 자리다 | 잘못 적용하면 **관리자 자격증명과 세션 키가 날아간다** |
+| **2** | **helm hook 4개** — `argocd-redis-secret-init`(ServiceAccount·Role·RoleBinding·Job), `helm.sh/hook: pre-install,pre-upgrade` | ArgoCD가 이것을 **`PreSync` 훅으로 번역**한다 ⇒ **sync마다 Job이 하나 뜬다** | 놀랄 일이지 사고는 아니다. **정상으로 기록해 둔다** |
+| **3** | 리소스 44개 전체의 이름 | 렌더 이름이 seed의 helm release 이름(`argocd`)에서 나온다 | 아래 ⭐ |
+
+> ### 🔴 **`argocd-secret`이 `ServerSideApply=true`를 필수로 만든다**
+>
+> SSA는 **자신이 선언한 필드만 소유**한다. 차트가 `data`를 선언하지 않으므로 ArgoCD는 그 키들을
+> **건드리지 않는다** — argocd-server가 채운 값이 보존된다.
+> ⛔ **`Replace=true`를 쓰지 않는다.** 그것은 객체를 통째로 교체하므로 정확히 이 사고를 낸다.
+> 📌 **`ignoreDifferences`를 미리 넣지 않는다.** 필요한지 아닌지를 **1단계가 답한다** — 필요 없는데
+> 넣으면 죽은 설정이고, 필요하면 그때 `{kind: Secret, name: argocd-secret, jsonPointers: ["/data"]}`
+> 를 **근거와 함께** 넣는다. ⭐ **이 판정을 안전하게 할 수 있다는 것이 2단계로 나눈 값 그 자체다.**
+
+> ### ⭐ **release 이름이 `argocd`여야 한다 — 틀리면 흡수가 아니라 두 번째 설치가 된다**
+>
+> `argocd-seed.sh`의 `ARGOCD_RELEASE` 기본값이 **`argocd`** 이고(실측 `:137`), helm은 릴리스 이름으로
+> 리소스 이름을 만든다(`argocd-server`·`argocd-repo-server`…).
+> ArgoCD는 helm source의 release 이름을 **Application 이름에서 가져온다** ⇒ Application을
+> `argocd-self` 따위로 지으면 `argocd-self-server` 같은 **완전히 새로운 44개 리소스**를 만든다.
+> **흡수(adopt)가 아니라 병렬 설치다.**
+> ⇒ Application 이름을 `argocd`로 하고, **그 위에 `helm.releaseName: argocd`를 명시한다.**
+> ⚠️ 명시는 중복처럼 보이지만 죽은 설정이 아니다 — **Application 이름을 바꾸는 순간 조용히 깨지는
+> 결합**을 값으로 고정하고, `argocd-seed.sh`의 변수와의 연결을 문서화한다.
 
 #### 결정 6 — **helm release Secret은 남는다. 지우지 않는다.**
 

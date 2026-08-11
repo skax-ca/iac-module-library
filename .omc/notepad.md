@@ -1909,6 +1909,89 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
   > 🔑 **소비 repo `.mcp.json` 과 이제 동일하다.** 다르게 만들 이유가 없어졌으므로 parity 를 유지한다.
 - 구 `terraform-mcp-server` v1.1.0 바이너리는 `~/go/bin/`에 남아 있다(미사용, 삭제해도 무방).
 
+#### 🚀 **2026-08-11 세션 — 증분 ②③④ 설계 + 구현(PR 3개, 스택)**
+
+사용자 지시: *"A부터 진행하자 그런데 kyverno, KEDA도 addon으로 추가하고 싶어."*
+⇒ 설계는 이 repo(`30 §2.10` 신설, **main 직접 커밋** `40608af`·`7b2b363`), 구현은 `iac-platform-gitops`.
+
+| PR | 브랜치 → base | 내용 |
+|---|---|---|
+| [#2](https://github.com/skax-ca/iac-platform-gitops/pull/2) | `feat/argocd-self-management` → **main** | 증분 ② ArgoCD 자기 관리 **1단계(비교만)** |
+| [#3](https://github.com/skax-ca/iac-platform-gitops/pull/3) | `feat/kyverno-baseline` → **#2** | 증분 ③ Kyverno 3.8.2 + PSS 정책(Audit) |
+| [#4](https://github.com/skax-ca/iac-platform-gitops/pull/4) | `feat/keda-catalog` → **#3** | 증분 ④ KEDA 2.20.2, `addons/catalog/` 첫 사용 |
+
+> ⭐ **PR 을 스택으로 쌓아 머지 순서를 구조로 강제했다.** 설계가 정한 ② → ③ → ④ 는 우선순위가
+> 아니라 **의존**이다(ArgoCD 가 ③④를 배포하는 주체). 앞 PR 이 머지되면 GitHub 이 base 를 자동 재지정한다.
+> 🔑 증분 ①에서 *"머지해야만 드러나는 결함"* 이 2건이었다 — 셋을 한 PR 에 넣으면 원인을 못 가른다.
+
+**사용자 결정 3건**(2026-08-11): ① Kyverno = **①baseline**(*옵트인 가드레일은 가드레일이 아니다*)
+② 정책 = **컨트롤러 + PSS(Audit)** ③ KEDA AWS 스케일러 **미포함**(⇒ IAM 0, 계층 2 안에서 닫힘).
+
+##### 🔑 이 세션이 남긴 것 — 다섯 가지
+
+> ① ⭐ **D-ADDON-NS 의 미판정 2건을 둘 다 종결했다**(`30 §2.10.0`).
+> **판정 ①은 소스로**: 자동 생성 ns 가 **같은 sync task 목록에 append** 되고
+> (`gitops-engine sync_context.go:846`) 목록 전체가 `permissionValidator` 를 거친다(`:904`) ⇒
+> `clusterResourceWhitelist` 검사를 **받는다**. 🔴 **단 ns 가 이미 있으면 task 자체가 안 생긴다**
+> (`controller/sync_namespace.go`) ⇒ 손으로 먼저 만들면 통과하고 **두 번째 클러스터에서만 깨진다.**
+> **판정 ②는 공식 문서 원문으로**: *"including the possibility to delete it"* ⇒
+> `managedNamespaceMetadata` 를 **쓰지 않는다**.
+>
+> ② 🔑 **"단일 클러스터는 팬아웃 결함을 숨긴다"가 이 세션의 관통 주제다.** 같은 형태가 **두 번** 나왔다 —
+> 판정 ①(ns whitelist)과 증분 ②의 Application vs ApplicationSet(cluster generator 를 쓰면 모든
+> 스포크에 ArgoCD 가 깔리는데 **지금은 대상이 hub 하나뿐이라 정상으로 보인다**).
+> ⇒ **dev 에서 통과한다는 것이 설계가 맞다는 증거가 아니다.**
+>
+> ③ ⭐ **"이름이 비슷한 두 값이 다른 축"** — Kyverno 의 `validationFailureAction`(정책을 **위반했을 때**)
+> 과 `failurePolicy`(웹훅에 **닿지 못할 때**). **Audit + Fail 은 비정합**이다 — 아무것도 막지 않기로
+> 해 놓고 Kyverno 가 죽으면 전부 막는다. ⇒ `Ignore` 로 바꿨다(`background: true` 라 잃는 것은 실시간성뿐).
+>
+> ④ ⭐ **렌더해서 세는 절차가 2건을 잡았다.** cluster-scoped 리소스는 kyverno 47 · keda 17 · argocd 7 인데
+> whitelist 추가는 **3건뿐**이다(`Namespace`·`ClusterPolicy`·`APIService`). whitelist 는 **kind 단위**라
+> 첫 addon 이 목록의 대부분을 연다. 📌 **그래도 매번 센다** — `APIService`·`ClusterPolicy` 는
+> 그 절차로**만** 잡혔다.
+>
+> ⑤ 🆕 **새 축 발견 — 노드의 이미지 pull egress 는 canary 가 볼 수 없다.** canary 는 repo-server 의
+> 차트 fetch 만 본다(파드→NAT). 이미지 pull 은 **kubelet→NAT** 로 경로가 다르고, 지금까지 addon
+> 이미지는 **전부 `public.ecr.aws`** 였다. ③④가 **`ghcr.io` 첫 사용**이다 ⇒ **apply 판정 항목**.
+> ⚠️ `reg.kyverno.io` 는 **GHCR 앞의 vanity 도메인**이다(401 `www-authenticate` realm=`ghcr.io` 실측).
+
+##### 🔴 흡수(증분 ②)에서 미리 특정한 위험 3건 — 1단계 diff 로 읽는다
+
+| # | 지점 | 요지 |
+|---|---|---|
+| 1 | `Secret/argocd-secret` | 차트가 **`data` 없이** 렌더한다. argocd-server 가 런타임에 **admin 비밀번호 해시·`server.secretkey`·TLS** 를 채우는 자리 ⇒ 잘못 적용하면 **자격증명이 날아간다**. `ServerSideApply=true` 가 막는다. ⛔ `Replace=true` 금지 |
+| 2 | helm hook 4개 `argocd-redis-secret-init` | ArgoCD 가 `PreSync` 로 번역 ⇒ **sync 마다 Job 하나**. 정상이다 |
+| 3 | release 이름 | `argocd-seed.sh` 의 `ARGOCD_RELEASE` 기본값 `argocd`(`:137`)와 **같아야** 한다. 어긋나면 **흡수가 아니라 병렬 설치**(새 리소스 44개) ⇒ `helm.releaseName: argocd` 를 명시했다 |
+
+⛔ **`ignoreDifferences` 를 미리 넣지 않았다** — 필요한지는 **1단계 diff 가 답한다.**
+⭐ 이 판정을 **안전하게 할 수 있다는 것**이 2단계로 나눈 값 그 자체다.
+
+##### 📌 정정한 낡은 서술 6건 (세 파일에 걸쳐)
+
+`30 §2.4`(②경로 "구현 미룸") · `30 §2.9` 갈림점 4 · `30 §2.9` cluster Secret 문장 ·
+`30 §2.9` 미판정 2건 · gitops README 증분 ① 제목(*"미머지 브랜치"* → 실제로는 배포 완료) ·
+`cluster-secret.yaml` 헤더(*"apply 후 확인할 것"* → 8/10 판정 끝).
+➕ **D-ROOTAPP-SKIP 자기 점검 명령의 `^./` 앵커를 뺐다** — `grep -rl … .` 출력의 `./` 접두는
+환경마다 다르고(실측), 앵커가 있으면 **정상인데도 4줄이 출력된다.**
+🔑 **거짓 경보를 내는 점검은 곧 무시당한다 — 점검 장치의 결함은 점검 대상의 결함만큼 나쁘다.**
+
+##### ⏭️ **다음 태스크 (2026-08-11)**
+
+1. 🔴 **PR #2 리뷰·머지 → workbench 에서 `argocd app diff argocd` 판정** — 위 위험 3건을 읽는다.
+   머지해도 **아무것도 배포되지 않는다**(`automated` 없음).
+2. 판정 통과 시 **PR-②b**(`automated: {selfHeal: true, prune: false}`) 를 별도로 낸다.
+3. PR #3 머지 → **머지 = 배포다.** 위 apply 판정 5건(특히 `ghcr.io` pull · ns whitelist 실증).
+4. PR #4 머지 → 라벨 옵트인 실증 + `APIService` ↔ `metrics-server` 무영향 확인.
+5. 판정 결과를 **`30 §2.10` 에 받아 적는다**(`§2.9` 증분 ① 판정표와 같은 형식).
+6. 그 뒤 **`24`(관리형 ArgoCD)**.
+- ⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 **사용자 몫**이다(대화형 세션 — 평문이
+  CloudTrail 에 남지 않게).
+- ⚠️ **Kyverno 를 Enforce 로 올릴 때 먼저 답할 질문**: `argocd` ns 를 webhook `namespaceSelector`
+  제외에 넣을 것인가. Enforce + `Fail` 은 **순환 의존**이다(Kyverno 장애 → ArgoCD 막힘 → 고칠 수단 상실).
+
+---
+
 ## 미결 항목
 
 - ~~원격 repo 미생성~~ ✅ **해결**: `skax-ca/iac-module-library`(private) 생성·push 완료(2026-07-29).

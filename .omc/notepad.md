@@ -41,11 +41,13 @@
 
 ### 🔢 현행 릴리스 (2026-08-05 D-VERSION 이후)
 
-> **최신 (2026-08-10 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
+> **최신 (2026-08-11 기준, `git tag` 실물과 대조함)**: `vpc-v0.3.0` ·
 > **`eks-cluster-v0.4.0`**(D-EKS-CIDR-NULL, PR #14 `ade89e9`) ·
-> **`workbench-v0.4.0`**(PR #17 `c928205`, **D-WORKBENCH-SIZE** — 기본 `instance_type` `t4g.small`.
-> v0.3.0 의 dnf OOM 을 닫는다. 직전: `v0.3.0` argocd CLI · `v0.2.0` git 설치.
-> 🔴 **업그레이드 시 인스턴스 교체**).
+> **`workbench-v0.5.0`**(PR **#19** `916950b`, **D-WORKBENCH-KUBECONFIG** — kubeconfig 정본 `0444`
+> 잠금 + `/etc/skel` 상속 + 사용자별 `0600` 사본, `profile.d` 전역 export 제거.
+> 직전: `v0.4.0` D-WORKBENCH-SIZE(`t4g.small`) · `v0.3.0` argocd CLI · `v0.2.0` git 설치.
+> 🔴 **업그레이드 시 인스턴스 교체** — ⭐ 그러나 그것이 이 릴리스의 목적이다. 교체 후에도
+> kubeconfig 가 자동으로 서고, 손으로 만든 사본에 의존하지 않는다).
 > ⚠️ **`bastion-v0.1.0` 은 존재하지 않는다** — 2026-08-06 개명 때 `workbench-v0.1.0` 으로
 > 대체·삭제됐다(D-WORKBENCH-RENAME). 아래 8/5 서술에 남은 이름은 **그때의 사실 기록**이다.
 > ⚙️ **`required_version` 은 전 모듈 `>= 1.12.0` 통일**(D-TOFU-FLOOR, 2026-08-05) —
@@ -2012,10 +2014,17 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
    gitops PR **#8** `45f1db2`). **전 항목 통과 · 재시작 0** — 판정 전문은 **`30 §2.10.8`**.
    ⭐ **8개 Application 이 처음으로 전부 `Synced Healthy`** 이고, `23 §2.1` 의 3단계가 **다 찼다**
    (ArgoCD 의 SSOT 가 완전히 저장소로 넘어왔다).
-3. 🔴 **`40` 열린 항목 8 — workbench kubeconfig** (2026-08-11 신설). 판정하려는데 **kubeconfig 가
-   없었다** — `workbench-v0.4.0` 인스턴스 교체 때 사라졌다. 선택지 ⓐ user_data(⚠️ `40 §5.1-1` 순환
-   재발) ⓑ 절차서 ⓒ 소비 루트 주입. **미결정.**
-4. 그 뒤 **`24`(관리형 ArgoCD)**.
+3. ~~🔴 **`40` 열린 항목 8 — workbench kubeconfig**~~ ✅ **해소**(2026-08-11 세션 ②,
+   **`workbench-v0.5.0`** / PR **#19** `916950b`). 🔴 **그 항목의 전제부터 틀렸다** —
+   kubeconfig 는 **있었고** ⓐ(user_data)는 **이미 구현돼 있었으며 순환도 없었다.**
+   진짜 결함은 ① `profile.d` 가 **로그인 셸에서만** 읽힘(자동화 경로 누락) ② 공유 정본이
+   **0666 world-writable** 이 되어 전역 오염(= **로컬 권한 상승 경로**) ③ 손 사본 증가.
+   ⇒ **D-WORKBENCH-KUBECONFIG**(`40 §4.3-1`): 정본 `0444` + `/etc/skel` 상속 + 사용자별 `0600` 사본.
+4. 🔴 **`23 §2.3` 초기 비밀번호 교체 — 사용자 몫, 미이행.** 교체 후 남은 완료 조건:
+   **`argocd-initial-admin-secret` 삭제**(⚠️ 실측 확인: 렌더 매니페스트에 **없고** tracking-id 도
+   없어 **selfHeal 이 되살리지 않는다** — `prune: false` 라 ArgoCD 가 지우지도 않는다).
+   기준선 지문: `admin.password` sha256 `a6cd2e06…` · mtime `2026-08-07T06:25:04Z`.
+5. 그 뒤 **`24`(관리형 ArgoCD)**.
 - ⛔ **`23 §2.3` 초기 비밀번호 교체는 여전히 미이행**이고 **사용자 몫**이다(대화형 세션 — 평문이
   CloudTrail 에 남지 않게).
 - ⚠️ **Kyverno 를 Enforce 로 올릴 때 먼저 답할 질문**: `argocd` ns 를 webhook `namespaceSelector`
@@ -2105,6 +2114,34 @@ PR #1 머지(`10083ef`) → 복구 2회(`4dd4ace`·`28cefaf`) → **전부 `Sync
   ⛔`Replace`(**SSA 보다 우선** ⇒ Secret 보호 무력화) · `ServerSideDiff`(비교 방식).
 - 📌 **`helm` 매니저는 사라지지 않고 공존한다** — SSA 는 **우리가 선언한 필드의 소유권만** 가져온다.
   ⇒ 흡수 = **삭제가 아니라 소유권 이전**. 되돌릴 수 있다. ⚠️ 그래서 `prune: true` 는 여전히 안 켠다.
+
+##### ✅ **`40` 열린 항목 8 해소 — `workbench-v0.5.0` (D-WORKBENCH-KUBECONFIG)**
+
+🔴 **그 항목의 전제부터 틀렸다.** kubeconfig 는 **있었다**(`/etc/kubernetes/kubeconfig`, 부팅 로그에
+생성 기록). ⓐ(user_data 실행)는 **이미 구현돼 있었고** `eks_cluster_name` 이 소비자 입력이라
+`§5.1-1` 순환도 **없었다**. *"`find` 전수 0건"* 은 홈만 봤거나 **비로그인 셸의 `kubectl` 실패를
+"kubeconfig 없음"으로 오독**한 것이다. ⛔ 이 세션도 같은 오독을 반복해 `/root/.kube/config` 사본을
+하나 더 만들었다 — **그 항목이 경계한 행위 자체**다.
+
+**진짜 결함 3건** — 전부 *"설치"가 아니라 "누가 쓸 수 있나"*
+
+| # | 결함 |
+|---|---|
+| 1 | `/etc/profile.d/*.sh` 는 **로그인 셸에서만** 읽힌다 ⇒ 대화형 SSM 은 받고 **RunShellScript(자동화)는 못 받는다** |
+| 2 | 🔴 공유 정본이 **`0666`(world-writable)** 이 되어 기본 네임스페이스가 전역 오염. kubeconfig 는 `users[].user.exec` 로 **임의 명령**을 지정할 수 있어 **로컬 권한 상승 경로**다 — 편의가 아니라 **보안** 문제 |
+| 3 | 손으로 만든 사본이 는다 |
+
+**결정**: 정본 `0444` + **`/etc/skel/.kube/config` 상속** + 사용자별 `0600` 사본 + `profile.d` 제거.
+⭐ **`/etc/skel` 이 핵심**인 이유 — 실측: 부팅 `03:49:28` · user_data `03:50:11` ·
+**`/home/ssm-user` 생성 `06:26:37`**(2시간 37분 뒤, SSM Agent 가 **첫 세션에서** `useradd -m`).
+⇒ user_data 는 *"그 사용자의 홈"* 에 아무것도 못 놓는다.
+⛔ **전용 사용자 신설은 기각** — 대화형은 **항상 `ssm-user`**, 자동화는 **항상 root** 이고,
+`ssm-user` 는 `sudoers.d` 에 **`NOPASSWD:ALL`**(실측)이라 **root 회피가 보안 경계를 못 만든다.**
+🔑 바꿀 수 있는 것은 *"누가 실행하나"* 가 아니라 **"산출물이 누구 것이 되나"** 다.
+⚠️ 비로그인 셸은 user_data 로 못 닫는다 → **자동화 규약**(`40 §6`)이 소유.
+📌 **T-12 음성 assertion 을 파일 이름으로 잡았다가 실패했다** — user_data 의 *"만들지 않는다"* 주석이
+그 문자열을 포함했다. `30 §4.2` **D-ROOTAPP-SKIP 실패 ②** 와 같은 형태(이 repo **두 번째**).
+⇒ **판정 대상을 이름이 아니라 "쓰는 행위"(리다이렉트)로** 바꿨다.
 
 ##### 🖥️ **ArgoCD 웹 UI 로컬 접속 — 2홉 (2026-08-11 실측 성공)**
 

@@ -737,6 +737,17 @@ CRD 설치 불가).
 - **PoC 함의**: dev 단일·팀 미분리라 지금은 ①만 필요. ②(카탈로그)·③(앱팀 셀프서비스)은 팀이 실제로
   상이한 operator를 요구할 때의 확장점 — 경로만 명문화, 구현은 미룸.
 
+> ### 🔄 **분류 현황 갱신 (2026-08-11, §2.10)**
+>
+> | 분류 | 실물 | 상태 |
+> |---|---|---|
+> | ① baseline | ALBC · Karpenter(+NodePool) | ✅ 배포됨(증분 ①) |
+> | ① baseline | **Kyverno + PSS 정책** | 🆕 증분 ③ — **사용자 결정**: 정책 엔진은 가드레일이고 **옵트인 가드레일은 가드레일이 아니다** |
+> | ② 카탈로그 | **KEDA** | 🆕 증분 ④ — 이 표가 예시로 든 그 KEDA다. **`addons/catalog/` 경로가 처음 실물이 된다** |
+> | ③ team-scoped | — | ⛔ 여전히 범위 밖(계층 3) |
+>
+> ⇒ *"②는 경로만 명문화, 구현은 미룸"* 은 **증분 ④로 해소된다.** ⚠️ ③(앱팀 셀프서비스)에는 해당하지 않는다.
+
 ### 2.5 멀티클러스터 분기 활성화 로드맵 (2026-07-27 증분)
 
 **문제**: §2.3/§2.4가 규정한 "클러스터별 버전·NodePool 상이"를 현재 구현은 아직 켜지 않았다. ALBC·Karpenter
@@ -831,7 +842,7 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 | 1 | cluster Secret `server` | EKS 클러스터 **ARN** | **`https://kubernetes.default.svc`** — §4.1 정정 |
 | 2 | `sourceRepos`에 등재할 저장소 URL | **CodeConnections 프록시 URL** | **GitHub URL** — §1.1 재판정 |
 | 3 | **public helm egress 실증** | ✅ 2026-07-27 canary | ⚠️ **승계되지 않는다** — 아래 |
-| 4 | ArgoCD 자신의 chart repo | ⛔ 해당 없음(AWS가 소유) | 🆕 **`https://argoproj.github.io/argo-helm`를 `sourceRepos`에 추가해야 한다** — 자기 관리([`23 §2.1`](23-argocd-self-managed.md)) |
+| 4 | ArgoCD 자신의 chart repo | ⛔ 해당 없음(AWS가 소유) | 🆕 **`https://argoproj.github.io/argo-helm`를 `sourceRepos`에 추가해야 한다** — 자기 관리([`23 §2.1`](23-argocd-self-managed.md)). ⏭️ **증분 ②가 수행**(§2.10.1) |
 
 > ### ⚠️ **3 — egress 실증을 승계하지 않는 이유**
 >
@@ -935,6 +946,10 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 
 ⇒ **`addons/`만 추가하면 되고 cluster Secret은 손대지 않는다.** 새 클러스터도 Secret 1개 = O(1).
 
+> 🔴 **정정(2026-08-11, §2.10.3)**: *"cluster Secret은 손대지 않는다"* 는 **① baseline addon 전제**였다.
+> **② opt-in 카탈로그는 옵트인이 곧 라벨**이므로 손댄다(KEDA가 `addon-keda: "enabled"` 를 요구한다).
+> 🔑 **O(1)은 그대로다** — 새 클러스터는 여전히 Secret 1개이고, 그 안의 라벨이 하나 늘 뿐이다.
+
 > ### ✅ **§2.2가 경고한 Karpenter SG 태그 선결 과제는 해소됐다** (2026-08-10 확인)
 >
 > §2.2 Karpenter 증분 (3)은 *"노드 SG에 `karpenter.sh/discovery` 태그가 없다 → `modules/eks-cluster`에
@@ -1005,12 +1020,12 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 ### 🔧 집행 — 전용 ns addon을 넣을 때
 
 - ApplicationSet template의 `syncPolicy.syncOptions`에 **`CreateNamespace=true`** 를 넣는다.
-- ⚠️ **첫 전용-ns addon에서 판정할 것 2건**(argo-cd 문서에 서술이 없다):
-  ① 생성되는 Namespace가 AppProject `clusterResourceWhitelist`의 적용을 받는가
-  (받으면 `{group: "", kind: Namespace}` 를 열어야 한다)
-  ② `managedNamespaceMetadata`를 쓰면 ArgoCD가 그 ns를 **추적 대상으로 삼는다**(공식 서술:
-  *"allowing the platform to manage namespace lifecycle operations like deletion"*)
-  ⇒ 🔴 **`prune: true`와 겹치면 addon 제거가 네임스페이스째 지운다.** 쓰기 전에 이 조합을 판정한다.
+- ✅ **판정할 것 2건은 종결됐다**(2026-08-11, **§2.10.0** — 첫 전용-ns addon = Kyverno):
+  - **① 받는다 — 단 "네임스페이스가 아직 없을 때"만.** argo-cd `v3.5.0` 소스 판정(자동 생성 ns가
+    **같은 sync task 목록에 append**되어 `permissionValidator`를 거친다). ⇒ **`{group: "", kind: Namespace}` 를 연다.**
+    🔴 이미 있는 ns는 검사 자체가 없으므로 **dev에서 통과하고 신규 클러스터에서만 깨지는** 형태가 된다.
+  - **② 그렇다 ⇒ `managedNamespaceMetadata`를 쓰지 않는다.** 공식 원문이 *"including the possibility
+    to delete it"* 로 못박는다. `prune: true`와의 조합은 실제로 네임스페이스를 지운다.
 
 ### 🔴 **부수 발견 — NodePool의 아키텍처는 클러스터를 따라간다** (§2.2의 `amd64`는 PoC 값이다)
 
@@ -1050,6 +1065,352 @@ to your manifests**"*([`21 §1.7`](21-gitops-bootstrap-seam.md)). ⇒ **팬아�
 > 🔑 **`tofu test`도 canary도 이 둘을 잡을 수 없었다** — 둘 다 *"저장소 상태가 root App spec과
 > 어떻게 상호작용하는가"* 의 문제이고, **머지해서 reconcile을 돌려야만** 드러난다.
 > ⇒ [`CLAUDE.md`](../../CLAUDE.md)의 *"apply 판정은 소비 repo 몫"* 이 GitOps 계층에도 그대로 산다.
+
+---
+
+## 2.10 🆕 addon 증분 ②③④ — ArgoCD 자기 관리 · Kyverno · KEDA (2026-08-11 신설)
+
+증분 ①(ALBC·Karpenter)이 팬아웃 기계를 실물로 세웠다. 이 절은 그 위에 **세 증분**을 얹는다.
+번호 점유는 §2.9가 명령한 절차(`grep -o "§[0-9.a-z-]*" | sort | uniq -c`)로 먼저 확인했다 — `§2.10`은 비어 있었다.
+
+| 증분 | 대상 | 분류 | 네임스페이스 | 계층 1(.tf) 영향 |
+|---|---|---|---|---|
+| **②** | ArgoCD 자기 관리 (`argo-cd` 10.3.0) | — (hub 단일, 팬아웃 아님) | `argocd`(기존) | 없음 |
+| **③** | Kyverno + PSS 정책 (`3.8.2`) | **① baseline** (사용자 결정 2026-08-11) | **`kyverno`(신설)** | 없음 |
+| **④** | KEDA (`2.20.2`) | **② opt-in 카탈로그** (§2.4가 이미 그렇게 분류) | **`keda`(신설)** | 없음 |
+
+> ## ⛔ **세 증분을 한 PR에 넣지 않는다 — 순서는 ② → ③ → ④**
+>
+> 증분 ①에서 **머지해야만 드러나는 결함이 2건**이었다(§4.2). 머지 = 배포이므로 셋을 한 번에
+> 넣으면 root App이 깨졌을 때 **원인을 가를 수 없다.**
+> **②가 먼저인 이유**는 우선순위가 아니라 의존이다 — ArgoCD는 ③④를 배포하는 **주체**이고,
+> 자기 흡수가 불안정한 상태에서 그 위에 addon을 얹지 않는다.
+
+---
+
+### 2.10.0 ✅ D-ADDON-NS가 남긴 **미판정 2건 — 둘 다 종결**
+
+§2.9 「집행」 절이 *"첫 전용-ns addon에서 판정할 것"* 으로 미뤄 둔 두 건이다. ③이 그 첫 addon이다.
+
+#### 판정 ① — **받는다. 단 "네임스페이스가 아직 없을 때"만.** (argo-cd `v3.5.0` 소스)
+
+| 지점 | 사실 |
+|---|---|
+| `controller/sync.go:337` | `CreateNamespace=true` → `sync.WithNamespaceModifier(syncNamespace(app.Spec.SyncPolicy))` |
+| `gitops-engine/pkg/sync/sync_context.go:846` | `tasks = sc.autoCreateNamespace(tasks)` — **같은 `tasks` 목록에 append한다** |
+| 같은 파일 `:904` | 그 목록 **전체**에 `sc.permissionValidator(task.obj(), serverRes)` |
+| `controller/sync.go:657` | `project.IsGroupKindNamePermitted(gk, name, res.Namespaced)` — Namespace는 `Namespaced=false` ⇒ **`clusterResourceWhitelist` 검사** |
+| `controller/sync_namespace.go` | `isNewNamespace := liveNs == nil`. ns가 **이미 있고** `managedNamespaceMetadata`도 없으면 `false` 반환 ⇒ **task 자체가 생기지 않는다** |
+
+> ### 🔴 **그래서 이것은 "dev에서 통과하고 신규 클러스터에서 깨지는" 유형의 결함이다**
+>
+> 네임스페이스를 손으로 먼저 만들어 두면 **whitelist가 없어도 통과한다.** 그 상태로 커밋하면
+> 정상으로 보이고, **두 번째 클러스터가 등록되는 순간** 거기서만
+> `resource :Namespace is not permitted in project platform` 로 sync가 깨진다.
+> ⇒ **`{group: "", kind: Namespace}` 를 whitelist에 넣는다.** 지금 안 열면 신호가 **몇 달 뒤에** 온다.
+> 🔑 이 증분에서 같은 형태가 **두 번** 나온다 — 다른 하나는 §2.10.1 결정 1(Application vs ApplicationSet)이다.
+> **단일 클러스터는 팬아웃 결함을 숨긴다**는 것이 재사용할 판단이다.
+
+#### 판정 ② — **그렇다 ⇒ `managedNamespaceMetadata`를 쓰지 않는다.** (공식 문서 원문)
+
+> *"Once a namespace is owned by Argo CD, it will be managed by ArgoCD, **including the possibility
+> to delete it**, which Argo CD normally does not do."* — argo-cd `user-guide/sync-options`
+
+⇒ §2.9가 우려한 *"`prune: true`와 겹치면 addon 제거가 네임스페이스째 지운다"* 는 **성립한다.**
+⛔ ns에 라벨·애노테이션을 붙일 요구가 생기면 **그때 이 문장을 다시 읽고** 판단한다. 지금은 요구가 없다.
+ℹ️ 같은 문서가 *"manually managing the tracking metadata on a namespace is strongly discouraged"* 라고도
+경고한다 — **손으로 애노테이션을 붙여 우회하는 길도 막혀 있다.**
+
+#### 🆕 새 축 — **노드의 이미지 pull egress는 canary가 볼 수 없다**
+
+§2.9의 canary는 **repo-server의 차트 fetch**만 판정한다. 지금까지 addon 이미지는 전부
+`public.ecr.aws`였고(ALBC·Karpenter), 이번에 처음으로 **`ghcr.io`·`reg.kyverno.io`** 를 요구한다.
+
+- 경로가 다르다 — repo-server는 **파드→NAT**, 이미지 pull은 **kubelet(노드)→NAT**.
+- 🔑 **canary로 앞당길 수 없다.** 파드를 실제로 띄워야 알 수 있으므로 **apply 판정 항목**이다.
+- 실패 신호는 명확하다 — `ImagePullBackOff` / `ErrImagePull`. ⚠️ 이것을 **egress 문제로 단정하지 않는다**:
+  §2.9 판독법과 같은 함정이 있다(레이트리밋·태그 오타도 같은 증상). `kubectl describe pod`의 원문을 읽는다.
+
+---
+
+### 2.10.1 증분 ② — **D-ARGOCD-ADOPT**: ArgoCD가 자기 자신을 흡수한다
+
+[`23 §2.1`](23-argocd-self-managed.md)이 *"seed 1회 + 자기 관리"* 를 결정했고, 그 3단계 중 **2단계(흡수)** 가
+아직 실물이 아니다. 이 증분이 그것을 배선한다. ⚠️ `23`은 *"무엇을 세우는가"*, 이 절은 *"그것이 어떻게 읽히는가"* 다
+([`23 §4`](23-argocd-self-managed.md) 인터페이스 선언과 정합).
+
+#### 결정 1 — 🔴 **`Application`이다. `ApplicationSet`이 아니다.**
+
+⛔ **cluster generator를 쓰면 등록된 모든 스포크에 ArgoCD가 설치된다.** ArgoCD는 hub에만 산다.
+
+> ⚠️ **지금은 클러스터가 1개라 증상이 나타나지 않는다.** `matchLabels: {environment: dev}` 로
+> 팬아웃해도 대상이 hub 자신 하나뿐이라 **정상으로 보인다.** 두 번째 클러스터가 등록되는 순간
+> 거기에 ArgoCD가 통째로 깔린다. ⇒ 판정 ①과 **같은 형태의 함정**이다(§2.10.0).
+> 🔑 **`addons/`의 파일은 전부 "N개 클러스터에 반복"을 뜻한다.** hub 단일 리소스를 그 디렉토리에 두면
+> 계약과 어긋난다 — 그래서 위치도 `addons/baseline/`이 아니다(결정 2).
+
+#### 결정 2 — 위치는 **`bootstrap/argocd-app.yaml`**
+
+- `addons/baseline/`의 계약은 *"전 클러스터 팬아웃"* 이고 이것은 hub 단일이다(결정 1).
+- seed 산출물인 `bootstrap/argocd-values.yaml`과 **같은 자리**에 둔다 — 자기 관리의 SSOT 두 파일이 붙어 있다.
+- root App은 `path: .` + `recurse: true`라 **위치와 무관하게 흡수한다**(§1 O(1) 규칙). 위치는 **사람이 읽는 의미**의 문제다.
+
+#### 결정 3 — **multi-source** (§2.5 (B)가 예고한 그 메커니즘의 **첫 실전 사용**)
+
+```yaml
+sources:
+  - repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    targetRevision: 10.3.0
+    helm:
+      valueFiles: ['$values/bootstrap/argocd-values.yaml']
+  - repoURL: https://github.com/skax-ca/iac-platform-gitops.git
+    targetRevision: main
+    ref: values          # 값 참조 전용 source — 렌더 대상이 아니다
+```
+
+> ### 🔑 **같은 파일이 한 Application에서는 제외되고 다른 Application에서는 입력이다 — 모순이 아니다**
+>
+> `bootstrap/argocd-values.yaml`은 **root App의 `exclude` 대상**이다(§4.2). 여기서는 그 파일을
+> **helm values로 읽는다.** 둘은 충돌하지 않는다 — `exclude`는 *root App이 그것을 k8s 매니페스트로
+> 오인하지 않게* 하는 설정이고, `$values` 참조는 *다른 Application의 다른 source*다.
+> ⚠️ 이 구분을 놓치면 *"exclude된 파일을 어떻게 읽지?"* 로 막힌다. **exclude는 파일을 숨기는 것이 아니라
+> 한 Application의 훑기 대상에서 빼는 것**이다.
+
+#### 결정 4 — **`targetRevision: 10.3.0`** — seed가 설치한 것과 **같은 값**
+
+⛔ **이 증분에서 차트를 올리지 않는다.** [`23 §5`](23-argocd-self-managed.md)의 정확 핀 그대로다.
+
+- 흡수와 업그레이드를 같은 커밋에 넣으면 실패했을 때 **"흡수가 문제인가 새 차트가 문제인가"** 를 가를 수 없다.
+- 🔑 [`23 §5`](23-argocd-self-managed.md)가 helm CLI를 v4가 아닌 v3로 핀할 때 쓴 것과 **같은 셈법**이다 —
+  *변수를 하나씩만 움직인다. 진단 가능성도 비용 항목이다.*
+- ⭐ 게다가 §2.1의 **자기소멸 원칙이 이것을 요구한다**: 흡수 대상은 seed 산출물의 *바이트 동일 사본*이어야 한다.
+  버전을 올리면 흡수가 아니라 **업그레이드**이고, 그건 다른 행위다.
+
+#### 결정 5 — ⭐ **자동 sync를 처음부터 켜지 않는다 — 2단계로 흡수한다**
+
+| 단계 | 커밋 | 내용 |
+|---|---|---|
+| **1** | PR-②a | `syncPolicy` **없이** 심는다 = **비교만 한다** |
+| — | (판정) | workbench에서 `argocd app diff argocd-self` — helm install ↔ helm template 차이를 **사람이 읽는다** |
+| **2** | PR-②b | 차이가 없거나 설명 가능하면 `automated: {selfHeal: true, prune: false}` 추가 |
+
+> ### 🔴 **왜 한 번에 켜지 않는가 — 적용 대상이 application-controller 자신이다**
+>
+> 흡수 순간 diff가 있으면 **즉시 적용**되고, 그 적용이 `argocd-application-controller`·`repo-server`를
+> 재시작시킨다. **sync를 수행하는 주체가 sync 도중에 죽는다** — 중단된 채로 남으면 무엇이 적용되고
+> 무엇이 안 됐는지 알 수 없다.
+> ⭐ **1단계는 egress canary와 같은 도구를 다른 질문에 쓰는 것이다** — `syncPolicy` 없는 Application =
+> *배포하지 않고 비교만*. §2.9가 *"배포를 만들지 않으므로 증분의 첫 스텝으로 두기 좋다"* 고 쓴 그 성질이
+> 여기서 **두 번째 용도**를 얻는다.
+> 📌 ⚠️ **`prune: true`는 2단계에서도 켜지 않는다** — root App과 같은 이유(§4)에 더해, 아래 결정 6의
+> helm 잔존물이 *"저장소에 없는 리소스"* 로 분류된다.
+
+#### 결정 6 — **helm release Secret은 남는다. 지우지 않는다.**
+
+seed의 `helm install`이 만든 `sh.helm.release.v1.argocd.v1` Secret이 `argocd` ns에 남는다.
+ArgoCD가 만든 것이 아니므로 흡수 대상도 prune 대상도 아니다.
+
+> ⚠️ **이것이 남아 있는 한 누군가 `helm upgrade`를 돌릴 수 있다** — [`23 §2.1`](23-argocd-self-managed.md)의
+> *"helm CLI를 다시 쓰지 않는다"* 를 어길 수 있는 **유일한 실물 경로**다.
+> ⛔ 그럼에도 지우지 않는다: 지우는 행위 자체가 **helm의 상태를 손대는 것**이고, 실패하면 seed를
+> 다시 밟아야 하는 자리다. **규약으로 막고 기록으로 남긴다** — 얻는 것(미관)보다 잃을 수 있는 것이 크다.
+> 🔑 D27이 `AWSAFTExecution`을 *"깨진 채로 둔다"* 고 판단한 것과 같은 형태다([`50`](50-reference-consumer-repo.md)) —
+> **고치는 것도 위험을 만든다.**
+
+#### ✅ 증분 ②의 실측 — AppProject 델타
+
+| 항목 | 값 | 근거 |
+|---|---|---|
+| egress | ✅ **이미 실측됨** | §2.9 canary: `canary-argocd` revision `10.3.0` · rendered **55** · conditions 없음 |
+| 이미지 pull | ✅ **이미 도는 파드다** | 흡수일 뿐 새 이미지를 받지 않는다 — 새 egress 축 없음 |
+| `sourceRepos` | 🆕 `https://argoproj.github.io/argo-helm` | `projects/platform.yaml`의 `⏳ 아직 넣지 않는다` 주석을 **실제 항목으로** 승격 |
+| `clusterResourceWhitelist` | **추가 0건** | 로컬 렌더 실측(`helm template argo-cd 10.3.0 --kube-version 1.35.6 --include-crds -f argocd-values.yaml`): cluster-scoped는 **CRD 3 · ClusterRole 2 · ClusterRoleBinding 2** 뿐이고 **전부 이미 열려 있다** |
+
+---
+
+### 2.10.2 증분 ③ — **D-KYVERNO**: 정책 엔진을 baseline으로
+
+**사용자 결정(2026-08-11)**: **① baseline**. 근거 — 정책 엔진은 **가드레일**이고, **옵트인 가드레일은
+가드레일이 아니다.** ALBC·Karpenter와 같은 층에 둔다.
+정책 세트도 함께 넣는다 — **`kyverno-policies`(PSS baseline)를 Audit 모드로.**
+⛔ *"정책 0인 엔진"* 은 아무것도 하지 않는 **죽은 경로**이고, Audit은 위험 없이 값을 낸다.
+
+#### 실측 핀 (2026-08-11, `kyverno.github.io/kyverno` index.yaml 전수)
+
+| 차트 | 핀 | appVersion | `kubeVersion` | 판정 |
+|---|---|---|---|---|
+| `kyverno` | **`3.8.2`** | `v1.18.2` | `>=1.25.0-0` | ✅ 클러스터 **1.35.6** 충족 |
+| `kyverno-policies` | **`3.8.2`** | `v1.18.2` | `>=1.25.0-0` | ✅ **컨트롤러와 번호가 같다** — 스큐 판단이 필요 없다 |
+
+⭐ 두 차트가 **같은 번호로 함께 릴리스된다**(전체 263 / 199개 중 stable 79 / 61개 전수 확인).
+⇒ §2.4가 경고한 *"버전 스큐"* 문제가 이 쌍에는 **구조적으로 없다.** 올릴 때 **둘을 같이 올린다.**
+
+#### 구조 — Karpenter와 **같은 형태**(파일 1개 · ApplicationSet 2개 · wave 분리)
+
+CRD 순서가 똑같은 문제를 낸다: `kyverno` 차트가 `ClusterPolicy` CRD를 동봉하고, `kyverno-policies`는
+그 CRD가 **선존재해야** 적용된다.
+
+| | ApplicationSet | wave | syncOption |
+|---|---|---|---|
+| ① | `kyverno`(컨트롤러) | `0` | `ServerSideApply=true` · **`CreateNamespace=true`** |
+| ② | `kyverno-policies`(ClusterPolicy 11개) | `5` | `ServerSideApply=true` · **`SkipDryRunOnMissingResource=true`** |
+
+⚠️ **wave는 생성 순서만 정하고 완료를 기다리지 않는다** — 실제 안전장치는 ②의
+`SkipDryRunOnMissingResource`와 ArgoCD의 재시도다(증분 ①에서 작동을 실증했다, §2.9 판정표).
+
+#### 🔴 결정 — **`failurePolicy`는 chart 기본 `Fail`에서 `Ignore`로 바꾼다**
+
+> ## ⭐ **두 값은 이름이 비슷하지만 완전히 다른 축이다**
+>
+> | 값 | 묻는 것 | chart 기본 | 우리 값 |
+> |---|---|---|---|
+> | `validationFailureAction` | **정책을 위반했을 때** 무엇을 하는가 | **`Audit`** | **`Audit`(기본 유지 — 적지 않는다)** |
+> | `failurePolicy` | **웹훅에 닿지 못할 때** 무엇을 하는가 | **`Fail`** | 🔴 **`Ignore`(변경)** |
+>
+> **Audit + Fail은 비정합이다.** 아무것도 막지 않기로 결정해 놓고, **Kyverno가 죽으면 전부 막는다** —
+> 얻는 것 없이 가용성만 깎는다.
+> ⭐ **`background: true`(chart 기본)라 잃는 것이 거의 없다** — 웹훅을 놓쳐도 **백그라운드 스캔이
+> PolicyReport를 만든다.** `Ignore`로 잃는 것은 *"실시간 리포트"* 뿐이다.
+> ⚠️ **Enforce로 전환할 때 `Fail`로 함께 올린다.** 두 값은 **짝으로 움직인다** — 한쪽만 바꾸면
+> 다시 비정합이 된다.
+
+#### ⭐ chart 기본 웹훅 제외가 **ALBC·Karpenter를 이미 지켜 준다**
+
+렌더 실측 — `ConfigMap/kyverno`의 `webhooks`:
+```json
+{"namespaceSelector":{"matchExpressions":[
+  {"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kube-system"]},
+  {"key":"kubernetes.io/metadata.name","operator":"NotIn","values":["kyverno"]}]}}
+```
+`resourceFilters`도 `[*/*,kube-system,*]`·`[*/*,kube-public,*]`·`[*/*,kube-node-lease,*]`·`[*/*,kyverno,*]`를 제외한다.
+
+⇒ **`kube-system`의 ALBC·Karpenter는 Kyverno 경로에 아예 들어가지 않는다.** apiserver가 웹훅을 호출조차 하지 않는다.
+🔑 **D-ADDON-NS의 예외 2개가 여기서 부수적 이득을 낸다** — 예외를 만든 이유(APF·Pod Identity)와
+무관한 방향에서 값이 돌아왔다.
+
+> ### 🔴 **그러나 `argocd`는 제외 대상이 아니다 — Enforce 전환 전에 답해야 할 질문**
+>
+> Audit + `Ignore` 조합에서는 무해하다. 그러나 **Enforce + `Fail`로 가면 Kyverno 장애가 ArgoCD의
+> 리소스 생성을 막는다** — 그리고 **ArgoCD가 Kyverno를 고치는 수단**이다. **순환 의존이다.**
+> ⇒ Enforce 전환은 *"`argocd` ns를 webhook `namespaceSelector` 제외에 넣을 것인가"* 를 **먼저** 답한다.
+> ⛔ 지금 미리 넣지 않는다 — 현재 조합에서는 **아무 일도 하지 않는 설정**이고, 죽은 설정은
+> 다음 사람에게 *"이게 왜 있지"* 를 남긴다.
+
+#### ⚠️ 웹훅 설정은 **ArgoCD가 소유하지 않는다**
+
+렌더 결과에 `ValidatingWebhookConfiguration`이 **하나도 없다**(실측). Kyverno는 웹훅을 **컨트롤러가
+런타임에 동적 등록**한다 — 어떤 정책이 어떤 리소스를 대상으로 하는지에 따라 규칙이 달라지기 때문이다.
+
+- ⇒ whitelist에 넣을 필요가 없고, **ArgoCD의 drift 감지 대상도 아니다.**
+- ⚠️ 뒤집으면 이런 뜻이다 — **웹훅이 잘못돼도 ArgoCD는 `Synced Healthy`로 보인다.** 판정을 Application
+  상태에만 의존하지 않는다.
+
+#### 이미지 — **`reg.kyverno.io` = GHCR 앞의 vanity 도메인** (실측)
+
+`https://reg.kyverno.io/v2/kyverno/kyverno/manifests/v1.18.2` → **HTTP 401** +
+`www-authenticate: Bearer realm="https://ghcr.io/token",service="ghcr.io"` + `x-github-request-id` 헤더.
+
+- ⇒ 노드가 이미지를 받으려면 **`reg.kyverno.io`와 `ghcr.io` 둘 다** 나가야 한다(토큰 발급이 ghcr.io).
+- ✅ **arm64 지원 확인** — `ghcr.io/kyverno/kyverno:v1.18.2` manifest index에
+  `linux/amd64, linux/arm, linux/arm64, linux/ppc64le, linux/s390x`. 🔑 **클러스터가 Graviton이므로
+  이 확인은 선택이 아니다**(§2.9 「부수 발견」 — 아키텍처는 클러스터를 따라간다).
+- 파드 4개(admission · background · cleanup · reports 컨트롤러) 각 **replicas 미지정 = 1**. dev 2노드에 무리 없다.
+  ⚠️ `podAntiAffinity`가 걸려 있으나 replicas 1이라 지금은 무해하다 — **HA로 올릴 때 노드 수를 함께 본다.**
+
+#### AppProject 델타
+
+| 항목 | 값 |
+|---|---|
+| `sourceRepos` | 🆕 `https://kyverno.github.io/kyverno/` |
+| `clusterResourceWhitelist` | 🆕 **`{group: kyverno.io, kind: ClusterPolicy}`**(정책 11개) · 🆕 `{group: "", kind: Namespace}`(§2.10.0 판정 ①, ④와 공용) |
+
+⭐ **컨트롤러의 cluster-scoped 47종은 추가 0건이다** — CRD **22** · ClusterRole **17** ·
+ClusterRoleBinding **8**(렌더 실측)이 **전부 ALBC 증분에서 이미 열린 kind**다.
+🔑 *"CRD를 22개나 까는 차트"* 라는 인상과 달리 **whitelist는 kind 단위**라 개수가 아니라 종류만 문제다.
+
+---
+
+### 2.10.3 증분 ④ — **D-KEDA-CATALOG**: `addons/catalog/` 를 처음 켠다
+
+§2.4가 KEDA를 **② opt-in 카탈로그**로 이미 분류해 두었다(*"Kafka/Redis operator·KEDA·service mesh"*).
+그 절은 *"경로만 명문화, 구현은 미룸"* 이라고 적었고 — **이 증분이 그 경로를 처음 실제로 켠다.**
+
+#### 실측 핀
+
+| 차트 | 핀 | appVersion | `kubeVersion` | 이미지 |
+|---|---|---|---|---|
+| `keda` | **`2.20.2`** | `2.20.2` | `>=v1.23.0-0` ✅ | `ghcr.io/kedacore/{keda,keda-metrics-apiserver,keda-admission-webhooks}` |
+
+✅ **arm64 3개 전부 확인** — 각 manifest index에 `linux/amd64, linux/arm64, linux/s390x`.
+파드 3개 각 `replicas: 1`, `podAntiAffinity` 없음.
+
+#### 🔴 §2.9 정정 — **cluster Secret을 손댄다**
+
+§2.9 「현행 실물이 이미 준비해 둔 것」이 *"`addons/`만 추가하면 되고 **cluster Secret은 손대지 않는다**"* 라고
+적었다. **그 문장은 baseline addon 전제였다.** 카탈로그는 **옵트인이 곧 라벨**이므로 손댄다.
+
+```yaml
+# clusters/dev/eks-ref-dev-an2-main-01/cluster-secret.yaml 의 labels 에 추가
+addon-keda: "enabled"
+```
+- ApplicationSet generator: `matchLabels: {addon-keda: enabled}` — `environment: dev`가 **아니다.**
+- 🔑 **O(1)은 유지된다** — 새 클러스터도 여전히 Secret 1개이고, 그 안의 **라벨이 하나 늘 뿐**이다.
+  §2.4의 *"팀이 라벨로 옵트인"* 이 실물에서 뜻하는 바가 이것이다.
+- ⚠️ **라벨 값은 문자열이어야 한다** — `enabled: true`가 아니라 `"enabled"`. k8s 라벨 값에 boolean은 없다.
+
+#### 🔴 `APIService` — 이번 증분에서 **유일하게 성격이 다른 리소스**
+
+KEDA는 `v1beta1.external.metrics.k8s.io` **APIService**를 등록한다(렌더 실측 1건).
+
+- ⚠️ 계층 1의 `metrics-server`가 이미 `v1beta1.metrics.k8s.io`를 갖고 있으나 **API 그룹이 달라 충돌하지 않는다.**
+- 🔴 **APIService는 깨지면 그 API 그룹 전체가 죽는다.** 지금은 `external.metrics.k8s.io`를 소비하는 것이
+  없어 무해하지만, **HPA가 그것을 쓰기 시작하면 KEDA 장애 = HPA 장애**다.
+  ⇒ 실제 워크로드가 `ScaledObject`를 쓰기 시작할 때 **가용성 요구를 다시 본다**(현재 `replicas: 1`).
+
+#### AWS 스케일러 — **지금 만들지 않는다** (사용자 결정 2026-08-11)
+
+- in-cluster 트리거(cron · prometheus · kafka)만 쓴다 ⇒ **Pod Identity·IAM 0건.**
+- ⭐ **그래서 이 증분이 계층 2 안에서 닫힌다** — 이 repo의 `.tf`도, 소비 repo의 apply도 없다.
+- ⚠️ SQS·CloudWatch 스케일러 요구가 생기면 `modules/eks-cluster/iam.tf`에 `keda/keda-operator`
+  association을 연다. **가역적이다** — ALBC·external-dns와 같은 패턴이라 새로 발명할 것이 없다.
+
+#### AppProject 델타
+
+| 항목 | 값 |
+|---|---|
+| `sourceRepos` | 🆕 `https://kedacore.github.io/charts` |
+| `clusterResourceWhitelist` | 🆕 **`{group: apiregistration.k8s.io, kind: APIService}`** · `{group: "", kind: Namespace}`(③과 공용) |
+
+ℹ️ 나머지 cluster-scoped(CRD 6 · ClusterRole 4 · ClusterRoleBinding 5 · ValidatingWebhookConfiguration 1)는
+**전부 이미 열려 있다**(ALBC 증분에서). 추가는 위 2건뿐이다.
+
+---
+
+### 2.10.4 📋 세 증분의 **AppProject 총 델타** — 한눈에
+
+`projects/platform.yaml`에 최종적으로 추가되는 것은 **`sourceRepos` 3개 · `clusterResourceWhitelist` 3개**뿐이다.
+
+```yaml
+sourceRepos:
+  + https://argoproj.github.io/argo-helm      # 증분 ② — ArgoCD 자기 관리
+  + https://kyverno.github.io/kyverno/        # 증분 ③
+  + https://kedacore.github.io/charts         # 증분 ④
+
+clusterResourceWhitelist:
+  + { group: "",                       kind: Namespace }    # ③④ 공용 — §2.10.0 판정 ①
+  + { group: kyverno.io,               kind: ClusterPolicy } # ③ — 정책 11개
+  + { group: apiregistration.k8s.io,   kind: APIService }    # ④ — external.metrics
+```
+
+> ### 🔑 **재사용할 판단 — "차트가 크다"와 "whitelist가 커진다"는 다른 질문이다**
+>
+> Kyverno는 cluster-scoped 리소스를 **47개** 만드는데 whitelist 추가는 **1개**다(+공용 Namespace).
+> whitelist는 **kind 단위**이고, 대부분의 차트는 같은 몇 가지 kind(CRD·ClusterRole·CRB·webhook)를
+> 반복해서 쓰기 때문이다.
+> ⇒ **첫 addon이 목록의 대부분을 연다.** 증분 ①이 낸 5종이 이후 세 증분의 거의 전부를 커버했다.
+> 📌 각 증분마다 **렌더해서 세는 절차는 그대로 유지한다** — 값이 작다는 것이 *"안 세도 된다"* 를 뜻하지 않는다.
+> 실제로 이번에도 `APIService`와 `ClusterPolicy` **2건이 그 절차로만 잡혔다.**
 
 ---
 

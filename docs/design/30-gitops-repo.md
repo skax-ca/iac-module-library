@@ -1639,6 +1639,64 @@ ServerSideDiff 는 *우리가 선언하지 않은 필드* 의 변경을 **더 �
 | 4 | 현재 `Synced` 인 앱 + root-app | **무영향** — 애노테이션을 안 건드렸으니 그래야 한다 |
 | 5 | ⚠️ 반증 조건 | 셋 중 **하나라도** `OutOfSync` 로 남으면 그 대상만 `ignoreDifferences` 로 보완하고 **근거를 여기 적는다** |
 
+### 2.10.7 ✅ **apply 판정 — 2/3 성공, 그리고 반증 조건이 실제로 발동했다** (2026-08-11, gitops PR #6 `3a66228`)
+
+| # | 항목 | 결과 |
+|---|---|---|
+| 1 | `kyverno` · `kyverno-policies` | ✅ **`Synced Healthy`** — CRD 11 + ClusterPolicy 11 고착 **해소** |
+| 1' | `argocd` | 🔴 **`OutOfSync` 그대로. 37개 전부.** ⇒ 반증 조건 발동 |
+| 2 | 파드 재시작 | ✅ **0회** — argocd 5개 파드 `startTime` 이 **2026-08-07 그대로**, `restartCount` 전부 0 |
+| 3 | `Secret/argocd-secret` | ✅ data 5키 유지 |
+| 4 | ALBC·Karpenter·NodePool·KEDA·root-app | ✅ **무영향**, 전부 `Synced Healthy` |
+
+#### ⚠️ 운영 사실 — **애노테이션만으로는 재계산되지 않는다. hard refresh 가 필요했다**
+
+머지 후 root-app 이 새 revision(`3a66228`)을 잡고 애노테이션이 세 Application 에 도착했는데도
+셋 다 `OutOfSync` 였다. `argocd.argoproj.io/refresh=hard` 를 넣자 그때 kyverno 둘이 `Synced` 가 됐다
+(`compare_app_state_ms=9620`·`diff_ms=6720`, `comparison-level=3` — SSA dry-run 이 실제로 돈 비용이다).
+🔑 공식 문서의 *"캐시되며 refresh·revision·resourceVersion 변경 때만 재요청"* 이 **compare-option 변경에는
+적용되지 않는다**는 뜻이다. ⇒ **diff 전략을 바꾸는 증분에는 hard refresh 를 판정 절차에 포함한다.**
+
+#### 🔴 세 번째 정정 — **②의 원인은 `helm` 애노테이션이 아니라 ArgoCD 자신의 `tracking-id` 였다**
+
+`argocd app diff argocd --core` 로 **실제 diff 를 처음 열어 봤다.** 37개 리소스의 차이는 **전부 한 줄**이다:
+
+```
+>     argocd.argoproj.io/tracking-id: argocd:/ConfigMap:argocd/argocd-cm
+```
+
+- `meta.helm.sh` 는 diff 에 **0회** 등장한다. ⇒ §2.10.5 ②의 귀인도 **틀렸다**(§2.10.6 이 정정한 2건에 더해 **세 번째**).
+- ⭐ **대조군이 증명한다**: `ClusterPolicy/disallow-host-path` 의 live 에는 tracking-id 가 **있고**
+  (ArgoCD 가 실제로 apply 했으니까), `ConfigMap/argocd-cm` 에는 **없다**(한 번도 sync 된 적이 없으니까).
+
+⇒ **이것은 diff 전략으로 풀 수 있는 문제가 아니다.** tracking-id 는 desired 가 *실제로 선언하는* 필드이고
+ArgoCD 자신이 소유할 필드다. `ServerSideDiff` 는 *선언하지 않은* 필드만 live 로 되돌린다.
+**sync 를 한 번 해야만 사라진다** — 즉 원래 계획된 **2단계(PR-②b)** 가 소유한다.
+
+> ### ⭐ **그런데 이것은 나쁜 소식이 아니라 이 증분이 얻은 가장 값진 결과다**
+>
+> 37개 리소스에서 **유일한 차이가 ArgoCD 자신의 추적 애노테이션**이라는 것은
+> **흡수를 실행해도 실질 변경이 0** 이라는 뜻이다.
+> §2.10.5 는 *"37개 전부 OutOfSync"* 를 위험 신호로 읽었지만, 실제로는 **흡수가 안전하다는
+> 가장 강한 증거**였다. 🔑 **숫자(37)를 읽고 내용을 안 읽으면 정반대로 해석된다.**
+>
+> ⇒ PR-②b 가 할 일이 정확히 특정됐다: **애노테이션 37개 추가, 그 외 0.**
+> `Deployment`·`StatefulSet` 의 **pod template 은 건드리지 않으므로 재시작이 없어야 한다** —
+> §2.10.5 가 *"`Deployment` 4 · `StatefulSet` 1 포함이라 위험하다"* 고 적은 근거가 **완화됐다**.
+
+#### ⇒ 결정 3 정정 — **앱 3개가 아니라 2개다**
+
+`bootstrap/argocd-app.yaml` 의 `ServerSideDiff=true` 는 **철회한다.**
+- 그 파일에 적은 근거(*"helm 이 소유한 애노테이션 때문"*)가 **반증됐고**, 실제로 아무것도 고치지 않았다.
+- ⛔ *"나중에 automated 를 켤 때 diff 와 apply 계산이 일치하면 좋을 것"* 은 **추측이다.** 남기면
+  다음 사람에게 *"이게 왜 있지"* 로 남는다 — §2.10.6 이 스스로 경계한 바로 그 형태다.
+  필요해지면 **그때 근거와 함께** 넣는다.
+- ✅ **유지**: `addons/baseline/kyverno.yaml` 의 두 ApplicationSet — 실증됐다.
+
+🔑 **이 증분이 남긴 진짜 교훈**: §2.10.5 의 원인 귀인 **3건이 전부 틀렸다.** 셋 다 `managedFields` 만 보고
+**실제 diff 를 한 번도 열지 않은** 데서 나왔다. `argocd app diff --core` 는 로그인 없이 kubeconfig 로
+도는데도 쓰이지 않았다. ⇒ **`OutOfSync` 를 다룰 때는 원인을 추론하기 전에 diff 를 먼저 출력한다.**
+
 ---
 
 ## 3. 테넌시 — AppProject (계층 3으로의 seam, 플랫폼 소유)

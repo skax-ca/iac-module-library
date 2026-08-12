@@ -126,7 +126,7 @@ mock_provider "aws" {
 # managed_node_groups는 위 사유로 비운다(NG 계약은 변수 validation으로만 검증한다).
 variables {
   naming = {
-    workload    = "acme"
+    workload    = "demo"
     env         = "prd"
     region_code = "an2"
   }
@@ -152,25 +152,25 @@ run "naming_and_name_tag" {
   command = plan
 
   assert {
-    condition     = output.cluster_name == "eks-acme-prd-an2-main-01"
+    condition     = output.cluster_name == "eks-demo-prd-an2-main-01"
     error_message = "cluster_name이 eks-<workload>-<env>-<region_code>-<purpose>-<serial> 포맷으로 합성되어야 한다."
   }
 
   # ⚠️ Name 태그 assertion은 **특정 리소스 주소를 직접 타겟**한다. 전체 IAM 순회를 하면
   #    Karpenter 서브모듈이 만드는 위임 role(upstream 기본 네이밍)이 false-fail로 잡힌다.
   assert {
-    condition     = aws_iam_role.ebs_csi[0].tags["Name"] == "iamr-acme-prd-an2-ebs-csi"
+    condition     = aws_iam_role.ebs_csi[0].tags["Name"] == "iamr-demo-prd-an2-ebs-csi"
     error_message = "모듈이 직접 저작하는 role은 카탈로그 약어(iamr)를 따라야 한다."
   }
 
   assert {
-    condition     = aws_iam_role.ebs_csi[0].name == "iamr-acme-prd-an2-ebs-csi"
+    condition     = aws_iam_role.ebs_csi[0].name == "iamr-demo-prd-an2-ebs-csi"
     error_message = "IAM role은 이름 자체가 식별자다 — name 인자도 카탈로그를 따라야 한다."
   }
 
   # Karpenter discovery 태그는 모듈이 조합해 돌려준다. 소비자는 이 값을 VPC 서브넷에도 넣는다.
   assert {
-    condition     = output.karpenter_discovery_tag["karpenter.sh/discovery"] == "eks-acme-prd-an2-main-01"
+    condition     = output.karpenter_discovery_tag["karpenter.sh/discovery"] == "eks-demo-prd-an2-main-01"
     error_message = "discovery 태그 값은 클러스터 이름과 같아야 한다(subnet·SG 양쪽이 같은 값을 써야 selector가 맞는다)."
   }
 
@@ -179,7 +179,7 @@ run "naming_and_name_tag" {
   #    GitOps 의 EC2NodeClass.spec.role 이 없는 role 을 가리킨다.
   # ⛔ 음성 판정: 무작위 접미사가 붙지 않을 것 — 여기서 통과하면 재구축이 견딘다.
   assert {
-    condition     = output.karpenter_node_iam_role_name == "iamr-acme-prd-an2-karpenter-node"
+    condition     = output.karpenter_node_iam_role_name == "iamr-demo-prd-an2-karpenter-node"
     error_message = "Karpenter 노드 IAM role 이름은 결정적이어야 한다 — GitOps 가 값으로 참조하므로 재구축마다 바뀌면 안 된다."
   }
 }
@@ -342,7 +342,7 @@ run "deletion_protection_allowed_when_enabled" {
 
   # 정상 조합은 통과해야 한다 — 위 거부가 과하게 넓지 않은지 확인하는 음성 테스트다.
   assert {
-    condition     = output.cluster_name == "eks-acme-prd-an2-main-01"
+    condition     = output.cluster_name == "eks-demo-prd-an2-main-01"
     error_message = "deletion_protection = true는 정상 형상에서 계획을 막지 않아야 한다."
   }
 }

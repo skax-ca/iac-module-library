@@ -10,7 +10,7 @@ variable "naming" {
   description = <<-EOT
     Name 태그 합성용 네이밍 요소. 모듈이 리소스 타입별 약어를 조합하므로
     소비자는 약어를 직접 타이핑하지 않는다.
-    예: {workload = "acme", env = "dev", region_code = "an2"} → vpc-acme-dev-an2-main
+    예: {workload = "demo", env = "dev", region_code = "an2"} → vpc-demo-dev-an2-main
   EOT
   type = object({
     workload    = string

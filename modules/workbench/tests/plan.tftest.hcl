@@ -28,7 +28,7 @@ mock_provider "aws" {
 
 variables {
   naming = {
-    workload    = "acme"
+    workload    = "demo"
     env         = "prd"
     region_code = "an2"
   }
@@ -46,23 +46,23 @@ run "naming_contract" {
   command = plan
 
   assert {
-    condition     = aws_instance.this[0].tags["Name"] == "ec2-acme-prd-an2-workbench-01"
+    condition     = aws_instance.this[0].tags["Name"] == "ec2-demo-prd-an2-workbench-01"
     error_message = "인스턴스 Name 태그가 규약과 다르다: ${aws_instance.this[0].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_security_group.this[0].tags["Name"] == "sgr-acme-prd-an2-workbench-01"
+    condition     = aws_security_group.this[0].tags["Name"] == "sgr-demo-prd-an2-workbench-01"
     error_message = "SG Name 태그가 규약과 다르다: ${aws_security_group.this[0].tags["Name"]}"
   }
 
   assert {
     # SG는 이름이 곧 식별자인 제약 리소스다 — 태그와 name 인자가 함께 맞아야 한다.
-    condition     = aws_security_group.this[0].name == "sgr-acme-prd-an2-workbench-01"
+    condition     = aws_security_group.this[0].name == "sgr-demo-prd-an2-workbench-01"
     error_message = "SG name 인자가 Name 태그와 다르다: ${aws_security_group.this[0].name}"
   }
 
   assert {
-    condition     = aws_iam_role.this[0].name == "iamr-acme-prd-an2-workbench-01"
+    condition     = aws_iam_role.this[0].name == "iamr-demo-prd-an2-workbench-01"
     error_message = "IAM role 이름이 규약과 다르다: ${aws_iam_role.this[0].name}"
   }
 
@@ -74,7 +74,7 @@ run "naming_contract" {
 
   assert {
     # 볼륨 태그는 root_block_device.tags가 아니라 volume_tags로 붙인다(SCP·ABAC 대응, main.tf 주석).
-    condition     = aws_instance.this[0].volume_tags["Name"] == "vol-acme-prd-an2-workbench-01"
+    condition     = aws_instance.this[0].volume_tags["Name"] == "vol-demo-prd-an2-workbench-01"
     error_message = "볼륨 Name 태그가 규약과 다르다: ${aws_instance.this[0].volume_tags["Name"]}"
   }
 }
@@ -186,8 +186,8 @@ run "eks_integration_creates_scoped_policy" {
   command = plan
 
   variables {
-    eks_cluster_name = "eks-acme-prd-an2-main-01"
-    eks_cluster_arn  = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01"
+    eks_cluster_name = "eks-demo-prd-an2-main-01"
+    eks_cluster_arn  = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-demo-prd-an2-main-01"
     kubectl_version  = "v1.35.7"
   }
 
@@ -198,14 +198,14 @@ run "eks_integration_creates_scoped_policy" {
 
   assert {
     # 종속 객체 이름은 부모(role) 이름을 상속한다.
-    condition     = aws_iam_role_policy.eks_describe[0].name == "iamr-acme-prd-an2-workbench-01-eks-policy"
+    condition     = aws_iam_role_policy.eks_describe[0].name == "iamr-demo-prd-an2-workbench-01-eks-policy"
     error_message = "인라인 정책 이름이 부모 role 이름을 상속하지 않았다: ${aws_iam_role_policy.eks_describe[0].name}"
   }
 
   assert {
     # 권한이 그 클러스터 ARN으로 한정되는 것이 1층의 핵심이다.
     #    Resource = "*"였다면 workbench가 계정의 모든 클러스터 kubeconfig를 만들 수 있다.
-    condition     = strcontains(aws_iam_role_policy.eks_describe[0].policy, "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01")
+    condition     = strcontains(aws_iam_role_policy.eks_describe[0].policy, "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-demo-prd-an2-main-01")
     error_message = "인라인 정책이 클러스터 ARN으로 한정되지 않았다."
   }
 
@@ -236,7 +236,7 @@ run "reject_cluster_name_without_arn" {
   command = plan
 
   variables {
-    eks_cluster_name = "eks-acme-prd-an2-main-01"
+    eks_cluster_name = "eks-demo-prd-an2-main-01"
     # eks_cluster_arn 없음 → kubeconfig는 만들어지는데 권한이 없다
   }
 
@@ -247,7 +247,7 @@ run "reject_cluster_arn_without_name" {
   command = plan
 
   variables {
-    eks_cluster_arn = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01"
+    eks_cluster_arn = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-demo-prd-an2-main-01"
     # eks_cluster_name 없음 → 권한은 있는데 kubeconfig가 없다
   }
 
@@ -263,7 +263,7 @@ run "guard_does_not_block_kill_switch" {
 
   variables {
     workbench_enabled = false
-    eks_cluster_name  = "eks-acme-prd-an2-main-01"
+    eks_cluster_name  = "eks-demo-prd-an2-main-01"
     # ARN 없음 — 켜져 있었다면 위 T-7이 거부했을 조합이다
   }
 
@@ -371,8 +371,8 @@ run "kubeconfig_is_readonly_and_inherited" {
   command = plan
 
   variables {
-    eks_cluster_name = "eks-acme-prd-an2-main-01"
-    eks_cluster_arn  = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01"
+    eks_cluster_name = "eks-demo-prd-an2-main-01"
+    eks_cluster_arn  = "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-demo-prd-an2-main-01"
     kubectl_version  = "v1.35.7"
   }
 

@@ -1,8 +1,8 @@
-# 계약 검증 — 설계 docs/design/20-eks-module.md §4 Task 20.7
+# eks-cluster 모듈 계약 검증
 #
-# ⚠️ 이 파일이 계약의 **유일한 검출 지점**이다. 교차변수 validation은 validate가 아니라
-#    plan 시점에 평가되므로(vpc 모듈에서 실측), examples를 validate까지만 도는 규약으로는
-#    D-EKS-PROTECT의 파기 차단이나 core addon 보호가 전혀 잡히지 않는다.
+# ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 validate가 아니라 plan 시점에
+#    평가되므로, examples를 validate까지만 도는 규약으로는 삭제 보호의 파기 차단이나
+#    core addon 보호가 전혀 잡히지 않는다.
 #
 # ⚠️ **facade 모듈의 관측 한계**: 이 모듈은 계산 결과를 upstream 모듈의 **입력**으로 넘기는데
 #    tofu test는 하위 모듈에 들어간 값을 볼 수 없다. 그래서 검증은 셋 중 하나에 건다 —
@@ -10,9 +10,9 @@
 #      ② 이 모듈의 출력(effective_addon_names·cluster_name·*_iam_role_arn)
 #      ③ validation 거부(expect_failures)
 #    upstream에 넘어간 addon의 configuration_values 같은 내부는 **여기서 볼 수 없다** —
-#    그 층은 라이브 apply에서 확인한다(설계 Task 20.8의 apply 미검증 표 대상).
+#    그 층은 라이브 apply에서 확인한다.
 #
-# ⚠️ **cluster_security_group_additional_rules(D-WORKBENCH-SEAM 3층)도 그 한계에 걸린다**(2026-08-05).
+# ⚠️ cluster_security_group_additional_rules(EKS 접근 3층)도 그 한계에 걸린다.
 #    값이 upstream의 aws_security_group_rule로 흘러가므로 여기서 규칙 내용을 볼 수 없다.
 #    ⛔ 억지로 통과하는 assertion을 만들지 않는다 — workbench 모듈에서 세운 기준과 같다
 #       ("통과하는 가짜 테스트는 없는 것보다 나쁘다", modules/workbench/tests 참조).
@@ -22,7 +22,7 @@
 # provider 모킹: command = plan도 data source를 실제 조회한다. 이 repo는 배포하지 않아 CI에
 # 자격증명이 없으므로 모킹 없이는 plan이 죽는다.
 
-# ⚠️ **override_module은 이 모듈에 쓸 수 없다**(2026-08-03 실측).
+# ⚠️ **override_module은 이 모듈에 쓸 수 없다**.
 #    module.eks를 덮으면 그 안의 중첩 모듈(eks_managed_node_group)이 **입력 표현식에서** 부모의
 #    리소스(time_sleep.this[0])를 참조하는데, override가 부모 리소스를 없애 빈 인덱스로 죽는다.
 #    중첩 모듈까지 함께 덮어도 마찬가지다 — override는 모듈 실행만 대체하고 **입력 표현식은 그대로
@@ -33,7 +33,7 @@
 #   그건 우리 계약이 아니라 upstream 내부다.
 #   ⚠️ 잃는 것: NG 경로의 plan-time 회귀 가드. NG 이름 길이 결함(iam_role_name)은 이 파일 첫 실행이
 #      잡아 main.tf에서 고쳤으나, 그 수정을 **영구히 지키는 테스트는 여기 없다**.
-#      NG 형상 검증은 examples/eks-cluster-enterprise 의 라이브 apply가 담당한다(Task 20.8 미검증 표).
+#      NG 형상 검증은 examples/eks-cluster-enterprise 의 라이브 apply가 담당한다.
 
 mock_provider "aws" {
   # custom networking의 AZ 매핑을 검증하려면 서브넷의 availability_zone이 known이어야 한다.
@@ -146,7 +146,7 @@ variables {
   managed_node_groups = {}
 }
 
-# ── AC1 · AC2: 네이밍 규약 (02 §1.4) ─────────────────────────────────────────
+# ── AC1 · AC2: 네이밍 규약  ─────────────────────────────────────────
 
 run "naming_and_name_tag" {
   command = plan
@@ -157,7 +157,7 @@ run "naming_and_name_tag" {
   }
 
   # ⚠️ Name 태그 assertion은 **특정 리소스 주소를 직접 타겟**한다. 전체 IAM 순회를 하면
-  #    Karpenter 서브모듈이 만드는 위임 role(upstream 기본 네이밍)이 false-fail로 잡힌다(§2.6 이원화).
+  #    Karpenter 서브모듈이 만드는 위임 role(upstream 기본 네이밍)이 false-fail로 잡힌다.
   assert {
     condition     = aws_iam_role.ebs_csi[0].tags["Name"] == "iamr-acme-prd-an2-ebs-csi"
     error_message = "모듈이 직접 저작하는 role은 카탈로그 약어(iamr)를 따라야 한다."
@@ -174,9 +174,9 @@ run "naming_and_name_tag" {
     error_message = "discovery 태그 값은 클러스터 이름과 같아야 한다(subnet·SG 양쪽이 같은 값을 써야 selector가 맞는다)."
   }
 
-  # 🔴 T-6 (D-KARPENTER-NODE-ROLE-NAME) — 이 이름은 **계층 2(GitOps)가 참조하는 계약**이다.
+  # ⚠️ 이 이름은 GitOps 계층이 참조하는 계약이다.
   #    upstream 기본(`Karpenter-<cluster>-<무작위>`)이면 클러스터를 다시 세울 때마다 값이 바뀌어
-  #    GitOps 의 EC2NodeClass.spec.role 이 없는 role 을 가리킨다(2026-08-12 실측).
+  #    GitOps 의 EC2NodeClass.spec.role 이 없는 role 을 가리킨다.
   # ⛔ 음성 판정: 무작위 접미사가 붙지 않을 것 — 여기서 통과하면 재구축이 견딘다.
   assert {
     condition     = output.karpenter_node_iam_role_name == "iamr-acme-prd-an2-karpenter-node"
@@ -184,7 +184,7 @@ run "naming_and_name_tag" {
   }
 }
 
-# ── AC3: addon baseline 상속 (§2.6-1) ────────────────────────────────────────
+# ── AC3: addon baseline 상속  ────────────────────────────────────────
 
 run "addon_baseline_inherited" {
   command = plan
@@ -225,7 +225,7 @@ run "addon_increment_does_not_replace_baseline" {
   }
 }
 
-# ── AC4: opt-out (§2.6-2) — 제거는 명시로만 ──────────────────────────────────
+# ── AC4: opt-out  — 제거는 명시로만 ──────────────────────────────────
 
 run "addon_opt_out_removes_addon_and_its_role" {
   command = plan
@@ -242,7 +242,7 @@ run "addon_opt_out_removes_addon_and_its_role" {
     error_message = "optional addon 2종을 opt-out하면 core 4종만 남아야 한다."
   }
 
-  # ebs-csi를 빼면 그 role도 만들지 않는다 — 쓰지 않는 role을 남기지 않는다(§2.6-4).
+  # ebs-csi를 빼면 그 role도 만들지 않는다 — 쓰지 않는 role을 남기지 않는다.
   assert {
     condition     = length(aws_iam_role.ebs_csi) == 0
     error_message = "aws-ebs-csi-driver를 opt-out하면 EBS CSI role도 생성하지 않아야 한다."
@@ -250,11 +250,11 @@ run "addon_opt_out_removes_addon_and_its_role" {
 
   assert {
     condition     = output.ebs_csi_iam_role_arn == null
-    error_message = "opt-out 시 출력은 에러가 아니라 null이어야 한다(01 §4 출력 계약)."
+    error_message = "opt-out 시 출력은 에러가 아니라 null이어야 한다."
   }
 }
 
-# ── AC5: core addon 보호 (§2.6-2) ────────────────────────────────────────────
+# ── AC5: core addon 보호  ────────────────────────────────────────────
 
 run "core_addon_cannot_be_disabled" {
   command = plan
@@ -282,7 +282,7 @@ run "core_addon_coredns_cannot_be_disabled" {
   expect_failures = [var.cluster_addons]
 }
 
-# ── AC6 · AC7: kill switch (D-EKS-ENABLED) ───────────────────────────────────
+# ── AC6 · AC7: kill switch  ───────────────────────────────────
 
 run "kill_switch_destroys_everything" {
   command = plan
@@ -317,7 +317,7 @@ run "kill_switch_destroys_everything" {
   }
 }
 
-# ── AC8: 삭제 보호 (D-EKS-PROTECT) ───────────────────────────────────────────
+# ── AC8: 삭제 보호  ───────────────────────────────────────────
 
 run "deletion_protection_blocks_kill_switch" {
   command = plan
@@ -347,7 +347,7 @@ run "deletion_protection_allowed_when_enabled" {
   }
 }
 
-# ── AC9: custom networking 전제 (§2.5) ───────────────────────────────────────
+# ── AC9: custom networking 전제  ───────────────────────────────────────
 
 run "custom_networking_requires_pod_subnets" {
   command = plan
@@ -397,7 +397,7 @@ run "karpenter_disabled_yields_null_outputs" {
   }
 }
 
-# ── AC11: 컨트롤러 IAM 위임 (§2.6a) ──────────────────────────────────────────
+# ── AC11: 컨트롤러 IAM 위임  ──────────────────────────────────────────
 
 run "controller_iam_is_opt_in" {
   command = plan
@@ -420,9 +420,8 @@ run "controller_iam_opt_in_creates_roles" {
   variables {
     enable_alb_controller_iam = true
     enable_external_dns_iam   = true
-    # ⚠️ zone ARN은 선택 사항이 아니다 — 비우면 D-EXTDNS-ZONE 가드가 거부한다.
-    #    이 run은 v0.1.0까지 zone ARN 없이 통과했는데, 그것이 곧 2026-08-04 apply를
-    #    죽인 형상이었다(설계 §4.1 ❌ 상자). 가드가 생기며 테스트도 실효 형상으로 바뀐다.
+    # ⚠️ zone ARN은 선택 사항이 아니다 — 비우면 아래 가드가 거부한다.
+    #    빈 목록으로도 plan은 통과하던 시절이 있었고, 그 형상이 apply를 죽였다.
     external_dns_hosted_zone_arns = ["arn:aws:route53:::hostedzone/Z0123456789ABCDEFGHIJ"]
   }
 
@@ -437,7 +436,7 @@ run "controller_iam_opt_in_creates_roles" {
   }
 }
 
-# ── D-EXTDNS-ZONE: external-dns zone ARN 전제 (§5.1-8) ───────────────────────
+# ── external-dns zone ARN 전제 ──────────────────────────────────────────────────
 
 run "external_dns_iam_requires_hosted_zone_arns" {
   command = plan
@@ -448,8 +447,8 @@ run "external_dns_iam_requires_hosted_zone_arns" {
   }
 
   # route53:ChangeResourceRecordSets는 리소스 수준 권한을 요구해 Resource = "*" 정책을
-  # AWS가 400으로 거부한다. 2026-08-04 apply가 실제로 여기서 죽었고, 그때는 plan이 통과했다.
-  # 🔑 mock provider는 정책을 AWS에 제출하지 않으므로 assert로는 잡을 수 없다 —
+  # AWS가 400으로 거부한다. apply가 실제로 여기서 죽은 적이 있고, 그때 plan은 통과했다.
+  # mock provider는 정책을 AWS에 제출하지 않으므로 assert로는 잡을 수 없다 —
   #    조합 자체를 계약에서 배제하는 것이 유일한 plan-time 검출 경로다.
   expect_failures = [var.external_dns_hosted_zone_arns]
 }
@@ -478,9 +477,9 @@ run "external_dns_zone_guard_does_not_block_kill_switch" {
     external_dns_hosted_zone_arns = []
   }
 
-  # 🔑 파기 경로는 막지 않는다. iam.tf의 create = local.enabled && var.enable_external_dns_iam
+  # 파기 경로는 막지 않는다. iam.tf의 create = local.enabled && var.enable_external_dns_iam
   # 이라 kill switch가 꺼진 상태에서는 IAM 정책이 애초에 만들어지지 않는다 —
-  # 여기서 거부하면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다(D-EKS-ENABLED).
+  # 여기서 거부하면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다.
   assert {
     condition     = output.external_dns_iam_role_arn == null
     error_message = "cluster_enabled = false면 external-dns role이 없어야 하고, 가드가 그 계획을 막아서도 안 된다."
@@ -519,13 +518,13 @@ run "invalid_capacity_type_is_rejected" {
   expect_failures = [var.managed_node_groups]
 }
 
-# D-NODE-ARCH — graviton 전환에서 가장 흔한 오타를 plan 시점에 잡는지 확인한다.
+# graviton 전환에서 가장 흔한 오타를 plan 시점에 잡는지 확인한다.
 # ⚠️ 이 검증이 없으면 클러스터가 다 만들어진 뒤 노드그룹 단계에서 AWS API 가 거부한다(시간 손실 + 부분 생성).
 #
 # ℹ️ **정상 경로(arm 조합이 plan 을 통과한다)는 여기서 잠그지 않는다.** 이 파일 머리말의 결정대로
 #    NG 를 실제로 plan 하면 중첩 모듈이 깨어나 upstream 내부 computed 속성을 전부 모킹해야 한다
 #    (실측: mock 이 launch_template.id 에 랜덤 문자열을 넣어 provider 의 'lt-' 형식 검증에서 죽는다).
-#    그건 우리 계약이 아니다 — arm 형상 검증은 라이브 apply 가 담당한다(Task 20.8 미검증 표).
+#    그건 우리 계약이 아니다 — arm 형상 검증은 라이브 apply 가 담당한다.
 #    expect_failures 는 변수 validation 단계에서 끝나 중첩 모듈을 깨우지 않으므로 이 run 은 성립한다.
 run "invalid_ami_type_is_rejected" {
   command = plan

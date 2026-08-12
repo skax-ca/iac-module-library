@@ -1,11 +1,13 @@
-# 출력 계약 — 설계 docs/design/20-eks-module.md §3.2
+# 출력 계약
 #
-# 규약(01 §4):
+# 계약: docs/05-modules.md
+#
+# 규약:
 #   · 소비자가 의존하는 출력 이름은 **메이저 버전 내에서 안정**하다. 이름 변경은 메이저다.
 #   · kill switch·opt-out 시 **null**을 돌려준다(에러가 아니라). cluster_enabled = false 인 루트에서도
 #     `tofu output`이 성립해야 소비자가 조건 분기를 짜지 않는다.
 #
-# ⚠️ **upstream 출력의 fallback이 일관되지 않다**(Task 20.1 확인, v21.24.1):
+# ⚠️ upstream 출력의 fallback이 일관되지 않다:
 #    대부분 try(…, null) 인데 **cluster_name·cluster_id 만 try(…, "")** 로 빈 문자열을 돌려준다.
 #    여기서 null로 정규화하는 이유는 그것이 facade의 일이기 때문이다 — 정규화하지 않으면 소비자가
 #    `X == null`이 아니라 `X == ""`를 알아야 하고, 그건 upstream 구현 디테일이 우리 계약으로 새는 것이다.
@@ -65,8 +67,8 @@ output "cluster_security_group_id" {
 
     ⚠️ **EKS 서비스가 자동 생성하는 primary cluster SG 와 다르다**(그쪽은 upstream 출력
     `cluster_primary_security_group_id` 이며 이 모듈은 노출하지 않는다).
-    🔑 2026-08-05까지 이 설명이 *"EKS가 만든 클러스터 보안 그룹"* 이라고 적고 있었다 — 값과 다른 SG 를
-       가리키는 서술이었고, workbench 규칙을 어디에 붙일지 판단할 때 정확히 오도하는 지점이었다(40 §5.2).
+    ⛔ 이것을 "EKS가 만든 클러스터 보안 그룹"이라고 부르지 말 것 — primary SG 와 구분되지 않아
+       workbench 규칙을 어디에 붙일지 판단할 때 오도한다.
   EOT
   value       = module.eks.cluster_security_group_id
 }
@@ -122,7 +124,7 @@ output "karpenter_discovery_tag" {
   }
 }
 
-# ── addon (§2.6) ─────────────────────────────────────────────────────────────
+# ── addon  ─────────────────────────────────────────────────────────────
 
 output "effective_addon_names" {
   description = <<-EOT
@@ -138,7 +140,7 @@ output "effective_addon_names" {
   value       = local.enabled ? sort(keys(local.addons_final)) : []
 }
 
-# ── 컨트롤러 IAM (§2.6 / §2.6a) ──────────────────────────────────────────────
+# ── 컨트롤러 IAM ─────────────────────────────────────────────────────────────
 
 output "ebs_csi_iam_role_arn" {
   description = "EBS CSI Driver의 Pod Identity role ARN. aws-ebs-csi-driver addon을 opt-out하면 null이다."

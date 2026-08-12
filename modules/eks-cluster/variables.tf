@@ -392,7 +392,7 @@ variable "external_dns_hosted_zone_arns" {
     # AWS는 apply 시점에 400을 내지만,
     # 그 오류는 우리 변수 이름으로 해법을 알려주지 않는다 — plan에서 몇 초 만에 잡는다.
     # ⚠️ cluster_enabled 게이트가 필수다: 파기 경로(kill switch)에서는 external-dns IAM이
-    #    애초에 생성되지 않으므로(iam.tf의 create = local.enabled &&...) 막을 이유가 없고,
+    #    애초에 생성되지 않으므로(iam.tf의 create = local.enabled && ...) 막을 이유가 없고,
     #    막으면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다.
     #    pod_subnet_ids 가드가 같은 이유로 같은 형태를 쓴다.
     condition     = !(var.enable_external_dns_iam && var.cluster_enabled) || length(var.external_dns_hosted_zone_arns) > 0

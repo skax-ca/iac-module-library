@@ -199,7 +199,7 @@ variable "krew_plugins" {
     krew 로 설치할 플러그인 목록. `krew_version` 이 null 이면 무시된다.
 
     기본값은 이 팀이 실제로 쓰는 세트다(전부 krew-index 등재 확인):
-      ctx(컨텍스트 전환) · ns(네임스페이스 전환) · neat(출력에서 관리 필드 제거)·
+      ctx(컨텍스트 전환) · ns(네임스페이스 전환) · neat(출력에서 관리 필드 제거) ·
       rbac-tool(권한 조회) · view-secret(Secret 복호화 조회) · whoami(현재 신원)
 
     ⚠️ **닫힌 열거가 아니다** — 고객사가 다른 세트를 원하면 이 변수로 바꾼다.

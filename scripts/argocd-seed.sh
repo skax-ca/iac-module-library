@@ -211,8 +211,8 @@ apply_manifest() {
   printf '     출처: %s\n' "${file#"$GITOPS_REPO_DIR"/}"
   if (( DRY_RUN )); then
     # ⚠️ dry-run 에서는 **kubectl 을 아예 부르지 않는다.** 실측 2026-08-07 (VPC 밖에서):
-    #      ① `--dry-run=client`        → `failed to download openapi... i/o timeout`
-    #      ② `--dry-run=client --validate=false` → `unable to recognize... /api i/o timeout`
+    #      ① `--dry-run=client`        → `failed to download openapi ... i/o timeout`
+    #      ② `--dry-run=client --validate=false` → `unable to recognize ... /api i/o timeout`
     #    ②가 핵심이다 — AppProject·Application 은 **CRD** 라 kubectl 이 RESTMapping 을 풀려면
     #    discovery API(`/api`)를 쳐야 한다. 검증을 꺼도 그 호출은 남는다.
     #    ⇒ **ArgoCD CR 은 클라이언트 dry-run 으로 오프라인 검증이 불가능하다.**
@@ -230,7 +230,7 @@ apply_manifest() {
   ok "$label 적용됨"
 }
 
-# ⚠️ `want 3 && apply_manifest...` 로 쓰지 않는다.
+# ⚠️ `want 3 && apply_manifest ...` 로 쓰지 않는다.
 #    실측(bash 3.2/5.x): `set -e` 는 && 리스트의 앞 명령 실패를 면제하므로 **조기 종료는 없다.**
 #    문제는 다른 데 있다 — 그런 줄이 **마지막 문장이면 스크립트 종료 코드가 1** 이 된다.
 #    즉 `--to 4` 로 정상 실행한 seed 가 호출자(CI·wrapper)에게 **실패로 보인다.**

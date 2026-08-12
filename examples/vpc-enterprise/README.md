@@ -1,6 +1,6 @@
 # examples/vpc-enterprise — 엔터프라이즈 프리셋
 
-설계 D6~D9의 판단을 **그대로 옮긴 9그룹 구성**이다. `examples/vpc`(minimal)가 계약의 형태를 보인다면,
+서브넷 그룹 설계를 **그대로 옮긴 9그룹 구성**이다. 최소 예제가 계약의 형태를 보인다면,
 이 예제는 **고객사 착수 템플릿**이다 — 온프레미스 연동, 용도별 대역 분리, EKS custom networking,
 TGW attachment 전용 서브넷까지 들어 있다.
 
@@ -29,23 +29,23 @@ primary를 소형으로 최소화하고 워크로드는 secondary에 배치한�
 | `pub-uniq` | public | 2 (a·c) | /24×2 | `elb` | IGW·NAT 호스팅, 인터넷 대면 LB |
 | `elb-uniq` | isolated | 2 (a·c) | /24×2 | `internal-elb` | 온프레미스 방화벽 오픈 단위 |
 | `vm-uniq` | private | 2 (a·c) | /20×2 | — | VM 워크로드 |
-| `node-uniq` | private | 2 (a·c) | /24×2 | — | **EKS 노드**(D9) — node-SNAT 소스 |
-| `pod-dup` | isolated | 2 (a·c) | /18×2 | — | **EKS Pod 전용**(D9, ENIConfig) |
+| `node-uniq` | private | 2 (a·c) | /24×2 | — | **EKS 노드** — node-SNAT 소스 |
+| `pod-dup` | isolated | 2 (a·c) | /18×2 | — | **EKS Pod 전용** |
 | `db-uniq` | isolated | 2 (a·c) | /26×2 | — | RDS 등 관계형 |
-| `data-uniq` | isolated | **3 (a·c·b)** | /24×3 | — | MSK·OpenSearch·Redis (3AZ quorum, D8) |
+| `data-uniq` | isolated | **3 (a·c·b)** | /24×3 | — | MSK·OpenSearch·Redis (3AZ quorum) |
 | `ep-uniq` | isolated | 2 (a·c) | /27×2 | — | VPC interface endpoint ENI |
-| `tgw-uniq` | isolated | **3 (a·c·b)** | /28×3 | — | TGW attachment 전용(D6 커버리지) |
+| `tgw-uniq` | isolated | **3 (a·c·b)** | /28×3 | — | TGW attachment 전용 |
 
 - 2AZ 그룹이 모두 a·c에 몰리는 것은 **의도된 결과**다 — b존은 3AZ 그룹(`data`·`tgw`) 전용이다.
 - CIDR는 전부 `cidrsubnet()` 파생이다(`main.tf`의 locals). 계산의 소유가 **모듈이 아니라 소비자**이므로
-  (D2) 소비 프로젝트는 이 locals를 복사해 자기 대역에 맞게 고친다.
+   소비 프로젝트는 이 locals를 복사해 자기 대역에 맞게 고친다.
 
 ## 이 구성이 만들지 **않는** 것
 
 | 없는 것 | 왜 | 어디 소관 |
 |---------|-----|-----------|
-| TGW·attachment | 공유 리소스 | foundation(`03 §4`) — 서브넷 그룹만 수용한다 |
-| 온프레미스 대역 라우트 | 운영 라우트는 churn이 크다 | 소비 프로젝트가 `outputs.tf`의 앵커에 `aws_route`로 얹는다(D3) |
+| TGW·attachment | 공유 리소스 | foundation — 서브넷 그룹만 수용한다 |
+| 온프레미스 대역 라우트 | 운영 라우트는 churn이 크다 | 소비 프로젝트가 `outputs.tf`의 앵커에 `aws_route`로 얹는다 |
 | prefix list | 공유 리소스 | foundation — 네이밍으로 data source 조회 |
 | KMS 키 | 보안 거버넌스 대상 | foundation. `flow_logs_kms_key_id`로 ARN 주입 |
 

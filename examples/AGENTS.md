@@ -1,4 +1,4 @@
-<!-- Parent: ../AGENTS.md -->
+<!-- Parent:../AGENTS.md -->
 <!-- Generated: 2026-07-29 | Updated: 2026-08-03 -->
 
 # examples

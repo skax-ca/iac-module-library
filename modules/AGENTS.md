@@ -11,10 +11,8 @@
 source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 ```
 
-**현재 비어 있다.** PoC 모듈(vpc·eks-cluster·workbench) 이식이 다음 작업이다(D-OSS-STACK §6-2).
-
 ## Key Files
-아직 없음. 모듈 하나의 표준 구성:
+모듈 하나의 표준 구성:
 
 | File | Description |
 |------|-------------|

@@ -1,5 +1,5 @@
 # 출력 계약이 실제로 소비되는지 보이는 곳(examples/AGENTS.md).
-# 9그룹 구성에서 map 출력이 왜 고정 리스트보다 나은지가 여기서 드러난다(D5) —
+# 9그룹 구성에서 map 출력이 왜 고정 리스트보다 나은지가 여기서 드러난다 —
 # private_subnet_ids 같은 타입 고정 출력으로는 elb/pod/db/data/ep/tgw를 구분할 수 없다.
 
 output "vpc_id" {
@@ -17,7 +17,7 @@ output "subnet_ids_by_group" {
   value       = module.vpc.subnet_ids_by_group
 }
 
-# 하류 EKS 모듈이 실제로 받는 형태 — 노드와 Pod 서브넷이 분리돼 넘어간다(D9).
+# 하류 EKS 모듈이 실제로 받는 형태 — 노드와 Pod 서브넷이 분리돼 넘어간다.
 output "eks_node_subnet_ids" {
   description = "EKS 노드용 private 서브넷(uniq 대역 — node-SNAT 소스)."
   value       = module.vpc.subnet_ids_by_group["node-uniq"]
@@ -28,7 +28,7 @@ output "eks_pod_subnet_ids" {
   value       = module.vpc.subnet_ids_by_group["pod-dup"]
 }
 
-# D3 — 온프레미스 대역 라우트는 이 앵커들에 소비자가 직접 얹는다.
+# 온프레미스 대역 라우트는 이 앵커들에 소비자가 직접 얹는다.
 # prefix list를 목적지로 쓰면 대역 추가 시 라우트 리소스를 건드리지 않는다.
 output "onprem_route_anchor_ids" {
   description = "온프레미스 연동 운영 라우트를 얹을 RT ID(node·vm·elb 그룹)."

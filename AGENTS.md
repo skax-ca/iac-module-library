@@ -7,7 +7,7 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로 구성한다 —
 구독 라이선스가 고객사 채택의 장벽이 되지 않게 하는 것이 존재 이유다.
 
-**⚙️ 엔진: OpenTofu 단독**(D-ENGINE, 2026-07-29 — `docs/06-conventions.md` §1).
+**⚙️ 엔진: OpenTofu 단독** — `docs/06-conventions.md` §1.
 라이선스는 채택 근거가 **아니다**(컨설팅 사용은 BUSL이 명시적으로 허용). 근거는 **리워크 0 + 조달 마찰 제거**다.
 **두 엔진 동시 지원은 실측 비용을 근거로 기각**했다 — 다시 제안하기 전에 `docs/08-decisions.md`를 읽는다.
 
@@ -48,13 +48,13 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 - **⛔ 설계 우선**: `.tf` 작성 전에 관련 설계가 `docs/`에 있고 승인됐는지 확인한다.
   모듈 계약은 `docs/05-modules.md`, 규약은 `docs/06-conventions.md`가 소유한다.
   없으면 구현을 멈추고 설계부터. 순서: 설계 → 검토 → 구현 → 검증.
-- **⛔ PoC repo를 고치지 않는다**: `terraform-enterprise-poc`는 2026-07-28 동결됐다(D-OSS-STACK).
+- **⛔ PoC repo를 고치지 않는다**: `terraform-enterprise-poc`는 2026-07-28 동결됐다.
   모듈·설계 SSOT는 이 repo다. 양쪽에서 고치면 drift가 생겨 정답 판정이 불가능해진다.
-  ⚠️ D-OSS-STACK의 **엔진 축 근거는 `docs/08-decisions.md`가 교체**했다.
+  ⚠️ 그 결정의 **엔진 축 근거는 `docs/08-decisions.md`가 교체**했다.
   결론(OpenTofu)은 같지만 이유가 다르다 — PoC는 동결이라 그쪽에 표시가 없으니 `08`을 함께 읽는다.
 - **실증 주장 금지**: 이 repo에서 재현하지 않은 것을 "실증됨"으로 쓰지 않는다.
   이 repo에서 "동작한다"의 기준은 `tofu test` + 예제 `validate`까지다.
-- **명령은 `tofu`**: `terraform`이 아니다. hook·문서·CI 전부 `tofu` 기준(D-ENGINE).
+- **명령은 `tofu`**: `terraform`이 아니다. hook·문서·CI 전부 `tofu` 기준이다.
   OpenTofu 고유 기능(`encryption`·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때만 이유를 설계 문서에 남긴다 —
   강제 장치는 없고, 얇은 모듈에는 등장할 일이 없는 것들이다(`docs/06-conventions.md` §1).
 

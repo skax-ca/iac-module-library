@@ -1,5 +1,32 @@
 # Notepad — iac-module-library
 
+## ✅ **2026-08-12 — 약어 카탈로그 SSOT 정비 완료 (검사 게이트 + 등재 규칙 + 중복/패밀리 정리)**
+
+> ### ▶ 무엇을 했나 (커밋 `83ecc29` · `cb62af2` · `23e3f08`)
+>
+> 약어 규칙 평가 요청 → 6개 항목 처리:
+> 1. **`scripts/validate-abbreviations.py` 신설** — 중복·소문자·예시 접두사·카운트 3중 정합·개정 이력 참조.
+>    pre-commit(카탈로그 staged 시만) + CI `docs-ssot` 게이트 + `docs/AGENTS.md` 검사 절.
+> 2. **`dxvgw`/`dxtgw` 제거** — 실은 `aws_vpn_gateway`·`aws_ec2_transit_gateway`의 중복 정의(SSOT 위반).
+>    DX 연결은 `vgw`·`tgw` 상속 노트로 대체. 총계 312→310(4곳 동시 정정).
+> 3. **등재 규칙 신설**(카탈로그 상단) — ①AWS 물리 ID 접두사 우선 ②계열 유지 ③스크립트 강제
+>    ④길이 7자 상한 ⑤등재 시 3곳 동시 수정 ⑥개정 이력. 06 §2에 포인터.
+> 4. **기존 이탈 약어 정리**(문서 끝 표) — `snet`·`sgr`·`ngw`·`nacl`·`kp`·`dh`. 근거 미기록만 명시,
+>    사유 재구성 안 함. `sgr`은 `sg-` name 금지(EC2 API `GroupName` 실증). 마이그레이션은 기각.
+>    🔍 **`wafl` 이탈 목록에서 제외** — web ACL엔 `webacl-` 물리 ID가 없다(ARN 경로일 뿐).
+> 5. **패밀리 통일(FSx·CF SaaS·API GW·MemoryDB) 기각** — 재명명은 breaking, 즉시 이득 없음.
+>    08 `## 네이밍` 섹션에 기록. 등재 규칙 2항은 "기존 다수 계열 유지"로 명시.
+> 6. **종속 객체 예시 확장** — ALB 리스너·규칙 추가(`name` 인자 없음 → `Name` 태그 상속).
+>
+> ### ⏭️ **다음 태스크** (이전 기록과 동일, 변경 없음)
+>
+> 1. **Wave 8** — `iac-platform-gitops` · `iac-reference-infra` README 재작성(문서 zero-base 마지막 Wave).
+> 2. 소비 repo 2개의 D-ID 참조 정리 — Wave 8에서 자연스럽게.
+> 3. **H7 `argocd-seed.sh` preflight** 결함 수정(2 repo).
+> 4. ArgoCD 초기 비밀번호 교체(`07-runbooks.md` 2·3절).
+
+---
+
 ## ✅ **2026-08-12 — 문서 어휘 정리 + 팀 온보딩 문서(`00-team-access.md`) 신설**
 
 > ### ▶ 무엇을 했나 (커밋 `04d51d5` · `cadc941`)

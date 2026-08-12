@@ -1287,6 +1287,55 @@ No changes. Your infrastructure matches the configuration.
 > 🔑 **재사용할 판단**: *"`(known after apply)`로 뜨는 diff는 그 자체가 원인이 아닐 수 있다."*
 > 의존하는 리소스의 diff를 먼저 닫고 다시 본다 — 별개로 조사하기 전에.
 
+### 4.5 ⭐ **D-KARPENTER-NODE-ROLE-NAME — 노드 IAM role 이름은 계약이다** (`eks-cluster-v0.5.0`, 2026-08-12)
+
+**from-zero 재구축이 처음으로 드러낸 결함이다.** 클러스터를 지웠다 다시 세우자
+Karpenter 가 노드를 하나도 만들지 못했다.
+
+```
+AccessDenied: ... is not authorized to perform: iam:PassRole on resource:
+  arn:aws:iam::<account>:role/Karpenter-eks-ref-dev-an2-main-01-66112745ef9ad44d7260570055
+```
+
+#### 원인 — 이름에 무작위 접미사가 있었다
+
+upstream `karpenter` 서브모듈은 `node_iam_role_use_name_prefix` 기본이 `true` 라
+role 이름을 **`Karpenter-<cluster>-<무작위>`** 로 만든다. 그런데 그 이름은
+**계층 2(GitOps)가 `EC2NodeClass.spec.role` 로 값을 박아 참조**한다.
+⇒ 클러스터를 다시 세우면 접미사가 바뀌고, GitOps 는 **존재하지 않는 role** 을 가리킨다.
+컨트롤러 정책의 `iam:PassRole` 도 옛 ARN 에만 걸려 있어 403 이 난다.
+
+#### 🔑 증상이 교묘하다 — GitOps 는 자기가 옳다고 보고한다
+
+ArgoCD 상태는 **`Synced` / `Degraded`** 였다. Git 이 요구한 것을 그대로 적용했으니
+sync 는 성공이 맞다. **실패는 한 계층 아래(IAM)에서 난다.**
+⇒ *"Synced 면 됐다"* 로 읽으면 원인을 못 찾는다. `Degraded` 는 컨트롤러 로그로 내려가야 한다.
+
+#### 결정 — 이 repo 의 "결정적 네이밍"을 여기에도 적용한다
+
+```hcl
+node_iam_role_name            = "iamr-${local.name_mid}-karpenter-node"
+node_iam_role_use_name_prefix = false
+```
+
+⭐ **새 발명이 아니다.** 관리형 노드그룹(`iam_role_use_name_prefix = false`)과 `iam.tf` 의
+role 들이 이미 같은 처방을 쓰고 있었다 — **Karpenter 노드 role 만 빠져 있었다.**
+🔑 그래서 이것은 "예외를 추가한 것"이 아니라 **누락을 메운 것**이다.
+
+- **T-6 신설**(음성 판정): 출력이 `iamr-<workload>-<env>-<region>-karpenter-node` 와 정확히 같을 것.
+  무작위 접미사가 붙으면 실패한다 — 여기서 통과하면 재구축이 견딘다.
+- ⚠️ **컨트롤러 role(`KarpenterController-<무작위>`)은 그대로 둔다.** 그 이름을 값으로 참조하는
+  소비자가 없다. 지금 요구가 아닌 것을 함께 고치지 않는다.
+- 🔴 **기존 환경에서는 role 이 교체된다.** Karpenter 가 만든 노드가 있으면 먼저 비운다.
+
+#### ⛔ 기각안
+
+| 안 | 기각 이유 |
+|---|---|
+| GitOps 의 `cluster-secret.yaml` 값만 갱신 | 재구축마다 **똑같이 깨진다.** 증상을 지우고 원인을 남긴다 |
+| 모듈 출력을 GitOps 에 자동 주입 | 계층 2 를 Terraform 이 쓰게 된다 — 3계층 소유 모델(`30 §0`)이 금지한다 |
+| `EC2NodeClass` 가 태그로 role 을 발견 | Karpenter 는 role 을 **이름으로만** 받는다(upstream 계약) |
+
 ## 5. 열린 항목
 
 ### 5.1 이 모듈 소관 — 구현·릴리스와 함께 판단한다

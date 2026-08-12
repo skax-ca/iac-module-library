@@ -173,6 +173,15 @@ run "naming_and_name_tag" {
     condition     = output.karpenter_discovery_tag["karpenter.sh/discovery"] == "eks-acme-prd-an2-main-01"
     error_message = "discovery 태그 값은 클러스터 이름과 같아야 한다(subnet·SG 양쪽이 같은 값을 써야 selector가 맞는다)."
   }
+
+  # 🔴 T-6 (D-KARPENTER-NODE-ROLE-NAME) — 이 이름은 **계층 2(GitOps)가 참조하는 계약**이다.
+  #    upstream 기본(`Karpenter-<cluster>-<무작위>`)이면 클러스터를 다시 세울 때마다 값이 바뀌어
+  #    GitOps 의 EC2NodeClass.spec.role 이 없는 role 을 가리킨다(2026-08-12 실측).
+  # ⛔ 음성 판정: 무작위 접미사가 붙지 않을 것 — 여기서 통과하면 재구축이 견딘다.
+  assert {
+    condition     = output.karpenter_node_iam_role_name == "iamr-acme-prd-an2-karpenter-node"
+    error_message = "Karpenter 노드 IAM role 이름은 결정적이어야 한다 — GitOps 가 값으로 참조하므로 재구축마다 바뀌면 안 된다."
+  }
 }
 
 # ── AC3: addon baseline 상속 (§2.6-1) ────────────────────────────────────────

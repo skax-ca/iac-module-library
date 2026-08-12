@@ -21,16 +21,16 @@
 > **대화형 세션 + `--port-forward`** 로 한다. 절차: `07-runbooks.md` 2·3절.
 > 그 뒤 `kubectl -n argocd delete secret argocd-initial-admin-secret`.
 
-> ### 🔬 **Wave 4-b 실증 발견 5건 — 문서 반영이 다음 태스크다**
+> ### 🔬 **Wave 4-b 실증 발견 — 문서 반영 완료** (`59f6fc7`)
 >
 > | # | 발견 | 상태 |
 > |---|---|---|
-> | H1 | merge 한 번이 두 루트 plan 을 동시 트리거 → EKS plan 이 `no matching EC2 VPC found` 로 실패. **from-zero 에서는 main 에 빨간 X 가 반드시 한 번 뜬다.** 결함이 아니라 느슨한 결합의 귀결 | 📝 `03` 에 기록 필요 |
-> | H2 | `tofu init` 의 git 소싱이 **TLS 검증 실패**(`server certificate verification failed`). 30분 내 **2회** — 일회성 아님. 대응은 `gh run rerun <id> --failed`(새 dispatch 는 plan 을 다시 돌려 승인된 계획을 바꾼다. ✅ `--failed` 는 plan 을 유지함을 실측) | 📝 `07` 에 기록 + init 재시도 검토 |
+> | ~~H1~~ ✅ | merge 한 번이 두 루트 plan 을 동시 트리거 → EKS plan 이 `no matching EC2 VPC found` 로 실패. **from-zero 에서는 main 에 빨간 X 가 반드시 한 번 뜬다.** 결함이 아니라 느슨한 결합의 귀결 | ✅ `03 §4` |
+> | ~~H2~~ ✅ | `tofu init` 의 git 소싱이 **TLS 검증 실패**(`server certificate verification failed`). 30분 내 **2회** — 일회성 아님. 대응은 `gh run rerun <id> --failed`(새 dispatch 는 plan 을 다시 돌려 승인된 계획을 바꾼다. ✅ `--failed` 는 plan 을 유지함을 실측) | ✅ `07 §7` (init 재시도 자동화는 미검토) |
 > | **H3** | workbench 가 클러스터와 **병렬 생성**돼 kubeconfig 가 안 섰다(`update-kubeconfig` 5회 전부 실패) | ✅ 해결 — 소비 repo PR #26 |
 > | **H4** | 워크플로에 **`replace` 경로 부재** — 잘못 부팅한 인스턴스를 코드가 회수 못 함. G4(destroy 누락)와 같은 형태 | ✅ 해결 — 소비 repo PR #26 |
 > | **H5** | GitOps 가 **재구축마다 바뀌는 role 이름**을 값으로 고정 → Karpenter `iam:PassRole` 403 | ✅ 해결 — 모듈 PR #21 (`eks-cluster-v0.5.0`) |
-> | — | `03:136` 이 로컬 `tofu plan` 을 시킨다 — **성립하지 않는다**(판정 완료) | 📝 `03` 정정 필요 |
+> | — | `03:136` 이 로컬 `tofu plan` 을 시킨다 — **성립하지 않는다**(판정 완료) | ✅ `03 §4` 정정 완료 |
 >
 > #### 🔑 H3 의 교훈 — `depends_on` 이 아니라 **값 참조**다
 > `eks_cluster_name = local.cluster_name`(로컬 문자열)이라 순서 간선이 없었다. EC2 1분 vs EKS 10분.

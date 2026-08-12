@@ -64,6 +64,40 @@
 >   갱신하려면 **클론 헬퍼를 다시 돌린다.**
 > - `send-command` 는 로그인 셸이 아니다 → `export HOME=/root; export KUBECONFIG=/root/.kube/config` 필수
 
+> ### ⭐ **H6 — `vpcId` 도 걷어냈다. ALBC 는 태그로 VPC 를 찾는다** (2026-08-12, 사용자 제기)
+>
+> H5 를 고친 뒤 *"secret 에 vpcId 가 왜 필요하냐"* 는 질문에서 나왔다. **소비자는 ALBC 하나뿐**이었다.
+>
+> - **왜 있었나**: ALBC 가 파드에서 IMDS 로 VPC 를 못 찾는다(노드 IMDSv2 **hop limit=1**).
+>   ⛔ hop limit 을 2로 올리는 우회는 이미 기각 — 파드가 노드 IAM role 을 탈취하게 된다.
+>   🔑 **IMDS 를 못 쓰는 것은 결함이 아니라 받아들이는 제약**이다. 고칠 것은 제약이 아니라
+>   **그 제약을 푸는 방식**(AWS 발급 ID 를 값으로 박기)이었다.
+> - **답은 upstream 에 이미 있었다**: chart **3.5.0** 의 `vpcTags` → `--aws-vpc-tags`.
+>   values 주석이 우리 경우를 그대로 서술한다 — *"alternative to vpcId … when your pods are
+>   unable to use the metadata service"*. ⇒ *"upstream 미지원"* 이 아니라 **우리가 안 넘기고 있었다**
+>   (graviton `ami_type` 사건과 같은 형태다).
+> - **변경**: `vpcId: vpc-…` → `vpcName: vpc-ref-dev-an2-main` + `vpcTags.Name`.
+>   Name 태그는 **네이밍 규칙(SSOT)이 유일성을 보장**하므로 재구축을 견딘다.
+> - ✅ **판정**: `--aws-vpc-tags=Name=vpc-ref-dev-an2-main` 로 렌더 · 로그 오류 0 ·
+>   **재시작 0회** · Application 8/8 Synced Healthy.
+>   🔑 **`restarts=0` 이 증거다** — 실패 모드가 CrashLoop 이라 `Running` 만으로는 부족했다.
+> - ⛔ 기각: 거버넌스 태그 AND(`Workload`+`Environment`+`RegionCode`) — per-cluster 값이 0이 되지만
+>   `workload` 라벨 신설이 필요하고 **그 조합에 VPC 가 2개가 되면 조용히 깨진다**(증상이 오늘 것과 똑같아진다).
+> - 📌 `iac-platform-gitops` `7238efa`. README 「실물 좌표」 표도 ID → 결정적 이름으로 바꾸고
+>   *"여기 AWS 발급 ID 를 적지 않는다"* 를 상자로 남겼다.
+
+> ### 🔴 **H7 (미해결) — `argocd-seed.sh` preflight 가 4단계에도 private key 를 요구한다**
+>
+> 키를 쓰는 것은 **2단계뿐**인데(`scripts/argocd-seed.sh:194`), preflight 가 `GH_APP_*` 를
+> **무조건** 검사한다(`:104`·`:115`). ⇒ `--from 4 --to 4` 가 키 없이 실패한다.
+> 🔴 **완료 조건과 정면 충돌한다** — D-KEY-TRANSFER ③이 seed 후 `shred` 를 요구하는데,
+> 그 뒤 cluster Secret 만 다시 적용하려면 **키를 다시 올려야** 한다. 오늘 실제로 막혔다.
+> - 우회(1회): 커밋된 매니페스트를 그대로 `kubectl apply -f` (seed 4단계와 **같은 명령·같은 바이트**)
+> - ⇒ 고치려면 **단계 범위에 2가 포함될 때만** `GH_APP_*` 를 요구하도록 바꾼다.
+>   ⚠️ `iac-platform-gitops` 의 vendoring 사본(`bootstrap/argocd-seed.sh`)도 함께 갱신해야 한다(2 repo).
+> - 📌 부수: workbench 클론은 토큰을 remote 에서 지우므로 `git pull` 이 안 된다 —
+>   갱신하려면 클론 헬퍼 재실행 = **키가 또 필요하다.** 같은 병의 두 증상이다.
+
 ---
 
 ## Priority Context

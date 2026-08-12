@@ -1,32 +1,68 @@
 # Notepad — iac-module-library
 
-## 🔴🔴 **2026-08-11 세션 종료 시점 — 인프라가 파기된 상태다** 🔴🔴
+## ✅ **2026-08-12 — 재구축(Wave 4-b) 완료. 환경이 살아 있다**
 
-> ### ⛔ **다음 세션이 가장 먼저 알아야 할 것: `ref-dev` 환경이 없다.**
->
-> Wave 4 실증(문서 검증용 destroy → recreate)의 **destroy 까지만 완료**했다.
-> **재구축이 아직 안 됐다.** 이것은 사고가 아니라 **계획된 상태**다.
+> ### ▶ 현재 상태 — 전부 서 있고 검증됐다
 >
 > | 레이어 | 상태 |
 > |---|---|
-> | L3 ArgoCD + Application 8개 | **없음** |
-> | L2 EKS `eks-ref-dev-an2-main-01` · 노드 2대 · workbench | **없음** |
-> | L1 VPC `vpc-00e16675363a702a5` | **없음** |
-> | **L0** state 버킷 · OIDC IdP · IAM Role 2단 | ✅ **살아 있음** (CI 정상) |
+> | L3 ArgoCD + Application 8개 | ✅ **전부 `Synced Healthy`** · NodePool·EC2NodeClass `READY=True` |
+> | L2 EKS `eks-ref-dev-an2-main-01` | ✅ ACTIVE · k8s 1.35 · 시스템 노드 2대 |
+> | L2 workbench | ✅ **`i-0c31659a42460ea56`** (구 `i-03ae…`·`i-0e74…` 는 없다) |
+> | L1 VPC | ✅ **`vpc-02ba7bc643fbf881a`** (구 `vpc-00e166…` 는 없다) |
+> | L0 | ✅ 살아 있었다 — 파기 대상이 아니다 |
 >
-> `teardown-verify.sh` **잔존물 0 · exit 0** 로 확인했다.
+> 삭제 보호 두 루트 `true` 복원 완료(PR #25). 자격증명 위생 완료
+> (`shred -u` + `delete-parameter` → `ParameterNotFound`).
 >
-> ### ▶ 재개 절차 (`docs/03-new-project.md` 초안 검증을 겸한다)
-> 1. 🔴 **`deletion_protection = true` 복원** — 소비 repo 두 루트(`live/dev/eks`·`networking`)에
->    **`false` 가 main 에 커밋돼 있다**. PR 로 되돌린다. **이것을 잊으면 보호 없이 재구축된다.**
-> 2. `gh workflow run deploy-network.yml --ref main -f action=apply` → VPC
-> 3. `gh workflow run deploy-eks.yml --ref main -f action=apply` → EKS + workbench
-> 4. workbench 에서 `scripts/argocd-seed.sh` → ArgoCD + Application 8개
-> 5. 완료 판정 6개(`03 §7`) — 특히 root-app `revision` 이 **커밋 SHA** 인지
-> 6. ⚠️ 재구축 중 막힌 지점을 전부 기록한다 — 그것이 `03` 의 빈칸이다(Wave 5 입력)
+> ### ⛔ 남은 완료 조건 1건 — **ArgoCD 초기 비밀번호 교체**
+> `23 §2.3` 이 **선택이 아니라 완료 조건**으로 정했다. **아직 안 했다.**
+> 비밀번호는 **사용자가 정할 값**이고 `--core` 로는 실패하므로(`23 §2.3-1`)
+> **대화형 세션 + `--port-forward`** 로 한다. 절차: `07-runbooks.md` 2·3절.
+> 그 뒤 `kubectl -n argocd delete secret argocd-initial-admin-secret`.
+
+> ### 🔬 **Wave 4-b 실증 발견 5건 — 문서 반영이 다음 태스크다**
 >
-> ⚠️ **workbench 인스턴스 ID 가 바뀐다.** 구 `i-0e7440e9e0350f731` 은 없다.
-> ⚠️ ArgoCD 접속 2홉·비밀번호도 전부 새로 세운다(`07-runbooks.md` 2·3절).
+> | # | 발견 | 상태 |
+> |---|---|---|
+> | H1 | merge 한 번이 두 루트 plan 을 동시 트리거 → EKS plan 이 `no matching EC2 VPC found` 로 실패. **from-zero 에서는 main 에 빨간 X 가 반드시 한 번 뜬다.** 결함이 아니라 느슨한 결합의 귀결 | 📝 `03` 에 기록 필요 |
+> | H2 | `tofu init` 의 git 소싱이 **TLS 검증 실패**(`server certificate verification failed`). 30분 내 **2회** — 일회성 아님. 대응은 `gh run rerun <id> --failed`(새 dispatch 는 plan 을 다시 돌려 승인된 계획을 바꾼다. ✅ `--failed` 는 plan 을 유지함을 실측) | 📝 `07` 에 기록 + init 재시도 검토 |
+> | **H3** | workbench 가 클러스터와 **병렬 생성**돼 kubeconfig 가 안 섰다(`update-kubeconfig` 5회 전부 실패) | ✅ 해결 — 소비 repo PR #26 |
+> | **H4** | 워크플로에 **`replace` 경로 부재** — 잘못 부팅한 인스턴스를 코드가 회수 못 함. G4(destroy 누락)와 같은 형태 | ✅ 해결 — 소비 repo PR #26 |
+> | **H5** | GitOps 가 **재구축마다 바뀌는 role 이름**을 값으로 고정 → Karpenter `iam:PassRole` 403 | ✅ 해결 — 모듈 PR #21 (`eks-cluster-v0.5.0`) |
+> | — | `03:136` 이 로컬 `tofu plan` 을 시킨다 — **성립하지 않는다**(판정 완료) | 📝 `03` 정정 필요 |
+>
+> #### 🔑 H3 의 교훈 — `depends_on` 이 아니라 **값 참조**다
+> `eks_cluster_name = local.cluster_name`(로컬 문자열)이라 순서 간선이 없었다. EC2 1분 vs EKS 10분.
+> - ⛔ **`depends_on = [module.eks]` 는 순환**이다(실측, pre-push 훅이 잡음) — `depends_on` 은
+>   모듈의 **close 노드 = 모듈 전체**에 걸리는데 `module.eks` 가 workbench 의 role·SG 를 설정 시점에 쓴다.
+> - ✅ 정답은 **`module.eks.cluster_name` 값 참조**(사용자 제안). 그래프가 **리소스 단위**라 고리가
+>   닫히지 않는다 — 클러스터에 매달리는 건 *인스턴스*, eks 가 받아가는 건 *role·SG* 로 다른 리소스다.
+> - ⚠️ **`arn` 은 local 유지**(비대칭이지만 이유가 있다): 모듈 `aws_iam_role_policy.eks_describe` 의
+>   `count` 가 `eks_cluster_arn != null` 에 걸리는데 실 ARN 은 **plan 시점 unknown** 이라 count 가 깨진다.
+>   가르는 기준은 일관성이 아니라 **plan 시점 known 여부**다.
+> - ✅ 판정: 교체 후 **`시도 1` 에 성공.** *"시도 4에 성공"* 이 아닌 것이 증거다 — 경쟁을 이긴 게 아니라 **없앴다.**
+>   📌 부수 확인: 모듈 주석이 상정한 **IAM 전파 race 는 실제로 없었다.** 그 재시도 루프는 예비 장치다.
+>
+> #### 🔑 H5 의 교훈 — **GitOps 는 자기가 옳다고 보고한다**
+> ArgoCD 는 **`Synced` / `Degraded`** 였다. Git 이 요구한 것을 그대로 적용했으니 sync 는 성공이 **맞고**,
+> 실패는 한 계층 아래(IAM)에서 난다. ⛔ *"Synced 면 됐다"* 로 읽으면 원인을 못 찾는다.
+> - 같은 파일에 **`vpcId` 도 stale** 했다(파기된 VPC). ALBC 는 `Healthy` 로 보였다 — helm 값일 뿐이라
+>   실패가 런타임으로 밀린다. `vpcId` 는 AWS 발급 ID 라 **구조적 해법이 없어 갱신이 절차로 남는다.**
+> - ⭐ 모듈 수정은 **새 발명이 아니었다** — 관리형 노드그룹·`iam.tf` 가 이미 `use_name_prefix = false` 를
+>   쓰고 있었고 **Karpenter 노드 role 만 빠져 있었다.** 예외 추가가 아니라 **누락을 메운 것**이다.
+>
+> #### 📌 재사용할 실측 (재구축 절차)
+> - `execution_role_arn` 출처 = **`gh variable list`**(G3 의 답): `AWS_ENTRY_ROLE_ARN`·`AWS_EXEC_ROLE_ARN`·
+>   `TF_STATE_BUCKET`·`MODULE_READER_CLIENT_ID`
+> - `AWS_PROFILE=team git push` 가 **실제로 필요**했다(G5). pre-push 훅의 `validate` 가 backend 를 연다.
+> - PR 에 체크가 없는 것은 **의도된 설계**(`pull_request` 트리거를 2026-08-03 제거)
+> - 승인 게이트: 무료 플랜이라 **dispatch 를 누르는 행위가 승인을 대신한다**(멈추지 않는다)
+> - **공용 계정 오독 사례**: `oidc.eks…` provider 가 남아 있으나 태그가 `Project=eks-scale-lab` = **남의 것**.
+>   🔑 판정 근거는 리소스 종류가 아니라 **태그**다(04 §0 이 실제로 작동했다).
+> - workbench 클론 후 **`git pull` 이 안 된다** — 클론 직후 remote 에서 토큰을 지우기 때문(의도된 설계).
+>   갱신하려면 **클론 헬퍼를 다시 돌린다.**
+> - `send-command` 는 로그인 셸이 아니다 → `export HOME=/root; export KUBECONFIG=/root/.kube/config` 필수
 
 ---
 

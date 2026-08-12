@@ -42,6 +42,7 @@ iac-platform-gitops         플랫폼 매니페스트. ArgoCD가 pull로 reconci
 
 | 당신이 | 읽을 것 |
 |--------|---------|
+| 이 조직에 막 합류했다 | [`docs/00-team-access.md`](docs/00-team-access.md) — GitHub org 구조·합류 방법 |
 | 팀에 처음 왔다 | [`docs/01-architecture.md`](docs/01-architecture.md) — 전체 그림 |
 | 새 프로젝트를 맡았다 | [`docs/02-choose-your-path.md`](docs/02-choose-your-path.md) → [`docs/03-new-project.md`](docs/03-new-project.md) |
 | 모듈을 쓰려 한다 | [`docs/05-modules.md`](docs/05-modules.md) — 입출력 계약 |

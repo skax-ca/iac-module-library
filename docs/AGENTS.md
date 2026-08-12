@@ -3,13 +3,14 @@
 # docs
 
 ## Purpose
-이 저장소의 설계·규약 SSOT. 여덟 개 문서이고 **읽는 사람으로 갈랐다.**
+이 저장소의 설계·규약 SSOT. 아홉 개 문서이고 **읽는 사람으로 갈랐다.**
 디렉토리 계층이 없다 — 문서 하나가 독자 하나를 온전히 담당한다.
 
 ## Key Files
 | File | Description |
 |------|-------------|
-| `README.md` | 진입점 — 여덟 문서와 각각의 독자 |
+| `README.md` | 진입점 — 아홉 문서와 각각의 독자 |
+| `00-team-access.md` | GitHub org/Team 구조 · 합류 방법 · GitHub↔AWS 인증 패턴 개요 |
 | `01-architecture.md` | 전체 그림 · 3계층 소유 모델 · 계층 경계 판별 |
 | `02-choose-your-path.md` | 프로파일 A/B · 관리형 vs self-managed ArgoCD · addon 배치 |
 | `03-new-project.md` | 새 배포 루트 착수 절차 |

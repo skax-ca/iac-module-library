@@ -35,7 +35,7 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
-| `docs/` | 설계·규약 문서 8개. 독자로 갈랐다. 진입점은 `docs/README.md` (see `docs/AGENTS.md`) |
+| `docs/` | 설계·규약 문서 9개. 독자로 갈랐다. 진입점은 `docs/README.md` (see `docs/AGENTS.md`) |
 | `modules/` | 재사용 모듈 (see `modules/AGENTS.md`) |
 | `examples/` | 모듈별 최소 예제 = `tofu test` 대상. provider 상한(`~> 6.0`) 소유 (see `examples/AGENTS.md`) |
 | `scripts/` | **소비 프로젝트가 실행하는 재사용 절차**(`argocd-seed.sh` 등). ⚠️ 환경값 하드코딩 금지 (see `scripts/README.md`) |

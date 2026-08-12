@@ -120,6 +120,60 @@ iac-platform-gitops        계층 2의 매니페스트.          ArgoCD가 pull�
 
 ---
 
+## 7. 전체 흐름 — GitHub에서 AWS까지 한눈에
+
+위 §1·§5·§6과 [`00-team-access.md`](00-team-access.md) §4에 나눠 있는 조각을 한 그림으로 합친 것이다.
+세부 규칙은 각 절이 소유하고, 이 다이어그램은 **순서와 관계**만 보여준다.
+
+```mermaid
+flowchart TB
+    subgraph GH["GitHub org: skax-ca"]
+        MOD["iac-module-library<br/>모듈 + 설계 SSOT<br/>(배포하지 않는다)"]
+        INFRA["project-infra<br/>배포 저장소<br/>(예: iac-reference-infra)"]
+        GITOPS["iac-platform-gitops<br/>플랫폼 매니페스트"]
+    end
+
+    subgraph CI["GitHub Actions (project-infra 소유)"]
+        WF["deploy-*.yml<br/>plan → 승인 → apply"]
+        OIDC["OIDC 토큰 발급"]
+    end
+
+    subgraph AWS["AWS 계정"]
+        ENTRY["입구 Role<br/>(AssumeRole만 가능)"]
+        EXEC["실행 Role<br/>(tofu apply 권한)"]
+        S3["S3 state<br/>(use_lockfile)"]
+        subgraph ACCT["실제 인프라"]
+            VPC["VPC / 서브넷 / NAT"]
+            EKS["EKS 클러스터 / 노드그룹"]
+            WB["workbench (SSM 전용)"]
+        end
+    end
+
+    subgraph K8S["EKS 클러스터 내부"]
+        ARGO["ArgoCD"]
+        ADDON["플랫폼 addon<br/>(ALBC · Karpenter · Kyverno · KEDA)"]
+    end
+
+    MOD -- "git tag 소싱" --> INFRA
+    INFRA -- "push / dispatch" --> WF
+    WF --> OIDC
+    OIDC -- "sub claim 검증" --> ENTRY
+    ENTRY -- "AssumeRole" --> EXEC
+    EXEC -- "tofu apply" --> S3
+    EXEC --> VPC
+    EXEC --> EKS
+    EXEC --> WB
+    WB -- "argocd-seed.sh" --> ARGO
+    ARGO -- "pull" --> GITOPS
+    ARGO --> ADDON
+```
+
+- **이 저장소(`iac-module-library`)는 이 그림 어디에도 실행 주체로 등장하지 않는다** — 소싱만 되고, CI·AWS 계정·클러스터는 전부 `project-infra`(계층 1)와 `iac-platform-gitops`(계층 2) 몫이다.
+- 인증 체인 상세 → [`00-team-access.md`](00-team-access.md) §4
+- 부트스트랩·워크플로 명령 실물 → [`03-new-project.md`](03-new-project.md)
+
+---
+
 ## 다음
 
 - 새 프로젝트를 시작한다 → [`02-choose-your-path.md`](02-choose-your-path.md)

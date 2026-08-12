@@ -1,5 +1,38 @@
 # Notepad — iac-module-library
 
+## ✅ **2026-08-12 — 문서 어휘 정리 + 팀 온보딩 문서(`00-team-access.md`) 신설**
+
+> ### ▶ 무엇을 했나 (커밋 `04d51d5` · `cadc941`)
+>
+> 1. **`01-architecture.md` §2 "Day 0/1" → "인프라"** — 문서 전체에서 유일하게 쓰인 정의 없는
+>    관용구였고, OpenTofu 계층이 최초 구축 이후에도 계속 쓰인다는 실제 운영 사실과 어긋났다.
+> 2. **번역투 정리**: "배선"(wiring 직역, 4개 파일 9곳) → "연결". "치킨-에그"(음차) → "닭과 달걀
+>    문제" — 흥미롭게도 `.omc/notepad.md` 자신이 이미 "닭-달걀"·"닭과 달걀"을 써 온 전례가 있어
+>    그것과도 불일치였다.
+> 3. **`docs/00-team-access.md` 신설**(문서 개수 8→9). 독자: *"새로 합류해 접근 권한부터 얻어야
+>    하는 사람"* — 기존 8개는 전부 고객 인프라 패턴(제품) 문서라 이 독자를 갖지 않았다.
+>    - GitHub org(`skax-ca`, 무료) / Team(`iac`, closed) 구조 + repo를 Team에 붙이는 명령
+>    - 합류 = **초대 전용**임을 실측 확인(GitHub 공식 문서) — *"org를 public 전환"* 하는 기능은
+>      없다. 있는 건 멤버십 공개 여부(개인 프로필 표시 설정)뿐이고 접근 권한과 무관하다
+>    - GitHub↔AWS OIDC 인증 패턴 개요(상세는 `03 §3`·`06`으로 링크, 중복 작성 안 함)
+> 4. **`01-architecture.md` §7 신설** — GitHub org → GitHub Actions(OIDC) → 입구 Role → 실행
+>    Role → AWS 계정(S3/VPC/EKS/workbench) → ArgoCD pull → 플랫폼 addon으로 이어지는 전체
+>    흐름을 **Mermaid flowchart**로 추가. 기존에 01 §1·§5, 00 §4에 조각으로 흩어져 있던 것을
+>    처음으로 한 그림에 합쳤다.
+>    - GitHub 렌더링 안정성 때문에 `architecture-beta`(커스텀 아이콘 팩 필요) 대신 표준
+>      `flowchart` 문법을 썼다 — 전자는 GitHub 기본 렌더러에서 깨질 위험이 있었다.
+>
+> ### ⏭️ **다음 태스크** (2026-08-12 이전 기록과 동일, 변경 없음)
+>
+> 1. **Wave 8** — `iac-platform-gitops` · `iac-reference-infra` README 재작성(구 769줄 중 64%가
+>    changelog). 문서 zero-base 재작성 마지막 Wave.
+> 2. **소비 repo 2개의 D-ID 참조 정리** — Wave 8에서 자연스럽게 처리.
+> 3. **H7 `argocd-seed.sh` preflight 결함** — 단계 범위에 2가 없으면 `GH_APP_*` 요구를 뺀다
+>    (`iac-platform-gitops`의 vendoring 사본도 함께, 2 repo).
+> 4. **ArgoCD 초기 비밀번호 교체**(`07-runbooks.md` 2·3절) — 재구축 완료 조건 중 유일하게 미완.
+
+---
+
 ## ✅ **2026-08-12 — 코드 주석 재편 완료 (PR #22 머지). D-ID 폐지**
 
 > ### ▶ 기준을 **"간결"이 아니라 "자립"** 으로 잡았다

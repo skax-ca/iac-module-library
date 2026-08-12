@@ -63,7 +63,7 @@ tofu -chdir=modules/<name> test          # pre-push hook이 modules/*.tf 변경 
 ```hcl
 locals {
   name_mid = "${var.naming.workload}-${var.naming.env}-${var.naming.region_code}"
-  # Name = "vpc-${local.name_mid}-main"  → vpc-acme-prd-an2-main
+  # Name = "vpc-${local.name_mid}-main"  → vpc-demo-prd-an2-main
 }
 ```
 

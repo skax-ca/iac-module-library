@@ -26,7 +26,7 @@ usage() {
   cat <<'USAGE'
 사용법: WORKLOAD=<code> ENVIRONMENT=<env> [AWS_REGION=..] [AWS_PROFILE=..] ./teardown-verify.sh
 
-  WORKLOAD      워크로드 코드 (예: ref, acme)      필수
+  WORKLOAD      워크로드 코드 (예: ref, demo)      필수
   ENVIRONMENT   환경 (예: dev, stg, prd)           필수
   AWS_REGION    기본 ap-northeast-2
   AWS_PROFILE   미지정 시 기본 자격증명

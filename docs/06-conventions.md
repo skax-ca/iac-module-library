@@ -22,9 +22,9 @@ OpenTofu 고유 기능(`encryption` 블록 · `.tofu` 확장자 · `language {}`
 ```
 (리소스약어)-(workload)-(env)-(리전코드)-(purpose)-(일련번호)
 
-vpc-acme-prd-an2-main
-eks-acme-prd-an2-main-01
-sgr-acme-prd-an2-web-01
+vpc-demo-prd-an2-main
+eks-demo-prd-an2-main-01
+sgr-demo-prd-an2-web-01
 ```
 
 | 구성 요소 | 값 |

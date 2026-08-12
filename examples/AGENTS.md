@@ -46,7 +46,7 @@
   ⚠️ 대신 **계약 검증을 예제에 기대지 않는다** — `validate`는 교차변수 `validation`·`precondition`을
   평가하지 못한다(`plan`에서만 평가). 그 판정은 `modules/<module>/tests/`가 한다.
 - 예제도 **네이밍 규약을 지킨다**(`naming` 객체 주입). 예제가 규약을 어기면 소비자가 그대로 복사한다.
-  워크로드 코드는 가상값(`acme` 등)을 쓴다.
+  워크로드 코드는 가상값(`demo` 등)을 쓴다.
 
 ### Testing Requirements
 

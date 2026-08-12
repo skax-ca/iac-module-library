@@ -1,12 +1,12 @@
-# 계약 검증 — 설계 docs/design/10-vpc-module.md §2 Task 10.6
+# vpc 모듈 계약 검증
 #
-# ⚠️ 이 파일이 계약의 **유일한 검출 지점**이다. 교차변수 validation과 precondition은
-#    validate가 아니라 plan 시점에 평가되므로(2026-07-29 실측), examples를 validate까지만
-#    도는 규약으로는 D6·D12의 계약 위반이 전혀 잡히지 않는다.
+# ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation과 precondition은
+#    validate가 아니라 plan 시점에 평가되므로, examples를 validate까지만 도는 규약으로는
+#    계약 위반이 전혀 잡히지 않는다.
 #
 # provider를 모킹하는 이유: command = plan도 data.aws_availability_zones를 실제 조회한다.
 # 이 repo는 배포하지 않아 CI에 자격증명이 없으므로 모킹 없이는 plan이 죽는다.
-# AZ 목록을 고정값으로 주입하면 D7의 suffix→AZ 이름 해석까지 검증 대상이 된다.
+# AZ 목록을 고정값으로 주입하면 suffix → AZ 이름 해석까지 검증 대상이 된다.
 #
 # ⚠️ 모킹에서는 computed 속성(id·arn)이 plan 시점에 unknown이다. 따라서 assertion은
 #    설정값(tags·cidr_block·availability_zone·name)과 인스턴스 개수·키 집합만 본다.
@@ -35,7 +35,7 @@ mock_provider "aws" {
 }
 
 # 기본 시나리오: public(elb) + private(app) + isolated(db) 3그룹, secondary CIDR 1개.
-# az_selection = ["a", "c"]로 D7의 "b를 건너뛰는" 서울 리전 관례를 그대로 검증한다.
+# az_selection = ["a", "c"]로 "b를 건너뛰는" 서울 리전 관례를 그대로 검증한다.
 variables {
   naming = {
     workload    = "acme"
@@ -66,7 +66,7 @@ variables {
   }
 }
 
-# ── 네이밍 규약 (§1.3) — 릴리스 게이트 필수 항목 ────────────────────────────────
+# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
 run "naming_contract" {
   command = plan
 
@@ -80,7 +80,7 @@ run "naming_contract" {
     error_message = "서브넷 Name이 snet-<mid>-<group>-<az> 포맷이 아니다: ${aws_subnet.this["pub-uniq-a"].tags["Name"]}"
   }
 
-  # D13 — 하류 루트가 data.aws_subnets로 그룹 조회하는 키.
+  # 하류 루트가 data.aws_subnets로 그룹 조회하는 키.
   # ⚠️ 값은 **그룹 키 그대로**여야 한다(AZ 토큰이 붙지 않는다) — 붙으면 그룹 단위 조회가 깨진다.
   assert {
     condition     = aws_subnet.this["pub-uniq-a"].tags["SubnetGroup"] == "pub-uniq"
@@ -119,7 +119,7 @@ run "naming_contract" {
     error_message = "EIP Name이 eip-<mid>-nat-<az> 포맷이 아니다: ${aws_eip.nat["a"].tags["Name"]}"
   }
 
-  # Flow Logs 3종. fl은 2026-07-30 카탈로그 신규 등재분이다.
+  # Flow Logs 3종.
   assert {
     condition     = aws_cloudwatch_log_group.flow_logs[0].tags["Name"] == "cwlg-acme-dev-an2-main-flowlog"
     error_message = "로그 그룹 Name이 cwlg-<mid>-<purpose>-flowlog 포맷이 아니다: ${aws_cloudwatch_log_group.flow_logs[0].tags["Name"]}"
@@ -141,14 +141,14 @@ run "naming_contract" {
     error_message = "Flow Log Name이 fl-<mid>-<purpose> 포맷이 아니다: ${aws_flow_log.this[0].tags["Name"]}"
   }
 
-  # CloudWatch 경로형 이름은 Name 태그와 다른 축이다(02 §1.5).
+  # CloudWatch 경로형 이름은 Name 태그와 다른 축이다.
   assert {
     condition     = aws_cloudwatch_log_group.flow_logs[0].name == "/aws/vpc/flow-log/acme-dev-an2-main"
     error_message = "로그 그룹 경로가 /aws/vpc/flow-log/<mid>-<purpose>가 아니다: ${aws_cloudwatch_log_group.flow_logs[0].name}"
   }
 }
 
-# ── 그룹 × AZ 전개와 D7 AZ 해석 ─────────────────────────────────────────────────
+# ── 그룹 × AZ 전개와 AZ 해석 ────────────────────────────────────────────────────
 run "group_az_expansion" {
   command = plan
 
@@ -157,7 +157,7 @@ run "group_az_expansion" {
     error_message = "서브넷 수가 그룹별 cidrs 길이의 합(6)과 다르다: ${length(aws_subnet.this)}"
   }
 
-  # az_selection = ["a", "c"] → b를 건너뛴다. 이 assertion이 D7의 핵심 계약이다.
+  # az_selection = ["a", "c"] → b를 건너뛴다. AZ 배정 계약의 핵심이다.
   assert {
     condition     = aws_subnet.this["pub-uniq-c"].availability_zone == "ap-northeast-2c"
     error_message = "az_selection 우선순위가 AZ 이름으로 해석되지 않았다: ${aws_subnet.this["pub-uniq-c"].availability_zone}"
@@ -173,20 +173,20 @@ run "group_az_expansion" {
     error_message = "그룹 cidrs가 AZ 순서대로 배정되지 않았다: ${aws_subnet.this["db-uniq-a"].cidr_block}"
   }
 
-  # secondary CIDR association 수(G1).
+  # secondary CIDR association 수.
   assert {
     condition     = length(aws_vpc_ipv4_cidr_block_association.this) == 1
     error_message = "secondary CIDR association 수가 1이 아니다: ${length(aws_vpc_ipv4_cidr_block_association.this)}"
   }
 
-  # C2 — DNS 속성은 모듈이 true로 고정한다.
+  # DNS 속성은 모듈이 true로 고정한다.
   assert {
     condition     = aws_vpc.this[0].enable_dns_hostnames && aws_vpc.this[0].enable_dns_support
     error_message = "VPC DNS 속성이 둘 다 true가 아니다."
   }
 }
 
-# ── 라우팅 매트릭스 (D1/D3 §1.2) ────────────────────────────────────────────────
+# ── 라우팅 매트릭스 ─────────────────────────────────────────────────────────────
 run "routing_matrix" {
   command = plan
 
@@ -227,7 +227,7 @@ run "routing_matrix" {
   }
 }
 
-# ── D4 EKS 태그의 그룹별 이관 ───────────────────────────────────────────────────
+# ── EKS 태그의 그룹별 이관 ──────────────────────────────────────────────────────
 run "eks_tags_per_group" {
   command = plan
 
@@ -237,13 +237,13 @@ run "eks_tags_per_group" {
     error_message = "eks_role = elb 그룹에 role 태그가 붙지 않았다."
   }
 
-  # ⚠️ cluster 태그는 레거시다(C8) — LB Controller 2.1.1 이하만 요구한다.
+  # cluster 태그는 레거시다 — LB Controller 2.1.1 이하만 요구한다.
   assert {
     condition     = aws_subnet.this["pub-uniq-a"].tags["kubernetes.io/cluster/eks-acme-dev-an2-main"] == "shared"
     error_message = "eks_cluster_name이 지정됐는데 cluster 태그가 붙지 않았다."
   }
 
-  # eks_role 미지정 그룹에는 어떤 kubernetes.io 태그도 붙지 않아야 한다(일괄 부착 금지가 D4의 요지).
+  # eks_role 미지정 그룹에는 어떤 kubernetes.io 태그도 붙지 않아야 한다(일괄 부착 금지).
   assert {
     condition = length([
       for key in keys(aws_subnet.this["app-uniq-a"].tags) : key if startswith(key, "kubernetes.io/")
@@ -259,7 +259,7 @@ run "eks_tags_per_group" {
   }
 }
 
-# ── per-AZ NAT (§1.2 환경 프로파일) ─────────────────────────────────────────────
+# ── per-AZ NAT ──────────────────────────────────────────────────────────────────
 run "per_az_nat" {
   command = plan
 
@@ -283,8 +283,8 @@ run "per_az_nat" {
   }
 }
 
-# ── D10 kill switch ─────────────────────────────────────────────────────────────
-# ⚠️ deletion_protection 기본값 false에 의존한다. true면 D12 validation이 먼저 차단한다.
+# ── kill switch ─────────────────────────────────────────────────────────────────
+# ⚠️ deletion_protection 기본값 false에 의존한다. true면 삭제 보호 validation이 먼저 차단한다.
 run "kill_switch_disables_everything" {
   command = plan
 
@@ -324,7 +324,7 @@ run "kill_switch_disables_everything" {
       length(aws_iam_role.flow_logs) == 0,
       length(aws_iam_role_policy.flow_logs) == 0,
     ])
-    error_message = "vpc_enabled = false인데 Flow Logs 리소스가 남아 있다(D10은 D11보다 상위 게이트다)."
+    error_message = "vpc_enabled = false인데 Flow Logs 리소스가 남아 있다(vpc_enabled가 상위 게이트다)."
   }
 
   # 출력이 에러 대신 null·빈 값을 준다 — 소비자 plan이 깨지지 않아야 teardown이 성립한다.
@@ -350,7 +350,7 @@ run "kill_switch_disables_everything" {
   }
 }
 
-# ── D11 Flow Logs 개별 kill switch ──────────────────────────────────────────────
+# ── Flow Logs 개별 kill switch ──────────────────────────────────────────────────
 run "flow_logs_can_be_disabled_alone" {
   command = plan
 
@@ -380,7 +380,7 @@ run "flow_logs_can_be_disabled_alone" {
   }
 }
 
-# ── D11 confused deputy 방어 (열린 항목 7) ─────────────────────────────────────
+# ── confused deputy 방어 ────────────────────────────────────────────────────────
 # vpc-flow-logs.amazonaws.com은 전 세계 공용 서비스 principal이라 신뢰 정책에 계정·리소스
 # 조건이 없으면 남의 flow log가 우리 로그 그룹으로 배달된다. 조건의 "존재"만 계약으로 잠근다 —
 # 조건이 실제 배달을 막는지는 mock으로 증명할 수 없고 실계정 로그 도착으로 판정한다.
@@ -402,7 +402,7 @@ run "flow_logs_trust_policy_guards_confused_deputy" {
 }
 
 # ── 계약 위반은 plan에서 차단된다 ───────────────────────────────────────────────
-# D12 — 보호를 켠 상태로는 파기할 수 없다. 우리 변수 이름으로 해법을 알려주는 것이 목적이다.
+# 보호를 켠 상태로는 파기할 수 없다. 우리 변수 이름으로 해법을 알려주는 것이 목적이다.
 run "reject_teardown_while_protected" {
   command = plan
 
@@ -414,7 +414,7 @@ run "reject_teardown_while_protected" {
   expect_failures = [var.deletion_protection]
 }
 
-# D7 — az_selection을 지정하면 길이가 az_count와 같아야 한다(교차변수 validation).
+# az_selection을 지정하면 길이가 az_count와 같아야 한다(교차변수 validation).
 run "reject_az_selection_length_mismatch" {
   command = plan
 
@@ -426,7 +426,7 @@ run "reject_az_selection_length_mismatch" {
   expect_failures = [var.az_selection]
 }
 
-# D6 — 그룹의 AZ 수는 cidrs 길이가 결정하고, az_count를 넘을 수 없다.
+# 그룹의 AZ 수는 cidrs 길이가 결정하고, az_count를 넘을 수 없다.
 run "reject_group_wider_than_az_count" {
   command = plan
 
@@ -446,7 +446,7 @@ run "reject_group_wider_than_az_count" {
   expect_failures = [aws_vpc.this]
 }
 
-# §1.2 — NAT는 public 그룹의 서브넷에 놓이므로 public 없이는 만들 수 없다.
+# NAT는 public 그룹의 서브넷에 놓이므로 public 없이는 만들 수 없다.
 run "reject_nat_without_public_group" {
   command = plan
 
@@ -467,7 +467,7 @@ run "reject_nat_without_public_group" {
   expect_failures = [aws_vpc.this]
 }
 
-# D6 — per-AZ NAT에서 커버되지 않는 AZ가 생기면 그 AZ의 private 서브넷에 기본 경로가 없다.
+# per-AZ NAT에서 커버되지 않는 AZ가 생기면 그 AZ의 private 서브넷에 기본 경로가 없다.
 run "reject_per_az_nat_without_coverage" {
   command = plan
 

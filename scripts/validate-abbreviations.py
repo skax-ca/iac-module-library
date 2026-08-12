@@ -2,7 +2,7 @@
 # docs/aws-naming-abbreviations.md (약어 카탈로그 SSOT) 일관성 검사.
 #
 #  문서가 스스로 선언한 불변식만 강제한다 — 의견 검사는 여기 두지 않는다.
-#  1. 카탈로그 표(## A.N) 약어가 소문자 알파벳·숫자 2자 이상
+#  1. 카탈로그 표(## A.N) 약어가 소문자 알파벳·숫자 2자 이상, 7자 이하 (등재 규칙 4)
 #  2. 각 행의 예시(Name)가 그 행의 약어로 시작한다
 #  3. 약어가 전체에서 고유하다 (개정 이력 표와의 반복 등재는 제외)
 #  4. 섹션 헤더 "(NN)" == 실제 행 수 == 카운트 요약 표의 값
@@ -75,6 +75,8 @@ for i, line in enumerate(LINES, 1):
         seen[abbr] = i
     if not re.fullmatch(r"[a-z0-9]{2,}", abbr):
         err(f"{i}행 약어 `{abbr}` — 소문자 알파벳·숫자 2자 이상이어야 한다")
+    if len(abbr) > 7:
+        err(f"{i}행 약어 `{abbr}` — 길이 7자를 초과한다 (등재 규칙 4)")
     if not re.match(rf"^{re.escape(abbr)}-", example):
         err(f"{i}행 예시 `{example}` 는 약어 `{abbr}` 로 시작해야 한다")
 

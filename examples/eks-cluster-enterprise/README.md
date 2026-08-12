@@ -16,9 +16,9 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 배선** | 설계 [`05-modules.md`](../../docs/05-modules.md) — private 클러스터를 조작할 유일한 지점 |
+| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`05-modules.md`](../../docs/05-modules.md) — private 클러스터를 조작할 유일한 지점 |
 
-### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선
+### ⭐ EKS 접근 3층 — 이 예제의 핵심 연결
 
 `endpoint_public_access = false`인 클러스터에 kubectl이 닿으려면 **세 층이 모두** 있어야 한다.
 소유가 두 모듈로 갈리는 기준은 **주체냐 대상이냐**다.
@@ -90,7 +90,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다 — 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
 > ([`docs/06-conventions.md` §3](../../docs/06-conventions.md)).
-> ⚠️ 단 **3층 배선(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다 —
+> ⚠️ 단 **3층 연결(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다 —
 > `cluster_security_group_additional_rules`가 그 릴리스에서 생겼다.
 
 ⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/06-conventions.md` §3](../../docs/06-conventions.md)) —

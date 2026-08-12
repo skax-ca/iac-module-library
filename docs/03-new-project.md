@@ -143,7 +143,7 @@ tofu -chdir=live/dev/networking validate
 > **로컬은 `init` + `validate` 까지**이고, 그 위는 전부 워크플로가 한다.
 > ⭐ `validate` 만으로도 잡히는 것이 있다(순환 참조·타입 오류). 훅이 push 때 이걸 돌린다.
 
-`main.tf`는 [`05-modules.md`](05-modules.md)의 배선 예시를 따른다.
+`main.tf`는 [`05-modules.md`](05-modules.md)의 연결 예시를 따른다.
 `eks_cluster_name`을 넘겨 EKS 자동 발견용 서브넷 태그를 붙인다 — 클러스터를 만들기 전에 해야 한다.
 
 apply는 워크플로로 한다:
@@ -162,9 +162,9 @@ gh workflow run deploy-network.yml --ref main -f action=apply
 
 같은 방식으로 `live/dev/eks`를 초기화한다(`key = "dev/eks.tfstate"`).
 
-**세 모듈의 배선 순서**에 주의한다. `workbench`는 자기 SG ID와 Role ARN을 출력하고,
+**세 모듈의 연결 순서**에 주의한다. `workbench`는 자기 SG ID와 Role ARN을 출력하고,
 `eks-cluster`가 그것을 `access_entries`와 `cluster_security_group_additional_rules`로 받는다.
-모듈끼리 직접 참조하지 않는다 — **배포 루트가 배선한다.**
+모듈끼리 직접 참조하지 않는다 — **배포 루트가 연결한다.**
 
 > 🔴 **`workbench`에는 `eks_cluster_name`을 `module.eks.cluster_name`으로 넘긴다.**
 > 값이 같다고 `local`에서 만든 문자열을 쓰면 **순서 간선이 없어져** workbench와 클러스터가

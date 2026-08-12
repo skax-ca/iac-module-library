@@ -35,7 +35,7 @@ GitOps를 "인프라 대 앱" 한 덩어리로 다루지 않는다. **소유자�
 
 | 계층 | 무엇 | 소유자 | 어디에 | 도구 | 범위 |
 |------|------|--------|--------|------|:---:|
-| **1. Day 0/1** | 클러스터 · baseline addon · IAM · Access Entry | 플랫폼팀 | `<project>-infra` | OpenTofu | ✅ |
+| **1. 인프라** | 클러스터 · baseline addon · IAM · Access Entry | 플랫폼팀 | `<project>-infra` | OpenTofu | ✅ |
 | **2. 플랫폼 GitOps** | helm addon · Karpenter NodePool · 클러스터 등록 · AppProject | 플랫폼팀 | `iac-platform-gitops` | ArgoCD | ✅ |
 | **3. 앱 GitOps** | 비즈니스 워크로드 | **각 앱팀** | 앱팀별 저장소 N개 | ArgoCD | ❌ |
 
@@ -55,7 +55,7 @@ GitOps를 "인프라 대 앱" 한 덩어리로 다루지 않는다. **소유자�
 | **컨트롤러 자체** | 계층 1 (OpenTofu) | EKS managed addon 6종 |
 | **컨트롤러가 소비하는 설정 CR** | 계층 2 (GitOps) | Karpenter NodePool · Kyverno ClusterPolicy |
 
-이 경계가 중요한 이유: 컨트롤러는 **클러스터 생성 시점**에 있어야 하고(치킨-에그),
+이 경계가 중요한 이유: 컨트롤러는 **클러스터 생성 시점**에 있어야 하고(닭과 달걀 문제),
 설정은 **운영 중 자주 바뀐다**. 변경 주기가 다르면 소유 도구도 달라야 한다.
 
 ---

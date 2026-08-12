@@ -131,7 +131,7 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 배포 루트가 그 둘을 `eks-cluster`의 `access_entries`와
 `cluster_security_group_additional_rules`에 넘긴다.
 
-> 모듈이 서로를 직접 참조하지 않는다. **배포 루트가 배선한다.**
+> 모듈이 서로를 직접 참조하지 않는다. **배포 루트가 연결한다.**
 
 ### 부팅 후 상태
 
@@ -144,7 +144,7 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 
 ---
 
-## 배선 예시
+## 연결 예시
 
 ```hcl
 module "vpc" {

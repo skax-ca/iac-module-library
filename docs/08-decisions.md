@@ -49,6 +49,8 @@
 | self-managed에서 **CodeConnections** | argo-cd에 지원이 없다. 관리형 Capability의 direct integration 기능이다 |
 | 관리형에서 **`argocd-rbac-cm`** | 관리형은 IdC 강제 + `rbac_role_mappings`다. local user를 지원하지 않는다 |
 | CI용 GitHub App **재사용** · 설치 범위를 **All repositories**로 | 권한 경계가 무너진다. GitOps용을 별도로 만들고 저장소 1개로 한정한다 |
+| 매니페스트에 **AWS가 발급한 ID**(VPC ID · 해시 붙은 role 이름) 적기 | 환경을 다시 세우면 값이 바뀌어 없는 자원을 가리킨다. 계층 1이 **이름을 결정적으로** 만들고 계층 2는 이름을 참조한다 |
+| ALBC를 위해 노드 **IMDS hop limit을 2로** | 그 노드의 모든 파드가 노드 IAM role을 탈취할 수 있다. VPC는 `--aws-vpc-tags`로 찾는다 |
 | addon 증분 **여러 개를 한 PR에** | 실패 원인 귀인이 불가능해진다. 하나씩 넣는다 |
 | **Kyverno를 정책 0개로** 설치 | 아무것도 하지 않는 **죽은 경로**다. Audit 모드는 위험 없이 값을 낸다 |
 | **internal ALB + Ingress**를 지금 만들기 | ACM 인증서 · Route53 · `global.domain` · SG가 새로 필요하고 **고객사마다 다르다**. 요구가 생기면 그때 연다 |

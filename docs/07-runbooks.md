@@ -169,7 +169,15 @@ kubectl -n argocd get application root-app -o jsonpath='{.status.sync.revision}{
 
 ## 6. workbench 교체
 
-인스턴스가 교체되면 kubeconfig · 도구 · 프로파일은 `user_data`가 다시 만든다.
+`user_data`는 **부팅 때만 돈다.** 그래서 부팅 당시 조건이 틀렸던 인스턴스는 `apply`로 고쳐지지 않고
+**교체해야** 코드가 상태를 되찾는다(예: 클러스터보다 먼저 떠서 kubeconfig가 없는 경우).
+
+```bash
+gh workflow run deploy-eks.yml --ref main \
+  -f action=apply -f replace='module.workbench.aws_instance.this[0]'
+```
+
+교체 후 kubeconfig · 도구 · 프로파일은 `user_data`가 다시 만든다.
 **다시 서지 않는 것은 port-forward뿐이다** — 위 2절을 다시 실행한다.
 
 `instance_type`을 기본값보다 작게 잡지 않는다. 부팅 중 `dnf`가 OOM으로 죽어
@@ -177,7 +185,27 @@ kubectl -n argocd get application root-app -o jsonpath='{.status.sync.revision}{
 
 ---
 
-## 7. 자주 쓰는 조회
+## 7. 배포 워크플로가 실패했을 때
+
+### `tofu init`이 모듈을 못 받는다
+
+```
+fatal: unable to access 'https://github.com/...': server certificate verification failed
+```
+
+**일시적 장애다.** 같은 run 안에서 다른 모듈은 받아지고, 재실행하면 통과한다.
+
+```bash
+gh run rerun <run-id> --failed
+```
+
+> 🔴 **새로 `workflow run`을 누르지 않는다.** dispatch는 plan을 처음부터 다시 돌려
+> **승인한 것과 다른 계획**을 만든다. `--failed`는 같은 run의 저장된 plan을 그대로 쓴다.
+> 실패한 것이 plan job이면 어느 쪽이든 같지만, **apply job이면 이 구분이 승인 게이트 그 자체다.**
+
+---
+
+## 8. 자주 쓰는 조회
 
 ```bash
 # kubeconfig 재생성 (--name 필수. ListClusters 권한이 없다)

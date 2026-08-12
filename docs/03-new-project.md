@@ -2,8 +2,8 @@
 
 **읽는 사람**: 새 고객사 프로젝트의 인프라를 처음부터 세우는 사람.
 
-> **검증 상태**: 이 절차는 아직 처음부터 끝까지 한 번에 실행된 적이 없다.
-> 현재 환경은 2주에 걸쳐 증분으로 섰다. 실증 재구축으로 검증한 뒤 이 줄을 지운다.
+> **검증 상태**: L1~L3 을 백지에서 한 번에 세워 검증했다.
+> ⚠️ **L0(부트스트랩)은 아직이다** — 검증 때 이미 있던 것을 그대로 썼다(3절).
 
 레퍼런스 구현이 `iac-reference-infra`에 있다. 막히면 그 저장소의 실물을 본다.
 
@@ -133,10 +133,15 @@ use_lockfile = true
 EOF
 
 tofu -chdir=live/dev/networking init -backend-config=backend.hcl
-tofu -chdir=live/dev/networking plan
+tofu -chdir=live/dev/networking validate
 ```
 
-`backend.hcl`은 `.gitignore` 대상이다. **커밋하지 않는다.**
+`backend.hcl`은 `.gitignore` 대상이라 **루트마다 새로 만든다.** 커밋하지 않는다.
+
+> 🔴 **로컬에서 `plan`·`apply` 는 성립하지 않는다.** provider 가 실행 Role 을 assume 하는데
+> 그 Role 은 **입구 Role 만 신뢰**한다 — 개인 IAM user 로는 관리자여도 `AccessDenied` 다.
+> **로컬은 `init` + `validate` 까지**이고, 그 위는 전부 워크플로가 한다.
+> ⭐ `validate` 만으로도 잡히는 것이 있다(순환 참조·타입 오류). 훅이 push 때 이걸 돌린다.
 
 `main.tf`는 [`05-modules.md`](05-modules.md)의 배선 예시를 따른다.
 `eks_cluster_name`을 넘겨 EKS 자동 발견용 서브넷 태그를 붙인다 — 클러스터를 만들기 전에 해야 한다.
@@ -144,8 +149,12 @@ tofu -chdir=live/dev/networking plan
 apply는 워크플로로 한다:
 
 ```bash
-gh workflow run deploy-network.yml
+gh workflow run deploy-network.yml --ref main -f action=apply
 ```
+
+> **L1 apply 전까지 EKS 워크플로의 plan은 실패한다** — `no matching EC2 VPC found`.
+> EKS 루트가 VPC를 이름으로 조회하는데 아직 없기 때문이다. **순서가 있다는 신호이지 고장이 아니다.**
+> 두 루트를 같은 커밋으로 건드리면 plan이 동시에 돌아 `main`에 빨간 X가 한 번 뜬다.
 
 ---
 
@@ -156,6 +165,16 @@ gh workflow run deploy-network.yml
 **세 모듈의 배선 순서**에 주의한다. `workbench`는 자기 SG ID와 Role ARN을 출력하고,
 `eks-cluster`가 그것을 `access_entries`와 `cluster_security_group_additional_rules`로 받는다.
 모듈끼리 직접 참조하지 않는다 — **배포 루트가 배선한다.**
+
+> 🔴 **`workbench`에는 `eks_cluster_name`을 `module.eks.cluster_name`으로 넘긴다.**
+> 값이 같다고 `local`에서 만든 문자열을 쓰면 **순서 간선이 없어져** workbench와 클러스터가
+> 병렬로 생성된다. EC2는 1분, EKS는 10분이라 `user_data`의 `update-kubeconfig`가 전부 실패하고
+> **kubeconfig 없는 workbench**가 남는다.
+>
+> ⛔ `depends_on = [module.eks]`로 풀지 않는다 — **순환이다.** `depends_on`은 모듈 전체에 걸리는데
+> `eks-cluster`가 workbench의 role·SG를 이미 받아가고 있다. 값 참조는 리소스 단위라 고리가 닫히지 않는다.
+> ⚠️ `eks_cluster_arn`은 **`local`을 유지한다.** 실 ARN은 plan 시점에 unknown이라 모듈의
+> `count`를 깨뜨린다. 가르는 기준은 일관성이 아니라 **plan 시점에 값을 아느냐**다.
 
 `workbench`의 도구 핀은 **nullable이다.** 지정하지 않으면 설치되지 않는다.
 
@@ -215,6 +234,10 @@ seed의 마지막 단계다. **선택이 아니다.** 절차는 [`07-runbooks.md
 | 6 | CI 게이트 통과 | GitHub Actions |
 
 3번에서 값이 `main`이면 아직 **설정값**이다. 실제 커밋 SHA여야 pull에 성공한 것이다.
+
+4번은 **두 열을 따로 본다.** `Synced`는 *"Git이 요구한 것을 적용했다"* 일 뿐이고, 그 요구 자체가
+틀렸으면 여전히 `Synced`다 — 실패는 한 계층 아래(IAM·컨트롤러 런타임)에서 난다.
+`Synced` / `Degraded` 조합이 보이면 컨트롤러 로그로 내려간다.
 
 ---
 

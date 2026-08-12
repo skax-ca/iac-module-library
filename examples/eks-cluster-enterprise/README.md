@@ -10,15 +10,15 @@
 
 | 축 | 구성 | 근거 |
 |----|------|------|
-| **custom networking** | secondary CIDR `100.64.0.0/16` + `pod-dup` 그룹 | VPC D9 — Pod IP를 대량 소모해도 온프레미스 IP 계획을 잠식하지 않는다 |
+| **custom networking** | secondary CIDR `100.64.0.0/16` + `pod-dup` 그룹 | Pod IP를 대량 소모해도 온프레미스 IP 계획을 잠식하지 않는다 |
 | **Karpenter discovery** | subnet(`extra_tags`) + SG(모듈이 부여) **양쪽** | 한쪽만 붙으면 selector가 빈 결과 → 조용한 실패 |
 | **컨트롤러 IAM** | ALBC · external-dns opt-in | 설계 §2.6a — 정책은 커뮤니티 큐레이션에 위임 |
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
-| **삭제 보호** | `deletion_protection = true` | D-EKS-PROTECT — AWS API 차원 |
+| **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
 | ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 배선** | 설계 [`05-modules.md`](../../docs/05-modules.md) — private 클러스터를 조작할 유일한 지점 |
 
-### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선 (D-WORKBENCH-SEAM)
+### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선
 
 `endpoint_public_access = false`인 클러스터에 kubectl이 닿으려면 **세 층이 모두** 있어야 한다.
 소유가 두 모듈로 갈리는 기준은 **주체냐 대상이냐**다.
@@ -52,13 +52,13 @@
 그걸 요구한다). 이 구조를 그대로 복사하면 두 컴포넌트가 한 state에 묶여, **네트워크를 건드릴
 때마다 클러스터가 plan 범위에 들어온다.**
 
-소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**이며(`03 §4`), eks 루트는 이미
+소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**이며, eks 루트는 이미
 apply된 VPC를 **태그로 조회**한다:
 
 ```hcl
 data "aws_subnets" "node" {
   filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
-  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }   # VPC 모듈 D13 (vpc-v0.3.0+)
+  filter { name = "tag:SubnetGroup", values = ["node-uniq"] }   # vpc 모듈이 붙이는 조회 키
 }
 data "aws_subnets" "pod" {
   filter { name = "vpc-id", values = [data.aws_vpc.main.id] }
@@ -82,7 +82,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로
 확인한다. 위 표의 태그가 낡은 채 복사되면 그대로 굳는데, 이 모듈은 실패 방식이 특히 나쁘다:
 `eks-cluster-v0.2.0`이 넣은 external-dns 가드가 빠지면 **문제 조합의 `plan`이 통과하고 `apply`가
-죽는다**(D-EXTDNS-ZONE). ⚠️ **이 README 자신이 두 번 그 함정에 걸렸다** — 경고문을 쓴 것만으로는
+죽는다**. ⚠️ **이 README 자신이 두 번 그 함정에 걸렸다** — 경고문을 쓴 것만으로는
 갱신되지 않는다. 태그를 컷할 때 이 파일을 함께 고치는 것이 유일하게 작동하는 방법이다.
 릴리스 이력은 각 태그의 annotated 메시지(`git show eks-cluster-v0.5.0`)와
 [`docs/05-modules.md`](../../docs/05-modules.md)에 있다.
@@ -104,14 +104,14 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 |------|------|--------|
 | 🔴 **`workbench_ami_id`** | **자리표시자 `ami-00000000000000000`** | **조회한 실제 AMI ID.** 아래 **"workbench AMI"** 절 — 그대로 apply하면 즉시 실패한다(의도된 것) |
 | `external_dns_hosted_zone_arns` | 예제가 만든 `aws_route53_zone.internal.arn` | **운영 중인 zone의 ARN**. 아래 **"external-dns"** 절 참조 |
-| `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다(D-NODE-AMI-PIN) |
-| `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다 — 아래 **"addon 버전 고정"** 절(D-ADDON-VERSION-PIN-1). ⚠️ 모듈은 버전을 **갖지 않는다** |
+| `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다 |
+| `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다 — 아래 **"addon 버전 고정"** 절. ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
 
-## workbench AMI — 핀의 소유자는 소비 루트다 (D-WORKBENCH-AMI-PIN)
+## workbench AMI — 핀의 소유자는 소비 루트다
 
 `modules/workbench`의 `ami_id`에는 **기본값이 없다.** AMI ID는 리전 종속이라 재사용 자산의
-기본값이 될 수 없기 때문이다 — `addon_version`과 같은 구조다(D-ADDON-VERSION-PIN-1).
+기본값이 될 수 없기 때문이다 — `addon_version`과 같은 구조다.
 
 ```bash
 # arm64(기본 instance_type = t4g.nano)
@@ -132,20 +132,20 @@ bump하는 **명시적 커밋**으로만 하고, plan diff에서 재생성이 �
 > 존재하지 않는 zone을 가리키는 IAM이 조용히 굳는 것이 문제였다 — 그래서 그쪽은 예제가 zone을 직접 만든다.
 
 ⚠️ **`instance_type`과 아키텍처가 어긋나면 plan은 통과하고 부팅이 실패한다.** 모듈은 검증하지
-않는다 — 검증하려면 AMI를 조회해야 하고 그건 핀의 취지와 충돌한다(40 §2.3).
+않는다 — 검증하려면 AMI를 조회해야 하고 그건 핀의 취지와 충돌한다.
 `ami_type`/`instance_types`를 함께 고쳐야 하는 노드 그룹과 같은 성격의 함정이다.
 
 ## workbench 접속
 
 ```bash
-# 인바운드 규칙 0개로 셸에 진입한다 — IAM 인증만으로 성립한다(D-WORKBENCH-ACCESS)
+# 인바운드 규칙 0개로 셸에 진입한다 — IAM 인증만으로 성립한다
 aws ssm start-session --target $(tofu output -raw workbench_instance_id) --region ap-northeast-2
 
 # 접속 후 (kubeconfig 는 user_data 가 /etc/kubernetes 에 전역 생성)
 kubectl get nodes
 ```
 
-⚠️ **SSM 세션 로깅이 아직 없다**(40 §10-1). Access Entry가 `AmazonEKSClusterAdminPolicy`이므로
+⚠️ **SSM 세션 로깅이 아직 없다**. Access Entry가 `AmazonEKSClusterAdminPolicy`이므로
 **SSM 접근 통제가 곧 클러스터 보안**이다. 고객사 인도 전에 CloudWatch Logs 또는 S3 기록을 결정한다.
 
 ## external-dns — 예제와 소비 프로젝트가 다른 지점
@@ -153,7 +153,7 @@ kubectl get nodes
 **예제는 Route53 private zone까지 직접 만든다**(`aws_route53_zone.internal`). `01 §4`의 self-contained
 요건 때문이기도 하지만, 더 직접적인 이유는 **`enable_external_dns_iam = true`가 zone ARN 없이는
 성립하지 않기 때문**이다 — `external_dns_hosted_zone_arns`를 비우면 upstream이 `Resource = "*"`
-정책을 만들고 AWS가 `400 MalformedPolicyDocument`로 거부한다(**D-EXTDNS-ZONE**, 2026-08-04 실측).
+정책을 만들고 AWS가 `400 MalformedPolicyDocument`로 거부한다.
 모듈의 교차변수 validation이 그 조합을 **plan에서** 막는다.
 
 > ⚠️ 더미 ARN을 적어 두는 선택지도 있었으나 기각했다. 고객사가 그대로 복사해 apply하면
@@ -209,7 +209,7 @@ VPC 내부(workbench·VPN·Direct Connect)에서만 도달한다. 이걸 정하�
 Karpenter chart의 affinity가 `karpenter.sh/nodepool DoesNotExist`를 요구해서, Karpenter가 만든 노드에는
 Karpenter가 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
 
-## addon 버전 고정 (D-ADDON-VERSION-PIN-1)
+## addon 버전 고정
 
 **모듈은 addon 버전을 갖지 않는다.** 버전을 안 주면 EKS가 그 클러스터의 k8s 버전·리전에 맞는
 **AWS 기본 버전**을 해석한다 — 안전하고, 어떤 조합에서도 깨지지 않는다.

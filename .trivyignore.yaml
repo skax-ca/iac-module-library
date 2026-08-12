@@ -21,7 +21,7 @@ misconfigurations:
     paths:
       - "modules/workbench/main.tf"
     statement: >-
-      D-WORKBENCH-EGRESS(docs/design/40-workbench.md §2)가 판정한 값이다.
+      workbench 모듈의 egress 설계가 판정한 값이다.
       workbench 는 SSM 제어 평면 · AL2023 패키지 저장소 · dl.k8s.io/get.helm.sh 로 나가야 하는데
       AWS managed prefix list 는 S3/DynamoDB 만 제공하므로 CIDR 로 좁히는 것이 실질적으로 불가능하다.
       대신 (a) 규칙은 443/tcp 하나뿐이고 (b) **인바운드가 0개**라 이 경로가 유일한 통신 수단이며

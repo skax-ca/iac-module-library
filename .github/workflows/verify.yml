@@ -1,4 +1,4 @@
-# 모듈 검증 CI — docs/architecture/02-naming-tagging-and-pinning.md §4 "공통 검증 게이트" 구현.
+# 모듈 검증 CI — docs/06-conventions.md §6 "검증 게이트" 의 구현.
 #
 # ⚠️ 이 repo는 **배포하지 않는다.** apply 워크플로가 없는 것은 누락이 아니라 설계다(CLAUDE.md).
 #    배포는 소비 repo(iac-reference-infra 등)의 몫이다.
@@ -85,7 +85,7 @@ jobs:
       # ✅ CI 실증(run 31449541916, 이 변경의 PR): `Installing hashicorp/` **5회** ·
       #    `from the shared cache directory` **13회** · 게이트 6개 전부 통과.
       #    ⚠️ **두 숫자가 겹치는 것이 정상이다** — 흐름이 "다운로드 → 캐시 적재 → 캐시에서
-      #       .terraform 으로 링크"라, 첫 5개는 `Installing` 과 `from the shared cache` 가 **둘 다** 찍힌다.
+      #.terraform 으로 링크"라, 첫 5개는 `Installing` 과 `from the shared cache` 가 **둘 다** 찍힌다.
       #       📌 그래서 **판정 기준은 `from the shared cache` 개수가 아니라 `Installing` 개수(=네트워크)** 다.
       #
       # 🔴 **도입 계기는 속도가 아니라 실패율이다.** run 31448654347 이 modules/vpc 의 init 에서
@@ -146,14 +146,14 @@ jobs:
           for m in modules/*/; do
             found=1
             echo "::group::$m"
-            # -lockfile=readonly: lock 이 커밋돼 있고 config 와 맞는지 CI 가 강제한다(02 §4).
+            # -lockfile=readonly: lock 이 커밋돼 있고 config 와 맞는지 CI 가 강제한다.
             # lock 을 갱신해야 하는 상태면 여기서 실패한다 — 의도된 동작이다.
             tofu -chdir="$m" init -backend=false -input=false -lockfile=readonly
             tofu -chdir="$m" validate
             if [ -d "${m}tests" ]; then
               tofu -chdir="$m" test
             else
-              echo "⚠️ ${m}tests 없음 — 계약 검증이 없는 모듈은 릴리스하지 않는다(02 §4)"
+              echo "⚠️ ${m}tests 없음 — 계약 검증이 없는 모듈은 릴리스하지 않는다"
               exit 1
             fi
             echo "::endgroup::"

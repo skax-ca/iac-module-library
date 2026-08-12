@@ -1,12 +1,13 @@
-# workbench 코어 리소스 — 설계 docs/design/40-workbench.md §4.2 · §4.3
+# workbench 코어 리소스 — 보안 그룹 · 인스턴스
 #
-# ⚠️ 이 파일의 모든 리소스는 local.enabled(= var.workbench_enabled) 게이트를 지난다.
-#    IAM은 iam.tf가 소유한다(설계 §5 D-WORKBENCH-SEAM 1층).
+# 모든 리소스가 var.workbench_enabled 게이트를 지난다. IAM은 iam.tf가 소유한다.
+#
+# 계약: docs/05-modules.md
 
 locals {
   enabled = var.workbench_enabled
 
-  # 02 §1.4(b) — Name 태그의 중간 토큰. 소비자가 약어를 타이핑하지 않도록 모듈이 조합한다.
+  # Name 태그의 중간 토큰. 소비자가 약어를 타이핑하지 않도록 모듈이 조합한다.
   name_mid  = "${var.naming.workload}-${var.naming.env}-${var.naming.region_code}"
   name_tail = "${var.purpose}-${var.serial}"
 
@@ -24,7 +25,7 @@ locals {
     helm_version    = var.helm_version
     argocd_version  = var.argocd_version
 
-    # 진단·조작 도구 (D-WORKBENCH-TOOLING §4.3-2)
+    # 진단·조작 도구
     eks_node_viewer_version = var.eks_node_viewer_version
     # krew 는 kubectl 없이는 의미가 없다 — 조건을 여기서 접어 템플릿 분기를 하나로 줄인다.
     krew_version = var.kubectl_version != null ? var.krew_version : null
@@ -38,13 +39,12 @@ locals {
 # 리전을 하드코딩하지 않는다 — update-kubeconfig가 리전을 요구하고, 이 모듈은 리전 이식성이 계약이다.
 data "aws_region" "current" {}
 
-# ── 보안 그룹 (D-WORKBENCH-ACCESS) ──────────────────────────────────────────────
+# ── 보안 그룹 ───────────────────────────────────────────────────────────────────
 #
-# ⭐ **ingress 규칙이 하나도 없다.** SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을
-#    역방향으로 흐르므로 인바운드가 원천적으로 불필요하다. 이것이 SSH 키·22번 노출·감사 공백을
-#    동시에 없애는 이유다(설계 §1.1 — 경계의 개수를 줄인다).
+# ingress 규칙이 하나도 없다. SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방향으로
+# 흐르므로 인바운드가 원천적으로 불필요하다 — SSH 키·22번 노출·감사 공백이 함께 사라진다.
 #
-# rule은 별도 리소스로 분리한다(03 §2.1). inline ingress/egress 블록은 쓰지 않는다.
+# ⛔ inline ingress/egress 블록을 쓰지 않는다. rule은 별도 리소스로만 만든다.
 resource "aws_security_group" "this" {
   count = local.enabled ? 1 : 0
 
@@ -56,7 +56,7 @@ resource "aws_security_group" "this" {
     Name = local.sg_name
   })
 
-  # SG는 rule 없이 먼저 생성되고 rule이 나중에 ID를 참조한다(03 §2.2 순환 해소).
+  # SG는 rule 없이 먼저 생성되고 rule이 나중에 ID를 참조한다 — 순환을 이렇게 끊는다.
   lifecycle {
     create_before_destroy = true
   }
@@ -82,7 +82,7 @@ resource "aws_vpc_security_group_egress_rule" "https" {
 resource "aws_instance" "this" {
   count = local.enabled ? 1 : 0
 
-  # D-WORKBENCH-AMI-PIN: 변수로 받은 명시 핀이다. data source 조회가 없는 것이 이 결정의 실물이다.
+  # AMI는 변수로 받은 명시 핀이다. data source 조회를 두지 않는 것이 그 결정의 실물이다.
   ami           = var.ami_id
   instance_type = var.instance_type
 
@@ -90,9 +90,9 @@ resource "aws_instance" "this" {
   vpc_security_group_ids = [aws_security_group.this[0].id]
   iam_instance_profile   = aws_iam_instance_profile.this[0].name
 
-  # ── 하드닝 (설계 §4.2 — 변수로 열지 않는다) ────────────────────────────────
+  # ── 하드닝 — 변수로 열지 않는다 ────────────────────────────────────────────
   #
-  # key_name·associate_public_ip_address를 **지정하지 않는 것**도 계약의 일부다.
+  # key_name·associate_public_ip_address를 지정하지 않는 것도 계약의 일부다.
   # 서브넷이 private이면 공인 IP는 애초에 붙지 않고, 키페어가 없으면 SSH 경로가 존재하지 않는다.
 
   metadata_options {

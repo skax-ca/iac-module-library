@@ -1,9 +1,9 @@
-# 계약 검증 — 설계 docs/design/40-workbench.md §7.1 (T-1 ~ T-8)
+# workbench 모듈 계약 검증
 #
-# ⚠️ 이 파일이 계약의 **유일한 검출 지점**이다. 교차변수 validation은 validate가 아니라 plan 시점에
-#    평가되므로, examples를 validate까지만 도는 규약으로는 §4.1의 가드가 전혀 잡히지 않는다.
+# ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 validate가 아니라 plan 시점에
+#    평가되므로, examples를 validate까지만 도는 규약으로는 변수 가드가 전혀 잡히지 않는다.
 #
-# ⚠️ 이 repo는 배포하지 않는다. SSM 등록·세션 접속·kubectl 도달 판정은 **소비 repo 몫**이다(설계 §7.3).
+# ⚠️ 이 repo는 배포하지 않는다. SSM 등록·세션 접속·kubectl 도달 판정은 소비 repo 몫이다.
 #    여기서 증명하는 것은 "계획이 계약대로 나오는가"까지다.
 #
 # provider 모킹: command = plan도 data source를 실제 조회한다. 이 repo는 CI에 자격증명이 없으므로
@@ -56,7 +56,7 @@ run "naming_contract" {
   }
 
   assert {
-    # SG는 이름이 곧 식별자인 제약 리소스다(02 §1.5) — 태그와 name 인자가 함께 맞아야 한다.
+    # SG는 이름이 곧 식별자인 제약 리소스다 — 태그와 name 인자가 함께 맞아야 한다.
     condition     = aws_security_group.this[0].name == "sgr-acme-prd-an2-workbench-01"
     error_message = "SG name 인자가 Name 태그와 다르다: ${aws_security_group.this[0].name}"
   }
@@ -79,10 +79,10 @@ run "naming_contract" {
   }
 }
 
-# ── T-4 — 인바운드 0 (D-WORKBENCH-ACCESS의 실물) ────────────────────────────────
+# ── T-4 — 인바운드 0 ────────────────────────────────────────────────────────────
 #
-# ⭐ 이 모듈의 존재 이유에 가장 가까운 테스트다. ingress 규칙이 하나라도 생기면 SSM 전용이라는
-#    전제가 깨지고, "경계를 IAM 하나로 수렴시킨다"는 §1.1의 논증이 무효가 된다.
+# 이 모듈의 존재 이유에 가장 가까운 테스트다. ingress 규칙이 하나라도 생기면 SSM 전용이라는
+# 전제가 깨지고, 경계를 IAM 하나로 수렴시킨다는 설계 자체가 무효가 된다.
 run "no_inbound_rules" {
   command = plan
 
@@ -102,7 +102,7 @@ run "no_inbound_rules" {
   }
 }
 
-# ── T-5 — 하드닝 4종 (설계 §4.2, 변수로 열지 않는 것) ─────────────────────────
+# ── T-5 — 하드닝 4종 (변수로 열지 않는 것) ──────────────────────────────────────
 run "hardening_contract" {
   command = plan
 
@@ -132,21 +132,21 @@ run "hardening_contract" {
   }
 }
 
-# ⚠️ **하드닝 4종 중 2개는 여기서 검증할 수 없다** — 모킹의 관측 한계다(2026-08-05 실측).
+# ⚠️ **하드닝 4종 중 2개는 여기서 검증할 수 없다** — 모킹의 관측 한계다.
 #
 #    `key_name`(SSH 키페어 미지정)과 `associate_public_ip_address`(공인 IP 미할당)는
 #    **인자를 선언하지 않는 것** 자체가 계약이다. 그런데 둘 다 optional + computed 라
-#    mock_provider가 임의 문자열/불리언을 채운다(실측: key_name = "Wb0Vk").
+#    mock_provider가 임의 문자열/불리언을 채운다(예: key_name = "Wb0Vk").
 #    실제 apply에서는 null이지만 plan 모킹에서는 그 값을 볼 수 없다.
 #
 #    ⛔ mock_resource로 null을 강제해 통과시키지 않는다 — 그러면 assertion이 모듈이 아니라
 #       **자기 자신의 모킹 설정**을 검증하게 된다. 통과하는 가짜 테스트는 없는 것보다 나쁘다.
 #
-#    🔑 일반화하면: **"미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.**
-#       이 둘의 회귀 방지는 코드 리뷰와 설계 §4.2의 하드닝 목록에 남는다.
+#    일반화하면: "미지정"을 계약으로 삼는 항목은 plan 테스트로 지킬 수 없다.
+#    이 둘의 회귀 방지는 코드 리뷰가 맡는다.
 #       (공인 IP는 추가로 서브넷의 map_public_ip_on_launch에도 달려 있어 모듈 단독 판정이 애초에 불가능하다.)
 
-# ── T-3 — kill switch (D-WORKBENCH-LIFECYCLE) ───────────────────────────────────
+# ── T-3 — kill switch ───────────────────────────────────────────────────────────
 run "kill_switch_disables_everything" {
   command = plan
 
@@ -175,13 +175,13 @@ run "kill_switch_disables_everything" {
   }
 
   assert {
-    # 출력이 null이어야 소비 루트가 try() 없이 eks-cluster에 그대로 넘겨도 깨지지 않는다(설계 §5.1).
+    # 출력이 null이어야 소비 루트가 try() 없이 eks-cluster에 그대로 넘겨도 깨지지 않는다.
     condition     = output.workbench_instance_id == null && output.workbench_security_group_id == null && output.workbench_iam_role_arn == null
     error_message = "kill switch 상태에서 출력이 null이 아니다 — 소비 루트의 조립이 깨진다."
   }
 }
 
-# ── T-6 — EKS 연동 양성 (D-WORKBENCH-SEAM 1층) ──────────────────────────────────
+# ── T-6 — EKS 연동 양성 (접근 1층) ──────────────────────────────────────────────
 run "eks_integration_creates_scoped_policy" {
   command = plan
 
@@ -203,7 +203,7 @@ run "eks_integration_creates_scoped_policy" {
   }
 
   assert {
-    # ⭐ 권한이 **그 클러스터 ARN으로 한정**되는 것이 1층의 핵심이다.
+    # 권한이 그 클러스터 ARN으로 한정되는 것이 1층의 핵심이다.
     #    Resource = "*"였다면 workbench가 계정의 모든 클러스터 kubeconfig를 만들 수 있다.
     condition     = strcontains(aws_iam_role_policy.eks_describe[0].policy, "arn:aws:eks:ap-northeast-2:123456789012:cluster/eks-acme-prd-an2-main-01")
     error_message = "인라인 정책이 클러스터 ARN으로 한정되지 않았다."
@@ -254,9 +254,8 @@ run "reject_cluster_arn_without_name" {
   expect_failures = [var.eks_cluster_arn]
 }
 
-# ── T-8 — ⭐ kill switch × 가드 (파기 경로 보호) ──────────────────────────────
+# ── T-8 — kill switch × 가드 (파기 경로 보호) ─────────────────────────────────
 #
-# D-EXTDNS-ZONE에서 배운 것의 회수 지점이다(설계 §7.1).
 # 가드에 `!var.workbench_enabled ||` 가 없으면 이 케이스가 **거부되고**, 그것은 곧
 # "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch를 뜻한다.
 run "guard_does_not_block_kill_switch" {
@@ -288,15 +287,15 @@ run "reject_empty_egress" {
   expect_failures = [var.egress_cidr_blocks]
 }
 
-# ── T-9 — git 은 변수 없이 **항상** 설치된다 (D-WORKBENCH-REPO, 설계 §2.5·§4.1) ──
+# ── T-9 — git 은 변수 없이 항상 설치된다 ────────────────────────────────────────
 #
-# ⭐ 이 테스트가 지키는 것은 "설치되는가"가 아니라 **무조건성**이다. git 에 변수를 다시 붙이거나
+# 이 테스트가 지키는 것은 "설치되는가"가 아니라 무조건성이다. git 에 변수를 다시 붙이거나
 #    다른 도구 옆의 조건 분기 안으로 옮기면 여기서 깨진다 — 그 형태가 정확히 설계가 기각한 것이다.
 # ⚠️ kubectl·helm 을 둘 다 null 로 둔 상태에서 본다. 기본값이 null 이라 이것이 최소 형상이고,
 #    "다른 도구를 켜야 git 도 온다"는 결합이 생기면 이 케이스만 실패한다.
 #
-# 🔑 재사용할 실측(2026-08-10): plan 단계에서 `user_data` 는 **원문 그대로 보인다.**
-#    (`key_name` 처럼 모킹이 값을 지어내는 항목과 달라 §7.1의 "plan 으로 못 지키는 항목"이 아니다.)
+# plan 단계에서 `user_data` 는 원문 그대로 보인다 — `key_name` 처럼 모킹이 값을 지어내는
+# 항목과 달라서, 아래 assertion 들이 템플릿 내용을 직접 검사할 수 있다.
 run "git_always_installed" {
   command = plan
 
@@ -311,10 +310,10 @@ run "git_always_installed" {
   }
 }
 
-# ── T-10 — argocd CLI 는 nullable 핀이다 (설계 §4.1 상자) ──────────────────────
+# ── T-10 — argocd CLI 는 nullable 핀이다 ────────────────────────────────────────
 #
-# ⭐ git(T-9)과 **정반대 계약**이라 양성·음성을 둘 다 본다. argocd 는 버전이 chart appVersion 에
-#    결합되므로(23 §5) 소비자가 고르는 값이고, 지정하지 않으면 **설치되지 않는 것이 계약**이다.
+# git(T-9)과 정반대 계약이라 양성·음성을 둘 다 본다. argocd 는 버전이 chart appVersion 에
+#    결합되므로 소비자가 고르는 값이고, 지정하지 않으면 **설치되지 않는 것이 계약**이다.
 # ⚠️ 음성 케이스를 빼면 "항상 설치"로 바뀌어도 통과한다 — 그러면 T-9 와 구분되지 않는다.
 run "argocd_cli_installed_when_pinned" {
   command = plan
@@ -330,9 +329,9 @@ run "argocd_cli_installed_when_pinned" {
   }
 }
 
-# ── T-11 — 기본 인스턴스 타입은 dnf 가 살아남는 크기여야 한다 (D-WORKBENCH-SIZE) ──
+# ── T-11 — 기본 인스턴스 타입은 dnf 가 살아남는 크기여야 한다 ──────────────────
 #
-# 🔴 이 테스트는 **실제 사고에서 나왔다**(설계 §7.3-3). t4g.nano(0.5GB)에서 부팅 중 dnf 가
+# t4g.nano(0.5GB)에서 부팅 중 dnf 가
 #    OOM-killer 에 죽어 git 이 설치되지 않았다 — T-9 는 통과했는데 실행이 실패했다.
 # ⚠️ plan 테스트가 OOM 을 예측할 수는 없다. 여기서 지키는 것은 **그때 내린 결정이 조용히
 #    되돌아가지 않는 것**뿐이다 — 비용을 줄이려고 기본값을 내리는 변경이 가장 그럴듯한 회귀다.
@@ -342,7 +341,7 @@ run "default_instance_type_survives_dnf" {
 
   assert {
     condition     = aws_instance.this[0].instance_type == "t4g.small"
-    error_message = "기본 instance_type 이 t4g.small 이 아니다 — 더 작은 타입은 부팅 중 dnf 가 OOM 으로 죽는다(설계 §4.3 D-WORKBENCH-SIZE, §7.3-3 실측)."
+    error_message = "기본 instance_type 이 t4g.small 이 아니다 — 더 작은 타입은 부팅 중 dnf 가 OOM 으로 죽는다."
   }
 }
 
@@ -356,16 +355,16 @@ run "argocd_cli_absent_by_default" {
   }
 }
 
-# ── T-12 — kubeconfig 배포 방식 (D-WORKBENCH-KUBECONFIG, 설계 §4.3-1) ─────────
+# ── T-12 — kubeconfig 배포 방식 ─────────────────────────────────────────────────
 #
-# 🔴 이 테스트도 **실제 사고에서 나왔다.** 2026-08-11 에 정본이 **0666(world-writable)** 이 되어
+# 정본이 0666(world-writable) 이 되어
 #    있었고 기본 네임스페이스가 전역 오염돼 있었다. kubeconfig 는 `users[].user.exec` 로 임의
 #    명령을 지정할 수 있어, world-writable 은 **로컬 권한 상승 경로**다.
-# ⚠️ **여기서 지키는 것은 "kubeconfig 가 생기는가"가 아니다** — 그것은 T-6 이 이미 본다.
+# ⚠️ 여기서 지키는 것은 "kubeconfig 가 생기는가"가 아니다 — 그것은 T-6 이 이미 본다.
 #    지키는 것은 두 가지이고, 둘 다 *"편의를 위해 되돌리기 쉬운"* 형태다:
 #      ① 정본이 쓰기 가능해지지 않는 것(`0444` 를 지우면 조작이 잠깐 편해진다)
 #      ② `ssm-user` 상속 경로가 사라지지 않는 것(`/etc/skel` — 그 사용자는 user_data 시점에
-#         **아직 존재하지 않는다**. 실측: 부팅 03:49 · user_data 03:50 · ssm-user 홈 06:26)
+#         아직 존재하지 않는다 — SSM Agent 가 첫 세션에서 useradd 로 만든다)
 #      ③ `/etc/profile.d` 전역 export 가 되살아나지 않는 것(그것이 있으면 KUBECONFIG 가
 #         홈 사본보다 우선해 ①②가 통째로 무의미해진다)
 run "kubeconfig_is_readonly_and_inherited" {
@@ -379,50 +378,45 @@ run "kubeconfig_is_readonly_and_inherited" {
 
   assert {
     condition     = strcontains(aws_instance.this[0].user_data, "chmod 0444 \"$KUBECONFIG_PATH\"")
-    error_message = "정본 kubeconfig 를 읽기 전용으로 잠그지 않는다 — world-writable 이 되면 exec 자격증명 명령을 바꿔 심을 수 있다(설계 §4.3-1)."
+    error_message = "정본 kubeconfig 를 읽기 전용으로 잠그지 않는다 — world-writable 이 되면 exec 자격증명 명령을 바꿔 심을 수 있다."
   }
 
   assert {
     condition     = strcontains(aws_instance.this[0].user_data, "/etc/skel/.kube/config")
-    error_message = "skel 상속이 없다 — ssm-user 는 user_data 시점에 존재하지 않으므로 이 경로가 사라지면 그 사용자는 kubeconfig 를 못 받는다(설계 §4.3-1)."
+    error_message = "skel 상속이 없다 — ssm-user 는 user_data 시점에 존재하지 않으므로 이 경로가 사라지면 그 사용자는 kubeconfig 를 못 받는다."
   }
 
   assert {
-    # 음성: **공유 정본**을 전역 KUBECONFIG 로 export 하면 홈 사본이 죽은 경로가 되고
-    #       전역 오염이 재발한다. 그것이 §4.3-1 이 막으려는 유일한 메커니즘이다.
+    # 음성: 공유 정본을 전역 KUBECONFIG 로 export 하면 홈 사본이 죽은 경로가 되고
+    #       전역 오염이 재발한다.
     #
-    # 🔑 **판정 대상은 파일 이름도, `profile.d` 자체도 아니다 — "공유 정본을 가리키는 export"다.**
-    #    이 조건은 두 번 좁혀졌고 두 번 다 이유가 있었다:
-    #      ① `"/etc/profile.d/kubeconfig.sh"`(이름) → **실패**. user_data 의 *"이 파일을 만들지
-    #         않는다"* 는 **주석이 그 문자열을 포함**했다. `30 §4.2` D-ROOTAPP-SKIP **실패 ②**
-    #         (*"마커를 설명하는 주석도 마커다"*)와 같은 형태이고 이 repo 에서 두 번째다.
-    #      ② `"> /etc/profile.d/"`(행위) → **너무 넓었다**. §4.3-2 가 alias·PATH·KREW_ROOT 를
-    #         넣으려면 그 파일이 필요한데 이 조건이 **정당한 요구를 막았다**(같은 날 실제로 걸렸다).
-    #    ⚠️ **넓은 음성 판정은 미래의 요구를 부당하게 막는다.** 위험 그 자체를 지목해야 한다.
+    # ⛔ 조건을 파일 이름(`/etc/profile.d/kubeconfig.sh`)이나 파일 생성 행위(`> /etc/profile.d/`)로
+    #    잡지 말 것. 전자는 "이 파일을 만들지 않는다"는 주석에 걸리고, 후자는 alias·PATH·KREW_ROOT
+    #    를 넣으려는 정당한 요구까지 막는다. 지목할 것은 위험 그 자체 — export 구문이다.
+    #    자세한 규칙은 이 파일 아래 상자에 있다.
     condition     = !strcontains(aws_instance.this[0].user_data, "export KUBECONFIG=/etc/kubernetes")
-    error_message = "공유 정본을 전역 KUBECONFIG 로 export 하고 있다 — 환경변수가 홈 사본보다 우선하므로 사용자별 사본이 무의미해진다(설계 §4.3-1)."
+    error_message = "공유 정본을 전역 KUBECONFIG 로 export 하고 있다 — 환경변수가 홈 사본보다 우선하므로 사용자별 사본이 무의미해진다."
   }
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 🔑 **규칙 — 음성 assertion 은 "이름"이 아니라 "행위"를 지목한다**
+# 규칙 — 음성 assertion 은 "이름"이 아니라 "행위"를 지목한다
 #
-# user_data 는 **주석이 본문의 일부**다. 어떤 것을 *하지 않는다* 고 설명하는 주석은
-# 그 이름을 반드시 포함하므로, 이름으로 음성 판정을 걸면 **설명까지 걸린다.**
+# user_data 는 주석이 본문의 일부다. 어떤 것을 하지 않는다고 설명하는 주석은 그 이름을 반드시
+# 포함하므로, 이름으로 음성 판정을 걸면 설명까지 걸린다. 넓게 잡으면 정당한 요구까지 막는다.
 #
-# 실측 이력 — 같은 형태가 네 번:
-#   ① `30 §4.2` D-ROOTAPP-SKIP 실패 ② — 마커를 설명하는 주석이 마커로 작동
-#   ② `"/etc/profile.d/kubeconfig.sh"`  → "만들지 않는다" 주석이 걸림
-#   ③ `"> /etc/profile.d/"`             → 너무 넓어 §4.3-2 의 정당한 요구를 막음
-#   ④ `"KREW_ROOT"`                     → "설정(alias·PATH·KREW_ROOT·…)" 주석이 걸림
+# 이 저장소에서 실제로 걸린 조건들:
+#   `"/etc/profile.d/kubeconfig.sh"`  → "만들지 않는다" 주석이 걸림
+#   `"> /etc/profile.d/"`             → 너무 넓어 alias·PATH 설정까지 막음
+#   `"KREW_ROOT"`                     → "설정(alias·PATH·KREW_ROOT·…)" 주석이 걸림
 #
 # ⇒ 지목할 것은 **실행 구문**이다: `export KREW_ROOT=` · `export KUBECONFIG=/etc/kubernetes`.
 #   설명문에는 등장하지 않고, 실제로 그 행위를 할 때만 등장한다.
 # ══════════════════════════════════════════════════════════════════════════════
 
-# ── T-13·T-14·T-15 — 진단 도구 + 로그인 프로파일 (D-WORKBENCH-TOOLING, 설계 §4.3-2) ──
+# ── T-13·T-14·T-15 — 진단 도구 + 로그인 프로파일 ────────────────────────────────
 #
-# ⭐ 기존 3종(kubectl·helm·argocd)과 **같은 nullable 핀 계약**이라 양성·음성을 둘 다 본다.
+# 기존 3종(kubectl·helm·argocd)과 같은 nullable 핀 계약이라 양성·음성을 둘 다 본다.
 #    음성이 없으면 "항상 설치"로 바뀌어도 통과해 T-9(git 의 무조건성)와 구분되지 않는다.
 run "tooling_installed_when_pinned" {
   command = plan
@@ -435,14 +429,14 @@ run "tooling_installed_when_pinned" {
 
   assert {
     # ⚠️ 자산 이름이 `_Linux_<arch>` 다. 이 문자열이 깨지면 x86 에서 404 가 난다 —
-    #    다른 도구를 복사해 `amd64` 로 쓰는 것이 가장 그럴듯한 회귀다(설계 §4.3-2).
+    #    다른 도구를 복사해 `amd64` 로 쓰는 것이 가장 그럴듯한 회귀다.
     condition     = strcontains(aws_instance.this[0].user_data, "eks-node-viewer/releases/download/v0.7.4/eks-node-viewer_Linux_")
     error_message = "eks_node_viewer_version 을 지정했는데 릴리스 URL 이 user_data 에 없다."
   }
 
   assert {
     condition     = strcontains(aws_instance.this[0].user_data, "x86_64")
-    error_message = "eks-node-viewer 의 x86 자산 이름 매핑(x86_64)이 없다 — amd64 로 쓰면 404 다(설계 §4.3-2 실측)."
+    error_message = "eks-node-viewer 의 x86 자산 이름 매핑(x86_64)이 없다 — amd64 로 쓰면 404 다."
   }
 
   assert {
@@ -453,7 +447,7 @@ run "tooling_installed_when_pinned" {
   # T-14 — krew 는 시스템 설치다. 기본값($HOME/.krew)이면 root 홈에 갇힌다.
   assert {
     condition     = strcontains(aws_instance.this[0].user_data, "KREW_ROOT=/usr/local/krew")
-    error_message = "KREW_ROOT 가 없다 — krew 기본값은 $HOME/.krew 라 user_data(root)에서 /root/.krew 에 갇힌다(설계 §4.3-2 결정 1)."
+    error_message = "KREW_ROOT 가 없다 — krew 기본값은 $HOME/.krew 라 user_data(root)에서 /root/.krew 에 갇힌다."
   }
 
   assert {
@@ -462,17 +456,17 @@ run "tooling_installed_when_pinned" {
     error_message = "krew_plugins 기본값이 user_data 에 렌더되지 않았다."
   }
 
-  # T-15 — 로그인 프로파일. 지키는 것은 alias 가 아니라 **completion 로드**다.
+  # T-15 — 로그인 프로파일. 지키는 것은 alias 가 아니라 completion 로드다.
   assert {
     condition     = strcontains(aws_instance.this[0].user_data, "alias k=kubectl")
     error_message = "alias k 가 프로파일에 없다."
   }
 
   assert {
-    # 🔴 실측: `complete -F <없는함수> k` 는 bash 가 **에러 없이** 받아들인다 ⇒ 이 줄을
+    # ⚠️ `complete -F <없는함수> k` 는 bash 가 에러 없이 받아들인다 ⇒ 이 줄을
     #    빼먹으면 "설정했는데 안 되는" 상태가 아무 신호 없이 남는다. 그래서 테스트가 지킨다.
     condition     = strcontains(aws_instance.this[0].user_data, "kubectl completion bash")
-    error_message = "kubectl completion 로드가 없다 — __start_kubectl 이 정의되지 않아 complete 줄이 조용히 무용지물이 된다(설계 §4.3-2 결정 3)."
+    error_message = "kubectl completion 로드가 없다 — __start_kubectl 이 정의되지 않아 complete 줄이 조용히 무용지물이 된다."
   }
 
   assert {
@@ -496,15 +490,14 @@ run "tooling_absent_by_default" {
   }
 
   assert {
-    # 🔑 **"행위"를 지목한다 — 이름이 아니라.** `"KREW_ROOT"` 로 잡았다가 실패했다:
-    #    프로파일 블록의 주석이 *"설정(alias·PATH·KREW_ROOT·…)"* 이라고 그 이름을 쓴다.
-    #    ⚠️ 오늘만 **세 번째**다(§4.3-1 의 두 번 + 이번). 규칙은 아래 상자가 소유한다.
+    # ⛔ `"KREW_ROOT"` 로 잡지 말 것 — 프로파일 블록의 주석이 그 이름을 쓴다.
+    #    이름이 아니라 행위(`export KREW_ROOT=`)를 지목한다. 규칙은 위 상자가 소유한다.
     condition     = !strcontains(aws_instance.this[0].user_data, "export KREW_ROOT=")
     error_message = "krew_version 이 null 인데 krew 설정이 계획됐다 — 기본값 계약 위반."
   }
 }
 
-# ⭐ krew 는 kubectl 없이는 의미가 없다 — 그 결합을 모듈(main.tf)이 접는다.
+# krew 는 kubectl 없이는 의미가 없다 — 그 결합을 모듈(main.tf)이 접는다.
 #    이 케이스가 없으면 "kubectl 없이 krew 만 깔린" 형상이 조용히 만들어진다.
 run "krew_requires_kubectl" {
   command = plan
@@ -516,6 +509,6 @@ run "krew_requires_kubectl" {
 
   assert {
     condition     = !strcontains(aws_instance.this[0].user_data, "export KREW_ROOT=")
-    error_message = "kubectl 이 없는데 krew 가 계획됐다 — 플러그인을 실행할 kubectl 이 없다(설계 §4.3-2)."
+    error_message = "kubectl 이 없는데 krew 가 계획됐다 — 플러그인을 실행할 kubectl 이 없다."
   }
 }

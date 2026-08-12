@@ -1,6 +1,6 @@
 # 출력 계약이 실제로 소비되는지 보이는 곳(examples/AGENTS.md).
 # GitOps seam(design/21)과 부트스트랩 스크립트가 이 값들을 받는다 — seam이 어떤 방식으로
-# 재결정되든 필요한 것들이라, 여기 있는 목록이 곧 "모듈이 밖에 지는 의무"다(설계 §3.2).
+# 재결정되든 필요한 것들이라, 여기 있는 목록이 곧 "모듈이 밖에 지는 의무"다.
 
 output "cluster_name" {
   description = "EKS 클러스터 이름. VPC 디스커버리 태그·Karpenter discovery와 같은 값이다."
@@ -47,7 +47,7 @@ output "karpenter_sqs_queue_name" {
   value       = module.eks.karpenter_sqs_queue_name
 }
 
-# ── 컨트롤러 IAM (§2.6a) ─────────────────────────────────────────────────────
+# ── 컨트롤러 IAM  ─────────────────────────────────────────────────────
 
 output "alb_controller_iam_role_arn" {
   description = "ALBC Pod Identity role ARN. GitOps helm values의 serviceAccount 애노테이션이 아니라, Pod Identity association으로 바인딩된다."
@@ -79,6 +79,6 @@ output "workbench_instance_id" {
 }
 
 output "workbench_ssm_command" {
-  description = "복사해서 바로 쓰는 접속 명령. 인바운드 규칙 0개로 셸에 진입한다(D-WORKBENCH-ACCESS)."
+  description = "복사해서 바로 쓰는 접속 명령. 인바운드 규칙 0개로 셸에 진입한다."
   value       = "aws ssm start-session --target ${module.workbench.workbench_instance_id} --region ${var.aws_region}"
 }

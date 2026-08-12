@@ -3,14 +3,14 @@
 # argocd-seed.sh — self-managed ArgoCD 부트스트랩 seed (workbench 에서 사람이 실행)
 #
 # 설계 SSOT:
-#   docs/design/23-argocd-self-managed.md  §2.1 D-ARGOCD-SM-BOOTSTRAP
-#   docs/design/30-gitops-repo.md          §4.1 seed 경로별 분기
+#   docs/02-choose-your-path.md   self-managed ArgoCD 선택 근거
+#   docs/03-new-project.md        seed 를 포함한 착수 절차
 #
 # ⭐ 자기소멸(self-superseding) 원칙이 이 스크립트의 설계 제약이다.
 #    이 스크립트는 매니페스트를 **생성하지 않는다** — GitOps 저장소에 커밋된 파일을
 #    **그대로 apply** 한다. 생성하면 커밋본과 바이트가 달라지고, 그 차이가 영구 드리프트로 남는다.
 #    그래서 --set 도, 인라인 heredoc 매니페스트도 쓰지 않는다.
-#    ⚠️ 예외는 단 하나: repository Secret(2단계). private key 를 담아 커밋할 수 없다(30 §4.1).
+#    ⚠️ 예외는 단 하나: repository Secret(2단계). private key 를 담아 커밋할 수 없다.
 #
 # ⚠️ 이 repo 는 배포하지 않는다. 이 스크립트는 **소비 프로젝트가 실행하는 절차**이며,
 #    여기서는 재사용 자산으로만 소유한다(하드코딩 금지 — architecture/01 §4).
@@ -27,7 +27,7 @@ usage() {
 사용법: argocd-seed.sh [--dry-run] [--from STEP] [--to STEP]
 
 GitOps 저장소를 pull 하는 self-managed ArgoCD 를 부트스트랩한다.
-단계는 순서대로 실행되며 각 단계가 다음 단계의 전제다(30 §4.1).
+단계는 순서대로 실행되며 각 단계가 다음 단계의 전제다.
 
   0  helm install argo-cd            (저장소의 values 파일 그대로)
   2  GitHub App repository Secret    (자기소멸 원칙의 유일한 예외)
@@ -125,7 +125,7 @@ ok "kubectl · helm 존재"
 if git -C "$GITOPS_REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   if [[ -n "$(git -C "$GITOPS_REPO_DIR" status --porcelain)" ]]; then
     git -C "$GITOPS_REPO_DIR" status --short | sed 's/^/       /'
-    die "GitOps 저장소에 커밋되지 않은 변경이 있다 — 자기소멸 원칙이 깨진다(30 §4). 커밋·push 후 다시 실행하라"
+    die "GitOps 저장소에 커밋되지 않은 변경이 있다 — 자기소멸 원칙이 깨진다. 커밋·push 후 다시 실행하라"
   fi
   local_head=$(git -C "$GITOPS_REPO_DIR" rev-parse --short HEAD)
   ok "저장소 clean · HEAD=$local_head"
@@ -146,7 +146,7 @@ for f in "$PROJECT_FILE" "$CLUSTER_FILE" "$ROOTAPP_FILE" "$VALUES_FILE"; do
 done
 ok "매니페스트 3종 + values 존재"
 
-# 클러스터 도달성 — private endpoint 라 workbench 밖에서는 여기서 막힌다(40 §1)
+# 클러스터 도달성 — private endpoint 라 workbench 밖에서는 여기서 막힌다
 if (( ! DRY_RUN )); then
   kubectl cluster-info >/dev/null 2>&1 \
     || die "클러스터에 닿지 않는다. workbench 에서 실행 중인지, kubeconfig 가 맞는지 확인하라(40)"
@@ -177,7 +177,7 @@ fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 2단계 — GitHub App repository Secret
-#   ⚠️ 자기소멸 원칙의 유일한 예외 — private key 라 저장소에 커밋할 수 없다(30 §4.1).
+#   ⚠️ 자기소멸 원칙의 유일한 예외 — private key 라 저장소에 커밋할 수 없다.
 #      따라서 이 Secret 만 GitOps 관리 밖에 남는다. root App 의 prune:false 가 이것을 지켜준다.
 # ─────────────────────────────────────────────────────────────────────────────
 if want 2; then
@@ -216,7 +216,7 @@ apply_manifest() {
     #    ②가 핵심이다 — AppProject·Application 은 **CRD** 라 kubectl 이 RESTMapping 을 풀려면
     #    discovery API(`/api`)를 쳐야 한다. 검증을 꺼도 그 호출은 남는다.
     #    ⇒ **ArgoCD CR 은 클라이언트 dry-run 으로 오프라인 검증이 불가능하다.**
-    #    클러스터는 private 이므로(20 §3.1) 팀원 노트북에서는 늘 막힌다.
+    #    클러스터는 private 이므로 팀원 노트북에서는 늘 막힌다.
     #    ⇒ dry-run 의 역할을 "검증"이 아니라 **"무엇을 어디서 적용하는지 보여주기"** 로 좁힌다.
     #       진짜 검증은 실제 실행 경로의 `--dry-run=server` 가 한다(뒤로 미뤄질 뿐 사라지지 않는다).
     printf '     %-14s %s\n' "kind/name:" \
@@ -258,10 +258,10 @@ if (( ! DRY_RUN )) && want 5; then
           -o jsonpath='{.status.sync.status} {.status.health.status}{"\n"}'
 
      3) cluster Secret 이 내장 in-cluster 를 대체했는가 / 중복인가
-        ⚠️ argo-cd v3.5.0 문서에 서술이 없어 **미검증 항목**이다(30 §4.1).
+        ⚠️ argo-cd v3.5.0 문서에 서술이 없어 **미검증 항목**이다.
         argocd cluster list        # 또는 UI 의 Settings → Clusters
 
-     4) UI 접근 (D-ARGOCD-SM-REACH — 23 §2.2)
+     4) UI 접근
         kubectl -n $ARGOCD_NAMESPACE port-forward svc/argocd-server 8080:443
         → https://localhost:8080  (자체 서명 인증서 경고는 정상이다)
         초기 비밀번호:
@@ -290,7 +290,7 @@ if (( ! DRY_RUN )) && want 5; then
           -o jsonpath='{.data.admin\\.passwordMtime}' | base64 -d; echo   # 시각이 갱신됐는가
         kubectl -n $ARGOCD_NAMESPACE get secret argocd-initial-admin-secret   # NotFound 여야 한다
         ⭐ 교체 후에도 argocd Application 이 Synced 로 남는다 — 차트가 argocd-secret 을
-           data 없이 렌더하므로 admin.password 는 ArgoCD 소유 필드가 아니다(30 §2.10.1).
+           data 없이 렌더하므로 admin.password 는 ArgoCD 소유 필드가 아니다.
 VERIFY
 fi
 

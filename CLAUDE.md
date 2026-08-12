@@ -5,7 +5,7 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 
 **스택**: **OpenTofu**(MPL-2.0) + GitHub Actions(OIDC) + S3 backend(`use_lockfile`) + OPA/Conftest
 
-## ⚙️ 엔진: OpenTofu 단독 (D-ENGINE, 2026-07-29)
+## ⚙️ 엔진: OpenTofu 단독
 
 명령은 `terraform`이 아니라 **`tofu`**다. 로컬·CI·문서·lock 전부 하나로 일원화한다.
 
@@ -35,7 +35,7 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 > ArgoCD Application·AppProject·cluster Secret은 **`iac-platform-gitops`** 소관이다
 > (3계층 소유 모델 — `docs/01-architecture.md` §2·§5).
 
-- 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md` (D-OSS-STACK)
+- 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md`
   — ⚠️ 그중 **엔진 축의 근거는 `docs/08-decisions.md`가 교체**했다.
   결론(OpenTofu)은 같지만 **이유가 다르다** — PoC repo는 라이선스를, 여기는 조달 마찰·운영 비용을 든다.
   PoC repo는 동결이라 그쪽에 개정 표시가 없으므로 **`08`을 함께 읽는다.**
@@ -53,7 +53,7 @@ module "vpc" {
 
 태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.5.0`.
 
-## 🔢 버전 정책: 전 모듈 `0.y.z` (D-VERSION, 2026-08-05)
+## 🔢 버전 정책: 전 모듈 `0.y.z`
 
 번호 체계의 SSOT는 **`docs/06-conventions.md` §3**이고, 기각한 안은 **`docs/08-decisions.md`**가 갖는다.
 
@@ -119,7 +119,7 @@ module "vpc" {
 - **facade 원칙**: 소비자는 안정적 내부 인터페이스만 쓰고, upstream 변수 rename은 wrapper 내부에서만 번역한다.
 - **semver 거버넌스 계약**: upstream 파괴적 변경을 인터페이스 유지로 흡수 = 내부 **마이너**(소비자 무영향),
   숨길 수 없으면 내부 **메이저**(의도적 마이그레이션). upstream cadence와 소비자 cadence를 분리한다.
-- **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(D-TOFU-FLOOR, 2026-08-05 — 실행도 1.12.x).
+- **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(실행도 1.12.x).
   ⚠️ 모듈별 하한 대장은 **폐지**됐다. *"근거로만 올린다"* 는 이제 **1.13 이상에만** 적용된다 —
   근거는 `docs/08-decisions.md`(실행 지점이 이미 전부 1.12라 분기가 소비자를 배제한 적이 없었다).
   aws `~> 6.0`(예제·프로젝트 루트)/`>= 6.0`(모듈),
@@ -224,7 +224,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   위 「검증」의 MCP 확인 절차가 이 원칙의 이행 장치다.
 - 🔑 **facade 에서 특히 자주 틀리는 형태**: "upstream이 지원하지 않는다"가 아니라
   **wrapper 가 그 인자를 안 넘기고 있을 뿐**인 경우다.
-  실측(2026-08-04, D-NODE-ARCH): graviton 이 막힌 원인은 upstream 미지원이 아니라 facade 가
+  실측: graviton 이 막힌 원인은 upstream 미지원이 아니라 facade 가
   `ami_type` 을 통과시키지 않아서였다 — upstream v21.24.1 엔 처음부터 있었다.
   단정하고 우회(launch template 등)를 짰다면 **facade 가 upstream 을 가리는 부채**가 됐을 것이다.
   → `.terraform/modules/` 실물 소스를 연다. 문서보다 소스가 빠르고 정확할 때가 많다.
@@ -232,8 +232,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 ### 죽은 경로를 남기지 않는다 — 단, 계약 파괴는 semver 로 드러낸다
 
 - 쓰이지 않게 된 코드·변수·분기는 **삭제한다.** 호환 레이어를 덧대 두 경로를 유지하지 않는다.
-  실측: D27 철회 때 `update-assume-role-policy` 를 남기지 않았고, D30-1 이 PR plan 을 지울 때
-  댓글 step 도 함께 지웠다.
+  실측: 철회한 결정의 잔재를 남기지 않았고, PR plan 을 지울 때 그것을 참조하던 댓글 step 도 함께 지웠다.
 - 🔴 **"하위 호환을 유지하지 마라"를 모듈 계약에 그대로 적용하지 않는다.** 이 repo의 출력은
   고객사가 **정확 태그로 핀해서 쓰는 계약**이다. 계약 변경은 숨기는 것이 아니라
   **semver 로 드러내는 것**이 규약이다(위 semver 거버넌스). *호환 레이어는 덧대지 않되,
@@ -241,8 +240,8 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 - 🔴 **릴리스된 태그를 덮어쓰지 않는다.** 예외는 **소비자가 0일 때뿐**이다.
   실측(2026-08-04): `eks-cluster-v1.0.0` 은 컷 직후 apply 된 인프라가 하나도 없어(소비 repo 는
   plan 만) 태그를 옮겼다. **한 번이라도 apply 된 뒤에는 마이너를 컷한다.**
-  - ⚠️ **번호는 당시 기록이다** — 그 태그는 2026-08-05 D-VERSION 재매핑으로 **`eks-cluster-v0.1.0`** 이 됐다.
-  - 🔑 **D-VERSION 이 이 사건을 다시 읽었다**: *"예외를 발명해야 했다"* 는 것 자체가
+  - ⚠️ **번호는 당시 기록이다** — 그 태그는 `0.y.z` 재매핑으로 **`eks-cluster-v0.1.0`** 이 됐다.
+  - 🔑 **`0.y.z` 정책이 이 사건을 다시 읽었다**: *"예외를 발명해야 했다"* 는 것 자체가
     **1.0.0 이 이른 약속이었다**는 신호였다. `0.x` 에서는 태그를 옮길 이유가 애초에 없다 —
     다음 마이너를 내면 된다. 규칙은 유효하되, **규칙을 자주 시험하게 만드는 번호 체계를 고친 것**이다.
 
@@ -252,7 +251,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   실측: `addons.tf` 가 vpc-cni 의 SG 를 변수로 열지 않고 *"별도 SG 요구가 생기면 그때 변수를 연다"* 로
   남겼다(게다가 그 변수는 순환 참조를 만들었을 것이다).
 - ⚠️ **kill switch·삭제 보호·교차변수 validation 은 "추측 대비"가 아니다.** 재사용 자산의
-  **현재 요구사항**이다(D-EKS-ENABLED·D-EKS-PROTECT·D12). 단순화의 이름으로 걷어내지 않는다.
+  **현재 요구사항**이다. 단순화의 이름으로 걷어내지 않는다.
 - ⚠️ **닫힌 열거(validation) 는 값이 늘 때마다 부채가 된다.** 넣을 때 유지보수 비용을 함께 계산한다.
   실증: `capacity_type` 검증이 AWS 가 나중에 추가한 `CAPACITY_BLOCK` 을 아직 담지 못하고 있다.
 

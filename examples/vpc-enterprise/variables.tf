@@ -1,6 +1,6 @@
 # 예제는 **인자 없이 `tofu validate`가 도는 상태**를 유지한다(examples/AGENTS.md).
 # 그래서 모든 변수에 기본값이 있다. 워크로드 코드는 가상값(acme)을 쓴다 —
-# 이 repo는 특정 워크로드를 고정하지 않는다(05 §5.4 재사용 요건).
+# 이 repo는 특정 워크로드를 고정하지 않는다.
 
 variable "aws_region" {
   description = "리소스를 만들 리전."

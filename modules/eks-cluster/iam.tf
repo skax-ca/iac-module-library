@@ -1,18 +1,18 @@
-# 컨트롤러 IAM 전제조건 — 설계 docs/design/20-eks-module.md §2.6-4 · §2.6a
+# 컨트롤러 IAM 전제조건
 #
-# 원칙(§2.6a): baseline 컨트롤러의 IAM 전제는 **IaC(이 모듈)** 소관이고, **정책은 hand-author하지
+# 원칙: baseline 컨트롤러의 IAM 전제는 **IaC(이 모듈)** 소관이고, **정책은 hand-author하지
 # 않는다** — AWS 관리형이나 커뮤니티 큐레이션에 위임한다. self-authored 정책은 churn을 우리가 떠안는다.
 #
 # 두 갈래로 나뉜다:
 #   · AWS 관리형 정책으로 충분한 것(EBS CSI) → 이 파일이 role을 직접 만들고 addon이 association을 건다.
 #   · custom 정책이 필요한 것(ALBC · external-dns) → terraform-aws-modules/eks-pod-identity에 위임한다.
 #
-# 네이밍은 **이원화**되어 있다(의식적 결정, §2.6): 이 모듈이 직접 저작하는 role은 카탈로그를 지키고
+# 네이밍은 이원화되어 있다(의식적 결정): 이 모듈이 직접 저작하는 role은 약어 카탈로그를 지키고
 # (`iamr-*`), Karpenter 서브모듈이 만드는 role은 upstream 기본 네이밍을 수용한다.
-# upstream이 iam_role_name·node_iam_role_name·queue_name override를 노출하므로(Task 20.1(b) 확인)
-# 강제가 아니라 **선택**이며, 필요해지면 fork 없이 변수 주입만으로 전환된다.
+# upstream이 iam_role_name·node_iam_role_name·queue_name override를 노출하므로 강제가 아니라
+# 선택이며, 필요해지면 fork 없이 변수 주입만으로 전환된다.
 
-# ── EBS CSI Driver (§2.6-4) ──────────────────────────────────────────────────
+# ── EBS CSI Driver  ──────────────────────────────────────────────────
 #
 # addon을 opt-out하면 role도 만들지 않는다 — 쓰지 않는 role을 남기지 않는다.
 
@@ -50,12 +50,12 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   count = local.ebs_csi_enabled ? 1 : 0
 
   role = aws_iam_role.ebs_csi[0].name
-  # AWS 관리형 정책에 위임한다(§2.6a 정책 소싱 우선순위 1순위).
-  # ⚠️ 고객 관리형 KMS 키로 볼륨을 암호화하면 KMS 권한이 더 필요하다(설계 §5.1 열린 항목 5).
+  # AWS 관리형 정책에 위임한다 — self-author 하면 churn 을 우리가 떠안는다.
+  # ⚠️ 고객 관리형 KMS 키로 볼륨을 암호화하면 KMS 권한이 더 필요하다.
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
-# ── 컨트롤러 IAM 위임 (§2.6a) ────────────────────────────────────────────────
+# ── 컨트롤러 IAM 위임  ────────────────────────────────────────────────
 #
 # 기본값이 false인 이유: 유휴 role과 불필요한 plan diff를 만들지 않기 위해서다. 소비자 opt-in.
 # 컨트롤러의 설치 경로(ALBC = GitOps helm, external-dns = IaC addon)와 무관하게 IAM 메커니즘은
@@ -95,7 +95,7 @@ module "external_dns_pod_identity" {
   use_name_prefix = false
 
   attach_external_dns_policy = true
-  # ⛔ 이 목록이 비면 upstream이 Resource = "*" 정책을 만들고 AWS가 400으로 거부한다(D-EXTDNS-ZONE).
+  # ⛔ 이 목록이 비면 upstream이 Resource = "*" 정책을 만들고 AWS가 400으로 거부한다.
   #    variables.tf의 교차변수 validation이 그 조합을 plan에서 먼저 막는다.
   external_dns_hosted_zone_arns = var.external_dns_hosted_zone_arns
 

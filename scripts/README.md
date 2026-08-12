@@ -46,9 +46,9 @@ repository Secret은 GitHub App private key를 담아 **저장소에 커밋할 �
 ⇒ 이 Secret 하나만 GitOps 관리 밖에 남는다.
 
 - root App의 `prune: false` 덕에 **지워지지 않는다**
-- ⚠️ **이것이 사라지면 모든 sync가 멈춘다** — 복구 절차는 아래 **D-KEY-TRANSFER**가 소유한다
+- ⚠️ **이것이 사라지면 모든 sync가 멈춘다** — 복구 절차는 아래 **키 전달 경로** 절이 소유한다
 
-### 🔑 private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString** (D-KEY-TRANSFER, 2026-08-07)
+### 🔑 private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString**
 
 클러스터가 private이라 seed는 **workbench 안에서** 실행되는데([`05-modules.md`](../docs/05-modules.md) `workbench`),
 workbench는 **SSM Session Manager 전용**이라 `scp`가 없다. 그리고 스크립트는 키를
@@ -99,7 +99,7 @@ aws ssm delete-parameter --region <region> \
 > 🔴 **③은 선택이 아니다.** `AmazonSSMManagedInstanceCore`가 `GetParameter`를 **`Resource: "*"`** 로
 > 주기 때문에, 그 파라미터는 **계정 안의 SSM 관리 인스턴스 전부가 읽을 수 있다.**
 > 남겨 두면 blast radius가 workbench 하나가 아니라 계정 전체다.
-> ⚠️ 이것은 관리형 정책의 성질이라 **우리가 좁힐 수 없다** — `40 §5`가 `eks:DescribeCluster`를
+> ⚠️ 이것은 관리형 정책의 성질이라 **우리가 좁힐 수 없다** — workbench 모듈이 `eks:DescribeCluster`를
 > 클러스터 ARN으로 한정한 것과 대비된다. 관리형을 붙이면 그 안의 권한은 통제 밖이다.
 
 #### 복구 절차
@@ -124,14 +124,14 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 
 ### 사용법
 
-> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다** (D-WORKBENCH-REPO)
+> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다**
 >
 > workbench는 SSM 전용이라 `scp`가 없고 GitHub 자격증명도 없다. **ArgoCD가 쓰는 그 App의
 > installation token**으로 클론한다 — 새 자격증명이 생기지 않는다.
-> ⚠️ **순서가 D-KEY-TRANSFER보다 앞이 아니다**: 키가 **클론에도 쓰이므로 키를 먼저 내린다.**
+> ⚠️ **키 전달보다 앞이 아니다**: 키가 **클론에도 쓰이므로 키를 먼저 내린다.**
 >
 > ```bash
-> # 키는 D-KEY-TRANSFER ②로 이미 내려받은 상태여야 한다 (~/gh-app.pem)
+> # 키는 위 ②로 이미 내려받은 상태여야 한다 (~/gh-app.pem)
 > APP_ID=<app_id>; INST_ID=<installation_id>; KEYFILE=~/gh-app.pem
 > ORG=<org>; REPO=<gitops-repo>; DEST=~/$REPO
 >
@@ -151,8 +151,8 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 > - ⛔ **`TOKEN`을 출력하지 않는다.** 설치 범위 확인이 필요하면
 >   `curl -H "Authorization: token $TOKEN" https://api.github.com/installation/repositories`
 >   로 **저장소 목록만** 본다(실측 2026-08-07: `total_count=1`).
-> - `openssl`·`jq`는 **AL2023 기본 탑재**라 도구를 늘리지 않는다. `git`은 workbench가 설치한다(`40 §4.1`).
-> - 🥚 **이 조각만은 vendoring할 수 없다** — 클론하기 전에 필요하기 때문이다(`40 §2.5`).
+> - `openssl`·`jq`는 **AL2023 기본 탑재**라 도구를 늘리지 않는다. `git`은 workbench 모듈이 설치한다.
+> - 🥚 **이 조각만은 vendoring할 수 없다** — 클론하기 전에 필요하기 때문이다.
 >   길어지기 시작하면 다른 배달 경로가 필요하다는 신호다.
 
 ```bash
@@ -165,7 +165,7 @@ export CLUSTER_DIR=clusters/dev/eks-ref-dev-an2-main-01
 export GITOPS_REPO_URL=https://github.com/skax-ca/iac-platform-gitops.git
 export GH_APP_ID=...                 # GitHub App 설정 페이지
 export GH_APP_INSTALLATION_ID=...    # gh api orgs/<org>/installations
-export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받은 파일
+export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ 위 ②로 내려받은 파일
 
 # 3) 먼저 dry-run — 노트북에서도 돌아간다
 ./scripts/argocd-seed.sh --dry-run
@@ -175,7 +175,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 ```
 
 ⚠️ **`GH_APP_PRIVATE_KEY`를 노트북의 키 원본으로 두지 않는다.** 실행은 workbench 안에서
-일어나므로 그 경로는 **workbench의 파일**이어야 한다 — 어떻게 거기 두는지는 위 **D-KEY-TRANSFER**다.
+일어나므로 그 경로는 **workbench의 파일**이어야 한다 — 어떻게 거기 두는지는 위 **키 전달 경로** 절에 있다.
 
 **선택 인자**: `--from N` · `--to N` (단계 구간 재실행). `--help`로 전체 옵션.
 **선택 환경변수**: `ARGOCD_NAMESPACE`(`argocd`) · `ARGOCD_CHART_VERSION`(`10.3.0`) ·
@@ -218,7 +218,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 
 ---
 
-## 🔁 vendoring — GitOps 저장소의 사본 (D-WORKBENCH-REPO 결정 ②, 2026-08-10 이행)
+## 🔁 vendoring — GitOps 저장소의 사본
 
 **이 파일이 SSOT다.** 사본이 `skax-ca/iac-platform-gitops`의 `bootstrap/argocd-seed.sh`에 있다.
 근거·기각안은 [`08-decisions.md`](../docs/08-decisions.md).
@@ -250,7 +250,7 @@ diff <(grep -v '^#V#' <gitops>/bootstrap/argocd-seed.sh) scripts/argocd-seed.sh
 헤더를 붙이는 순간 사본이 SSOT와 달라져 *"편집하지 않았다"* 를 검증할 수 없게 되므로,
 **검사가 한 줄로 끝나도록** 접두를 설계했다.
 
-> 📌 **"출처 태그"의 실제 형태는 커밋 SHA다.** `40 §2.5`는 *"출처 태그"* 라고 적었지만
+> 📌 **"출처 태그"의 실제 형태는 커밋 SHA다.** 초기 설계는 *"출처 태그"* 라고 적었지만
 > `scripts/`에는 **태그 축이 없다** — 태그는 모듈별 semver(`vpc-v0.3.0`)이고 이 스크립트는
 > `?ref=`로 소싱되지 않는다. 새 태그 축을 발명하는 대신 SHA로 핀했다.
 > 🔁 **여러 고객사 저장소로 사본이 늘어나면** 그때 태그 축을 재검토한다 — 지금은 사본이 1개다.

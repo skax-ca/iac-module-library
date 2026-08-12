@@ -145,5 +145,17 @@ module "karpenter" {
   # inline 정책 한도는 10,240자다. 이 값을 끄면 최초 apply가 실패한다.
   enable_inline_policy = true
 
+  # ── 노드 IAM role 이름을 결정적으로 (D-KARPENTER-NODE-ROLE-NAME) ─────────────
+  # 🔴 upstream 기본은 `Karpenter-<cluster>-<무작위>` 다. 그 이름은 **계층 2(GitOps)가
+  #    EC2NodeClass.spec.role 로 참조**하는데, 무작위 접미사는 클러스터를 다시 세울 때마다
+  #    바뀐다 ⇒ from-zero 재구축 뒤 GitOps 가 없는 role 을 가리키고 Karpenter 가
+  #    `iam:PassRole` 403 으로 멈춘다(2026-08-12 실측).
+  # 🔑 증상이 교묘하다: ArgoCD 는 **Synced**(Git 이 요구한 것을 그대로 적용했으니까)인데
+  #    Degraded 다. GitOps 계층은 자기가 옳다고 보고하고 실패는 IAM 계층에서 난다.
+  # ⇒ 이 repo 의 "결정적 네이밍" 원칙을 여기에도 적용한다. 위 관리형 노드그룹
+  #    (`iam_role_use_name_prefix = false`)·`iam.tf` 와 **같은 처방**이다 — 여기만 빠져 있었다.
+  node_iam_role_name            = "iamr-${local.name_mid}-karpenter-node"
+  node_iam_role_use_name_prefix = false
+
   tags = var.tags
 }

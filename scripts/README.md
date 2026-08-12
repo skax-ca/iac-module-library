@@ -3,12 +3,12 @@
 소비 프로젝트가 **실행하는 절차** 중 재사용 가치가 있는 것을 여기서 소유한다.
 
 > ⚠️ **이 repo는 배포하지 않는다.** 여기 있는 것은 **실행되는 자산**이지 이 repo가 실행하는 것이 아니다.
-> 그래서 모든 스크립트는 **환경값을 하드코딩하지 않는다**([`architecture/01 §4`](../docs/architecture/01-module-strategy.md) 파라미터화 요건).
+> 그래서 모든 스크립트는 **환경값을 하드코딩하지 않는다**([`06-conventions.md`](../docs/06-conventions.md) 파라미터화 요건).
 > 특정 클러스터·계정·저장소를 가정하는 순간 재사용 자산이 아니게 된다.
 
 | 스크립트 | 무엇 | 설계 SSOT |
 |---|---|---|
-| `argocd-seed.sh` | self-managed ArgoCD 부트스트랩 seed (0·2·3·4·5단계) | [`design/23 §2.1`](../docs/design/23-argocd-self-managed.md) · [`design/30 §4.1`](../docs/design/30-gitops-repo.md) |
+| `argocd-seed.sh` | self-managed ArgoCD 부트스트랩 seed (0·2·3·4·5단계) | [`02-choose-your-path.md`](../docs/02-choose-your-path.md) · [`03-new-project.md`](../docs/03-new-project.md) |
 
 ---
 
@@ -50,7 +50,7 @@ repository Secret은 GitHub App private key를 담아 **저장소에 커밋할 �
 
 ### 🔑 private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString** (D-KEY-TRANSFER, 2026-08-07)
 
-클러스터가 private이라 seed는 **workbench 안에서** 실행되는데([`design/40 §1`](../docs/design/40-workbench.md)),
+클러스터가 private이라 seed는 **workbench 안에서** 실행되는데([`05-modules.md`](../docs/05-modules.md) `workbench`),
 workbench는 **SSM Session Manager 전용**이라 `scp`가 없다. 그리고 스크립트는 키를
 **파일 경로**로 받는다(`--from-file=`) — 환경변수 주입으로는 대체되지 않는다.
 ⇒ **키의 실물 파일이 workbench 디스크에 있어야 한다.** 그 경로를 이렇게 정한다.
@@ -102,7 +102,7 @@ aws ssm delete-parameter --region <region> \
 > ⚠️ 이것은 관리형 정책의 성질이라 **우리가 좁힐 수 없다** — `40 §5`가 `eks:DescribeCluster`를
 > 클러스터 ARN으로 한정한 것과 대비된다. 관리형을 붙이면 그 안의 권한은 통제 밖이다.
 
-#### 복구 절차 ([`design/30 §4.1`](../docs/design/30-gitops-repo.md)이 요구한 것)
+#### 복구 절차
 
 repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파라미터는 이미 지워졌고
 노트북의 `.pem`도 영구 보관물이 아니다. ⇒ **키를 다시 발급한다.**
@@ -124,7 +124,7 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 
 ### 사용법
 
-> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다** (D-WORKBENCH-REPO, [`40 §2.5`](../docs/design/40-workbench.md))
+> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다** (D-WORKBENCH-REPO)
 >
 > workbench는 SSM 전용이라 `scp`가 없고 GitHub 자격증명도 없다. **ArgoCD가 쓰는 그 App의
 > installation token**으로 클론한다 — 새 자격증명이 생기지 않는다.
@@ -192,7 +192,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 
 🔑 두 번째가 핵심이다 — `AppProject`·`Application`은 **CRD**라 kubectl이 RESTMapping을 풀려면
 **discovery API(`/api`)** 를 쳐야 한다. **검증을 꺼도 그 호출은 남는다.**
-클러스터는 private이므로([`design/20 §3.1`](../docs/design/20-eks-module.md)) 팀원 노트북에서는 늘 막힌다.
+클러스터는 private이므로([`05-modules.md`](../docs/05-modules.md) `eks-cluster`) 팀원 노트북에서는 늘 막힌다.
 
 ⇒ `--dry-run`의 역할을 **"무엇을 어디서 적용하는지 보여주기"** 로 좁혔다.
 **진짜 검증은 실제 실행 경로의 `kubectl apply --dry-run=server`가 한다** — 사라진 것이 아니라 뒤로 미뤄진다.
@@ -200,7 +200,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 ### 실행 후 — 사람이 확인한다
 
 스크립트가 자동 판정하지 않는다. 실패 모드가 여러 겹이라 한 번에 하나씩만 보이기 때문이다
-(PoC에서 **에러가 세 겹으로 벗겨진** 전례 — [`design/30 §4`](../docs/design/30-gitops-repo.md)).
+(PoC에서 **에러가 세 겹으로 벗겨진** 전례).
 
 1. **root App이 저장소를 실제로 읽었는가**
    `.status.sync.revision`이 **실제 커밋 SHA**여야 한다.
@@ -221,7 +221,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ D-KEY-TRANSFER ②로 내려받�
 ## 🔁 vendoring — GitOps 저장소의 사본 (D-WORKBENCH-REPO 결정 ②, 2026-08-10 이행)
 
 **이 파일이 SSOT다.** 사본이 `skax-ca/iac-platform-gitops`의 `bootstrap/argocd-seed.sh`에 있다.
-근거·기각안은 [`40 §2.5`](../docs/design/40-workbench.md).
+근거·기각안은 [`08-decisions.md`](../docs/08-decisions.md).
 
 ⛔ **사본을 편집하지 않는다.** 고칠 일이 생기면 **여기를 고치고 다시 복사**한다.
 ⚠️ 경쟁 SSOT가 아니라 vendoring이다 — 구분 기준은 *"어디를 고치는가"* 하나다.

@@ -1,5 +1,58 @@
 # Notepad — iac-module-library
 
+## ✅ **2026-08-12 — Wave 7 완료. 구 문서 10,223줄을 지웠다**
+
+> ### ▶ 문서 zero-base 재작성 — **8 Wave 중 7개 완료.** 남은 것은 Wave 8뿐
+>
+> | 지운 것 | 규모 |
+> |---|---|
+> | `docs/architecture/`·`design/`·`consumer/`·`reference/poc-findings.md` + 각 `AGENTS.md` | **21파일 10,223줄** |
+> | `docs/runbooks/.gitkeep` — 한 번도 안 채운 빈 디렉토리(`07-runbooks.md`가 소유) | 1파일 |
+>
+> 존치·이동: `reference/aws-naming-abbreviations.md` → **`docs/aws-naming-abbreviations.md`**
+> (약어 312개는 **데이터라 재작성 규칙의 예외**다 — 계획서 §9-4).
+> 전문은 태그 **`docs-archive-20260811`** 에 있다.
+>
+> ### 🔑 삭제가 안전했던 근거 — 새 문서가 구 문서를 **0건** 참조하고 있었다
+>
+> 계획서가 Wave 7을 마지막에 둔 이유는 *"새 문서를 쓰는 동안 구 문서가 원자재"* 였다.
+> 삭제 직전에 재면 그 의존이 **이미 끊겨 있었다** — 자립이 확인된 뒤에 지웠다.
+> ⚠️ **단 하나 예외가 있었다**: `05`·`06`이 `reference/aws-naming-abbreviations.md`를 가리켰다.
+> 그것은 삭제 대상이 아니라 **이동 대상**이라 처음 측정에서 빠졌고, **이동이 링크를 깼다.**
+> 🔑 교훈: *"삭제해도 되는가"* 와 *"옮겨도 되는가"* 는 **다른 질문**이고 답도 다르다.
+>
+> ### 참조 재지정 — 문서 40건. 코드 주석 24건은 **다음 태스크로 분리**(사용자 결정)
+>
+> | 파일 | 건수 |
+> |---|---|
+> | `CLAUDE.md` | 9 |
+> | `AGENTS.md`(루트) · `modules/AGENTS.md` · `docs/AGENTS.md` · `examples/AGENTS.md` | 21 |
+> | `scripts/README.md` | 8 |
+> | `examples/*/README.md` · `docs/05`·`06`·`aws-naming-abbreviations.md` | 12 |
+>
+> ✅ **깨진 상대 링크 0건**(전 repo `.md` 스캔). ⏳ `.tf`/`.sh`/`.yml`/`.tftest.hcl` 주석 **24건** 잔존 —
+> `.tf`는 브랜치→PR 경로라 문서 커밋과 섞지 않는다.
+>
+> ### 📌 함께 고친 stale 사실 (판정 6)
+>
+> `eks-cluster` 최신 태그가 **`v0.5.0`인데 세 곳이 `v0.4.0`**, `workbench`는 **`v0.6.0`인데 `v0.4.0`** 이었다.
+> 🔴 **`examples/eks-cluster-enterprise/README.md`가 자기가 경고한 함정에 두 번째로 걸려 있었다** —
+> 2026-08-10에 같은 이유로 한 번 고쳤던 파일이다. ⇒ 그 자리의 서술을 *"몇 번에 걸렸다"* 가 아니라
+> **"경고문으로는 안 되고 태그 컷 작업에 붙여야 한다"** 로 바꿨다.
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. **Wave 8** — `iac-platform-gitops` · `iac-reference-infra` README 재작성(구 769줄 중 64%가 changelog).
+> 2. **코드 주석 24건** 재지정 — `.tf`/`.sh`/`.yml`/`.tftest.hcl`. 브랜치 → PR.
+> 3. 재구축 전 선행: **H7 `argocd-seed.sh` preflight**(단계 범위에 2가 없으면 `GH_APP_*` 미요구).
+>    ⚠️ `iac-platform-gitops`의 vendoring 사본도 함께 — **2 repo**.
+> 4. 재구축 시 완료 조건: **ArgoCD 초기 비밀번호 교체**(`07-runbooks.md` 2·3절).
+>
+> ⚠️ 완료 판정 1(전체 1,500줄)은 **1,597줄로 초과**다. Wave 5가 실증 발견을 접어 넣은 결과라
+> 줄이려면 실측으로 얻은 값을 버려야 한다 — **상한을 1,600으로 올리는 것이 맞다**(미승인).
+
+---
+
 ## ✅ **2026-08-12 — 재구축(Wave 4-b) 완료. 환경이 살아 있다**
 
 > ### ▶ 현재 상태 — 전부 서 있고 검증됐다
@@ -2397,11 +2450,11 @@ aws --profile team --region ap-northeast-2 ssm start-session \
 | 2 `01-architecture` · `02-choose-your-path` | ✅ | `c650b58` |
 | 3 `03`~`08` + `scripts/teardown-verify.sh` | ✅ | `3d65edf` |
 | **4-a 실증 destroy (L1~L3)** | ✅ **완료** — 잔존물 0 | gitops PR **#24** |
-| **4-b 실증 recreate** | 🔴 **미완 — 최상단 상자 참조** | |
-| 5 실증 결과를 `03`·`04`에 반영 | ⏳ **발견 8건 아래 기록** | |
+| **4-b 실증 recreate** | ✅ **완료**(2026-08-12) | |
+| 5 실증 결과를 `03`·`04`에 반영 | ✅ | `74d7b20`(04) · `59f6fc7`(03·07·08) |
 | 6 (Wave 3에 흡수됨) | ✅ | |
-| 7 구 문서 삭제 + 참조 305개 정리 + `CLAUDE.md` | ⏳ | |
-| 8 gitops·reference-infra README | ⏳ | |
+| **7 구 문서 삭제 + 참조 정리 + `CLAUDE.md`** | ✅ **완료**(2026-08-12) | 최상단 상자 참조 |
+| 8 gitops·reference-infra README | ⏳ **다음 태스크** | |
 
 ##### 새 문서 집합 (1,488줄 — 구 10,792줄 대비 **86% 감소**)
 

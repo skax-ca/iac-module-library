@@ -29,7 +29,7 @@ sgr-acme-prd-an2-web-01
 
 | 구성 요소 | 값 |
 |-----------|-----|
-| 리소스 약어 | [`reference/aws-naming-abbreviations.md`](reference/aws-naming-abbreviations.md) — **SSOT** |
+| 리소스 약어 | [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md) — **SSOT** |
 | workload | 프로젝트별 입력 변수. 이 저장소가 고정하지 않는다 |
 | env | `prd` / `stg` / `dev` |
 | 리전코드 | `an2`(ap-northeast-2) · `ue1`(us-east-1) |

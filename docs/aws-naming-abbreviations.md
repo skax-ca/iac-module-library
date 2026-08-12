@@ -1,12 +1,7 @@
 # AWS 리소스 네이밍 약어 카탈로그 (권위 참조)
 
-> **승계**: `terraform-enterprise-poc` `docs/reference/aws-naming-abbreviations.md` @ `76285f7`(동결 커밋)
-> **개정**: 예시의 워크로드 코드를 가상값(`acme`)으로 치환 — 이 repo는 특정 워크로드를 고정하지 않는다.
-> 약어 자체는 **무편집 승계**(도구·프로젝트 중립).
-> 이후 **이 문서가 SSOT**다. 원본은 이력 조회용으로만 본다.
-
 > 이 문서는 `Name` 태그 조합에 사용하는 **리소스 타입 표준 약어**의 단일 진실 공급원(SSOT)이다.
-> 네이밍 **포맷·어휘·강제 방식**은 [../architecture/02-naming-tagging-and-pinning.md](../architecture/02-naming-tagging-and-pinning.md)를 참조.
+> 네이밍 **포맷·어휘·강제 방식**은 [06-conventions.md](06-conventions.md) §2가 소유한다.
 
 ## 네이밍 포맷 (요약)
 
@@ -41,7 +36,7 @@
 - ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다** — 여러 role에 붙고 자체 ARN을 갖는다.
 - ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라
   리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급 —
-  [../architecture/02-naming-tagging-and-pinning.md](../architecture/02-naming-tagging-and-pinning.md) §1.5).
+  [06-conventions.md](06-conventions.md) §2).
 
 ### 개정 이력 (승계 이후 추가된 약어)
 
@@ -49,7 +44,7 @@
 |------|------|--------|------|
 | 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다 — 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
 | 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
-| 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요([../design/50-reference-consumer-repo.md](../design/50-reference-consumer-repo.md) D23). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
+| 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요(레퍼런스 소비 repo의 GitHub Actions OIDC). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
 
 ---
 

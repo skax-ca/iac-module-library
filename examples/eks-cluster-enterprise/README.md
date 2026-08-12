@@ -16,7 +16,7 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | D-EKS-PROTECT — AWS API 차원 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 배선** | 설계 [40](../../docs/design/40-workbench.md) — private 클러스터를 조작할 유일한 지점 |
+| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 배선** | 설계 [`05-modules.md`](../../docs/05-modules.md) — private 클러스터를 조작할 유일한 지점 |
 
 ### ⭐ EKS 접근 3층 — 이 예제의 핵심 배선 (D-WORKBENCH-SEAM)
 
@@ -42,7 +42,7 @@
 |---|---|---|
 | **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
 | **Route53 zone** | **같은 루트에서 함께 생성**(`aws_route53_zone.internal`) | **만들지 않는다.** external-dns를 끄거나(기본), 기존 zone을 `data`로 **조회만** — 아래 **"external-dns"** 절 |
-| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.4.0` (**현행 릴리스**) |
+| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.5.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
@@ -66,8 +66,8 @@ data "aws_subnets" "pod" {
 }
 ```
 
-⛔ `terraform_remote_state`는 쓰지 않는다 — state 전체 접근을 요구해 `03 §3.1`이 ❌로 판정했다.
-상세는 [`docs/design/20-eks-module.md §2.5-1`](../../docs/design/20-eks-module.md).
+⛔ `terraform_remote_state`는 쓰지 않는다 — state 전체 접근을 요구해 판정은 ❌였다.
+상세는 [`docs/05-modules.md`](../../docs/05-modules.md).
 
 ⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
 에러가 아니라 **빈 결과**를 낸다 — 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
@@ -75,26 +75,25 @@ data "aws_subnets" "pod" {
 ### 소싱 태그를 어떻게 고르나
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.4.0"
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.4.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.5.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.6.0"
 ```
 
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로
 확인한다. 위 표의 태그가 낡은 채 복사되면 그대로 굳는데, 이 모듈은 실패 방식이 특히 나쁘다:
 `eks-cluster-v0.2.0`이 넣은 external-dns 가드가 빠지면 **문제 조합의 `plan`이 통과하고 `apply`가
-죽는다**(D-EXTDNS-ZONE). ⚠️ 2026-08-10에 이 README 자신이 그 함정에 걸려 있던 것을 고쳤다 —
-`eks-cluster`가 `v0.4.0`인데 표와 예시가 `v0.2.0`·`v0.3.0`에 멈춰 있었다. **경고문이 있어도
-갱신은 릴리스 작업에 실제로 붙여 두지 않으면 빠진다.** 릴리스 이력은 각 태그의
-annotated 메시지(`git show eks-cluster-v0.4.0`)와
-[`docs/design/20-eks-module.md §4.1·§4.2`](../../docs/design/20-eks-module.md)에 있다.
+죽는다**(D-EXTDNS-ZONE). ⚠️ **이 README 자신이 두 번 그 함정에 걸렸다** — 경고문을 쓴 것만으로는
+갱신되지 않는다. 태그를 컷할 때 이 파일을 함께 고치는 것이 유일하게 작동하는 방법이다.
+릴리스 이력은 각 태그의 annotated 메시지(`git show eks-cluster-v0.5.0`)와
+[`docs/05-modules.md`](../../docs/05-modules.md)에 있다.
 
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다 — 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
-> ([`05 §4`](../../docs/architecture/05-versioning-policy.md)).
+> ([`docs/06-conventions.md` §3](../../docs/06-conventions.md)).
 > ⚠️ 단 **3층 배선(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다 —
 > `cluster_security_group_additional_rules`가 그 릴리스에서 생겼다.
 
-⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/architecture/05`](../../docs/architecture/05-versioning-policy.md)) —
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/06-conventions.md` §3](../../docs/06-conventions.md)) —
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 
 ## ⚠️ 착수 전 반드시 바꿀 것

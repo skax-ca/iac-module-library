@@ -28,17 +28,17 @@ source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=
 ## Subdirectories
 | Directory | Purpose |
 |-----------|---------|
-| (예정) `vpc/` | 스크래치 얇은 모듈, EKS-aware 태깅 (설계: `../docs/design/10-vpc-module.md`) |
-| (예정) `eks-cluster/` | `terraform-aws-modules/eks` wrapper(facade) (설계: `../docs/design/20-eks-module.md`) |
-| (예정) `workbench/` | SSM 기반 관리 호스트 (설계: `../docs/design/40-workbench.md`) |
+| `vpc/` | 스크래치 얇은 모듈, EKS-aware 태깅 (계약: `../docs/05-modules.md`) |
+| `eks-cluster/` | `terraform-aws-modules/eks` wrapper(facade) (계약: `../docs/05-modules.md`) |
+| `workbench/` | SSM 기반 관리 호스트 (계약: `../docs/05-modules.md`) |
 
 ## For AI Agents
 
 ### Working In This Directory
 
-- **⛔ 설계 없이 모듈을 만들지 않는다.** `../docs/design/`에 해당 설계가 있어야 하고,
+- **⛔ 설계 없이 모듈을 만들지 않는다.** `../docs/`에 해당 설계가 있어야 하고,
   그 문서가 **⚠️ 미개정 상태면 개정이 먼저**다(PoC 전제 제거 + 재사용 요건 적용).
-- **재사용 요건 5종**(`../docs/architecture/01-module-strategy.md` §4) — 하나라도 빠지면 릴리스하지 않는다:
+- **재사용 요건 5종** — 하나라도 빠지면 릴리스하지 않는다:
   1. **파라미터화** — workload·계정·리전 하드코딩 금지. `naming` 객체로 주입
   2. **kill switch** — `<component>_enabled = false`면 전 리소스 파기.
      **data source의 `count`까지 0**이 되어야 참조 대상이 사라진 뒤에도 plan이 통과한다
@@ -69,16 +69,16 @@ locals {
 }
 ```
 
-- 약어는 `../docs/reference/aws-naming-abbreviations.md`에서만 가져온다.
+- 약어는 `../docs/aws-naming-abbreviations.md`에서만 가져온다.
 - SG rule은 별도 리소스(`aws_vpc_security_group_ingress_rule`), inline 금지·혼용 금지.
 - 공유/기반 리소스는 네이밍 → data source 순으로 느슨하게 조회
-  (`../docs/architecture/03-dependencies.md`).
+  (`../docs/01-architecture.md` §6).
 
 ## Dependencies
 
 ### Internal
-- `../docs/design/*` — 각 모듈의 설계 근거
-- `../docs/architecture/*` — 따라야 할 규약
+- `../docs/05-modules.md` — 각 모듈의 입출력 계약
+- `../docs/06-conventions.md` — 따라야 할 규약
 - `../examples/*` — 각 모듈의 검증 진입점
 
 ### External

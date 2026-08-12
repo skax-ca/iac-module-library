@@ -12,12 +12,12 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 - **라이선스는 채택 근거가 아니다.** HashiCorp FAQ는 *"고객이 자기 프로덕션에서 BSL 제품을 쓰는 것을
   컨설턴트가 돕는 행위"* 를 **명시적으로 허용**한다. 고객 비용 장벽은 CLI가 아니라 **HCP/TFE 구독**에
   있었고 GitHub Actions + S3로 이미 해소됐다. 채택 근거는 **리워크 0 + 조달 마찰 제거**다
-  (`docs/architecture/04-engine-decision.md` §4).
-- **두 엔진 동시 지원은 검토 후 기각했다**(04 §3, 실측 비용 기록). *"둘 다 지원하면 되지 않나"* 라는
-  질문이 나오면 **04 §3을 먼저 읽는다** — 이미 값을 매겨 기각한 안이다. 재검토 조건은 04 §7-1.
+  (`docs/08-decisions.md`).
+- **두 엔진 동시 지원은 검토 후 기각했다**(실측 비용 5건). *"둘 다 지원하면 되지 않나"* 라는
+  질문이 나오면 **`docs/08-decisions.md`를 먼저 읽는다** — 이미 값을 매겨 기각한 안이다.
 - **Terraform 호환성은 계약이 아니라 부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다:
   **OpenTofu 고유 기능(`encryption` 블록·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때는 이유를 설계 문서에 남긴다.**
-  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(04 §5).
+  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(`docs/06-conventions.md` §1).
 
 ---
 
@@ -27,18 +27,18 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 |------|------|
 | **이 repo (`iac-module-library`)** | 모듈·설계의 **현행 SSOT**. 모든 개발은 여기서 |
 | `terraform-enterprise-poc` | TFC 기반 **동결 스냅샷**(2026-07-28 졸업). TFE 제안서 레퍼런스 전용 — **고치지 않는다** |
-| `silverte/eks-platform-gitops` | PoC GitOps 구현체 — **동결**. 참조 자산으로만 쓴다(`docs/design/30` 헤더에 재사용성 판정) |
+| `silverte/eks-platform-gitops` | PoC GitOps 구현체 — **동결**. 참조 자산으로만 쓴다 |
 | `<project>-infra` (향후 N개) | 프로젝트/고객별 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
-| **`iac-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**) — ArgoCD가 pull로 reconcile. 설계 SSOT는 이 repo의 `docs/design/30`·`23` |
+| **`iac-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**) — ArgoCD가 pull로 reconcile |
 
 > ⚠️ **`.yaml` 매니페스트는 이 repo에 두지 않는다.** 여기는 모듈(`.tf`)과 설계(`docs/`)만 소유한다.
 > ArgoCD Application·AppProject·cluster Secret은 **`iac-platform-gitops`** 소관이다
-> (3계층 소유 모델 — `docs/design/30 §0`).
+> (3계층 소유 모델 — `docs/01-architecture.md` §2·§5).
 
 - 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md` (D-OSS-STACK)
-  — ⚠️ 그중 **엔진 축의 근거는 `docs/architecture/04-engine-decision.md`(D-ENGINE)가 교체**했다.
-  결론(OpenTofu)은 같지만 **이유가 다르다** — 05는 라이선스를, 04는 조달 마찰·운영 비용을 든다.
-  PoC repo는 동결이라 그쪽에 개정 표시가 없으므로 **04를 함께 읽는다.**
+  — ⚠️ 그중 **엔진 축의 근거는 `docs/08-decisions.md`가 교체**했다.
+  결론(OpenTofu)은 같지만 **이유가 다르다** — PoC repo는 라이선스를, 여기는 조달 마찰·운영 비용을 든다.
+  PoC repo는 동결이라 그쪽에 개정 표시가 없으므로 **`08`을 함께 읽는다.**
 - ⛔ **PoC repo에서 모듈·설계를 수정하지 않는다.** 양쪽 개발은 곧 drift이고, 6개월 뒤 어느 쪽이
   정답인지 판정 불가능해진다.
 
@@ -51,19 +51,19 @@ module "vpc" {
 }
 ```
 
-태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.1.0`.
+태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.5.0`.
 
 ## 🔢 버전 정책: 전 모듈 `0.y.z` (D-VERSION, 2026-08-05)
 
-번호 체계의 SSOT는 **`docs/architecture/05-versioning-policy.md`**다.
+번호 체계의 SSOT는 **`docs/06-conventions.md` §3**이고, 기각한 안은 **`docs/08-decisions.md`**가 갖는다.
 
 - **모든 모듈이 개발 단계(`0.y.z`)다.** 이 구간에서는 **파괴적 변경도 마이너로 흡수**하고
   소비자에게 계약 안정을 약속하지 않는다 — semver가 `0.y.z`에 부여한 뜻 그대로다.
   ⭐ 그래서 *"이 변경이 마이너인가 메이저인가"* 를 **판정하지 않는다.** 전부 마이너다.
-- **`1.0.0`은 모듈별로** 컷한다(05 §2의 기준 5개 충족 시). ⛔ **전 모듈 일괄 컷은 05 §4가 기각했다** —
+- **`1.0.0`은 모듈별로** 컷한다. ⛔ **전 모듈 일괄 컷은 기각했다** —
   `vpc`와 `eks-cluster`는 churn 속도가 달라 묶으면 소비자가 매번 "뭐가 바뀌었지"를 확인해야 한다.
-- **신규 모듈은 `0.1.0`에서 시작**한다(다음 적용: `workbench`). `1.0.0`으로 시작하지 않는다.
-- ⚠️ 버전 혼재(`vpc-v0.3.0` + `workbench-v0.1.0` + 훗날 `vpc-v1.0.0`)는 **결함이 아니라 정보**다.
+- **신규 모듈은 `0.1.0`에서 시작**한다. `1.0.0`으로 시작하지 않는다.
+- ⚠️ 버전 혼재(`vpc-v0.3.0` + `workbench-v0.6.0` + 훗날 `vpc-v1.0.0`)는 **결함이 아니라 정보**다.
 
 ---
 
@@ -71,14 +71,14 @@ module "vpc" {
 
 **구현하기 전에 반드시 설계 및 검토를 완료한 후 구현할 것.**
 
-- 코드(`.tf`) 작성/변경 전에 관련 설계가 `docs/architecture/` 또는 `docs/design/`에 존재하고
-  승인·검토되었는지 확인한다.
+- 코드(`.tf`) 작성/변경 전에 관련 설계가 `docs/`에 존재하고 승인·검토되었는지 확인한다.
+  모듈 계약은 `docs/05-modules.md`, 규약은 `docs/06-conventions.md`가 소유한다.
 - 설계가 없거나 불완전하면 **구현을 멈추고** 먼저 설계 문서(설계 → 검토 → 승인)를 작성/보완한다.
 - "간단해 보인다"는 이유로 이 단계를 건너뛰지 않는다. 새 모듈·아키텍처 변경·인터페이스 변경은 예외 없음.
 - 순서: **설계 문서화 → 검토/승인 → 구현 → 검증(fmt/validate/test)**.
 
-> ⚠️ **문서마다 개정 수준이 다르다.** `docs/README.md`의 상태표가 인용 가능 여부의 **판정 근거**다.
-> ⚠️ 표시(미개정) 문서는 PoC 전제가 남아 있어 **확정 설계로 인용하지 않는다.**
+> ⛔ **기각한 안을 다시 제안하기 전에 `docs/08-decisions.md`를 읽는다.** 거기 적힌 이유가
+> 더 이상 성립하지 않음을 먼저 보여야 재검토가 열린다.
 
 ---
 
@@ -92,7 +92,7 @@ module "vpc" {
 
 | 구성 요소 | 값 |
 |-----------|-----|
-| resourcetype | 리소스별 표준 약어 → `docs/reference/aws-naming-abbreviations.md` (**SSOT, 임의 생성 금지**) |
+| resourcetype | 리소스별 표준 약어 → `docs/aws-naming-abbreviations.md` (**SSOT, 임의 생성 금지**) |
 | workloadcode | **프로젝트별 입력 변수** — 이 repo는 특정 값을 고정하지 않는다 |
 | env | `prd` / `stg` / `dev` (+ 역할 계정 토큰) |
 | regioncode | `an2`(ap-northeast-2) / `ue1`(us-east-1) 등 사용 리전만 등재 |
@@ -108,7 +108,7 @@ module "vpc" {
 5. **`Name` 태그 assertion을 `*.tftest.hcl`에 포함** — plan 단계에서 네이밍 규약 위반을 잡는다.
 
 > ⚠️ **재사용 자산의 요건**: workload code·계정 ID·리전을 **하드코딩하지 않는다.** PoC에서 승계할 때
-> `workload = "poc"` 같은 고정값을 반드시 걷어낸다(05 §5.4).
+> `workload = "poc"` 같은 고정값을 반드시 걷어낸다.
 
 ---
 
@@ -121,7 +121,7 @@ module "vpc" {
   숨길 수 없으면 내부 **메이저**(의도적 마이그레이션). upstream cadence와 소비자 cadence를 분리한다.
 - **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(D-TOFU-FLOOR, 2026-08-05 — 실행도 1.12.x).
   ⚠️ 모듈별 하한 대장은 **폐지**됐다. *"근거로만 올린다"* 는 이제 **1.13 이상에만** 적용된다 —
-  근거는 `02 §2`(실행 지점이 이미 전부 1.12라 분기가 소비자를 배제한 적이 없었다).
+  근거는 `docs/08-decisions.md`(실행 지점이 이미 전부 1.12라 분기가 소비자를 배제한 적이 없었다).
   aws `~> 6.0`(예제·프로젝트 루트)/`>= 6.0`(모듈),
   커뮤니티 모듈은 정확 핀. `.terraform.lock.hcl` 커밋 필수 —
   ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인(PoC의 lock을 복사하면 안 된다).
@@ -183,7 +183,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   그 전까지 이 줄은 사실이 아니었다. `.github/workflows/`에 `.gitkeep`만 있었다).
   ① `tofu fmt` ② `tflint --recursive` ③ `trivy config` ④ modules: `init -lockfile=readonly`
   + `validate` + `test`(tests 없는 모듈은 **실패**) ⑤ examples: `init -lockfile=readonly` + `validate`
-  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — 02 §4).
+  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — `docs/06-conventions.md` §3).
   - ⚠️ **CI와 로컬 훅의 도구 버전·플래그를 일치시킨다.** 어긋나면 "로컬은 통과했는데 CI가 막는다"가
     생기고, 그러면 사람이 CI를 신뢰하지 않게 된다. 기준(2026-07-30): OpenTofu 1.12.5 ·
     tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. **한쪽을 바꾸면 다른 쪽도 바꾼다.**
@@ -242,7 +242,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   실측(2026-08-04): `eks-cluster-v1.0.0` 은 컷 직후 apply 된 인프라가 하나도 없어(소비 repo 는
   plan 만) 태그를 옮겼다. **한 번이라도 apply 된 뒤에는 마이너를 컷한다.**
   - ⚠️ **번호는 당시 기록이다** — 그 태그는 2026-08-05 D-VERSION 재매핑으로 **`eks-cluster-v0.1.0`** 이 됐다.
-  - 🔑 **D-VERSION 이 이 사건을 다시 읽었다**(05 §0): *"예외를 발명해야 했다"* 는 것 자체가
+  - 🔑 **D-VERSION 이 이 사건을 다시 읽었다**: *"예외를 발명해야 했다"* 는 것 자체가
     **1.0.0 이 이른 약속이었다**는 신호였다. `0.x` 에서는 태그를 옮길 이유가 애초에 없다 —
     다음 마이너를 내면 된다. 규칙은 유효하되, **규칙을 자주 시험하게 만드는 번호 체계를 고친 것**이다.
 
@@ -261,8 +261,8 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 - 엔드투엔드로 **동작하는 최소**에서 시작해 그 위에 하나씩 얹는다. 동작하는 코드를
   미완성 복잡도와 맞바꾸지 않는다.
 - ⚠️ **이 repo에서 "동작한다"의 기준은 `tofu test` + 예제 `validate` 까지다.** 배포하지 않으므로
-  `apply` 판정은 소비 repo 몫이다 — 그 경계를 넘어 "검증했다"고 쓰지 않는다(`docs/reference/poc-findings.md`).
-- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(02 §4, CI 게이트 ④가 강제).
+  `apply` 판정은 소비 repo 몫이다 — 그 경계를 넘어 "검증했다"고 쓰지 않는다.
+- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(`docs/06-conventions.md` §6, CI 게이트 ④가 강제).
 
 ### 임시방편으로 넘기지 않는다
 

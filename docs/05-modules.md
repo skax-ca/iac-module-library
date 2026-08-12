@@ -20,7 +20,7 @@
 **이름 포맷**: `(리소스약어)-(workload)-(env)-(리전코드)-(purpose)-(일련번호)`
 예: `vpc-acme-prd-an2-main` · `eks-acme-prd-an2-main-01`
 
-리소스 약어는 [`reference/aws-naming-abbreviations.md`](reference/aws-naming-abbreviations.md)가 소유한다.
+리소스 약어는 [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md)가 소유한다.
 **없는 약어를 임의로 만들지 않는다** — 등재 후 쓴다.
 
 ---

@@ -40,6 +40,7 @@
 | 하지 말 것 | 이유 |
 |---|---|
 | 기존 약어를 **AWS 물리 접두사로 일괄 이주** | `snet`·`sgr`·`ngw`·`nacl`·`kp`·`dh`는 AWS 물리 ID 접두사(`subnet-`·`sg-`…)와 다르다. 근거가 기록에 없고(`sgr`은 `sg-` name 금지로 설명 가능), 릴리스된 `modules/vpc`가 실사용 중이라 이주는 이름 변경 = breaking이다. 근거가 생기면 **개별 약어만** 재검토한다 |
+| 기존 약어의 **프리픽스 계열 통일**(FSx `fs`/`fz`→`fx` · CloudFront SaaS `mtd`/`dtnt`→`cf*` · API GW `agw*`/`ag*` · MemoryDB `mdb`/`md*`) | 재명명은 전부 breaking이고 이 repo 릴리스 모듈 어디에도 쓰이지 않아 즉시 이득이 없다. 카탈로그는 섹션 컨텍스트로 소속이 드러나고, 신규 항목은 등재 규칙 2항(계열 유지)이 통제한다 |
 
 ---
 

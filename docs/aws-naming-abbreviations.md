@@ -36,6 +36,8 @@
    - 접두사가 **없거나**(ALB·S3·Lambda 등 서비스 이름이 곧 자원 이름) `name` 인자 자체가 없으면
      서비스/기능 기반 약어로 만든다.
 2. **같은 서비스의 프리픽스 계열을 유지한다.** 기존 항목의 패턴을 따른다(`cw*`·`msk*`·`waf*`…).
+   분열된 가족은 **기존 다수 계열을 유지**한다(FSx `fx*` · API GW `agw*`/`ag*` · MemoryDB `mdb`/`md*`) —
+   통일하지 않는 이유는 [`08-decisions.md`](08-decisions.md).
 3. **중복·형식은 스크립트가 강제한다.** `scripts/validate-abbreviations.py` — 고유 · 소문자 · 카운트 정합.
 4. **길이**: 2~5자 권장, L2 리소스 구분에 필요하면 6자까지, **7자 초과는 등재하지 않는다**
    (카탈로그 최대가 `iamoidc` 7자).
@@ -50,8 +52,11 @@
 | 종속 객체 | 명명 | 예시 |
 |-----------|------|------|
 | `aws_iam_role_policy` (**inline** 정책) | `<role 이름>-policy` | `iamr-acme-prd-an2-main-flowlog-policy` |
+| `aws_lb_listener` (ALB 리스너) | `<alb 이름>-listener` | `alb-acme-prd-an2-ext-01-listener` |
+| `aws_lb_listener_rule` (리스너 규칙) | `<alb 이름>-rule` | `alb-acme-prd-an2-ext-01-rule` |
 
-- **왜 상속인가**: inline 정책은 role 없이 존재할 수 없고 IAM 콘솔·API에서도 role 하위에 표시된다.
+- **왜 상속인가**: 종속 객체는 부모 없이 존재할 수 없고 콘솔·API에서도 부모 하위에 표시된다 —
+  IAM inline 정책, ALB 리스너·규칙(둘 다 `name` 인자가 없어 `Name` 태그로만 구분된다)이 그 예다.
   독립 약어를 주면 이름만으로 부모를 알 수 없어 오히려 추적성이 떨어진다.
 - ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다** — 여러 role에 붙고 자체 ARN을 갖는다.
 - ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라

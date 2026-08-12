@@ -19,7 +19,7 @@
 | `06-conventions.md` | 엔진 · 네이밍 · 버전 · 검증 게이트 · 브랜치 · 문서 작성 규칙 |
 | `07-runbooks.md` | 운영 절차 |
 | `08-decisions.md` | 검토하고 기각한 것들. 재제안하려면 여기 이유가 깨졌음을 먼저 보여야 한다 |
-| `aws-naming-abbreviations.md` | 리소스 타입 약어 SSOT (312개). 데이터라 위 규칙의 예외다 |
+| `aws-naming-abbreviations.md` | 리소스 타입 약어 SSOT (310개). 데이터라 위 규칙의 예외다 |
 
 ## For AI Agents
 
@@ -36,7 +36,14 @@
   명령과 주의사항으로 바꿔 쓴다. 로그 원본은 `.omc/notepad.md`가 갖는다.
 
 ### Testing Requirements
-문서에는 코드 게이트가 없다. 편집 후 링크 정합성을 확인한다:
+문서에는 코드 게이트가 없다 — **단, 약어 카탈로그(`aws-naming-abbreviations.md`)는 데이터 SSOT라 유일한 예외다**.
+카탈로그 편집 후 편집 전·후로 SSOT 검사를 돌린다 (로컬 게이트 `.githooks/pre-commit`도 동일 명령을 실행):
+
+```bash
+python3 scripts/validate-abbreviations.py                 # 카탈로그 SSOT 검사 (중복·소문자·카운트 정합)
+```
+
+그 외 문서는 링크 정합성을 확인한다:
 
 ```bash
 python3 - <<'PY'

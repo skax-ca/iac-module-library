@@ -194,3 +194,13 @@ jobs:
           [ "$n" -gt 0 ] || { echo "::error::lock 파일이 하나도 없다"; exit 1; }
           echo "  검사한 lock: ${n}개"
           exit $rc
+
+  # 약어 카탈로그는 데이터 SSOT — 문서 중 유일하게 코드 게이트가 있는 것.
+  # 로컬 게이트는 .githooks/pre-commit (카탈로그 staged 시만). 한쪽을 바꾸면 다른 쪽도 바꾼다.
+  docs-ssot:
+    name: 약어 카탈로그 SSOT 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: "게이트 — 약어 카탈로그 SSOT 일관성"
+        run: python3 scripts/validate-abbreviations.py

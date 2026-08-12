@@ -19,7 +19,7 @@
 | purpose | 자원의 상세 용도 | `web`, `db`, `batch`, `admin` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **312개** 약어, 8개 카테고리.
+- 총 **310개** 약어, 8개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다
@@ -94,7 +94,7 @@
 | ECR | 프라이빗 리포지토리 | `ecrpri` | ecrpri-acme-prd-an2-web-01 |
 | ECR | 퍼블릭 리포지토리 | `ecrpub` | ecrpub-acme-prd-an2-lib-01 |
 
-## A.2 Network (73)
+## A.2 Network (71)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
@@ -167,10 +167,12 @@
 | Direct Connect | 가상 인터페이스 (VIF) | `dxv` | dxv-acme-prd-an2-priv-01 |
 | Direct Connect | LAG | `dxl` | dxl-acme-prd-an2-main-01 |
 | Direct Connect | Direct Connect GW | `dxgw` | dxgw-acme-prd-an2-global-hub |
-| Direct Connect | 가상 프라이빗 GW | `dxvgw` | dxvgw-acme-prd-an2-main |
-| Direct Connect | 전송 게이트웨이 | `dxtgw` | dxtgw-acme-prd-an2-hub |
 | Direct Connect | AWS 인터커넥트 | `dxic` | dxic-acme-prd-an2-partner-01 |
 | Direct Connect | Last Mile Interconnect | `dxlm` | dxlm-acme-prd-an2-site-a-01 |
+
+> ⚠️ DX 게이트웨이 연결(`aws_dx_gateway_association`)은 DX 전용 약어를 만들지 않는다 — 연결 대상이
+> VPC 자원이므로 그 약어를 그대로 쓴다: 가상 프라이빗 GW `vgw`(VPN) · 전송 게이트웨이 `tgw`(Transit Gateway).
+> DX 절의 독립 자원 약어는 `dxgw`(Direct Connect Gateway)뿐이다.
 
 ## A.3 Databases (39)
 
@@ -407,14 +409,14 @@
 | # | 카테고리 | 약어 수 |
 |---|----------|--------:|
 | A.1 | Compute | 41 |
-| A.2 | Network | 73 |
+| A.2 | Network | 71 |
 | A.3 | Databases | 39 |
 | A.4 | Storage | 33 |
 | A.5 | Analytics, AI, ML | 47 |
 | A.6 | Security, Identity, Compliance | 18 |
 | A.7 | Management, Governance | 30 |
 | A.8 | Developer Tools, Others | 31 |
-| | **합계** | **312** |
+| | **합계** | **310** |
 
 > ⚠️ **이 표는 2026-07-30에 정정됐다.** 그 전까지 합계 308(Network 72 · Security 16 · Developer Tools 30)로
 > 남아 상단 서술·섹션 헤더와 어긋나 있었다 — `fl`·`iamp` 추가 시 갱신되지 않았고, Developer Tools의 1건은

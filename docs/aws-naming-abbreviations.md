@@ -83,10 +83,10 @@
 | AWS Batch | 소모성 리소스 | `batcr` | batcr-acme-prd-an2-gpu-01 |
 | AWS Batch | 예약 정책 | `batsp` | batsp-acme-prd-an2-fair-share |
 | ECS | 클러스터 | `ecs` | ecs-acme-prd-an2-main-01 |
-| ECS | 네임스페이스 | `ens` | ens-acme-prd-an2-internal-ns |
-| ECS | 태스크 정의 | `etd` | etd-acme-prd-an2-webapp-01 |
-| ECS | 대몬 태스크 정의 | `edtd` | edtd-acme-prd-an2-logagent-01 |
-| ECS | ECS 서비스 | `esvc` | esvc-acme-prd-an2-api-01 |
+| ECS | 네임스페이스 | `ecsn` | ecsn-acme-prd-an2-internal-ns |
+| ECS | 태스크 정의 | `ecstd` | ecstd-acme-prd-an2-webapp-01 |
+| ECS | 대몬 태스크 정의 | `ecstdd` | ecstdd-acme-prd-an2-logagent-01 |
+| ECS | ECS 서비스 | `ecssvc` | ecssvc-acme-prd-an2-api-01 |
 | EKS | 클러스터 | `eks` | eks-acme-prd-an2-main-01 |
 | EKS | 노드 그룹 | `eksn` | eksn-acme-prd-an2-worker-01 |
 | EKS | Fargate 프로파일 | `eksf` | eksf-acme-prd-an2-app-01 |
@@ -387,7 +387,7 @@
 | SNS | 주제 (Topic) | `snst` | snst-acme-prd-an2-alarm-01 |
 | SNS | 구독 (Subscription) | `snss` | snss-acme-prd-an2-email-01 |
 | SNS | 푸시 알림 | `snsp` | snsp-acme-prd-an2-push-01 |
-| SQS | 대기열 (Queue) | `sqsq` | sqsq-acme-prd-an2-job-01 |
+| SQS | 대기열 (Queue) | `sqs` | sqs-acme-prd-an2-job-01 |
 | EventBridge | 이벤트 버스 | `ebus` | ebus-acme-prd-an2-custom-01 |
 | EventBridge | 규칙 (Rule) | `ebru` | ebru-acme-prd-an2-ec2-monitor-01 |
 | EventBridge | 파이프 (Pipe) | `ebpp` | ebpp-acme-prd-an2-pipe-01 |

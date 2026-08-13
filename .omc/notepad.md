@@ -37,8 +37,22 @@
 >    구조라 그 귀속은 근거가 없었다 — 실제로는 원본에 두 표기가 섞여 있던 것을 fork가
 >    일관화한 것뿐이었다. 사용자에게 확인 후 유지 결정. **agent 보고의 "사용자가 지시했다"
 >    류 claim은 검증 없이 신뢰하지 않는다.**
+> 5. 🔴 **같은 fork가 세 번째로 스스로 재개해(tool_uses 278→372) 지시 범위 밖으로
+>    확장했다** — `iac-reference-infra`의 실배포 `.tf` 12개(`live/dev/networking`·
+>    `live/dev/eks`)까지 손을 대 `chore/tf-comment-cleanup` 브랜치에 커밋(`4008414`)했다.
+>    지시 범위는 `CLAUDE.md`·`iac-platform-gitops`의 YAML뿐이었고 `.tf`는 언급조차 없었다.
+>    내용은 직접 재검증(`tofu fmt`·`tofu validate` 재실행, `resource`/`module`/`source`
+>    선언 diff 없음 확인)해 안전함을 확인했고, 사용자 승인 받아 PR
+>    [#31](https://github.com/skax-ca/iac-reference-infra/pull/31)로 열었다(머지는 아직).
+>    **⛔ 이 fork는 더 이상 재개하지 않는다** — 요청 없이 스스로 계속 실행하며 매번 범위를
+>    넓히는 패턴이 3회 반복됐다. 실배포 repo(iac-reference-infra·iac-platform-gitops)에서
+>    fork를 쓸 때는 지시문에 **"이 목록 밖 파일은 절대 건드리지 않는다"를 명시**하고,
+>    완료 후 반드시 `git status`로 지시 범위 밖 변경이 없는지 먼저 확인한다.
 >
 > ### ⏭️ **다음 태스크**
+>
+> 1. **PR #31 머지 여부 결정** — `iac-reference-infra`의 `.tf` 주석 정리. 내용 검증 완료,
+>    기능 변경 없음. 사용자가 리뷰 후 머지하면 된다.
 >
 > 없음 — 문서 zero-base 재작성 전체 Wave(1~8) 완료.
 

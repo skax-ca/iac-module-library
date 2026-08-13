@@ -87,13 +87,12 @@ VPC 모듈은 `prevent_destroy`를 쓴다. **CLI 플래그로 우회할 수 없�
 > `git push`가 pre-push 훅에서 막히면, 훅의 `tofu validate`가 backend 자격증명을 요구하는 것이다.
 > `AWS_PROFILE=<프로파일> git push`로 넘긴다. `--no-verify`로 훅을 끄지 않는다.
 
-> 🔴 **실측(2026-08-13): VPC와 EKS는 이 단계에서 다르게 반응한다.** VPC의 `deletion_protection`은
-> `prevent_destroy`(Terraform lifecycle 메타 인자)로만 이어져 **AWS 쪽 실제 속성이 아니다** — `false`로
-> 바꿔 apply해도 `No changes. Your infrastructure matches the configuration.`가 나온다. 반면 EKS의
-> `deletion_protection`은 **AWS 네이티브 클러스터 속성**(`aws_eks_cluster.deletion_protection`)이라
-> 실제로 `~ deletion_protection = true -> false`가 in-place 변경으로 잡히고, **apply를 돌려야 AWS에
-> 반영된다.** 두 모듈을 같은 방식으로 다루면(둘 다 apply 필요/불필요로 가정) VPC 쪽에서
-> *"apply했는데 아무 일도 안 일어났다"*로 당황하게 된다 — 결함이 아니라 애초에 바뀔 게 없었던 것이다.
+> 🔴 **VPC와 EKS는 이 단계에서 다르게 반응한다.** VPC의 `deletion_protection`은 `prevent_destroy`
+> (Terraform lifecycle 메타 인자)로만 이어져 **AWS 쪽 실제 속성이 아니다** — `false`로 바꿔 apply해도
+> `No changes.`가 정상이다. EKS의 `deletion_protection`은 **AWS 네이티브 클러스터 속성**
+> (`aws_eks_cluster.deletion_protection`)이라 `false`로 바꾸면 실제 in-place 변경이 필요하고,
+> **apply가 반드시 실행돼야 AWS에 반영된다.** VPC 쪽 apply가 `No changes`를 내는 것은 결함이 아니라
+> 애초에 바뀔 속성이 없었기 때문이다.
 
 ---
 
@@ -139,13 +138,13 @@ kubectl get nodepool -A      # 되살아나지 않았는지
 aws elbv2 describe-load-balancers --query 'LoadBalancers[?VpcId==`<vpc-id>`]'
 ```
 
-> 🔴 **실측(2026-08-13): `kubectl get nodes`에 노드가 남아 있어도 실패가 아닐 수 있다.**
-> NodePool의 `NODES` 열이 애초에 `0`이었다면(버스트 워크로드가 없어 Karpenter가 아무것도
-> 프로비저닝하지 않은 상태), `kubectl delete nodepool`은 지울 Karpenter 노드가 없으므로
-> `kubectl get nodes`의 노드 수는 그대로다. **그 노드들은 EKS 관리형 노드그룹(시스템 계층)
-> 소속이라 Karpenter가 아니라 2단계 `tofu destroy`(EKS 모듈)가 회수한다.** 이 절차의 대상은
-> Karpenter가 만든 노드뿐이다 — `kubectl get nodepool -A`로 원래 `NODES`가 몇 개였는지 먼저
-> 보고, 0이었다면 이 단계에서 노드 수가 안 줄어도 정상이다.
+> 🔴 **`kubectl get nodes`에 노드가 남아 있어도 실패가 아닐 수 있다.** NodePool의 `NODES` 열이
+> 애초에 `0`이면(버스트 워크로드가 없어 Karpenter가 아무것도 프로비저닝하지 않은 상태),
+> `kubectl delete nodepool`은 지울 Karpenter 노드가 없으므로 `kubectl get nodes`의 노드 수는
+> 그대로다. **그 노드들은 EKS 관리형 노드그룹(시스템 계층) 소속이라 Karpenter가 아니라 2단계
+> `tofu destroy`(EKS 모듈)가 회수한다.** 이 절차의 대상은 Karpenter가 만든 노드뿐이다 —
+> `kubectl get nodepool -A`로 원래 `NODES`가 몇 개였는지 먼저 보고, 0이면 이 단계에서
+> 노드 수가 안 줄어도 정상이다.
 
 ---
 
@@ -170,11 +169,11 @@ gh workflow run deploy-network.yml --ref main \
 `plan`만 `-destroy`로 갈리고 **apply는 생성과 같은 job이다** — 저장된 plan 파일을 적용하는
 구조라 파기 계획도 **같은 승인 게이트를 그대로 흐른다.** 승인자는 요약의 `will be destroyed`를 읽고 누른다.
 
-> 🔴 **실측(2026-08-13): "읽고 누른다"의 "누른다"는 이미 지나간 뒤다.** `workflow_dispatch`로
-> `action=destroy`를 실행하면 그 **한 번의 dispatch 안에서** `plan` job이 끝나자마자 `apply` job이
-> **자동으로** 이어진다(`needs: plan`) — 둘 사이에 사람이 개입할 별도 승인 스텝이 없다. 실측
-> 간격은 **plan 완료 후 수십 초 이내**였다. 즉 진짜 승인 지점은 *"plan을 보고 apply를 누른다"*가
-> 아니라 **"dispatch 자체를 누르기 전에 대상을 확인한다"**이다.
+> 🔴 **"읽고 누른다"의 "누른다"는 이미 지나간 뒤다.** `workflow_dispatch`로 `action=destroy`를
+> 실행하면 그 **한 번의 dispatch 안에서** `plan` job이 끝나자마자 `apply` job이 **자동으로**
+> 이어진다(`needs: plan`) — 둘 사이에 사람이 개입할 별도 승인 스텝이 없고, 간격은 **plan 완료 후
+> 수십 초 이내**다. 즉 진짜 승인 지점은 *"plan을 보고 apply를 누른다"*가 아니라
+> **"dispatch 자체를 누르기 전에 대상을 확인한다"**이다.
 > - `confirm` 문자열은 **잘못된 루트를 파괴하는 사고**만 막지, **그 루트 안에서 예상 밖의 자원이
 >   걸리는 것**은 막지 못한다.
 > - 진짜 검토는 **dispatch 전에** 5절의 `teardown-verify.sh` 또는 `aws ec2 describe-*`로 태그
@@ -327,7 +326,7 @@ aws s3 rb s3://<b>
 | 지운 리소스가 되살아난다 | ArgoCD 컨트롤러가 살아 있다 | 3절 — `patch`가 아니라 컨트롤러를 `scale 0` |
 | destroy 성공 후 로그 그룹이 남았다 | 살아 있던 Flow Logs가 쓰자 CloudWatch가 자동 생성 | state에 없다. **손으로 지운다**(5절) |
 | `git push`가 훅에서 막힌다 | pre-push의 `validate`가 backend 자격증명을 요구 | `AWS_PROFILE=<p> git push`. `--no-verify` 금지 |
-| `tofu init`이 `context deadline exceeded`로 실패(provider SHA256SUMS 다운로드) | GitHub Actions runner ↔ provider registry 간 일시적 네트워크 지연. 일회성 아님(H2와 같은 계열) | **새 dispatch가 아니라** `gh run rerun <run-id> --failed` — 새 dispatch는 plan을 다시 돌려 승인 대상이 바뀐다. `--failed`는 실패한 job만 재시도해 기존 plan을 유지한다(실측 확인) |
+| `tofu init`이 `context deadline exceeded`로 실패(provider SHA256SUMS 다운로드) | GitHub Actions runner와 provider registry 사이의 일시적 네트워크 지연 — 재발할 수 있다 | **새 dispatch가 아니라** `gh run rerun <run-id> --failed` — 새 dispatch는 plan을 다시 돌려 승인 대상을 바꾼다. `--failed`는 실패한 job만 재시도해 기존 plan을 유지한다 |
 
 ---
 

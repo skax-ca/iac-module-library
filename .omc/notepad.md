@@ -23,6 +23,64 @@
 
 ---
 
+## ✅ **PR #31 리버트 안 함(사용자 결정) + CI 파일·문서 전체 정확성 감사 완료** (2026-08-14)
+
+> ### ▶ PR #31 — 리버트하지 않기로 결정
+>
+> 위 fork 사건의 PR [#31](https://github.com/skax-ca/iac-reference-infra/pull/31)은 내용이
+> 이미 검증돼 있어 사용자가 **리버트 불필요**로 판단. 머지된 상태 그대로 유지.
+>
+> ### ▶ 사용자와 파일 단위로 함께 `verify.yml`·`.githooks` 검토 → PR [#24](https://github.com/skax-ca/iac-module-library/pull/24)
+>
+> 3단계 기준(①정확성 — 실물 대조 ②배치 — 처음 읽는 사람의 이해 순서 ③밀도 — 중복·서사 압축)을
+> 세워 `verify.yml`을 반복 리뷰. 발견·수정:
+> - 존재하지 않는 문서 참조("02 §4" — `02-choose-your-path.md`는 무관한 문서, 실제는
+>   `06-conventions.md` §3)
+> - 게이트 5(examples: validate)에만 "0개 매치 시 조용히 통과" 가드가 빠져 있던 것 — 게이트
+>   4·6과 동일한 방어 추가
+> - provider 캐시 관련 48줄짜리 주석이 스텝 사이에 떠 있어 "무엇에 대한 설명인지" 불분명 —
+>   구현 디테일은 코드 줄 옆, 전략 배경(도입 계기·기각한 대안)은 한 곳에 모아 읽는 순서를 자연스럽게
+> - `.githooks/pre-push`의 가장 복잡한 분기(새 브랜치 최초 push 시 merge-base 폴백)에 설명이
+>   전혀 없던 것도 보강
+> - `verify.yml` 207줄 → 162줄, `.githooks/pre-commit` 38→35줄, `.githooks/pre-push` 28→32줄
+>   (이해 공백 보강으로 증가)
+>
+> 🔑 **fork 4개 보고 중 1건은 직접 재검증에서 뒤집었다** — `addons.tf §4` 인용을 fork는
+> "죽은 참조"(`.tf`엔 `§` 마커 없음, grep 0건)로 판정했으나, 실제로는 `addons.tf`에
+> `# ── 4) 최종 변환 ──` 형태의 번호 붙은 주석 블록이 있고 내용도 정확히 일치했다.
+> **fork 보고도 검증 없이 신뢰하지 않는다**(`feedback_fork_attribution_hallucination.md`의
+> 연장선 — 이번엔 귀속이 아니라 사실 판정 자체가 틀렸던 사례).
+>
+> ### ▶ 문서 18개(약 3,200줄) 전체를 같은 3단계 기준으로 감사 — fork 4개 병렬
+>
+> `docs/*.md` 9개·`CLAUDE.md`·루트/서브 `AGENTS.md`·`README.md`류·예제 README 2개 전수 조사.
+> 13건 발견(1건은 소비 repo 얘기라 결함 아님으로 판정 후 제외) → **main 직접 커밋**(문서 전용,
+> `CLAUDE.md` 브랜치 규칙표 그대로 적용) 3개 커밋으로 반영:
+> 1. **실결함**: `06-conventions.md`·`CLAUDE.md`가 로컬 게이트를
+>    "fmt→validate→tflint→trivy→test" 한 줄 체인으로 서술했는데 `tofu validate`는 훅
+>    어디에도 없음(CLAUDE.md는 5줄 뒤에 이미 정확한 서술이 있어 자기모순이었다) · `eks-cluster`
+>    최신 태그 서술이 v0.4.0으로 stale(실제 v0.5.0) · `03-new-project.md`의 워크벤치 버전
+>    예시(kubectl/helm/argocd)에 `v` 접두사 누락 — 그대로 복붙하면 다운로드 URL이 깨짐
+> 2. **죽은 § 참조**: `08-decisions.md` 1건 + `examples/eks-cluster-enterprise/README.md` 5건
+>    (그중 4건은 Wave 7이 지운 `docs/design/`나 번호가 바뀐 문서를 가리키던 진짜 죽은 참조,
+>    1건은 `addons.tf §4`로 위에서 재검증해 표기만 정리) + `examples/vpc-enterprise/README.md`
+>    1건. 전부 Wave 7 문서 재구성(2026-08-12)이 남긴 같은 근본 원인.
+> 3. **커버리지·규칙**: `scripts/README.md`에 실존하는 스크립트 2개(`teardown-verify.sh`·
+>    `validate-abbreviations.py`)가 전혀 언급 안 되던 것 보강 · `aws-naming-abbreviations.md`의
+>    날짜 붙은 "정정" 서술(§8 규칙 7 위반, 태스크 #11 스윕에서 빠졌던 것) 정리 ·
+>    `06-conventions.md` §8 규칙 4(400줄 상한)에 데이터 카탈로그 예외를 명문화(다른 문서들은
+>    이미 "예외"라고 서술하면서 정작 규칙 원본엔 없었다).
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. **PR #24 머지 여부 결정** — `verify.yml`·`.githooks` 정리, CI(게이트 6개) 통과 확인 후 머지.
+> 2. 이 세션에서 스코프 밖으로 남긴 것(참고만, 급하지 않음): `docs/00·01`과 예제 README의
+>    §N 인용 다수는 **내용은 정확**하지만 §8 규칙 6(절 번호 인용 금지) 스타일 위반 — 2026-08-13(3)
+>    결정대로 소급 미적용 상태 유지 중. `examples/eks-cluster-enterprise/README.md`의
+>    "실측(1.35·an2, 2026-08-04)" 같은 날짜 서술도 §8 규칙 7 대상이나 이번 스코프(13건) 밖.
+
+---
+
 ## ✅ **Wave 8 완료 — `iac-platform-gitops`·`iac-reference-infra` 문서 zero-base 재작성** (2026-08-13(5))
 
 > ### ▶ 무엇을 했나 (다른 repo 대상, 이 repo는 건드리지 않음)

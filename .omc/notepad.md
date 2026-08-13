@@ -1,5 +1,36 @@
 # Notepad — iac-module-library
 
+## ✅ **2026-08-13 — 약어 문서 참조 수정 + 예시 workload acme→demo + ESO 설계 제안(미승인)**
+
+> ### ▶ 무엇을 했나 (커밋 `3abb198`·`b1d0124`(PR #23)·`ca2ce79`·`708ff78`·`ef57885`)
+>
+> 1. **`aws-naming-abbreviations.md`의 깨진 참조 수정** — 존재하지 않는
+>    `02-naming-tagging-and-pinning.md`를 가리키던 줄을 `06-conventions.md`로 정정(같은 파일
+>    4번 줄과의 자기모순이었다).
+> 2. **예시 workload `acme`→`demo` 전체 치환**(314건, docs 10개 파일 + `.tf`/`.tftest.hcl` 9개 —
+>    후자는 PR #23, 로컬 게이트 전부 통과 확인). `ref`는 이미 `iac-reference-infra`의 실제
+>    workload라 예시로 재사용하면 혼동을 부른다고 판단해 제외(사용자 확인).
+> 3. **`04-teardown.md` 실측 보정 4건** — VPC/EKS `deletion_protection`의 성격 차이(로컬
+>    lifecycle vs AWS 네이티브 속성) · Karpenter NodePool이 원래 0개면 정상 · destroy
+>    dispatch의 plan→apply가 수십 초 내 자동 cascade되어 진짜 검토 지점은 dispatch **전**이라는 것 ·
+>    provider SHA256SUMS 타임아웃(H2 계열, `gh run rerun --failed`로 대응).
+>    ⚠️ **1차 커밋(`ca2ce79`)이 06-conventions.md §5·§8을 위반**(본문에 날짜·"실측했다" 서술)해
+>    `708ff78`로 정정 — 시간순 기록은 `.omc/notepad.md` 소관이지 `docs/`가 아니다.
+> 4. **`scripts/README.md`에 ESO(External Secrets Operator) 도입 제안 추가**(`ef57885`) —
+>    `iac-reference-infra`의 demo 재구축 중 GitHub App private key를 재구축마다 손으로
+>    발급·SSM 릴레이·shred하는 비용이 반복된다는 것이 드러나 사용자가 대안 검토를 요청했다.
+>    **미승인·미구현.** 상세는 `scripts/README.md` "🔬 검토 중 — External Secrets Operator" 절.
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. **ESO 도입 여부 결정** — 승인되면 `iac-reference-infra`·`iac-platform-gitops`에 IAM·CRD
+>    설계를 이어서 진행(별도 설계 필요, 이 repo는 재사용 자산만 소유하므로 계정 값을 여기 두지 않는다).
+> 2. Wave 8(`iac-platform-gitops`·`iac-reference-infra` README 재작성)은 **여전히 미완**.
+> 3. `iac-reference-infra`의 구 `ref` 부트스트랩 자원(state 버킷·IAM Role 2개·OIDC 태그) 정리 —
+>    L3/ESO 결정 이후로 미룸.
+
+---
+
 ## ✅ **2026-08-12 — 약어 카탈로그 SSOT 정비 완료 (검사 게이트 + 등재 규칙 + 중복/패밀리 정리)**
 
 > ### ▶ 무엇을 했나 (커밋 `83ecc29` · `cb62af2` · `23e3f08`)

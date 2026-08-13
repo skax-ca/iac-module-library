@@ -12,7 +12,7 @@
 |----|------|------|
 | **custom networking** | secondary CIDR `100.64.0.0/16` + `pod-dup` 그룹 | Pod IP를 대량 소모해도 온프레미스 IP 계획을 잠식하지 않는다 |
 | **Karpenter discovery** | subnet(`extra_tags`) + SG(모듈이 부여) **양쪽** | 한쪽만 붙으면 selector가 빈 결과 → 조용한 실패 |
-| **컨트롤러 IAM** | ALBC · external-dns opt-in | 설계 §2.6a — 정책은 커뮤니티 큐레이션에 위임 |
+| **컨트롤러 IAM** | ALBC · external-dns opt-in | 정책은 커뮤니티 큐레이션에 위임 |
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
@@ -33,8 +33,9 @@
 > 인증 오류가 아니라 **타임아웃**이었다는 것이 "인증 계층에 닿지도 못했다"를 뜻했다.
 >
 > ⚠️ **`local.cluster_arn`을 지우지 말 것.** workbench는 클러스터 ARN을 받고 eks는 workbench role ARN을
-> 받아 **양방향 참조**가 된다. ARN을 루트에서 합성해 끊는다 — `03 §3.1`의 1순위(결정적 네이밍,
-> 결합도 없음). `module.eks.cluster_arn`으로 바꾸면 **순환으로 plan이 죽는다**.
+> 받아 **양방향 참조**가 된다. ARN을 루트에서 합성해 끊는다 —
+> [`docs/06-conventions.md`](../../docs/06-conventions.md)의 원칙(결정적 네이밍, 결합도 없음).
+> `module.eks.cluster_arn`으로 바꾸면 **순환으로 plan이 죽는다**.
 
 ## ⚠️ 구조부터 다르다 — 실제로는 **VPC를 여기서 만들지 않는다**
 
@@ -48,9 +49,9 @@
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
 
 **첫 행이 가장 중요하다.** 이 예제는 VPC와 EKS를 한 루트에서 만든다 — **예제라서 그렇다**
-(`01 §4`가 "예제가 곧 `tofu test` 대상"이라 self-contained해야 `validate`가 돌고, CI 게이트 ⑤도
-그걸 요구한다). 이 구조를 그대로 복사하면 두 컴포넌트가 한 state에 묶여, **네트워크를 건드릴
-때마다 클러스터가 plan 범위에 들어온다.**
+([`examples/AGENTS.md`](../AGENTS.md)의 원칙 — 예제가 곧 CI 게이트 ⑤의 `validate` 대상이라
+self-contained해야 한다). 이 구조를 그대로 복사하면 두 컴포넌트가 한 state에 묶여, **네트워크를
+건드릴 때마다 클러스터가 plan 범위에 들어온다.**
 
 소비 프로젝트에서 networking과 eks-cluster는 **별도 배포 루트**이며, eks 루트는 이미
 apply된 VPC를 **태그로 조회**한다:
@@ -150,8 +151,8 @@ kubectl get nodes
 
 ## external-dns — 예제와 소비 프로젝트가 다른 지점
 
-**예제는 Route53 private zone까지 직접 만든다**(`aws_route53_zone.internal`). `01 §4`의 self-contained
-요건 때문이기도 하지만, 더 직접적인 이유는 **`enable_external_dns_iam = true`가 zone ARN 없이는
+**예제는 Route53 private zone까지 직접 만든다**(`aws_route53_zone.internal`). `examples/AGENTS.md`의
+self-contained 요건 때문이기도 하지만, 더 직접적인 이유는 **`enable_external_dns_iam = true`가 zone ARN 없이는
 성립하지 않기 때문**이다 — `external_dns_hosted_zone_arns`를 비우면 upstream이 `Resource = "*"`
 정책을 만들고 AWS가 `400 MalformedPolicyDocument`로 거부한다.
 모듈의 교차변수 validation이 그 조합을 **plan에서** 막는다.
@@ -173,8 +174,9 @@ enable_external_dns_iam = false   # zone ARN 없이 true 로 두면 plan 이 거
 ```
 
 되켤 때는 **zone을 먼저 확보한 뒤** 그 ARN을 넘긴다. zone은 별도 루트(또는 수동 생성)가 소유하고
-클러스터 루트는 `data.aws_route53_zone`으로 **조회만** 한다 — 03 §3.1의 "이름이 아니라 조회로
-느슨하게 결합" 원칙이 여기에도 적용된다.
+클러스터 루트는 `data.aws_route53_zone`으로 **조회만** 한다 —
+[`docs/06-conventions.md`](../../docs/06-conventions.md)의 "이름이 아니라 조회로 느슨하게 결합"
+원칙이 여기에도 적용된다.
 
 ```hcl
 data "aws_route53_zone" "this" {
@@ -246,8 +248,8 @@ cluster_addons = {
 > 실측(1.35 · an2, 2026-08-04): `coredns` 기본 `v1.13.2-eksbuild.11` ≠ 최신 `v1.14.3-eksbuild.3`.
 >
 > ℹ️ `addon_version`만 적어도 **모듈 소유 필드는 살아남는다** — vpc-cni 의 custom networking 구성과
-> ebs-csi 의 pod identity association 은 merge **뒤에** 재주입된다(`addons.tf` §4). shallow merge 로
-> 엔트리가 통째로 교체되는 문제는 모듈이 이미 처리했다.
+> ebs-csi 의 pod identity association 은 merge **뒤에** 재주입된다(`addons.tf`의 "4) 최종 변환" 블록).
+> shallow merge 로 엔트리가 통째로 교체되는 문제는 모듈이 이미 처리했다.
 
 **갱신 규칙 두 가지.**
 

@@ -4,10 +4,9 @@
 이 예제는 **고객사 착수 템플릿**이다 — 온프레미스 연동, 용도별 대역 분리, EKS custom networking,
 TGW attachment 전용 서브넷까지 들어 있다.
 
-> ⚠️ **역할이 재정의됐다**(2026-07-30). 설계 §1.5(b)가 처음 이 예제를 요구한 근거는 "minimal로는
-> isolated 라우팅·secondary CIDR·AZ 커버리지 precondition이 실행되지 않는다"였다. 그 검증은 이제
-> `modules/vpc/tests/plan.tftest.hcl`이 담당한다. 따라서 이 예제의 존재 이유는 **검증이 아니라
-> 착수 템플릿**이고, 그래서 프로덕션 구성을 흉내 내는 것이 허용된다
+> ⚠️ **이 예제의 존재 이유는 검증이 아니라 착수 템플릿이다.** isolated 라우팅·secondary CIDR·
+> AZ 커버리지 precondition 검증은 `modules/vpc/tests/plan.tftest.hcl`이 담당한다. 이 예제는
+> 프로덕션 구성을 흉내 내는 것이 허용된 자리이고
 > (`examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**다).
 
 ## CIDR 3계층

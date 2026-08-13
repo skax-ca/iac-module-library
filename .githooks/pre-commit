@@ -25,11 +25,9 @@ echo "  2/3 tflint --recursive"
 tflint --recursive
 
 echo "  3/3 trivy config (MEDIUM+)"
-# .terraform/(init 캐시)과 다운로드된 원격 모듈 내부는 우리가 수정할 수 없는 upstream 코드 —
-# 게이트 대상에서 제외한다. upstream 경유 보안 손잡이(예: EKS 컨트롤플레인 로깅)는
-# 설계 문서 열린 항목으로 추적한다.
-# ⚠️ --ignorefile 은 생략할 수 없다: trivy 0.72는 .trivyignore.yaml 을 **자동 탐지하지 않는다**
-#    (평면 .trivyignore 만 자동이다). 경로 한정 예외를 쓰려면 YAML 형식이 필요하므로 명시한다.
+# .terraform/·다운로드된 원격 모듈은 upstream 코드라 게이트 대상에서 제외한다(보안 손잡이는
+# 설계 문서 열린 항목으로 추적). ⚠️ --ignorefile 생략 불가 — trivy 0.72는 .trivyignore.yaml 을
+# 자동 탐지하지 않는다(평면 .trivyignore 만 자동), 경로 한정 예외엔 이 형식이 필요하다.
 trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
   --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules \
   --ignorefile .trivyignore.yaml .

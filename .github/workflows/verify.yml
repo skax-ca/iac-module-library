@@ -3,10 +3,8 @@
 # ⚠️ 이 repo는 **배포하지 않는다.** apply 워크플로가 없는 것은 누락이 아니라 설계다(CLAUDE.md).
 #    배포는 소비 repo(iac-reference-infra 등)의 몫이다.
 #
-# ⚠️ **로컬 게이트와 도구 버전·플래그를 정확히 일치시킨다.**
-#    어긋나면 "로컬은 통과했는데 CI가 막는다"가 생기고, 그러면 사람이 CI를 신뢰하지 않게 된다.
-#    로컬 기준(2026-07-30): OpenTofu 1.12.5 · tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0
-#    로컬 훅은 .githooks/{pre-commit,pre-push} 에 있다. 한쪽을 바꾸면 다른 쪽도 바꾼다.
+# ⚠️ **로컬 게이트와 도구 버전·플래그를 정확히 일치시킨다**(로컬 훅: .githooks/{pre-commit,pre-push}).
+#    기준: OpenTofu 1.12.5 · tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. 한쪽을 바꾸면 다른 쪽도 바꾼다.
 name: verify
 
 on:
@@ -29,10 +27,8 @@ env:
   TOFU_VERSION: "1.12.5"
   TFLINT_VERSION: "v0.63.1"
   TRIVY_VERSION: "v0.72.0"
-  # ℹ️ TF_PLUGIN_CACHE_DIR 은 여기 두지 않는다 — 경로에 `runner.temp` 가 필요한데
-  #    **workflow 레벨 `env:` 에서는 `runner` 컨텍스트를 쓸 수 없다**
-  #    (공식 Context availability 표: `env` → github · secrets · inputs · vars).
-  #    그래서 게이트 4 직전 스텝에서 `$RUNNER_TEMP` 로 잡아 `$GITHUB_ENV` 에 넣는다. 근거는 그 스텝에.
+  # TF_PLUGIN_CACHE_DIR 은 여기 두지 않는다 — workflow 레벨 env: 는 runner 컨텍스트를 못 써서,
+  # 게이트 4 앞 "provider 플러그인 캐시 준비" 스텝에서 설정한다.
 
 jobs:
   verify:
@@ -64,8 +60,8 @@ jobs:
 
       - name: "게이트 3/6 — trivy config"
         run: |
-          # trivy-action 대신 바이너리를 직접 설치한다: 로컬 pre-commit 과 **완전히 같은 명령**을
-          # 실행해야 결과가 갈리지 않는데, 액션은 플래그를 자기 입력으로 번역하기 때문이다.
+          # trivy-action 대신 바이너리를 직접 설치한다 — 액션은 플래그를 자기 입력으로 번역해
+          # 로컬 pre-commit 과 완전히 같은 명령을 만들 수 없다.
           curl -sSfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
             | sh -s -- -b /usr/local/bin "${TRIVY_VERSION}"
           trivy --version
@@ -75,67 +71,24 @@ jobs:
             --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules \
             --ignorefile .trivyignore.yaml .
 
-      # ─────────────────────────────────────────────────────────────────────
-      # provider 플러그인 캐시 — 게이트 4·5 가 **디렉토리마다 init 을 돌기 때문에** 필요하다.
+      # provider 플러그인 캐시 — 게이트 4·5 가 5개 디렉토리(modules 3 + examples 2)에서 각자
+      # init 을 돌아 provider 를 받는다. 캐시 없이 13회 받던 걸 5회로 줄인다.
       #
-      # 실측(2026-08-11, 로컬 tofu 1.12.5 로 아래 루프를 그대로 재현):
-      #   캐시 없음 → provider **다운로드 13회** (modules 3 + examples 2 가 전부 각자 받는다)
-      #   캐시 사용 → **다운로드 5회.** 13개 해석 전부가 캐시를 경유한다
+      # 도입 계기는 속도가 아니라 실패율이다 — provider 체크섬(SHA256SUMS) 조회 중 runner 의
+      # TLS 인증서 검증이 일시적으로 실패해 init 이 죽은 사례가 있었다(재실행으로 통과). 왕복이
+      # 13회면 같은 flake 에 13번 노출되므로 5회로 줄인다.
       #
-      # ✅ CI 실증(run 31449541916, 이 변경의 PR): `Installing hashicorp/` **5회** ·
-      #    `from the shared cache directory` **13회** · 게이트 6개 전부 통과.
-      #    ⚠️ **두 숫자가 겹치는 것이 정상이다** — 흐름이 "다운로드 → 캐시 적재 → 캐시에서
-      #.terraform 으로 링크"라, 첫 5개는 `Installing` 과 `from the shared cache` 가 **둘 다** 찍힌다.
-      #       📌 그래서 **판정 기준은 `from the shared cache` 개수가 아니라 `Installing` 개수(=네트워크)** 다.
-      #
-      # 🔴 **도입 계기는 속도가 아니라 실패율이다.** run 31448654347 이 modules/vpc 의 init 에서
-      #    이렇게 죽었다:
-      #      Error while installing hashicorp/aws v6.57.1: … failed to retrieve authentication
-      #      checksums: Get "https://github.com/opentofu/…/…_SHA256SUMS":
-      #      tls: failed to verify certificate: x509: certificate is not valid for any names
-      #    ⭐ **바로 몇 초 전 modules/eks-cluster 가 같은 provider 를 받아 통과했다** —
-      #       lock·핀·registry 문제가 아니라 runner 의 일시적 TLS 오류였고 재실행으로 통과했다.
-      #    ⇒ 네트워크 왕복 13회는 **같은 flake 에 13번 노출된다**는 뜻이다. 5회로 줄인다.
-      #
-      # ⚠️ **CI↔로컬 훅 parity 는 깨지지 않는다**(파일 헤더 규칙). 이 변수는 도구 버전도 명령
-      #    플래그도 바꾸지 않는다 — `tofu init` 이 provider 를 **어디서 가져오는지**만 바꾼다.
-      #    `-lockfile=readonly` 와도 양립한다: 캐시에서 설치했는데 lock 갱신이 필요한 상태라면
-      #    조용히 통과하는 게 아니라 **거기서 실패한다** — 안전한 방향이다
-      #    (실측: 5개 디렉토리 전부 readonly 로 통과).
-      #
-      # 📌 **경로를 workspace 밖($RUNNER_TEMP)에 둔다.** 안에 두면 **856MB**(실측)짜리 캐시를
-      #    게이트 1(`tofu fmt -recursive`)·2(`tflint --recursive`)·3(`trivy config .`)·
-      #    6(`find . -name '.terraform.lock.hcl'`)이 **전부 훑는다.**
-      #
-      # ⚠️ **workflow 레벨 `env:` 에 둘 수 없어서 이 스텝이 존재한다** — 그 자리에서는
-      #    `runner` 컨텍스트가 허용되지 않는다 — 공식 Context availability 표상
-      #    `env` 는 github·secrets·inputs·vars, `jobs.<id>.env` 도 runner 를 포함하지 않는다.
-      #    (`runner` 는 `jobs.<id>.steps.env` 부터 가능하다.) run 스텝의 `$RUNNER_TEMP`
-      #    환경변수로는 읽을 수 있으므로 `$GITHUB_ENV` 에 실어 후속 스텝에 전달한다.
-      #    ⛔ 하드코딩된 /tmp 로 대체하지 말 것 — runner 종류에 따라 달라진다.
-      #
-      # ⛔ **`actions/cache` 로 run 간 캐시까지 하지 않는다 — 검토했고 값으로 기각했다.**
-      #    캐시가 **856MB**(실측)라 업로드·다운로드 비용이 provider 5개를 받는 비용을 넘고,
-      #    그 전송 자체가 **새로운 실패 지점**이 된다. 지금 푸는 문제는 "느리다"가 아니라
-      #    "네트워크를 여러 번 탄다"이고, job 내 캐시만으로 13 → 5 가 된다.
-      #    재검토 조건: provider 다운로드가 job 시간의 지배적 비중이 되거나, 남은 5회에서 flake 가 반복될 때.
-      #
-      # ⚠️ OpenTofu 문서는 이 디렉토리가 **동시성 안전하지 않다**고 경고한다. 이 워크플로는
-      #    job 이 하나이고 게이트 4·5 가 **순차 루프**라 해당하지 않는다. matrix 로 쪼개면
-      #    그 전제가 깨진다 — 그때 job 마다 다른 경로를 쓰거나 캐시를 끈다.
-      # ─────────────────────────────────────────────────────────────────────
+      # 검토 후 기각한 대안: actions/cache(캐시가 커서 전송 비용이 이득을 넘고 새 실패 지점이
+      # 됨), matrix 병렬화(이 캐시 디렉토리는 동시성 비안전 — job 이 1개·순차 루프라 지금은
+      # 무관하나, matrix 로 쪼개면 재검토 필요).
       - name: "provider 플러그인 캐시 준비 (게이트 4·5 공용)"
         run: |
           set -euo pipefail
+          # $RUNNER_TEMP 사용: workflow 레벨 env: 는 runner 컨텍스트를 못 쓰고, workspace 안에
+          # 두면 전체 스캔 게이트(1·2·3·6)가 캐시까지 훑는다. 하드코딩 /tmp 금지 — runner마다 다르다.
           cache_dir="${RUNNER_TEMP}/tofu-plugin-cache"
-          # ℹ️ **tofu 1.12.5 는 이 디렉토리가 없으면 스스로 만든다**(실측 2026-08-11 — 없는 경로로
-          #    init 하니 성공했고, 디렉토리가 생겼으며, 다음 모듈이 "from the shared cache
-          #    directory" 로 받았다). 즉 이 mkdir 은 **지금은 없어도 된다.**
-          #    그래도 남기는 이유는 실패 모드가 비대칭이기 때문이다 — 자동 생성이 사라지는 쪽으로
-          #    동작이 바뀌면 캐시가 **에러 없이 조용히 꺼지고**, 그러면 우리는 13 → 5 가 유지된다고
-          #    믿은 채로 flake 에 계속 노출된다. 한 줄로 그 침묵을 없앤다.
-          mkdir -p "$cache_dir"
-          echo "TF_PLUGIN_CACHE_DIR=${cache_dir}" >> "$GITHUB_ENV"
+          mkdir -p "$cache_dir"  # tofu가 자동 생성하지만, 그 동작이 바뀌어도 캐시가 조용히 꺼지지 않도록 명시
+          echo "TF_PLUGIN_CACHE_DIR=${cache_dir}" >> "$GITHUB_ENV"  # provider 출처만 바꾼다 — 로컬 훅 parity 유지
           echo "TF_PLUGIN_CACHE_DIR=${cache_dir}"
 
       - name: "게이트 4/6 — modules: validate + test"
@@ -146,8 +99,7 @@ jobs:
           for m in modules/*/; do
             found=1
             echo "::group::$m"
-            # -lockfile=readonly: lock 이 커밋돼 있고 config 와 맞는지 CI 가 강제한다.
-            # lock 을 갱신해야 하는 상태면 여기서 실패한다 — 의도된 동작이다.
+            # -lockfile=readonly: lock 이 config 와 다르면(갱신 필요 시) 여기서 실패한다 — 의도된 동작.
             tofu -chdir="$m" init -backend=false -input=false -lockfile=readonly
             tofu -chdir="$m" validate
             if [ -d "${m}tests" ]; then
@@ -164,19 +116,23 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          found=0
           for e in examples/*/; do
+            # 최상위에 .tf 가 없는 디렉토리(문서 전용 등)는 예제가 아니므로 건너뛴다.
             [ -n "$(find "$e" -maxdepth 1 -name '*.tf' -print -quit 2>/dev/null)" ] || continue
+            found=1
             echo "::group::$e"
             # 예제는 상대경로로 모듈을 소싱한다 — 외부 인증이 필요 없다.
             tofu -chdir="$e" init -backend=false -input=false -lockfile=readonly
             tofu -chdir="$e" validate
             echo "::endgroup::"
           done
+          [ "$found" = 1 ] || { echo "examples/ 에 검증할 .tf 가 하나도 없다"; exit 1; }
 
       - name: "게이트 6/6 — lock 파일 registry 검사"
         run: |
           set -euo pipefail
-          # 02 §4: lock 은 커밋되고 registry 주소가 registry.opentofu.org 여야 한다.
+          # 06-conventions.md §3(lock 파일): lock 은 커밋 + registry.opentofu.org 여야 한다 —
           # 다른 스택(PoC)의 lock 을 복사하면 registry.terraform.io 가 섞여 들어온다.
           # $(find ...) 를 for 로 순회하면 경로의 공백에서 깨진다(그리고 zsh 에서는 아예 분할되지
           # 않아 로컬 검증이 조용히 무의미해진다). -print0 + read -d '' 로 고정한다.

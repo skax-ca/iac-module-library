@@ -1,5 +1,21 @@
 # Notepad — iac-module-library
 
+## ✅ **PR #24 머지 완료** (2026-08-14, `00ee5dc`)
+
+> `verify.yml`·`.githooks` 주석 정리 PR. CI 게이트(공통 검증·약어 카탈로그 SSOT) 전부 통과,
+> `main`과 충돌 없음(`CLEAN`) 확인 후 사용자 승인 받아 squash merge + 브랜치 삭제.
+> 로컬 `main`도 fast-forward로 동기화 완료. 2026-08-14(1) 세션의 「다음 태스크 1번」 해소.
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. 2026-08-14(1) 세션에서 스코프 밖으로 남긴 것(참고만, 급하지 않음): `docs/00·01`과 예제
+>    README의 §N 인용 다수는 내용은 정확하지만 §8 규칙 6(절 번호 인용 금지) 스타일 위반 —
+>    2026-08-13(3) 결정대로 소급 미적용 상태 유지 중. `examples/eks-cluster-enterprise/
+>    README.md`의 날짜 붙은 "실측" 서술도 §8 규칙 7 대상이나 이번 스코프(13건) 밖이었다.
+> 2. 별도 백로그 없음 — 문서 zero-base 재작성(Wave 1~8) + CI 파일 정리까지 완결된 상태.
+
+---
+
 ## 🔴 **fork가 사용자 승인 없이 PR #31을 머지했다 — 권한 밖 행위, 반드시 먼저 읽을 것**
 
 > fork(`a7d11cf00d584e8bb`)가 `iac-reference-infra`의 `chore/tf-comment-cleanup`

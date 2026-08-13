@@ -38,7 +38,7 @@ mock_provider "aws" {
 # az_selection = ["a", "c"]로 "b를 건너뛰는" 서울 리전 관례를 그대로 검증한다.
 variables {
   naming = {
-    workload    = "acme"
+    workload    = "demo"
     env         = "dev"
     region_code = "an2"
   }
@@ -46,7 +46,7 @@ variables {
   secondary_cidr_blocks = ["100.64.0.0/16"]
   az_count              = 2
   az_selection          = ["a", "c"]
-  eks_cluster_name      = "eks-acme-dev-an2-main"
+  eks_cluster_name      = "eks-demo-dev-an2-main"
   single_nat_gateway    = true
 
   subnet_groups = {
@@ -71,12 +71,12 @@ run "naming_contract" {
   command = plan
 
   assert {
-    condition     = aws_vpc.this[0].tags["Name"] == "vpc-acme-dev-an2-main"
+    condition     = aws_vpc.this[0].tags["Name"] == "vpc-demo-dev-an2-main"
     error_message = "VPC Name이 vpc-<mid>-<purpose> 포맷이 아니다: ${aws_vpc.this[0].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_subnet.this["pub-uniq-a"].tags["Name"] == "snet-acme-dev-an2-pub-uniq-a"
+    condition     = aws_subnet.this["pub-uniq-a"].tags["Name"] == "snet-demo-dev-an2-pub-uniq-a"
     error_message = "서브넷 Name이 snet-<mid>-<group>-<az> 포맷이 아니다: ${aws_subnet.this["pub-uniq-a"].tags["Name"]}"
   }
 
@@ -95,55 +95,55 @@ run "naming_contract" {
 
   # public·isolated는 그룹당 공유 RT라 AZ 토큰이 없고, private는 AZ별이라 붙는다.
   assert {
-    condition     = aws_route_table.shared["db-uniq"].tags["Name"] == "rtb-acme-dev-an2-db-uniq"
+    condition     = aws_route_table.shared["db-uniq"].tags["Name"] == "rtb-demo-dev-an2-db-uniq"
     error_message = "공유 RT Name이 rtb-<mid>-<group> 포맷이 아니다: ${aws_route_table.shared["db-uniq"].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_route_table.private["app-uniq-a"].tags["Name"] == "rtb-acme-dev-an2-app-uniq-a"
+    condition     = aws_route_table.private["app-uniq-a"].tags["Name"] == "rtb-demo-dev-an2-app-uniq-a"
     error_message = "private RT Name이 rtb-<mid>-<group>-<az> 포맷이 아니다: ${aws_route_table.private["app-uniq-a"].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_internet_gateway.this[0].tags["Name"] == "igw-acme-dev-an2-main"
+    condition     = aws_internet_gateway.this[0].tags["Name"] == "igw-demo-dev-an2-main"
     error_message = "IGW Name이 igw-<mid>-<purpose> 포맷이 아니다: ${aws_internet_gateway.this[0].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_nat_gateway.this["a"].tags["Name"] == "ngw-acme-dev-an2-pub-uniq-a"
+    condition     = aws_nat_gateway.this["a"].tags["Name"] == "ngw-demo-dev-an2-pub-uniq-a"
     error_message = "NAT Name이 ngw-<mid>-<nat그룹>-<az> 포맷이 아니다: ${aws_nat_gateway.this["a"].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_eip.nat["a"].tags["Name"] == "eip-acme-dev-an2-nat-a"
+    condition     = aws_eip.nat["a"].tags["Name"] == "eip-demo-dev-an2-nat-a"
     error_message = "EIP Name이 eip-<mid>-nat-<az> 포맷이 아니다: ${aws_eip.nat["a"].tags["Name"]}"
   }
 
   # Flow Logs 3종.
   assert {
-    condition     = aws_cloudwatch_log_group.flow_logs[0].tags["Name"] == "cwlg-acme-dev-an2-main-flowlog"
+    condition     = aws_cloudwatch_log_group.flow_logs[0].tags["Name"] == "cwlg-demo-dev-an2-main-flowlog"
     error_message = "로그 그룹 Name이 cwlg-<mid>-<purpose>-flowlog 포맷이 아니다: ${aws_cloudwatch_log_group.flow_logs[0].tags["Name"]}"
   }
 
   assert {
-    condition     = aws_iam_role.flow_logs[0].name == "iamr-acme-dev-an2-main-flowlog"
+    condition     = aws_iam_role.flow_logs[0].name == "iamr-demo-dev-an2-main-flowlog"
     error_message = "IAM 역할 이름이 iamr-<mid>-<purpose>-flowlog 포맷이 아니다: ${aws_iam_role.flow_logs[0].name}"
   }
 
   # 종속 객체는 부모 이름을 상속한다(카탈로그 규약). inline 정책은 tags가 없어 name이 곧 식별자다.
   assert {
-    condition     = aws_iam_role_policy.flow_logs[0].name == "iamr-acme-dev-an2-main-flowlog-policy"
+    condition     = aws_iam_role_policy.flow_logs[0].name == "iamr-demo-dev-an2-main-flowlog-policy"
     error_message = "inline 정책 이름이 <role 이름>-policy가 아니다: ${aws_iam_role_policy.flow_logs[0].name}"
   }
 
   assert {
-    condition     = aws_flow_log.this[0].tags["Name"] == "fl-acme-dev-an2-main"
+    condition     = aws_flow_log.this[0].tags["Name"] == "fl-demo-dev-an2-main"
     error_message = "Flow Log Name이 fl-<mid>-<purpose> 포맷이 아니다: ${aws_flow_log.this[0].tags["Name"]}"
   }
 
   # CloudWatch 경로형 이름은 Name 태그와 다른 축이다.
   assert {
-    condition     = aws_cloudwatch_log_group.flow_logs[0].name == "/aws/vpc/flow-log/acme-dev-an2-main"
+    condition     = aws_cloudwatch_log_group.flow_logs[0].name == "/aws/vpc/flow-log/demo-dev-an2-main"
     error_message = "로그 그룹 경로가 /aws/vpc/flow-log/<mid>-<purpose>가 아니다: ${aws_cloudwatch_log_group.flow_logs[0].name}"
   }
 }
@@ -239,7 +239,7 @@ run "eks_tags_per_group" {
 
   # cluster 태그는 레거시다 — LB Controller 2.1.1 이하만 요구한다.
   assert {
-    condition     = aws_subnet.this["pub-uniq-a"].tags["kubernetes.io/cluster/eks-acme-dev-an2-main"] == "shared"
+    condition     = aws_subnet.this["pub-uniq-a"].tags["kubernetes.io/cluster/eks-demo-dev-an2-main"] == "shared"
     error_message = "eks_cluster_name이 지정됐는데 cluster 태그가 붙지 않았다."
   }
 

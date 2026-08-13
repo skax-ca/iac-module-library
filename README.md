@@ -57,7 +57,7 @@ iac-platform-gitops         플랫폼 매니페스트. ArgoCD가 pull로 reconci
 module "vpc" {
   source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
 
-  naming = { workload = "acme", env = "dev", region_code = "an2" }
+  naming = { workload = "demo", env = "dev", region_code = "an2" }
   # ...
 }
 ```

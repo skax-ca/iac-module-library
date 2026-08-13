@@ -56,7 +56,7 @@ primary를 소형으로 최소화하고 워크로드는 secondary에 배치한�
 | 소싱 | 상대경로 `../../modules/vpc` | git tag `?ref=vpc-v0.3.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 자격증명 | 없음(plan/apply 안 함) | GitHub OIDC → 입구 Role → 실행 Role |
-| 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
+| 워크로드 코드 | 가상값 `demo` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
 
 **소싱이 다른 이유**: 이 예제는 **현재 코드**를 검증해야 하므로 상대경로를 쓴다. 소비 프로젝트는

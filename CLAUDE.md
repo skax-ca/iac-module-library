@@ -87,7 +87,7 @@ module "vpc" {
 ### `Name` 태그 포맷
 ```
 (resourcetype)-(workloadcode)-(env)-(regioncode)-(purpose)-(serialnumber|suffix)
-예) vpc-acme-prd-an2-main   ·   eks-acme-prd-an2-main-01   ·   sgr-acme-prd-an2-web-01
+예) vpc-demo-prd-an2-main   ·   eks-demo-prd-an2-main-01   ·   sgr-demo-prd-an2-web-01
 ```
 
 | 구성 요소 | 값 |

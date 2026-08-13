@@ -1,5 +1,5 @@
 # 예제는 **인자 없이 `tofu validate`가 도는 상태**를 유지한다(examples/AGENTS.md).
-# 그래서 모든 변수에 기본값이 있다. 워크로드 코드는 가상값(acme)을 쓴다 —
+# 그래서 모든 변수에 기본값이 있다. 워크로드 코드는 가상값(demo)을 쓴다 —
 # 이 repo는 특정 워크로드를 고정하지 않는다.
 
 variable "aws_region" {
@@ -11,7 +11,7 @@ variable "aws_region" {
 variable "workload" {
   description = "워크로드 코드. Name 태그와 거버넌스 태그에 함께 쓰인다."
   type        = string
-  default     = "acme"
+  default     = "demo"
 }
 
 variable "env" {

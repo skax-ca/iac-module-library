@@ -32,10 +32,10 @@ brew install --cask session-manager-plugin
 
 | 값 | 예 | 왜 되돌릴 수 없나 |
 |----|-----|------------------|
-| `workload` 코드 | `acme` | 모든 리소스 이름에 들어간다 |
+| `workload` 코드 | `demo` | 모든 리소스 이름에 들어간다 |
 | 리전 | `ap-northeast-2` (`an2`) | 전면 재구축 |
 | VPC CIDR | `10.50.0.0/24` | VPC 재생성 |
-| 클러스터 이름 | `eks-acme-dev-an2-main-01` | 클러스터 재생성 |
+| 클러스터 이름 | `eks-demo-dev-an2-main-01` | 클러스터 재생성 |
 | EKS 엔드포인트 public 여부 | `false` | 정책상 되돌리기 어렵다 |
 | GitOps 경로 | 관리형 / self-managed | 재설치 + 재등록 |
 

@@ -44,7 +44,7 @@
 | **Route53 zone** | **같은 루트에서 함께 생성**(`aws_route53_zone.internal`) | **만들지 않는다.** external-dns를 끄거나(기본), 기존 zone을 `data`로 **조회만** — 아래 **"external-dns"** 절 |
 | 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-v0.5.0` (**현행 릴리스**) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
-| 워크로드 코드 | 가상값 `acme` | 실제 프로젝트 코드 |
+| 워크로드 코드 | 가상값 `demo` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
 
 **첫 행이 가장 중요하다.** 이 예제는 VPC와 EKS를 한 루트에서 만든다 — **예제라서 그렇다**

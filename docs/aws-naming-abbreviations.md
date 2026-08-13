@@ -1,13 +1,13 @@
 # AWS 리소스 네이밍 약어 카탈로그 (권위 참조)
 
 > 이 문서는 `Name` 태그 조합에 사용하는 **리소스 타입 표준 약어**의 단일 진실 공급원(SSOT)이다.
-> 네이밍 **포맷·어휘·강제 방식**은 [06-conventions.md](06-conventions.md) §2가 소유한다.
+> 네이밍 **포맷·어휘·강제 방식**은 [06-conventions.md](06-conventions.md)가 소유한다.
 
 ## 네이밍 포맷 (요약)
 
 ```
 (resourcetype)-(workloadcode)-(env)-(regioncode)-(purpose)-(serialnumber|suffix)
-     └ 이 문서가 정의        └────────── 06-conventions.md §2 정의 ──────────┘
+     └ 이 문서가 정의        └─────────── 06-conventions.md 정의 ───────────┘
 ```
 
 | 구성 요소 | 설명 | 예시 |
@@ -61,7 +61,7 @@
 - ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다** — 여러 role에 붙고 자체 ARN을 갖는다.
 - ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라
   리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급 —
-  [06-conventions.md](06-conventions.md) §2).
+  [06-conventions.md](06-conventions.md)).
 
 ### 개정 이력 (승계 이후 추가된 약어)
 

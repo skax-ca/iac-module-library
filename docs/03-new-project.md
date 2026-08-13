@@ -141,7 +141,7 @@ tofu -chdir=live/dev/networking validate
 > 🔴 **로컬에서 `plan`·`apply` 는 성립하지 않는다.** provider 가 실행 Role 을 assume 하는데
 > 그 Role 은 **입구 Role 만 신뢰**한다 — 개인 IAM user 로는 관리자여도 `AccessDenied` 다.
 > **로컬은 `init` + `validate` 까지**이고, 그 위는 전부 워크플로가 한다.
-> ⭐ `validate` 만으로도 잡히는 것이 있다(순환 참조·타입 오류). 훅이 push 때 이걸 돌린다.
+> **`validate` 만으로도 잡히는 것이 있다**(순환 참조·타입 오류). 훅이 push 때 이걸 돌린다.
 
 `main.tf`는 [`05-modules.md`](05-modules.md)의 연결 예시를 따른다.
 `eks_cluster_name`을 넘겨 EKS 자동 발견용 서브넷 태그를 붙인다 — 클러스터를 만들기 전에 해야 한다.

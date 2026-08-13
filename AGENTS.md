@@ -2,23 +2,24 @@
 
 # iac-module-library
 
+**읽는 사람**: 이 repo에서 작업하는 AI 에이전트.
+
 ## Purpose
 Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 모듈 자산 라이브러리.
 OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로 구성한다 —
 구독 라이선스가 고객사 채택의 장벽이 되지 않게 하는 것이 존재 이유다.
 
-**⚙️ 엔진: OpenTofu 단독** — `docs/06-conventions.md` §1.
+**엔진: OpenTofu 단독** — `docs/06-conventions.md`.
 라이선스는 채택 근거가 **아니다**(컨설팅 사용은 BUSL이 명시적으로 허용). 근거는 **리워크 0 + 조달 마찰 제거**다.
 **두 엔진 동시 지원은 실측 비용을 근거로 기각**했다 — 다시 제안하기 전에 `docs/08-decisions.md`를 읽는다.
 
-**현재 상태**(2026-08-07): 모듈 **3개** 릴리스됨 — `vpc` · `eks-cluster` · `workbench`.
 ⛔ **현행 태그·모듈 현황의 판정 근거는 이 파일이 아니라 [`README.md`](README.md)와 `git tag -l`이다**
-(이 파일이 *"모듈 코드는 아직 없다"* 로 stale해진 전례가 있다 — 여기에 상태를 적지 않는다).
+— 이 파일에는 모듈 개수·목록을 적지 않는다.
 
 **이 repo는 배포하지 않는다.** 모듈·설계·재사용 절차를 소유하고, 실제 apply는
 소비 프로젝트(`<project>-infra`)가 한다.
 ⚠️ **`.yaml` 매니페스트는 여기 두지 않는다** — GitOps 자산은 `iac-platform-gitops` 소관이다
-(`CLAUDE.md` §0 · `docs/01-architecture.md` §2).
+(`CLAUDE.md` · `docs/01-architecture.md`).
 
 ## Key Files
 | File | Description |
@@ -56,8 +57,8 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
   이 repo에서 "동작한다"의 기준은 `tofu test` + 예제 `validate`까지다.
 - **명령은 `tofu`**: `terraform`이 아니다. hook·문서·CI 전부 `tofu` 기준이다.
   OpenTofu 고유 기능(`encryption`·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때만 이유를 설계 문서에 남긴다 —
-  강제 장치는 없고, 얇은 모듈에는 등장할 일이 없는 것들이다(`docs/06-conventions.md` §1).
-- **문서 작성 규칙(`docs/06-conventions.md` §8)은 저장소 전역에 적용된다** — `docs/*.md`뿐 아니라
+  강제 장치는 없고, 얇은 모듈에는 등장할 일이 없는 것들이다(`docs/06-conventions.md`).
+- **문서 작성 규칙(`docs/06-conventions.md`)은 저장소 전역에 적용된다** — `docs/*.md`뿐 아니라
   이 파일을 포함한 모든 `README.md`·`AGENTS.md`·루트 `CLAUDE.md`. 예외는 `.omc/`뿐이다.
 
 ### Testing Requirements

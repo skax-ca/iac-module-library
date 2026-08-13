@@ -1,11 +1,13 @@
 # CLAUDE.md — 프로젝트 규칙
 
+**읽는 사람**: 이 저장소에 코드를 쓰거나 설계를 검토하는 사람.
+
 Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 모듈 자산 라이브러리.
 고객사가 **구독 라이선스 없이 바로 착수**할 수 있어야 하는 것이 이 repo의 존재 이유다.
 
 **스택**: **OpenTofu**(MPL-2.0) + GitHub Actions(OIDC) + S3 backend(`use_lockfile`) + OPA/Conftest
 
-## ⚙️ 엔진: OpenTofu 단독
+## 엔진: OpenTofu 단독
 
 명령은 `terraform`이 아니라 **`tofu`**다. 로컬·CI·문서·lock 전부 하나로 일원화한다.
 
@@ -17,7 +19,7 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
   질문이 나오면 **`docs/08-decisions.md`를 먼저 읽는다** — 이미 값을 매겨 기각한 안이다.
 - **Terraform 호환성은 계약이 아니라 부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다:
   **OpenTofu 고유 기능(`encryption` 블록·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때는 이유를 설계 문서에 남긴다.**
-  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(`docs/06-conventions.md` §1).
+  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(`docs/06-conventions.md`).
 
 ---
 
@@ -33,7 +35,7 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 
 > ⚠️ **`.yaml` 매니페스트는 이 repo에 두지 않는다.** 여기는 모듈(`.tf`)과 설계(`docs/`)만 소유한다.
 > ArgoCD Application·AppProject·cluster Secret은 **`iac-platform-gitops`** 소관이다
-> (3계층 소유 모델 — `docs/01-architecture.md` §2·§5).
+> (3계층 소유 모델 — `docs/01-architecture.md`).
 
 - 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md`
   — ⚠️ 그중 **엔진 축의 근거는 `docs/08-decisions.md`가 교체**했다.
@@ -53,13 +55,13 @@ module "vpc" {
 
 태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.5.0`.
 
-## 🔢 버전 정책: 전 모듈 `0.y.z`
+## 버전 정책: 전 모듈 `0.y.z`
 
-번호 체계의 SSOT는 **`docs/06-conventions.md` §3**이고, 기각한 안은 **`docs/08-decisions.md`**가 갖는다.
+번호 체계의 SSOT는 **`docs/06-conventions.md`**이고, 기각한 안은 **`docs/08-decisions.md`**가 갖는다.
 
 - **모든 모듈이 개발 단계(`0.y.z`)다.** 이 구간에서는 **파괴적 변경도 마이너로 흡수**하고
   소비자에게 계약 안정을 약속하지 않는다 — semver가 `0.y.z`에 부여한 뜻 그대로다.
-  ⭐ 그래서 *"이 변경이 마이너인가 메이저인가"* 를 **판정하지 않는다.** 전부 마이너다.
+  그래서 *"이 변경이 마이너인가 메이저인가"* 를 **판정하지 않는다.** 전부 마이너다.
 - **`1.0.0`은 모듈별로** 컷한다. ⛔ **전 모듈 일괄 컷은 기각했다** —
   `vpc`와 `eks-cluster`는 churn 속도가 달라 묶으면 소비자가 매번 "뭐가 바뀌었지"를 확인해야 한다.
 - **신규 모듈은 `0.1.0`에서 시작**한다. `1.0.0`으로 시작하지 않는다.
@@ -67,7 +69,7 @@ module "vpc" {
 
 ---
 
-## ⛔ 설계·검토 우선 규칙 (최우선, 필수 준수)
+## 설계·검토 우선 규칙 (최우선, 필수 준수)
 
 **구현하기 전에 반드시 설계 및 검토를 완료한 후 구현할 것.**
 
@@ -82,7 +84,7 @@ module "vpc" {
 
 ---
 
-## 🏷️ 리소스 네이밍 & 태깅 규칙 (필수 준수)
+## 리소스 네이밍 & 태깅 규칙 (필수 준수)
 
 ### `Name` 태그 포맷
 ```
@@ -119,9 +121,8 @@ module "vpc" {
 - **facade 원칙**: 소비자는 안정적 내부 인터페이스만 쓰고, upstream 변수 rename은 wrapper 내부에서만 번역한다.
 - **semver 거버넌스 계약**: upstream 파괴적 변경을 인터페이스 유지로 흡수 = 내부 **마이너**(소비자 무영향),
   숨길 수 없으면 내부 **메이저**(의도적 마이그레이션). upstream cadence와 소비자 cadence를 분리한다.
-- **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(실행도 1.12.x).
-  ⚠️ 모듈별 하한 대장은 **폐지**됐다. *"근거로만 올린다"* 는 이제 **1.13 이상에만** 적용된다 —
-  근거는 `docs/08-decisions.md`(실행 지점이 이미 전부 1.12라 분기가 소비자를 배제한 적이 없었다).
+- **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(실행도 1.12.x). 모듈별 하한 대장은 두지 않는다 —
+  *"근거로만 올린다"* 는 **1.13 이상**에만 적용된다(근거는 `docs/08-decisions.md`).
   aws `~> 6.0`(예제·프로젝트 루트)/`>= 6.0`(모듈),
   커뮤니티 모듈은 정확 핀. `.terraform.lock.hcl` 커밋 필수 —
   ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인(PoC의 lock을 복사하면 안 된다).
@@ -179,20 +180,19 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
 - tflint: `.tflint.hcl`(terraform recommended preset + aws ruleset 정확 핀). 설치:
   `brew install trivy opentofu` + tflint는 GitHub 릴리스 바이너리, 이후 `GITHUB_TOKEN=$(gh auth token) tflint --init`.
 - trivy 예외는 `.trivyignore`로만 — 항목마다 사유·백로그 링크 필수, 무단 추가 금지.
-- **모듈 CI**: `.github/workflows/verify.yml`이 **게이트 6개**를 검증한다(2026-07-30 구현 —
-  그 전까지 이 줄은 사실이 아니었다. `.github/workflows/`에 `.gitkeep`만 있었다).
+- **모듈 CI**: `.github/workflows/verify.yml`이 **게이트 6개**를 검증한다.
   ① `tofu fmt` ② `tflint --recursive` ③ `trivy config` ④ modules: `init -lockfile=readonly`
   + `validate` + `test`(tests 없는 모듈은 **실패**) ⑤ examples: `init -lockfile=readonly` + `validate`
-  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — `docs/06-conventions.md` §3).
+  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — `docs/06-conventions.md`).
   - ⚠️ **CI와 로컬 훅의 도구 버전·플래그를 일치시킨다.** 어긋나면 "로컬은 통과했는데 CI가 막는다"가
-    생기고, 그러면 사람이 CI를 신뢰하지 않게 된다. 기준(2026-07-30): OpenTofu 1.12.5 ·
+    생기고, 그러면 사람이 CI를 신뢰하지 않게 된다. 기준: OpenTofu 1.12.5 ·
     tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. **한쪽을 바꾸면 다른 쪽도 바꾼다.**
     특히 trivy는 액션 대신 **바이너리를 설치해 pre-commit과 같은 명령을 그대로** 실행한다.
   - 프로젝트 repo와 달리 이 repo는 배포하지 않으므로 **apply 워크플로가 없다**(누락이 아니라 설계).
   - CI는 읽기 전용이라 `cancel-in-progress: true`다. ⚠️ 소비 repo의 **apply**는 반대여야 한다 —
     apply 중단은 state 잠금·부분 적용을 남긴다. 이 블록을 그대로 복사하지 말 것.
 
-### 브랜치·PR 규칙 (2026-08-03 확정)
+### 브랜치·PR 규칙
 
 | 변경 대상 | 경로 |
 |-----------|------|
@@ -204,56 +204,46 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   문서에는 main을 깨뜨릴 산출물이 없다.
 - ⛔ **문서 전용 변경에 PR을 쓰지 않는다.** 이 repo는 사실상 1인 작업이라 리뷰는 self-merge = 형식이고,
   커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다. 형식만 남은 절차는 비용만 낸다.
-- ⚠️ **브랜치 작업 시 `.omc/notepad.md` 갱신을 같은 브랜치에 싣는다.** 2026-07-31에 실제로 이것이
-  누락되어 다음 세션이 **이미 끝난 일을 다음 태스크로 안내**했다(`3005b60`에서 정정).
-  브랜치가 늘 때마다 "무엇을 어디에 실을지"를 판단해야 하고, 그 판단은 실제로 어긋난 적이 있다.
+- ⚠️ **브랜치 작업 시 `.omc/notepad.md` 갱신을 같은 브랜치에 싣는다.** 누락되면 다음 세션이
+  이미 끝난 일을 다시 다음 태스크로 안내받는다 — 브랜치가 늘 때마다 "무엇을 어디에 실을지"를
+  판단해야 하는 지점이라 놓치기 쉽다.
 
 ---
 
-## 작업 원칙 (2026-08-04 채택)
+## 작업 원칙
 
-대부분 이미 실천하던 것을 규칙으로 승격한 것이다. **이 repo에서 뜻이 달라지는 것은 번역해 뒀다** —
-이 repo의 산출물은 **고객사에 배송되는 계약**이라, 일반 애플리케이션 규칙이 그대로 맞지 않는다.
-
-> ℹ️ *"관심사를 분리한다"·"검증된 라이브러리를 쓴다"* 는 여기 다시 적지 않는다.
-> 위 **「아키텍처 & 모듈 규칙」**(facade 원칙·계층형 하이브리드·semver 거버넌스)이 이미 소유한다.
+**이 repo에서 뜻이 달라지는 것은 번역해 뒀다** — 이 repo의 산출물은 **고객사에 배송되는 계약**이라,
+일반 애플리케이션 규칙이 그대로 맞지 않는다. *"관심사를 분리한다"·"검증된 라이브러리를 쓴다"* 는
+여기 다시 적지 않는다. 위 **「아키텍처 & 모듈 규칙」**(facade 원칙·계층형 하이브리드·semver 거버넌스)이
+이미 소유한다.
 
 ### 발명하기 전에 찾는다 — "그 기능은 없다"고 단정하지 않는다
 
 - 해결책을 짜기 전에 **upstream 모듈·provider·AWS 공식이 그 문제를 이미 어떻게 푸는지** 본다.
   위 「검증」의 MCP 확인 절차가 이 원칙의 이행 장치다.
 - 🔑 **facade 에서 특히 자주 틀리는 형태**: "upstream이 지원하지 않는다"가 아니라
-  **wrapper 가 그 인자를 안 넘기고 있을 뿐**인 경우다.
-  실측: graviton 이 막힌 원인은 upstream 미지원이 아니라 facade 가
-  `ami_type` 을 통과시키지 않아서였다 — upstream v21.24.1 엔 처음부터 있었다.
-  단정하고 우회(launch template 등)를 짰다면 **facade 가 upstream 을 가리는 부채**가 됐을 것이다.
+  **wrapper 가 그 인자를 안 넘기고 있을 뿐**인 경우다. facade가 통과시키지 않는 upstream 인자를
+  "미지원"으로 단정하고 우회(launch template 등)를 짜면 **facade 가 upstream 을 가리는 부채**가 된다.
   → `.terraform/modules/` 실물 소스를 연다. 문서보다 소스가 빠르고 정확할 때가 많다.
 
 ### 죽은 경로를 남기지 않는다 — 단, 계약 파괴는 semver 로 드러낸다
 
 - 쓰이지 않게 된 코드·변수·분기는 **삭제한다.** 호환 레이어를 덧대 두 경로를 유지하지 않는다.
-  실측: 철회한 결정의 잔재를 남기지 않았고, PR plan 을 지울 때 그것을 참조하던 댓글 step 도 함께 지웠다.
 - 🔴 **"하위 호환을 유지하지 마라"를 모듈 계약에 그대로 적용하지 않는다.** 이 repo의 출력은
   고객사가 **정확 태그로 핀해서 쓰는 계약**이다. 계약 변경은 숨기는 것이 아니라
   **semver 로 드러내는 것**이 규약이다(위 semver 거버넌스). *호환 레이어는 덧대지 않되,
   깨는 변경은 메이저로 표시한다* — 둘은 모순이 아니다.
-- 🔴 **릴리스된 태그를 덮어쓰지 않는다.** 예외는 **소비자가 0일 때뿐**이다.
-  실측(2026-08-04): `eks-cluster-v1.0.0` 은 컷 직후 apply 된 인프라가 하나도 없어(소비 repo 는
-  plan 만) 태그를 옮겼다. **한 번이라도 apply 된 뒤에는 마이너를 컷한다.**
-  - ⚠️ **번호는 당시 기록이다** — 그 태그는 `0.y.z` 재매핑으로 **`eks-cluster-v0.1.0`** 이 됐다.
-  - 🔑 **`0.y.z` 정책이 이 사건을 다시 읽었다**: *"예외를 발명해야 했다"* 는 것 자체가
-    **1.0.0 이 이른 약속이었다**는 신호였다. `0.x` 에서는 태그를 옮길 이유가 애초에 없다 —
-    다음 마이너를 내면 된다. 규칙은 유효하되, **규칙을 자주 시험하게 만드는 번호 체계를 고친 것**이다.
+- 🔴 **릴리스된 태그를 덮어쓰지 않는다.** 예외는 **소비자가 0일 때뿐**이다 — 한 번이라도
+  apply된 뒤에는 마이너를 컷한다. `0.y.z` 구간에서는 이 예외 자체가 필요할 일이 애초에 없다:
+  다음 마이너를 내면 되기 때문이다.
 
 ### 지금 요구를 채우는 가장 단순한 형태로 만든다
 
 - 추측에 근거한 변수·추상화·간접 계층을 만들지 않는다. **필요해지면 그때 연다.**
-  실측: `addons.tf` 가 vpc-cni 의 SG 를 변수로 열지 않고 *"별도 SG 요구가 생기면 그때 변수를 연다"* 로
-  남겼다(게다가 그 변수는 순환 참조를 만들었을 것이다).
 - ⚠️ **kill switch·삭제 보호·교차변수 validation 은 "추측 대비"가 아니다.** 재사용 자산의
   **현재 요구사항**이다. 단순화의 이름으로 걷어내지 않는다.
-- ⚠️ **닫힌 열거(validation) 는 값이 늘 때마다 부채가 된다.** 넣을 때 유지보수 비용을 함께 계산한다.
-  실증: `capacity_type` 검증이 AWS 가 나중에 추가한 `CAPACITY_BLOCK` 을 아직 담지 못하고 있다.
+- ⚠️ **닫힌 열거(validation) 는 값이 늘 때마다 부채가 된다.** 넣을 때 유지보수 비용을 함께 계산한다 —
+  `eks-cluster`의 `capacity_type` 검증은 AWS가 나중에 추가한 `CAPACITY_BLOCK`을 아직 담지 못하고 있다.
 
 ### 레이어로 키운다
 
@@ -261,7 +251,7 @@ tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy co
   미완성 복잡도와 맞바꾸지 않는다.
 - ⚠️ **이 repo에서 "동작한다"의 기준은 `tofu test` + 예제 `validate` 까지다.** 배포하지 않으므로
   `apply` 판정은 소비 repo 몫이다 — 그 경계를 넘어 "검증했다"고 쓰지 않는다.
-- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(`docs/06-conventions.md` §6, CI 게이트 ④가 강제).
+- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(`docs/06-conventions.md`, CI 게이트 ④가 강제).
 
 ### 임시방편으로 넘기지 않는다
 

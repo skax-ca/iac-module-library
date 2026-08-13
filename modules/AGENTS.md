@@ -3,6 +3,8 @@
 
 # modules
 
+**읽는 사람**: `modules/` 아래에서 작업하는 AI 에이전트.
+
 ## Purpose
 재사용 모듈의 소유 디렉토리이자 이 repo의 존재 이유.
 소비 프로젝트는 여기의 모듈을 **git tag로 소싱**한다:
@@ -70,7 +72,7 @@ locals {
 - 약어는 `../docs/aws-naming-abbreviations.md`에서만 가져온다.
 - SG rule은 별도 리소스(`aws_vpc_security_group_ingress_rule`), inline 금지·혼용 금지.
 - 공유/기반 리소스는 네이밍 → data source 순으로 느슨하게 조회
-  (`../docs/01-architecture.md` §6).
+  (`../docs/01-architecture.md`).
 
 ## Dependencies
 

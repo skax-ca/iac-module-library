@@ -1,5 +1,7 @@
 # scripts — 운영 절차 스크립트
 
+**읽는 사람**: 소비 프로젝트에서 ArgoCD 부트스트랩 등 재사용 절차를 실행하는 사람.
+
 소비 프로젝트가 **실행하는 절차** 중 재사용 가치가 있는 것을 여기서 소유한다.
 
 > ⚠️ **이 repo는 배포하지 않는다.** 여기 있는 것은 **실행되는 자산**이지 이 repo가 실행하는 것이 아니다.
@@ -28,7 +30,7 @@ GitOps 저장소를 pull 하는 self-managed ArgoCD를 부트스트랩한다. �
 | 4 | cluster Secret | ⚠️ "등록"이 아니라 **라벨·이름 공급**이 목적 |
 | 5 | root Application | 자기 자신을 흡수 |
 
-### ⭐ 이 스크립트의 설계 제약 — 자기소멸(self-superseding)
+### 이 스크립트의 설계 제약 — 자기소멸(self-superseding)
 
 **매니페스트를 생성하지 않는다.** GitOps 저장소에 커밋된 파일을 **그대로 apply** 한다.
 생성하면 커밋본과 바이트가 달라지고, root App이 흡수한 순간 `selfHeal`이 그 차이를 되돌린다.
@@ -40,7 +42,7 @@ GitOps 저장소를 pull 하는 self-managed ArgoCD를 부트스트랩한다. �
 - ✅ **저장소가 dirty하면 실행을 거부한다** (`git status --porcelain`)
 - ✅ 로컬 HEAD가 upstream과 다르면 경고한다 — **ArgoCD는 원격을 읽는다**
 
-### 🔴 2단계는 유일한 예외다
+### 2단계는 유일한 예외다
 
 repository Secret은 GitHub App private key를 담아 **저장소에 커밋할 수 없다.**
 ⇒ 이 Secret 하나만 GitOps 관리 밖에 남는다.
@@ -48,14 +50,14 @@ repository Secret은 GitHub App private key를 담아 **저장소에 커밋할 �
 - root App의 `prune: false` 덕에 **지워지지 않는다**
 - ⚠️ **이것이 사라지면 모든 sync가 멈춘다** — 복구 절차는 아래 **키 전달 경로** 절이 소유한다
 
-### 🔑 private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString**
+### private key를 workbench로 옮기는 경로 — **SSM Parameter Store SecureString**
 
 클러스터가 private이라 seed는 **workbench 안에서** 실행되는데([`05-modules.md`](../docs/05-modules.md) `workbench`),
 workbench는 **SSM Session Manager 전용**이라 `scp`가 없다. 그리고 스크립트는 키를
 **파일 경로**로 받는다(`--from-file=`) — 환경변수 주입으로는 대체되지 않는다.
 ⇒ **키의 실물 파일이 workbench 디스크에 있어야 한다.** 그 경로를 이렇게 정한다.
 
-**실측 근거** (2026-08-07, 실계정 조회):
+**실측 근거**:
 
 | 확인한 것 | 값 | 그래서 |
 |---|---|---|
@@ -67,13 +69,13 @@ workbench는 **SSM Session Manager 전용**이라 `scp`가 없다. 그리고 스
 
 ```bash
 # ── ① 노트북에서 한 번 — 키를 SecureString으로 올린다 ──────────────────
-#    `file://~/...` 의 틸드는 AWS CLI가 확장한다(실측). 값은 stdout에 찍히지 않는다.
+#    `file://~/...` 의 틸드는 AWS CLI가 확장한다. 값은 stdout에 찍히지 않는다.
 aws ssm put-parameter --region <region> \
   --name /<workload>/<env>/gitops/github-app-private-key \
   --type SecureString \
   --description "ArgoCD seed 임시 — GitHub App private key. seed 완료 후 삭제한다" \
   --value file://~/.config/gh-apps/<app>.private-key.pem
-#  ⭐ --description 을 반드시 붙인다. 공용 계정에는 남의 파라미터가 섞여 있어,
+#  --description 을 반드시 붙인다. 공용 계정에는 남의 파라미터가 섞여 있어,
 #     정체를 밝히지 않으면 아무도 지우지 못하는(= 남는) 자격증명이 된다.
 
 # ── ② workbench 안에서 — 파일로 내린다 ────────────────────────────────
@@ -81,10 +83,10 @@ umask 077                                    # 0600으로 만든다. chmod 전�
 aws ssm get-parameter \
   --name /<workload>/<env>/gitops/github-app-private-key \
   --with-decryption --query Parameter.Value --output text > ~/gh-app.pem
-#  ⭐ 리다이렉트가 핵심이다 — 키가 터미널에 출력되지 않으므로
+#  리다이렉트가 핵심이다 — 키가 터미널에 출력되지 않으므로
 #     세션 로깅이 켜진 계정에서도 로그에 남지 않는다.
-#  ℹ️ 내려받은 파일은 원본보다 **1바이트 크다** — `--output text`가 후행 개행을
-#     붙이기 때문이다(실측: 1675 → 1676). PEM은 이를 정상으로 받는다.
+#  내려받은 파일은 원본보다 1바이트 크다 — `--output text`가 후행 개행을
+#     붙이기 때문이다(예: 1675 → 1676). PEM은 이를 정상으로 받는다.
 #     체크섬이 다르다고 손상으로 오해하지 말 것. 검증은 `openssl rsa -noout -check`로.
 
 export GH_APP_PRIVATE_KEY=~/gh-app.pem
@@ -125,7 +127,7 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 
 ### 사용법
 
-> ### 🔑 **0단계 — workbench에 GitOps 저장소를 가져온다**
+> ### **0단계 — workbench에 GitOps 저장소를 가져온다**
 >
 > workbench는 SSM 전용이라 `scp`가 없고 GitHub 자격증명도 없다. **ArgoCD가 쓰는 그 App의
 > installation token**으로 클론한다 — 새 자격증명이 생기지 않는다.
@@ -151,9 +153,9 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 >
 > - ⛔ **`TOKEN`을 출력하지 않는다.** 설치 범위 확인이 필요하면
 >   `curl -H "Authorization: token $TOKEN" https://api.github.com/installation/repositories`
->   로 **저장소 목록만** 본다(실측 2026-08-07: `total_count=1`).
+>   로 **저장소 목록만** 본다(예: `total_count=1`).
 > - `openssl`·`jq`는 **AL2023 기본 탑재**라 도구를 늘리지 않는다. `git`은 workbench 모듈이 설치한다.
-> - 🥚 **이 조각만은 vendoring할 수 없다** — 클론하기 전에 필요하기 때문이다.
+> - **이 조각만은 vendoring할 수 없다** — 클론하기 전에 필요하기 때문이다.
 >   길어지기 시작하면 다른 배달 경로가 필요하다는 신호다.
 
 ```bash
@@ -182,7 +184,7 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ 위 ②로 내려받은 파일
 **선택 환경변수**: `ARGOCD_NAMESPACE`(`argocd`) · `ARGOCD_CHART_VERSION`(`10.3.0`) ·
 `ARGOCD_VALUES`(`bootstrap/argocd-values.yaml`) · `ARGOCD_RELEASE`(`argocd`).
 
-### ⚠️ `--dry-run`이 검증하지 않는 이유 (2026-08-07 실측)
+### `--dry-run`이 검증하지 않는 이유
 
 `--dry-run`은 **kubectl을 아예 부르지 않는다.** 오프라인에서 검증할 방법이 없기 때문이다:
 
@@ -214,12 +216,12 @@ export GH_APP_PRIVATE_KEY=~/gh-app.pem   # ⬅ 위 ②로 내려받은 파일
 
 ### 호환성
 
-- **bash 3.2 호환**으로 작성했다 — macOS 기본 bash가 3.2다(실측). 연상배열·`mapfile`·`${var^^}`를 쓰지 않는다.
+- **bash 3.2 호환**으로 작성했다 — macOS 기본 bash가 3.2다. 연상배열·`mapfile`·`${var^^}`를 쓰지 않는다.
 - 필요 도구: `kubectl` · `helm` · `git`
 
 ---
 
-## 🔁 vendoring — GitOps 저장소의 사본
+## vendoring — GitOps 저장소의 사본
 
 **이 파일이 SSOT다.** 사본이 `skax-ca/iac-platform-gitops`의 `bootstrap/argocd-seed.sh`에 있다.
 근거·기각안은 [`08-decisions.md`](../docs/08-decisions.md).
@@ -241,7 +243,7 @@ git log -1 --format='%H (%ad)' --date=short -- "$SRC"
 mv "$DST.new" "$DST" && chmod +x "$DST"
 ```
 
-### 🔍 드리프트 검사 — 한 줄
+### 드리프트 검사 — 한 줄
 
 ```bash
 diff <(grep -v '^#V#' <gitops>/bootstrap/argocd-seed.sh) scripts/argocd-seed.sh
@@ -251,10 +253,10 @@ diff <(grep -v '^#V#' <gitops>/bootstrap/argocd-seed.sh) scripts/argocd-seed.sh
 헤더를 붙이는 순간 사본이 SSOT와 달라져 *"편집하지 않았다"* 를 검증할 수 없게 되므로,
 **검사가 한 줄로 끝나도록** 접두를 설계했다.
 
-> 📌 **"출처 태그"의 실제 형태는 커밋 SHA다.** 초기 설계는 *"출처 태그"* 라고 적었지만
-> `scripts/`에는 **태그 축이 없다** — 태그는 모듈별 semver(`vpc-v0.3.0`)이고 이 스크립트는
-> `?ref=`로 소싱되지 않는다. 새 태그 축을 발명하는 대신 SHA로 핀했다.
-> 🔁 **여러 고객사 저장소로 사본이 늘어나면** 그때 태그 축을 재검토한다 — 지금은 사본이 1개다.
+> **"출처 태그"의 실제 형태는 커밋 SHA다.** `scripts/`에는 **태그 축이 없다** — 태그는
+> 모듈별 semver(`vpc-v0.3.0`)이고 이 스크립트는 `?ref=`로 소싱되지 않는다. 새 태그 축을
+> 발명하는 대신 SHA로 핀했다.
+> **여러 고객사 저장소로 사본이 늘어나면** 그때 태그 축을 재검토한다 — 지금은 사본이 1개다.
 
 > ⚠️ **이 절차에도 게이트가 없다.** 아래 열린 항목과 같은 공백이며, 드리프트 검사를 **사람이
 > 기억해서** 돌려야 한다. `verify.yml`에 `.sh` 게이트를 넣을 때 이 검사도 함께 검토한다
@@ -262,14 +264,14 @@ diff <(grep -v '^#V#' <gitops>/bootstrap/argocd-seed.sh) scripts/argocd-seed.sh
 
 ---
 
-## ⚠️ 열린 항목 — 이 디렉토리는 **어떤 게이트도 통과하지 않는다**
+## 열린 항목 — 이 디렉토리는 **어떤 게이트도 통과하지 않는다**
 
-실측(2026-08-07): `.githooks/pre-commit`은 `.tf`/`.tfvars`/lock/설정만 보고,
+`.githooks/pre-commit`은 `.tf`/`.tfvars`/lock/설정만 보고,
 `.github/workflows/verify.yml`의 6개 게이트도 **`.sh`를 검사하지 않는다.**
 
 ⇒ 지금은 **사람이 `bash -n`을 돌리는 것이 유일한 방어**다.
 
-📌 **제안**: `verify.yml`에 `bash -n scripts/*.sh`(가능하면 `shellcheck`) 게이트를 추가한다.
+**제안**: `verify.yml`에 `bash -n scripts/*.sh`(가능하면 `shellcheck`) 게이트를 추가한다.
 ⛔ 단 `.github/workflows/` 변경은 **브랜치 → PR**이다(`CLAUDE.md` 브랜치 규칙) — 별도 태스크로 다룬다.
 
 > 🔑 **이 공백이 브랜치 규칙의 경계 사례를 드러낸다.** 규칙의 기준은 *"CI가 머지 전에 막아야 하는가"* 인데,

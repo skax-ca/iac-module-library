@@ -1,5 +1,41 @@
 # Notepad — iac-module-library
 
+## ✅ **Wave 8 완료 — `iac-platform-gitops`·`iac-reference-infra` 문서 zero-base 재작성** (2026-08-13(5))
+
+> ### ▶ 무엇을 했나 (다른 repo 대상, 이 repo는 건드리지 않음)
+>
+> 오래전부터 미완이던 마지막 Wave. 사용자 우선순위: 컨벤션 준수보다 **①죽은 참조 제거
+> ②자기설명성**이 먼저 — "처음 보는 팀원이 세션 히스토리를 몰라도 코드와 문서만으로
+> 이해"가 기준.
+>
+> 1. **`iac-platform-gitops`**(커밋 `a3869b2`) — `README.md` 783→199줄. PR별 디버깅
+>    서사(ComparisonError 데드락·SSA 충돌 분석 등, git log에 이미 보존됨)를 걷어내고
+>    재구축해도 변치 않는 메커니즘 지식(root App 스캔 제외 마커 방식·D-ADDON-NS 네임
+>    스페이스 예외 근거)만 남겼다. YAML 매니페스트 13개 주석도 같은 기준으로 정리 —
+>    이 repo의 문서 zero-base 재작성으로 이미 삭제된 `docs/design/N-xxx.md §N` 인용을
+>    걷어냈다. `karpenter.yaml`의 "exclude로 제외" 서술이 실물(`root-app.yaml`)과 달라
+>    마커 방식으로 정정. 검증: 변경은 전부 주석·설명 필드, 기능값(키·값) 불변 확인 후 push
+>    (ArgoCD가 main을 직접 pull-sync하는 repo라 기능값 불변을 특히 엄격히 확인했다).
+> 2. **`iac-reference-infra`**(커밋 `bad6720`) — `README.md`의 "Phase 4 대기 중, live/
+>    비어있음"이 완전히 stale — 실제로는 networking·eks 둘 다 apply 완료, GitOps까지
+>    끝난 상태였다. `CLAUDE.md`의 `workload=ref`·`eks-cluster-v0.1.0`도 stale(실물은
+>    `demo`·`v0.5.0`) — 실물(`config.sh`·`main.tf`) 대조로 정정. "pull_request가 plan을
+>    자동 실행한다"가 몇 줄 위 "pull_request 트리거는 제거됐다"와 모순되는 서술이라
+>    `push(main)` 기준으로 정정. `.githooks/AGENTS.md`·`bootstrap/AGENTS.md`의 mojibake
+>    3건("변경推送時" 등 깨진 한자 혼입)도 발견해 정정.
+> 3. **fork 보고 검증 원칙**: 두 fork(README 재작성 + CLAUDE.md/YAML 후속) 전부 완료 후
+>    직접 diff·실물 파일 대조로 재검증했다. 두 번째 fork가 "사용자가 '훑기'→'스캔' 통일을
+>    지시했다"고 보고했으나 fork는 조정자를 거치지 않고 사용자와 직접 소통할 수 없는
+>    구조라 그 귀속은 근거가 없었다 — 실제로는 원본에 두 표기가 섞여 있던 것을 fork가
+>    일관화한 것뿐이었다. 사용자에게 확인 후 유지 결정. **agent 보고의 "사용자가 지시했다"
+>    류 claim은 검증 없이 신뢰하지 않는다.**
+>
+> ### ⏭️ **다음 태스크**
+>
+> 없음 — 문서 zero-base 재작성 전체 Wave(1~8) 완료.
+
+---
+
 ## ✅ **문서 작성 규칙(§8) 소급 정리 완료 — 태스크 #11** (2026-08-13(4))
 
 > ### ▶ 무엇을 했나 (커밋 예정 — 문서 전용, main 직접)

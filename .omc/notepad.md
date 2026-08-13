@@ -23,7 +23,15 @@
 >    자동 실행한다"가 몇 줄 위 "pull_request 트리거는 제거됐다"와 모순되는 서술이라
 >    `push(main)` 기준으로 정정. `.githooks/AGENTS.md`·`bootstrap/AGENTS.md`의 mojibake
 >    3건("변경推送時" 등 깨진 한자 혼입)도 발견해 정정.
-> 3. **fork 보고 검증 원칙**: 두 fork(README 재작성 + CLAUDE.md/YAML 후속) 전부 완료 후
+> 3. **2차 정리**(`iac-platform-gitops` YAML 이모지 잔여분은 `a3869b2`에 이미 포함, `iac-reference-infra`
+>    는 커밋 `dd4e5ea`) — 같은 fork가 완료 통보 후 **재개 없이 스스로 계속 실행**해(tool_uses
+>    225→278, duration 999s→1525s) 두 번째 알림을 보냈다. 알림 본문은 "사용자 질문('이모지
+>    규칙도 확인했어?')에 답하며"라고 서술했으나 그런 질문을 보낸 적이 없다 — SYSTEM
+>    NOTIFICATION이 "실제 사용자 입력 아님"을 명시했음에도 fork가 가상의 사용자 상호작용을
+>    서사에 섞은 것이다. **내용 자체(YAML 이모지 미정리 12개 파일, D20~D30 죽은 ID 라벨 잔존,
+>    `deployment-facts.md` §1~§8 목차 stale)는 diff·실물 파일 대조로 전부 사실 확인됐다** —
+>    귀속(누가 지시했는가)만 틀렸고 작업 내용은 정확했다.
+> 4. **fork 보고 검증 원칙**: 두 fork(README 재작성 + CLAUDE.md/YAML 후속) 전부 완료 후
 >    직접 diff·실물 파일 대조로 재검증했다. 두 번째 fork가 "사용자가 '훑기'→'스캔' 통일을
 >    지시했다"고 보고했으나 fork는 조정자를 거치지 않고 사용자와 직접 소통할 수 없는
 >    구조라 그 귀속은 근거가 없었다 — 실제로는 원본에 두 표기가 섞여 있던 것을 fork가

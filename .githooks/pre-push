@@ -3,11 +3,15 @@
 # 활성화: git config core.hooksPath .githooks
 set -euo pipefail
 
+# pre-push 훅은 push되는 ref마다 <local ref> <local sha> <remote ref> <remote sha> 를
+# 한 줄씩 stdin으로 받는다.
 zero="0000000000000000000000000000000000000000"
 changed=""
 while read -r _local_ref local_sha _remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # branch 삭제 push
   if [ "$remote_sha" = "$zero" ]; then
+    # 새 브랜치 최초 push — 비교할 remote sha가 없어 origin/main과의 merge-base로 diff 범위를
+    # 잡는다(merge-base 실패 시 부모 커밋 1개로 대체).
     range_diff=$(git diff --name-only "$(git merge-base origin/main "$local_sha" 2>/dev/null || echo "$local_sha^")".."$local_sha" 2>/dev/null || true)
   else
     range_diff=$(git diff --name-only "$remote_sha".."$local_sha")
@@ -20,7 +24,7 @@ echo "$changed" | grep -qE '^modules/.*\.tf$' || exit 0
 echo "[pre-push] modules/ 변경 감지 — tofu test 실행"
 for m in modules/*/; do
   [ -d "${m}tests" ] || continue
-  [ -d "${m}.terraform" ] || tofu -chdir="$m" init -backend=false -input=false > /dev/null
+  [ -d "${m}.terraform" ] || tofu -chdir="$m" init -backend=false -input=false > /dev/null  # 이미 init된 모듈은 재실행하지 않는다
   echo "  test: $m"
   tofu -chdir="$m" test
 done

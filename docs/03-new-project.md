@@ -179,9 +179,9 @@ gh workflow run deploy-network.yml --ref main -f action=apply
 `workbench`의 도구 핀은 **nullable이다.** 지정하지 않으면 설치되지 않는다.
 
 ```hcl
-kubectl_version = "1.34.1"
-helm_version    = "3.21.3"
-argocd_version  = "3.5.0"     # ArgoCD 차트 appVersion과 맞춘다
+kubectl_version = "v1.34.1"
+helm_version    = "v3.21.3"
+argocd_version  = "v3.5.0"     # ArgoCD 차트 appVersion과 맞춘다(v 접두사 포함)
 ```
 
 apply 후 접근을 확인한다:

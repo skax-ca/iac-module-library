@@ -169,7 +169,8 @@ module "vpc" {
 
 ### 코드 변경 후 (로컬 CLI 게이트 — git hook으로 강제)
 ```
-tofu fmt -recursive -check → tofu validate → tflint --recursive → trivy config . → tofu test(모듈)
+pre-commit: tofu fmt -recursive -check → tflint --recursive → trivy config .
+pre-push (modules/ 변경 시만): tofu test
 ```
 - ⚠️ **tflint의 `terraform_unused_declarations`는 선언만 하고 쓰지 않은 변수를 exit 2로 잡는다.**
   따라서 `variables.tf`만 있고 이를 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다** —

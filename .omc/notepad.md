@@ -1,5 +1,36 @@
 # Notepad — iac-module-library
 
+## ✅ **2026-08-13(2) — ESO 도입 승인 + 부트스트랩 방식 확정(설계, 미구현)**
+
+> ### ▶ 무엇을 했나 (커밋 예정 — 문서 전용, main 직접)
+>
+> 1. **ESO(External Secrets Operator) 도입 승인** — `scripts/README.md`의 제안(전 세션 `ef57885`)을
+>    사용자가 승인. 승인은 **방향**에 대한 것이고 상세 구현 설계는 아직 남아 있다.
+> 2. **부트스트랩 순서 미결정 지점을 기존 코드 선례로 해소** — `eks-cluster` 모듈의 addon으로
+>    편입할지 vs seed script에서 helm install할지가 미결정이었다. 판단 근거:
+>    - `modules/eks-cluster/addons.tf`는 **AWS EKS 관리형 addon API**(`aws_eks_addon`) 전용이고
+>      helm/manifest 기반 컴포넌트는 그 경계를 넘지 않는다(파일 내 vpc-cni 주석이 이미 그 경계를
+>      선언하고 있었다 — 새로 발명한 규칙이 아니라 **기존 규칙을 적용**한 것).
+>    - **ArgoCD가 이미 같은 처지의 선례다** — GitOps보다 먼저 서야 하는 것(self-managed)은
+>      `argocd-seed.sh`가 helm install로 직접 세운다. ESO도 `repository` Secret을 채우는
+>      주체라 GitOps보다 먼저 서야 해서 **같은 패턴**이 맞는다.
+>    - ⇒ **ESO는 eks-cluster 모듈 addon이 아니라 `argocd-seed.sh`의 새 단계로 간다.**
+> 3. `scripts/README.md` ESO 절 갱신 — 상태를 "검토 중(미승인)"에서 "승인됨(부트스트랩 방식 확정)"으로,
+>    "막힌 지점"을 "해결됨"으로 변경. 다음 단계를 ①`argocd-seed.sh` ESO 단계 추가(이 repo, 상세
+>    설계 미착수) ②`iac-reference-infra`·`iac-platform-gitops` IAM/CRD 배선(별도 설계)으로 분리.
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. **`argocd-seed.sh`에 ESO helm install 단계 상세 설계** — values·서비스어카운트 이름 등.
+>    설계 → 검토 → 승인 뒤 구현(`.sh` 변경이라 브랜치 → PR).
+> 2. `iac-reference-infra`·`iac-platform-gitops`의 IAM Pod Identity·`SecretStore`/`ExternalSecret`
+>    CRD 배선 설계 — ①이 승인된 뒤, 해당 repo에서 진행.
+> 3. Wave 8(`iac-platform-gitops`·`iac-reference-infra` README 재작성)은 여전히 미완.
+> 4. `iac-reference-infra`의 구 `ref` 부트스트랩 자원 정리 — ESO 결정 이후로 미뤄뒀던 것,
+>    이제 진행 가능.
+
+---
+
 ## ✅ **2026-08-13 — 약어 문서 참조 수정 + 예시 workload acme→demo + ESO 설계 제안(미승인)**
 
 > ### ▶ 무엇을 했나 (커밋 `3abb198`·`b1d0124`(PR #23)·`ca2ce79`·`708ff78`·`ef57885`)

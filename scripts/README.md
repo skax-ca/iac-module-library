@@ -122,7 +122,7 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 | `aws ssm send-command` | 명령 파라미터가 **평문으로 command 히스토리·CloudTrail에 남는다**(조회 가능). 붙여넣기보다 나쁘다 |
 | **Secrets Manager**(workbench가 직접 조회) | 효과는 같은데 workbench Role에 `secretsmanager:GetSecretValue`가 **없어 `.tf` 변경(브랜치→PR)이 필요**하고 시크릿당 월 $0.40이 붙는다. 같은 값을 더 비싸게 산다 |
 
-#### 🔬 검토 중 — External Secrets Operator (미승인, 미구현)
+#### ✅ 승인됨 — External Secrets Operator 도입 (2026-08-13, 부트스트랩 방식 확정)
 
 위 절차의 진짜 비용은 "매번 새 키를 발급하고 손으로 옮기는 것"이 아니라 **재구축마다 그 비용이
 반복되는 것**이다. Secrets Manager는 EKS 클러스터 생명주기와 **독립적**이다 — 클러스터를 통째로
@@ -142,12 +142,14 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 | 2 | IAM Pod Identity (신설) | ESO 서비스어카운트에 **그 시크릿 ARN 하나**만 `secretsmanager:GetSecretValue` — `AmazonSSMManagedInstanceCore`의 `Resource:"*"` 문제가 구조적으로 사라진다 |
 | 3 | External Secrets Operator | `SecretStore` + `ExternalSecret` CRD로 Secrets Manager → k8s `repository` Secret 자동 동기화. 재적용은 2단계(`argocd-seed.sh --from 2 --to 2`)를 완전히 대체한다 |
 
-**막힌 지점 — 부트스트랩 순서**: ArgoCD는 `repository` Secret이 있어야 `iac-platform-gitops`를
-읽어 나머지(Karpenter·ALBC·KEDA…)를 GitOps로 편다. 그런데 ESO도 addon이라 보통은 같은 경로로
-편다. **ESO 자신을 배포하는 데 ESO가 아직 필요**한 순환이 생긴다 — ArgoCD가 self-managed로 자기
-자신을 seed 밖에서 먼저 세우는 것과 같은 종류의 예외가 ESO에도 하나 더 필요해진다는 뜻이다.
-아직 판단하지 않은 것: ESO를 seed script에서 helm install로 같이 세울지, `eks-cluster` 모듈의
-addon으로 편입할지.
+**부트스트랩 순서 — 해결됨**: ArgoCD는 `repository` Secret이 있어야 `iac-platform-gitops`를
+읽어 나머지(Karpenter·ALBC·KEDA…)를 GitOps로 편다. ESO도 그 Secret을 채우는 주체라 GitOps보다
+먼저 서야 하는 같은 처지다. **`eks-cluster` 모듈의 addon으로는 편입하지 않는다** —
+`modules/eks-cluster/addons.tf`는 AWS EKS 관리형 addon API(`aws_eks_addon`) 전용이고 helm/manifest
+기반 컴포넌트는 그 경계를 넘지 않는다(파일 내 주석 — vpc-cni custom networking 설계 근거와 동일
+경계). 대신 **ArgoCD와 같은 방식으로 `argocd-seed.sh`가 helm install로 직접 세운다** — ArgoCD가
+이미 "GitOps보다 먼저 서야 하는 것은 seed script가 helm으로 설치한다"는 선례를 실증하고 있으므로
+새 패턴을 발명하지 않는다.
 
 **얻는 것과 드는 것**
 
@@ -157,9 +159,14 @@ addon으로 편입할지.
 | `Resource:"*"` blast radius가 IAM Pod Identity로 정밀 스코프됨 | 새 IAM Role + Pod Identity association(`.tf` 변경) |
 | — | 부트스트랩 순서에 ArgoCD 외의 두 번째 "GitOps 밖" 예외가 생김 |
 
-**다음 단계**: 이 절은 제안이다. 승인 전 구현하지 않는다(이 repo `CLAUDE.md`의 설계·검토 우선
-규칙). 승인되면 `iac-reference-infra`·`iac-platform-gitops` 양쪽의 실제 배선(IAM·CRD)은 별도
-설계로 이어진다 — 이 repo는 재사용 자산만 소유하므로 특정 계정 값을 여기 두지 않는다.
+**다음 단계**: 부트스트랩 방식(위)까지는 이 repo의 설계 범위이자 확정 사항이다. 남은 것:
+① `argocd-seed.sh`에 ESO helm install 단계 추가(이 repo, 브랜치 → PR — `.sh` 변경) —
+values·서비스어카운트 이름 등 상세 설계 필요, 아직 미착수.
+② `iac-reference-infra`·`iac-platform-gitops`의 실제 배선(IAM Pod Identity·`SecretStore`·
+`ExternalSecret` CRD)은 별도 설계로 이어진다 — 이 repo는 재사용 자산만 소유하므로 특정 계정
+값을 여기 두지 않는다.
+⛔ 구현 전 ①의 상세 설계(설계 → 검토 → 승인)가 아직 남아 있다(이 repo `CLAUDE.md`의
+설계·검토 우선 규칙) — 승인은 "방향"에 대한 것이지 "상세 구현"에 대한 것이 아니다.
 
 ### 사용법
 

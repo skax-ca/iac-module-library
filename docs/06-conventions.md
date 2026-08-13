@@ -241,6 +241,9 @@ git config core.hooksPath .githooks
 
 ## 8. 문서 작성 규칙
 
+**적용 범위**: 팀원이 읽는 모든 문서 — `docs/*.md` · 저장소 전역의 `README.md`·`AGENTS.md` ·
+루트 `CLAUDE.md`. 예외는 `.omc/`(에이전트 전용 운영 기록, 팀원 열람 대상이 아니다) 하나뿐이다.
+
 이 문서 집합이 다시 부풀지 않게 하는 장치다.
 
 | # | 규칙 |

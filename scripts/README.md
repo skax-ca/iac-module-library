@@ -121,52 +121,7 @@ repository Secret이 사라지면 **모든 sync가 멈춘다.** 이때 위 파�
 | SSM 세션에 **heredoc 붙여넣기** | 리소스는 0이지만, **세션 로깅이 켜진 계정에서는 키 전체가 로그에 남는다.** 고객사는 감사 요건으로 켜 두는 것이 보통이라 **재사용 절차로 적을 수 없다** |
 | `aws ssm send-command` | 명령 파라미터가 **평문으로 command 히스토리·CloudTrail에 남는다**(조회 가능). 붙여넣기보다 나쁘다 |
 | **Secrets Manager**(workbench가 직접 조회) | 효과는 같은데 workbench Role에 `secretsmanager:GetSecretValue`가 **없어 `.tf` 변경(브랜치→PR)이 필요**하고 시크릿당 월 $0.40이 붙는다. 같은 값을 더 비싸게 산다 |
-
-#### ✅ 승인됨 — External Secrets Operator 도입 (2026-08-13, 부트스트랩 방식 확정)
-
-위 절차의 진짜 비용은 "매번 새 키를 발급하고 손으로 옮기는 것"이 아니라 **재구축마다 그 비용이
-반복되는 것**이다. Secrets Manager는 EKS 클러스터 생명주기와 **독립적**이다 — 클러스터를 통째로
-파괴·재생성해도 그 안의 값은 살아남는다. 그래서 워크로드를 재구축할 때마다 사람이 raw key를
-다시 만지는 대신, **키를 한 번만 Secrets Manager에 넣어 두고 클러스터마다 자동으로 동기화**하는
-경로가 있는지 검토한다.
-
-> ⚠️ 위 "기각안"의 Secrets Manager 항목과 **다른 제안이다.** 그건 "workbench가 SSM Parameter
-> Store 대신 Secrets Manager를 직접 조회"였고 사람이 매번 발급·삭제하는 절차는 그대로였다.
-> 여기서는 **키를 한 번만 넣고 다시는 사람이 만지지 않는 것**이 목표라 비교 대상이 다르다.
-
-**제안 구조**
-
-| # | 구성요소 | 역할 |
-|---|---|---|
-| 1 | Secrets Manager (out-of-band, 1회) | GitHub App private key를 KMS로 암호화해 durable 보관 — 사람이 raw key를 만지는 것은 이때 한 번뿐 |
-| 2 | IAM Pod Identity (신설) | ESO 서비스어카운트에 **그 시크릿 ARN 하나**만 `secretsmanager:GetSecretValue` — `AmazonSSMManagedInstanceCore`의 `Resource:"*"` 문제가 구조적으로 사라진다 |
-| 3 | External Secrets Operator | `SecretStore` + `ExternalSecret` CRD로 Secrets Manager → k8s `repository` Secret 자동 동기화. 재적용은 2단계(`argocd-seed.sh --from 2 --to 2`)를 완전히 대체한다 |
-
-**부트스트랩 순서 — 해결됨**: ArgoCD는 `repository` Secret이 있어야 `iac-platform-gitops`를
-읽어 나머지(Karpenter·ALBC·KEDA…)를 GitOps로 편다. ESO도 그 Secret을 채우는 주체라 GitOps보다
-먼저 서야 하는 같은 처지다. **`eks-cluster` 모듈의 addon으로는 편입하지 않는다** —
-`modules/eks-cluster/addons.tf`는 AWS EKS 관리형 addon API(`aws_eks_addon`) 전용이고 helm/manifest
-기반 컴포넌트는 그 경계를 넘지 않는다(파일 내 주석 — vpc-cni custom networking 설계 근거와 동일
-경계). 대신 **ArgoCD와 같은 방식으로 `argocd-seed.sh`가 helm install로 직접 세운다** — ArgoCD가
-이미 "GitOps보다 먼저 서야 하는 것은 seed script가 helm으로 설치한다"는 선례를 실증하고 있으므로
-새 패턴을 발명하지 않는다.
-
-**얻는 것과 드는 것**
-
-| 얻는 것 | 드는 것 |
-|---|---|
-| 이후 모든 재구축에서 raw key 취급 0회 | 새 addon 하나(버전 핀·보안 패치 대상 추가) |
-| `Resource:"*"` blast radius가 IAM Pod Identity로 정밀 스코프됨 | 새 IAM Role + Pod Identity association(`.tf` 변경) |
-| — | 부트스트랩 순서에 ArgoCD 외의 두 번째 "GitOps 밖" 예외가 생김 |
-
-**다음 단계**: 부트스트랩 방식(위)까지는 이 repo의 설계 범위이자 확정 사항이다. 남은 것:
-① `argocd-seed.sh`에 ESO helm install 단계 추가(이 repo, 브랜치 → PR — `.sh` 변경) —
-values·서비스어카운트 이름 등 상세 설계 필요, 아직 미착수.
-② `iac-reference-infra`·`iac-platform-gitops`의 실제 배선(IAM Pod Identity·`SecretStore`·
-`ExternalSecret` CRD)은 별도 설계로 이어진다 — 이 repo는 재사용 자산만 소유하므로 특정 계정
-값을 여기 두지 않는다.
-⛔ 구현 전 ①의 상세 설계(설계 → 검토 → 승인)가 아직 남아 있다(이 repo `CLAUDE.md`의
-설계·검토 우선 규칙) — 승인은 "방향"에 대한 것이지 "상세 구현"에 대한 것이 아니다.
+| **External Secrets Operator**(Secrets Manager + IAM Pod Identity + ESO) | 컨트롤러·IAM Role 신설 + ArgoCD 외 두 번째 "GitOps 밖" 예외가 재구축 빈도 대비 과하고, ESO가 관리할 다른 시크릿도 아직 없다. 대안인 "workbench 직접 조회"(ESO 없이)는 위 Secrets Manager 행과 같은 결론. 재검토 조건: ESO가 관리할 다른 시크릿 수요 발생, 또는 raw key 절차의 실제 사고 |
 
 ### 사용법
 

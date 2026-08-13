@@ -57,6 +57,8 @@ OSS 스택(**OpenTofu** + GitHub Actions OIDC + S3 backend + OPA/Conftest)으로
 - **명령은 `tofu`**: `terraform`이 아니다. hook·문서·CI 전부 `tofu` 기준이다.
   OpenTofu 고유 기능(`encryption`·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때만 이유를 설계 문서에 남긴다 —
   강제 장치는 없고, 얇은 모듈에는 등장할 일이 없는 것들이다(`docs/06-conventions.md` §1).
+- **문서 작성 규칙(`docs/06-conventions.md` §8)은 저장소 전역에 적용된다** — `docs/*.md`뿐 아니라
+  이 파일을 포함한 모든 `README.md`·`AGENTS.md`·루트 `CLAUDE.md`. 예외는 `.omc/`뿐이다.
 
 ### Testing Requirements
 

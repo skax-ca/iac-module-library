@@ -76,35 +76,27 @@ jobs:
             --ignorefile .trivyignore.yaml .
 
       # ─────────────────────────────────────────────────────────────────────
-      # provider 플러그인 캐시 — 게이트 4·5 가 **디렉토리마다 init 을 돌기 때문에** 필요하다.
+      # provider 플러그인 캐시 — 게이트 4·5 가 **디렉토리마다 init 을 돌기 때문에** 필요하다
+      # (modules 3 + examples 2 = 5곳). 캐시 없이 각자 받으면 다운로드 13회, 캐시를 쓰면
+      # **5회**로 줄어든다(13개 provider 해석 전부가 캐시를 경유한다).
       #
-      # 실측(2026-08-11, 로컬 tofu 1.12.5 로 아래 루프를 그대로 재현):
-      #   캐시 없음 → provider **다운로드 13회** (modules 3 + examples 2 가 전부 각자 받는다)
-      #   캐시 사용 → **다운로드 5회.** 13개 해석 전부가 캐시를 경유한다
-      #
-      # ✅ CI 실증(run 31449541916, 이 변경의 PR): `Installing hashicorp/` **5회** ·
-      #    `from the shared cache directory` **13회** · 게이트 6개 전부 통과.
-      #    ⚠️ **두 숫자가 겹치는 것이 정상이다** — 흐름이 "다운로드 → 캐시 적재 → 캐시에서
-      #.terraform 으로 링크"라, 첫 5개는 `Installing` 과 `from the shared cache` 가 **둘 다** 찍힌다.
-      #       📌 그래서 **판정 기준은 `from the shared cache` 개수가 아니라 `Installing` 개수(=네트워크)** 다.
-      #
-      # 🔴 **도입 계기는 속도가 아니라 실패율이다.** run 31448654347 이 modules/vpc 의 init 에서
-      #    이렇게 죽었다:
-      #      Error while installing hashicorp/aws v6.57.1: … failed to retrieve authentication
-      #      checksums: Get "https://github.com/opentofu/…/…_SHA256SUMS":
-      #      tls: failed to verify certificate: x509: certificate is not valid for any names
-      #    ⭐ **바로 몇 초 전 modules/eks-cluster 가 같은 provider 를 받아 통과했다** —
-      #       lock·핀·registry 문제가 아니라 runner 의 일시적 TLS 오류였고 재실행으로 통과했다.
-      #    ⇒ 네트워크 왕복 13회는 **같은 flake 에 13번 노출된다**는 뜻이다. 5회로 줄인다.
+      # 🔴 **도입 계기는 속도가 아니라 실패율이다.** provider 인증 체크섬(SHA256SUMS) 조회
+      #    중 runner 의 TLS 인증서 검증이 실패해 한 모듈의 init 이 죽은 사례가 있었다 — 같은
+      #    provider 를 다른 모듈이 바로 직전에 문제없이 받은 뒤였다. lock·핀·registry 문제가
+      #    아니라 runner 의 일시적 network flake 였고 재실행으로 통과했다. 네트워크 왕복
+      #    13회는 같은 flake 에 13번 노출된다는 뜻이라 5회로 줄인다.
+      #    ⚠️ CI 로그의 `Installing hashicorp/` 와 `from the shared cache directory` 카운트가
+      #       겹치는 것은 정상이다 — 흐름이 "다운로드 → 캐시 적재 → 캐시에서 .terraform 으로
+      #       링크"라, 처음 받는 5개는 둘 다 찍힌다. 캐시 효과의 판정 기준은 `from the shared
+      #       cache` 개수가 아니라 `Installing` 개수(=네트워크 왕복)다.
       #
       # ⚠️ **CI↔로컬 훅 parity 는 깨지지 않는다**(파일 헤더 규칙). 이 변수는 도구 버전도 명령
       #    플래그도 바꾸지 않는다 — `tofu init` 이 provider 를 **어디서 가져오는지**만 바꾼다.
       #    `-lockfile=readonly` 와도 양립한다: 캐시에서 설치했는데 lock 갱신이 필요한 상태라면
-      #    조용히 통과하는 게 아니라 **거기서 실패한다** — 안전한 방향이다
-      #    (실측: 5개 디렉토리 전부 readonly 로 통과).
+      #    조용히 통과하는 게 아니라 **거기서 실패한다** — 안전한 방향이다.
       #
-      # 📌 **경로를 workspace 밖($RUNNER_TEMP)에 둔다.** 안에 두면 **856MB**(실측)짜리 캐시를
-      #    게이트 1(`tofu fmt -recursive`)·2(`tflint --recursive`)·3(`trivy config .`)·
+      # 📌 **경로를 workspace 밖($RUNNER_TEMP)에 둔다.** 안에 두면 856MB짜리 캐시를 게이트
+      #    1(`tofu fmt -recursive`)·2(`tflint --recursive`)·3(`trivy config .`)·
       #    6(`find . -name '.terraform.lock.hcl'`)이 **전부 훑는다.**
       #
       # ⚠️ **workflow 레벨 `env:` 에 둘 수 없어서 이 스텝이 존재한다** — 그 자리에서는
@@ -115,10 +107,10 @@ jobs:
       #    ⛔ 하드코딩된 /tmp 로 대체하지 말 것 — runner 종류에 따라 달라진다.
       #
       # ⛔ **`actions/cache` 로 run 간 캐시까지 하지 않는다 — 검토했고 값으로 기각했다.**
-      #    캐시가 **856MB**(실측)라 업로드·다운로드 비용이 provider 5개를 받는 비용을 넘고,
-      #    그 전송 자체가 **새로운 실패 지점**이 된다. 지금 푸는 문제는 "느리다"가 아니라
-      #    "네트워크를 여러 번 탄다"이고, job 내 캐시만으로 13 → 5 가 된다.
-      #    재검토 조건: provider 다운로드가 job 시간의 지배적 비중이 되거나, 남은 5회에서 flake 가 반복될 때.
+      #    캐시가 856MB라 업로드·다운로드 비용이 provider 5개를 받는 비용을 넘고, 그 전송
+      #    자체가 **새로운 실패 지점**이 된다. 지금 푸는 문제는 "느리다"가 아니라 "네트워크를
+      #    여러 번 탄다"이고, job 내 캐시만으로 13 → 5 가 된다. 재검토 조건: provider
+      #    다운로드가 job 시간의 지배적 비중이 되거나, 남은 5회에서 flake 가 반복될 때.
       #
       # ⚠️ OpenTofu 문서는 이 디렉토리가 **동시성 안전하지 않다**고 경고한다. 이 워크플로는
       #    job 이 하나이고 게이트 4·5 가 **순차 루프**라 해당하지 않는다. matrix 로 쪼개면
@@ -164,19 +156,23 @@ jobs:
         run: |
           set -euo pipefail
           shopt -s nullglob
+          found=0
           for e in examples/*/; do
+            # 최상위에 .tf 가 없는 디렉토리(문서 전용 등)는 예제가 아니므로 건너뛴다.
             [ -n "$(find "$e" -maxdepth 1 -name '*.tf' -print -quit 2>/dev/null)" ] || continue
+            found=1
             echo "::group::$e"
             # 예제는 상대경로로 모듈을 소싱한다 — 외부 인증이 필요 없다.
             tofu -chdir="$e" init -backend=false -input=false -lockfile=readonly
             tofu -chdir="$e" validate
             echo "::endgroup::"
           done
+          [ "$found" = 1 ] || { echo "examples/ 에 검증할 .tf 가 하나도 없다"; exit 1; }
 
       - name: "게이트 6/6 — lock 파일 registry 검사"
         run: |
           set -euo pipefail
-          # 02 §4: lock 은 커밋되고 registry 주소가 registry.opentofu.org 여야 한다.
+          # 06-conventions.md §3(lock 파일): lock 은 커밋되고 registry 주소가 registry.opentofu.org 여야 한다.
           # 다른 스택(PoC)의 lock 을 복사하면 registry.terraform.io 가 섞여 들어온다.
           # $(find ...) 를 for 로 순회하면 경로의 공백에서 깨진다(그리고 zsh 에서는 아예 분할되지
           # 않아 로컬 검증이 조용히 무의미해진다). -print0 + read -d '' 로 고정한다.

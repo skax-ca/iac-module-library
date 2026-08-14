@@ -1,5 +1,37 @@
 # Notepad — iac-module-library
 
+## ✅ **ebs-csi-controller taint 누락 — 사용자 발견 → 원인파악 → 수정 완료** (2026-08-14(6), `4d6aa49`)
+
+> 사용자가 taint 반영(PR #32) 직후 `kubectl get nodeclaims`로 Karpenter 노드가 새로 뜬 걸
+> 직접 발견 — "원래 노드그룹에만 배포돼야 할 것 같은데 왜 이렇게 됐는지" 원인파악 요청.
+>
+> ### ▶ 원인
+> `aws-ebs-csi-driver` addon은 `node`(DaemonSet)·`controller`(Deployment, 2 replica)로
+> `configuration_values` 스키마가 완전히 분리돼 있는데, PR #32에서 `node.tolerateAllTaints`만
+> 고치고 `controller`를 빠뜨렸다. taint 적용 순간 무제약이던 `controller` pod가 system
+> 노드에서 밀려나 "app 워크로드"와 같은 기본값 버킷(Karpenter 영역)으로 떨어졌고, Karpenter가
+> 이를 위해 새 노드(`c6gn.medium` spot)를 프로비저닝했다. Karpenter 자체 이벤트 로그
+> (`Pdb prevents pod evictions (PodDisruptionBudget=[kube-system/ebs-csi-controller])`)가
+> 그 노드를 못 지우던 이유를 정확히 짚어줘서 원인 확정에 결정적이었다.
+>
+> ### ▶ 수정
+> - `docs/07-runbooks.md` §9 정정(`4d6aa49`, main 직접 커밋) — 표·코드 예시·테스트 절차에
+>   `controller` 행 추가, node/controller 스키마 분리 사실을 🔴로 명시.
+> - `iac-reference-infra` PR [#33](https://github.com/skax-ca/iac-reference-infra/pull/33)
+>   — `controller.nodeSelector`+`tolerations`(coredns와 동일 패턴) 추가. merge → push가
+>   plan 자동 트리거 → `Plan: 0 to add, 1 to change, 0 to destroy` → `workflow_dispatch`로
+>   apply → `Apply complete! 0 added, 1 changed, 0 destroyed`.
+> - 실측 검증: `ebs-csi-controller` 2 replica 모두 system 노드로 재배치 확인 → Karpenter가
+>   해당 노드를 `Empty`로 판정, `Drained`→`InstanceTerminating` 자동 정리 시작(확인 시점
+>   `NotReady`로 전환 중, 별도 개입 불필요 — Node 오브젝트 GC는 자연히 끝난다).
+>
+> ⚠️ **다음에 비슷한 "addon에 controller/node 이중 구조가 있는지"를 판단할 때**: addon
+> configuration schema에서 최상위 키가 `node`/`controller`처럼 역할별로 나뉘어 있으면 **양쪽
+> 다** 확인해야 한다 — 하나만 보고 "이 addon은 이걸로 끝"이라 판단하면 이번과 같은 누락이
+> 재발한다. `describe-addon-configuration`의 `properties` 최상위 키를 항상 전부 훑는다.
+
+---
+
 ## ✅ **`iac-reference-infra` taint 반영 — apply + 실측 검증 완료** (2026-08-14(5), `ade5127`)
 
 > 지난 세션 「다음 태스크 2번」(`workload-class=system` taint 반영, CA 실켜기 전 선행 작업) 착수.

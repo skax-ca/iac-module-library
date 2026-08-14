@@ -1,6 +1,6 @@
 # Notepad — iac-module-library
 
-## ⏳ **`iac-reference-infra` taint 반영 — PR 리뷰 대기** (2026-08-14(5), `ade5127`)
+## ✅ **`iac-reference-infra` taint 반영 — apply + 실측 검증 완료** (2026-08-14(5), `ade5127`)
 
 > 지난 세션 「다음 태스크 2번」(`workload-class=system` taint 반영, CA 실켜기 전 선행 작업) 착수.
 > 구현 전 `docs/07-runbooks.md §9`의 addon toleration 표에서 실측 근거 없이 적힌 오류를 발견해
@@ -27,16 +27,33 @@
 >   또한 모듈 핀은 여전히 `eks-cluster-v0.5.0`(labels/taints는 그 태그에 이미 있었음,
 >   CA IAM 지원은 PR #25가 main에 머지됐지만 **아직 태그 안 컷됨** — 별도 착수 시점).
 >
+> ### ▶ merge + apply + 사후 실측 검증 (같은 세션에서 사용자 승인 후 진행)
+> - PR #32 머지(fast-forward, `63e7a88`) → `push(main)`가 plan 자동 트리거(run
+>   `31770492901`) → **`Plan: 0 to add, 5 to change, 0 to destroy`**(destroy/replace 0건,
+>   전부 in-place). 무관한 drift 1건(`module.workbench` EBS `volume_tags["Name"]`이
+>   `ec2-...` → `vol-...`로 정정) 발견해 사용자에게 별도 보고 후 apply 승인 받음.
+> - `workflow_dispatch`(`action=apply`)로 apply 실행(run `31770654801`) —
+>   **`Apply complete! Resources: 0 added, 5 changed, 0 destroyed`**, plan과 정확히 일치.
+> - workbench SSM(`send-command`, 비밀 아닌 상태 조회라 규약상 허용)으로 실측 검증:
+>   system 노드 2대 모두 `workload-class=system:NoSchedule` taint 확인 ·
+>   DaemonSet 3종(aws-node·eks-pod-identity-agent·ebs-csi-node) 모두 system 노드 2대 +
+>   Karpenter 노드 1대(`c6gn.medium` spot) **전부**에서 Running ·
+>   coredns·metrics-server는 **system 노드에만** 배치(Karpenter 노드엔 0개) — 설계 의도대로.
+> - 🔴 **검증 중 문서 실측 오류를 하나 더 발견**: 방금 적어 넣은 테스트 절차의
+>   metrics-server 쿼리가 `k8s-app=metrics-server`였는데, 실제 셀렉터는
+>   `app.kubernetes.io/name=metrics-server`(`kubectl get deployment` 실측). 즉시 정정(`2fafee2`).
+> - `docs/07-runbooks.md`의 "테스트 절차" 절에 workbench 접속 연결(「1. 클러스터에
+>   접근하기」 참조) + system 노드 taint 확인(⓪) + coredns/metrics-server 배치 확인(②)을
+>   보강(`093566d`) — 사용자 요청("팀원도 알아야 하니 문서화") 반영.
+>
 > ### ⏭️ **다음 태스크**
 >
-> 1. `iac-reference-infra` PR #32 사용자 리뷰·머지 대기. 머지 후 `workflow_dispatch`로
->    plan 확인 → apply, 그리고 `kubectl get pods -n kube-system -o wide`로 DaemonSet 3종이
->    system 노드에서도 뜨는지 + coredns/metrics-server가 system 노드로만 배치되는지 실측 확인.
-> 2. (이전 목록 유지) `iac-platform-gitops` README에 baseline/catalog 판단 기준 문장 반영
-> 3. (이전 목록 유지) dev 클러스터 CA 구독 전 repo-server egress canary 확인
+> 1. `iac-platform-gitops` README에 baseline/catalog 판단 기준 문장 반영
+> 2. dev 클러스터 CA 구독 전 repo-server egress canary 확인
 >
-> ⚠️ CA를 실제로 켜려면(`enable_cluster_autoscaler=true`) 이 PR 머지 **+ `eks-cluster-v0.6.0`
-> 태그 컷**(현재 main에만 있음) 둘 다 필요 — 아직 어느 쪽도 완료 안 됨.
+> ⚠️ CA를 실제로 켜려면(`enable_cluster_autoscaler=true`) **`eks-cluster-v0.6.0` 태그
+> 컷**(CA IAM 지원은 PR #25로 main엔 있으나 아직 태그 안 됨)이 먼저 필요 — 이번 taint
+> 반영은 그 전제조건 중 하나였고 이제 끝났다.
 
 ---
 

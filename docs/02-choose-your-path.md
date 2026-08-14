@@ -94,21 +94,31 @@ aws pricing get-products --region us-east-1 \
 | 분류 | 어디 | 예 |
 |------|------|-----|
 | **EKS managed addon** | 계층 1 (OpenTofu) | vpc-cni · coredns · kube-proxy · pod-identity-agent |
-| **helm addon** | 계층 2 (GitOps) | ALBC · Karpenter · Kyverno · KEDA |
+| **helm addon** | 계층 2 (GitOps) | ALBC · Karpenter · Cluster Autoscaler · Kyverno · KEDA |
 | **설정 CR** | 계층 2 (GitOps) | NodePool · ClusterPolicy |
+
+> **Karpenter와 Cluster Autoscaler는 동시에 켤 수 있다** — `eks-cluster` 모듈의
+> `enable_karpenter`·`enable_cluster_autoscaler`는 상호 배제하지 않는다(서로 다른 리소스를
+> 다룬다: Karpenter=EC2 직접 프로비저닝, CA=`managed_node_groups`의 ASG). 단, 워크로드를
+> taint로 분리하지 않으면 같은 pending pod에 두 컨트롤러가 동시에 반응해 중복 프로비저닝이
+> 일어날 수 있다(근거: karpenter.sh FAQ · `aws/karpenter-provider-aws#2543`). 검증된 taint
+> 분리 패턴(「Karpenter + Cluster Autoscaler 동시 운영」)은 [`07-runbooks.md`](07-runbooks.md)를 참조한다.
 
 ### 네임스페이스 배치
 
-**계층 2 addon은 전용 네임스페이스를 신설한다.** 예외는 둘뿐이다.
+**계층 2 addon은 전용 네임스페이스를 신설한다.** 예외는 셋이다.
 
 | addon | 네임스페이스 | 이유 |
 |-------|-------------|------|
 | **Karpenter** | `kube-system` | APF FlowSchema가 이 네임스페이스를 전제한다 |
 | **AWS Load Balancer Controller** | `kube-system` | 공식 문서 + Pod Identity association |
+| **Cluster Autoscaler** | `kube-system` | ⚠️ **관례일 뿐, 아래 바를 충족하지 못한다** — 알면서 택했다(공식 요구사항도 official 문서 근거도 없음) |
 | 그 밖에 전부 | 전용 ns | 격리 |
 
-> 예외를 늘리려면 **위 두 근거에 준하는 것**을 대야 한다.
-> *"차트 기본값이 `kube-system`이라서"* 는 근거가 아니다.
+> 예외를 늘리려면 **위 두 근거(Karpenter·ALBC)에 준하는 것**을 대야 한다.
+> *"차트 기본값이 `kube-system`이라서"* 는 근거가 아니다 — **Cluster Autoscaler는 정확히 이 바를
+> 통과하지 못한 채로 예외에 들어갔다.** 근거가 약하다는 것을 알고도 관례를 택한 결정이라는 뜻이고,
+> 그래서 여기 정직하게 적어둔다. 더 강한 근거 없이 이 전례를 들어 새 예외를 또 늘리지 않는다.
 
 ---
 

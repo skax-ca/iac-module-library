@@ -219,3 +219,103 @@ kubectl get nodes -l karpenter.sh/nodepool
 ```
 
 > `kubectl -o jsonpath`는 map 순회를 지원하지 않는다. 필요하면 `-o go-template`을 쓴다.
+
+---
+
+## 9. Karpenter + Cluster Autoscaler 동시 운영 — taint 전략
+
+**적용 대상**: app 워크로드는 전부 Karpenter로, 필수 addon·OSS(redis·postgresql·mongodb 등
+상태 저장 워크로드)는 관리형 노드그룹 + Cluster Autoscaler로 분리하고 싶은 경우.
+
+### 원리 — taint와 nodeSelector는 하는 일이 다르다
+
+- **taint**(관리형 노드그룹에 부여) = 허용 안 한 파드를 **밀어낸다**
+- **nodeSelector/affinity**(addon·OSS 쪽에 부여) = 이 라벨이 있는 곳으로만 **끌어당긴다**
+
+toleration만 주고 nodeSelector를 빼먹으면 설계가 깨진다 — OSS 파드가 taint를 참더라도
+Karpenter 쪽 노드엔 그 taint가 없으니, 여유가 없으면 Karpenter가 그 파드를 위해 새 노드를
+띄워버릴 수 있다. **taint(밀어내기)와 nodeSelector(끌어당기기) 둘 다 있어야** 워크로드가
+결정적으로 한쪽에만 간다.
+
+### 설정표
+
+| 대상 | taint | nodeSelector/affinity |
+|---|---|---|
+| 시스템 관리형 노드그룹(`managed_node_groups`) | `workload-class=system:NO_SCHEDULE` 부여 | 라벨 `workload-class=system` 부여 |
+| coredns · metrics-server (Deployment) | — | `nodeSelector: workload-class=system` + toleration |
+| vpc-cni · eks-pod-identity-agent · ebs-csi(node) (DaemonSet) | — | toleration만. **nodeSelector 금지** — 모든 노드에 있어야 한다 |
+| kube-proxy | — | 손댈 필요 없음 — 기본 매니페스트가 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다 |
+| Cluster Autoscaler·Karpenter 컨트롤러 자체(helm) | — | `nodeSelector: workload-class=system` + toleration |
+| redis·postgresql·mongodb(helm) | — | `nodeSelector: workload-class=system` + toleration |
+| app 워크로드 | 아무것도 안 함 | 아무것도 안 함 — 기본값이 곧 Karpenter 영역 |
+| Karpenter `NodePool` | 의도적으로 taint 안 둠 | 없음 |
+
+⚠️ **DaemonSet에 `nodeSelector`를 걸면 안 된다.** vpc-cni·eks-pod-identity-agent·ebs-csi node에
+`nodeSelector: workload-class=system`을 주면 Karpenter 노드에서 네트워킹·Pod Identity가
+통째로 죽는다. 이 셋은 taint만 tolerate하면 된다.
+
+⚠️ **Karpenter NodePool에 별도 taint를 두지 않는 것도 의도적 결정이다.** 위 분리로 이미 모든
+파드 종류가 한쪽으로만 갈 수 있게 강제되어 있어서(시스템 쪽=taint+nodeSelector 이중 관문,
+app 쪽=기본값), "어느 컨트롤러가 반응할지 모호한 파드"가 존재하지 않는다. Karpenter 쪽에
+taint를 추가하면 모든 app Deployment가 toleration을 알아야 하는 마찰만 생긴다.
+
+### addon toleration 주입 (`cluster_addons[name].configuration`)
+
+각 addon이 `configuration_values`로 tolerations를 지원하는지 EKS API로 직접 확인했다
+(`aws eks describe-addon-configuration --addon-name <name> --addon-version <ver>`):
+
+```hcl
+cluster_addons = {
+  "vpc-cni" = {
+    configuration = jsonencode({
+      tolerations = [{ operator = "Exists" }]
+    })
+  }
+  "eks-pod-identity-agent" = {
+    configuration = jsonencode({
+      tolerations = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
+    })
+  }
+  "aws-ebs-csi-driver" = {
+    configuration = jsonencode({
+      node = { tolerateAllTaints = true }
+    })
+  }
+  "coredns" = {
+    configuration = jsonencode({
+      nodeSelector = { "workload-class" = "system" }
+      tolerations  = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
+    })
+  }
+}
+```
+
+`kube-proxy`는 `configuration_values` 스키마에 `tolerations` 필드 자체가 없다
+(`aws/containers-roadmap#2604`가 이 부재를 지적하는 미해결 기능 요청) — 이미 하드코딩된
+`operator: Exists`로 모든 taint를 통과하기 때문에 손댈 것이 없다.
+
+### 테스트 절차 (workbench에서)
+
+```bash
+# ① DaemonSet이 시스템 노드그룹에도 떠 있는지 (toleration이 실제로 먹었는지)
+kubectl get pods -n kube-system -o wide -l k8s-app=aws-node
+
+# ② 격리 검증 — toleration 없는 파드는 시스템 노드그룹에 절대 못 붙는다
+kubectl run probe --image=public.ecr.aws/eks-distro/kubernetes/pause:3.2 --restart=Never
+kubectl get pod probe -o wide   # Pending 이거나 Karpenter 노드에 배치되어야 한다
+
+# ③ 역방향 검증 — nodeSelector+toleration을 준 파드는 반드시 시스템 노드그룹에만 붙고
+#    Karpenter가 이 파드 때문에 새 노드를 만들지 않아야 한다
+kubectl get nodeclaims
+
+# ④ CA 동작 확인
+kubectl logs -n kube-system deploy/cluster-autoscaler
+
+# ⑤ Karpenter 동작 확인 — app 파드가 시스템 노드그룹을 안 건드리는지
+kubectl get nodes -l karpenter.sh/nodepool
+```
+
+근거: [karpenter.sh FAQ](https://karpenter.sh/docs/faq/)("Karpenter can work alongside Cluster
+Autoscaler") · `aws/karpenter-provider-aws#2543`(taint 분리 없이 동시 운영 시 중복 프로비저닝
+실사용 보고, 컨트리뷰터 권고: taint/toleration으로 워크로드 분리) · Karpenter 공식 마이그레이션
+가이드(Karpenter 컨트롤러 자체를 기존 노드그룹에 고정하는 패턴).

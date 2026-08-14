@@ -72,8 +72,15 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 | `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다 |
 | `access_entries` | 클러스터 접근 주체 (workbench Role 포함) |
 | `cluster_security_group_additional_rules` | workbench -> 클러스터 인바운드가 여기로 들어온다 |
-| `enable_karpenter` · `enable_alb_controller_iam` · `enable_external_dns_iam` | IAM만 만든다. 컨트롤러는 계층 2 |
+| `enable_karpenter` · `enable_cluster_autoscaler` · `enable_alb_controller_iam` · `enable_external_dns_iam` | IAM만 만든다. 컨트롤러는 계층 2 |
 | `deletion_protection` | 실수 삭제 방지 |
+
+> **Karpenter와 Cluster Autoscaler는 동시에 켤 수 있다** — 상호 배제하지 않는다(서로 다른 리소스를
+> 다룬다: Karpenter=EC2 직접 프로비저닝, CA=`managed_node_groups`의 ASG). 단, 워크로드를 taint로
+> 분리하지 않으면 같은 pending pod에 두 컨트롤러가 동시에 반응해 중복 프로비저닝이 발생할 수
+> 있다(근거: [karpenter.sh FAQ](https://karpenter.sh/docs/faq/) · `aws/karpenter-provider-aws#2543`).
+> 검증된 분리 패턴(taint+nodeSelector 이중 관문, DaemonSet은 nodeSelector 금지)은
+> [`07-runbooks.md`](07-runbooks.md)를 참조한다.
 
 ### 출력
 
@@ -85,6 +92,10 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 **Karpenter (계층 2로 간다)**: `karpenter_iam_role_arn` · `karpenter_node_iam_role_arn` ·
 `karpenter_node_iam_role_name` · `karpenter_instance_profile_name` ·
 `karpenter_sqs_queue_name` · `karpenter_discovery_tag`
+
+**Cluster Autoscaler (계층 2로 간다)**: `cluster_autoscaler_iam_role_arn`
+(namespace=`kube-system`, service_account=`cluster-autoscaler`로 고정 — 공식 요구사항이 아니라
+관례다. Karpenter의 `kube-system`과 달리 APF FlowSchema 같은 근거가 없다)
 
 **IAM (계층 2로 간다)**: `alb_controller_iam_role_arn` · `external_dns_iam_role_arn` · `ebs_csi_iam_role_arn`
 

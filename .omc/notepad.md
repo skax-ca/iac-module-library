@@ -46,14 +46,21 @@
 >   접근하기」 참조) + system 노드 taint 확인(⓪) + coredns/metrics-server 배치 확인(②)을
 >   보강(`093566d`) — 사용자 요청("팀원도 알아야 하니 문서화") 반영.
 >
+> ### ▶ `iac-platform-gitops` README 판단 기준 문장 반영 (`0ee7698`, main 직접 커밋)
+>
+> "현재 배포된 addon" 표 바로 위에 baseline/catalog 판단 기준 문장을 추가했다 — 기준은
+> Terraform `enable_*` 기본값이 아니라 **워크로드 아키텍처와 무관하게 플랫폼이 보편적으로
+> 요구하는가**(ALBC가 반증 사례: Terraform 기본값은 `false`인데도 baseline). 이 repo는
+> CI/훅이 없고(§8 게이트도 의도적으로 미설치) 과거 `5678d10` 전례도 문서 전용 direct
+> commit이라 같은 방식으로 진행했다.
+>
 > ### ⏭️ **다음 태스크**
 >
-> 1. `iac-platform-gitops` README에 baseline/catalog 판단 기준 문장 반영
-> 2. dev 클러스터 CA 구독 전 repo-server egress canary 확인
+> 1. dev 클러스터 CA 구독 전 repo-server egress canary(`kubernetes.github.io`) 확인
 >
 > ⚠️ CA를 실제로 켜려면(`enable_cluster_autoscaler=true`) **`eks-cluster-v0.6.0` 태그
-> 컷**(CA IAM 지원은 PR #25로 main엔 있으나 아직 태그 안 됨)이 먼저 필요 — 이번 taint
-> 반영은 그 전제조건 중 하나였고 이제 끝났다.
+> 컷**(CA IAM 지원은 PR #25로 main엔 있으나 아직 태그 안 됨)이 먼저 필요 — taint 반영은
+> 그 전제조건 중 하나였고 이제 끝났다. 「다음 태스크」 3항목 중 남은 것은 egress canary 1건뿐이다.
 
 ---
 

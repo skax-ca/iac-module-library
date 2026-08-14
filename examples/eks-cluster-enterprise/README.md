@@ -90,11 +90,11 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다 — 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
-> ([`docs/06-conventions.md` §3](../../docs/06-conventions.md)).
+> ([`docs/06-conventions.md`](../../docs/06-conventions.md)).
 > ⚠️ 단 **3층 연결(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다 —
 > `cluster_security_group_additional_rules`가 그 릴리스에서 생겼다.
 
-⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/06-conventions.md` §3](../../docs/06-conventions.md)) —
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/06-conventions.md`](../../docs/06-conventions.md)) —
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 
 ## ⚠️ 착수 전 반드시 바꿀 것

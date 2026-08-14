@@ -13,7 +13,7 @@
 실제 배포는 프로젝트마다 새로 만드는 `<project>-infra` 저장소가 한다 — 이 저장소의 모듈을
 git tag로 소싱해서. 레퍼런스 구현은 `iac-reference-infra`에 있다.
 
-전체 그림은 [`01-architecture.md`](01-architecture.md), repo 간 역할 분담은 `CLAUDE.md` §0을 본다.
+전체 그림은 [`01-architecture.md`](01-architecture.md), repo 간 역할 분담은 `CLAUDE.md`를 본다.
 
 ---
 
@@ -71,11 +71,11 @@ GitHub Actions job
 ```
 
 **이건 프로젝트마다 반복되는 패턴이지, 이 저장소가 소유한 실제 AWS 계정이 있다는 뜻이 아니다**
-(이 저장소는 배포하지 않는다 — [`01-architecture.md`](01-architecture.md) §5).
+(이 저장소는 배포하지 않는다 — [`01-architecture.md`](01-architecture.md)).
 
 | 알고 싶은 것 | 어디 |
 |---|---|
-| 부트스트랩 절차(OIDC provider·두 Role 생성) | [`03-new-project.md`](03-new-project.md) §3 |
+| 부트스트랩 절차(OIDC provider·두 Role 생성) | [`03-new-project.md`](03-new-project.md) |
 | 실행 단계 규칙(plan artifact·승인 게이트·동시 실행) | `CLAUDE.md` "실행 기반" · [`06-conventions.md`](06-conventions.md) |
 
 ⚠️ 2026-07-15 이후 생성된 저장소는 `sub` claim이 이름이 아니라 **숫자 org/repo ID**를 쓴다 —

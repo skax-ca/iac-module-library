@@ -122,7 +122,8 @@ iac-platform-gitops        계층 2의 매니페스트.          ArgoCD가 pull�
 
 ## 7. 전체 흐름 — GitHub에서 AWS까지 한눈에
 
-위 §1·§5·§6과 [`00-team-access.md`](00-team-access.md) §4에 나눠 있는 조각을 한 그림으로 합친 것이다.
+위 「무엇을 만드는가」·「세 저장소가 계층을 어떻게 나눠 갖는가」·「실행 기반」과
+[`00-team-access.md`](00-team-access.md)에 나눠 있는 조각을 한 그림으로 합친 것이다.
 세부 규칙은 각 절이 소유하고, 이 다이어그램은 **순서와 관계**만 보여준다.
 
 ```mermaid
@@ -169,7 +170,7 @@ flowchart TB
 ```
 
 - **이 저장소(`iac-module-library`)는 이 그림 어디에도 실행 주체로 등장하지 않는다** — 소싱만 되고, CI·AWS 계정·클러스터는 전부 `project-infra`(계층 1)와 `iac-platform-gitops`(계층 2) 몫이다.
-- 인증 체인 상세 → [`00-team-access.md`](00-team-access.md) §4
+- 인증 체인 상세 → [`00-team-access.md`](00-team-access.md)
 - 부트스트랩·워크플로 명령 실물 → [`03-new-project.md`](03-new-project.md)
 
 ---

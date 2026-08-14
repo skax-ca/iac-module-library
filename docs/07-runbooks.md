@@ -242,8 +242,9 @@ Karpenter 쪽 노드엔 그 taint가 없으니, 여유가 없으면 Karpenter가
 | 대상 | taint | nodeSelector/affinity |
 |---|---|---|
 | 시스템 관리형 노드그룹(`managed_node_groups`) | `workload-class=system:NO_SCHEDULE` 부여 | 라벨 `workload-class=system` 부여 |
-| coredns · metrics-server (Deployment) | — | `nodeSelector: workload-class=system` + toleration |
-| vpc-cni · eks-pod-identity-agent · ebs-csi(node) (DaemonSet) | — | toleration만. **nodeSelector 금지** — 모든 노드에 있어야 한다 |
+| coredns · metrics-server (Deployment) | — | `nodeSelector: workload-class=system` + toleration 명시 필요 |
+| vpc-cni · eks-pod-identity-agent (DaemonSet) | — | 명시 불필요 — 차트 기본값이 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다(실측: `aws/eks-charts`·`aws/eks-pod-identity-agent` 저장소의 `values.yaml`) |
+| ebs-csi node (DaemonSet) | — | `node.tolerateAllTaints = true` 명시 필요 — 기본 toleration은 `effect: NoExecute`만 커버해 우리가 부여하는 `NoSchedule`을 통과하지 못한다 |
 | kube-proxy | — | 손댈 필요 없음 — 기본 매니페스트가 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다 |
 | Cluster Autoscaler·Karpenter 컨트롤러 자체(helm) | — | `nodeSelector: workload-class=system` + toleration |
 | redis·postgresql·mongodb(helm) | — | `nodeSelector: workload-class=system` + toleration |
@@ -252,7 +253,8 @@ Karpenter 쪽 노드엔 그 taint가 없으니, 여유가 없으면 Karpenter가
 
 ⚠️ **DaemonSet에 `nodeSelector`를 걸면 안 된다.** vpc-cni·eks-pod-identity-agent·ebs-csi node에
 `nodeSelector: workload-class=system`을 주면 Karpenter 노드에서 네트워킹·Pod Identity가
-통째로 죽는다. 이 셋은 taint만 tolerate하면 된다.
+통째로 죽는다. vpc-cni·eks-pod-identity-agent는 위 표대로 애초에 손댈 필요가 없고, ebs-csi
+node만 toleration을 넓힌다 — 셋 다 nodeSelector는 예외 없이 금지다.
 
 ⚠️ **Karpenter NodePool에 별도 taint를 두지 않는 것도 의도적 결정이다.** 위 분리로 이미 모든
 파드 종류가 한쪽으로만 갈 수 있게 강제되어 있어서(시스템 쪽=taint+nodeSelector 이중 관문,
@@ -261,21 +263,13 @@ taint를 추가하면 모든 app Deployment가 toleration을 알아야 하는 �
 
 ### addon toleration 주입 (`cluster_addons[name].configuration`)
 
-각 addon이 `configuration_values`로 tolerations를 지원하는지 EKS API로 직접 확인했다
-(`aws eks describe-addon-configuration --addon-name <name> --addon-version <ver>`):
+각 addon이 `configuration_values`로 tolerations/nodeSelector를 지원하는지 EKS API로 직접
+확인했다(`aws eks describe-addon-configuration --addon-name <name> --addon-version <ver>`).
+**실제로 손대야 하는 것은 ebs-csi(node)·coredns·metrics-server 셋뿐이다** — vpc-cni·
+eks-pod-identity-agent는 위 표대로 기본값이 이미 요구를 만족한다.
 
 ```hcl
 cluster_addons = {
-  "vpc-cni" = {
-    configuration = jsonencode({
-      tolerations = [{ operator = "Exists" }]
-    })
-  }
-  "eks-pod-identity-agent" = {
-    configuration = jsonencode({
-      tolerations = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
-    })
-  }
   "aws-ebs-csi-driver" = {
     configuration = jsonencode({
       node = { tolerateAllTaints = true }
@@ -287,8 +281,27 @@ cluster_addons = {
       tolerations  = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
     })
   }
+  "metrics-server" = {
+    configuration = jsonencode({
+      nodeSelector = { "workload-class" = "system" }
+      tolerations  = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
+    })
+  }
 }
 ```
+
+⚠️ **불리언 필드가 있으면 그것을 쓰고, `tolerations` 배열은 되도록 직접 교체하지 않는다.**
+EKS는 `configuration_values`의 배열 필드를 addon 차트 기본값과 **병합하지 않고 통째로
+교체**한다 — vpc-cni·eks-pod-identity-agent에 좁은 `tolerations`를 직접 쓰면 기본값
+(`operator: Exists`, 모든 taint 통과)보다 **좁아지는 후퇴**가 된다. `ebs-csi`가
+`node.tolerateAllTaints`라는 불리언으로 같은 효과를 내는 것과 대비된다. coredns·metrics-server는
+`tolerations`를 교체해도 무해하다 — `nodeSelector`가 배치를 system 노드로 좁히므로, 그 노드에
+있는 taint는 `workload-class` 하나뿐이라 잃을 다른 toleration이 없다.
+
+⚠️ **`vpc-cni`는 `enable_custom_networking = true` 환경에서 이 절 자체가 무의미하다.** 모듈
+(`modules/eks-cluster/addons.tf`의 vpc-cni 재주입 로직)이 커스텀 네트워킹을 켜면 vpc-cni의
+`configuration_values`를 env·eniConfig로 **통째로 재주입해 소비자 입력을 덮어쓴다** — 여기에
+tolerations를 적어도 반영되지 않는다. 다행히 위 표대로 손댈 필요도 없다.
 
 `kube-proxy`는 `configuration_values` 스키마에 `tolerations` 필드 자체가 없다
 (`aws/containers-roadmap#2604`가 이 부재를 지적하는 미해결 기능 요청) — 이미 하드코딩된

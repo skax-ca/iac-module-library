@@ -160,3 +160,14 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - name: "게이트 — 약어 카탈로그 SSOT 일관성"
         run: python3 scripts/validate-abbreviations.py
+
+  # 문서 작성 규칙(docs/06-conventions.md 문서 작성 규칙 절)의 기계 판정 가능한 3개(§N 인용·
+  # 비표준 이모지·400줄 초과). 로컬 게이트는 .githooks/pre-commit(문서 staged 시만). 한쪽을
+  # 바꾸면 다른 쪽도 바꾼다. CI는 전체 저장소를 본다(로컬은 staged 파일만 — 속도 차이).
+  docs-conventions:
+    name: 문서 작성 규칙 검사
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: "게이트 — §N 인용·비표준 이모지·400줄 제한"
+        run: python3 scripts/validate-doc-conventions.py

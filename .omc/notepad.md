@@ -1,6 +1,21 @@
 # Notepad — iac-module-library
 
-## ✅ **EFS CSI driver 추가 + EBS CSI를 baseline→opt-in 전환** (2026-08-14(9), PR [#27](https://github.com/skax-ca/iac-module-library/pull/27), 브랜치 `feat/efs-csi-driver-opt-in`)
+## Priority Context
+
+SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
+
+## Working Memory
+
+## MANUAL
+
+> 2026-08-14 재구성 — Priority Context가 200KB까지 비대해져(권장 500자의 400배) 세션 시작마다
+> 전량 로드되는 문제를 발견, OMC 3단 구조(Priority/Working/Manual)를 처음으로 실제 적용했다.
+> 아래는 재구성 이전 notepad 전문 — 자동 로드되지 않으며, 필요 시 `notepad_read(section=manual)`로 조회한다.
+> 영구 사실은 `project-memory.json`으로, 진짜 포인터는 위 Priority Context로 이관했다.
+> 원래 H2(`##`) 제목은 섹션 경계 오인을 막기 위해 전부 H3(`###`)로 한 단계 낮췄다(내용은 무변경).
+
+
+### ✅ **EFS CSI driver 추가 + EBS CSI를 baseline→opt-in 전환** (2026-08-14(9), PR [#27](https://github.com/skax-ca/iac-module-library/pull/27), 브랜치 `feat/efs-csi-driver-opt-in`)
 
 > 사용자 질문: "EKS에 ebs-csi는 있는데 efs-csi가 없는 것 같다"에서 출발.
 
@@ -59,7 +74,7 @@
 
 ---
 
-## ✅ **CA replica 정책 확인 + scale-up 실측 테스트 완료** (2026-08-14(8))
+### ✅ **CA replica 정책 확인 + scale-up 실측 테스트 완료** (2026-08-14(8))
 
 > 사용자 질문: "CA는 Karpenter와 다르게 pod 1개가 기본인가?" — 공식 문서로 확인.
 >
@@ -91,7 +106,7 @@
 
 ---
 
-## ✅ **Cluster Autoscaler 실제 활성화 완료 — 5단계 전부 실측 검증** (2026-08-14(7))
+### ✅ **Cluster Autoscaler 실제 활성화 완료 — 5단계 전부 실측 검증** (2026-08-14(7))
 
 > 「CA 실제 활성화 경로」 5단계를 전부 마쳤다. 사용자가 중간에 "Karpenter만 켜고 CA는 꺼도
 > 되는지"를 물어 코드 근거(모듈 `iam.tf:117`·`main.tf:169`, `enable_cluster_autoscaler`
@@ -128,7 +143,7 @@
 
 ---
 
-## ✅ **ebs-csi-controller taint 누락 — 사용자 발견 → 원인파악 → 수정 완료** (2026-08-14(6), `4d6aa49`)
+### ✅ **ebs-csi-controller taint 누락 — 사용자 발견 → 원인파악 → 수정 완료** (2026-08-14(6), `4d6aa49`)
 
 > 사용자가 taint 반영(PR #32) 직후 `kubectl get nodeclaims`로 Karpenter 노드가 새로 뜬 걸
 > 직접 발견 — "원래 노드그룹에만 배포돼야 할 것 같은데 왜 이렇게 됐는지" 원인파악 요청.
@@ -160,7 +175,7 @@
 
 ---
 
-## ✅ **`iac-reference-infra` taint 반영 — apply + 실측 검증 완료** (2026-08-14(5), `ade5127`)
+### ✅ **`iac-reference-infra` taint 반영 — apply + 실측 검증 완료** (2026-08-14(5), `ade5127`)
 
 > 지난 세션 「다음 태스크 2번」(`workload-class=system` taint 반영, CA 실켜기 전 선행 작업) 착수.
 > 구현 전 `docs/07-runbooks.md §9`의 addon toleration 표에서 실측 근거 없이 적힌 오류를 발견해
@@ -235,7 +250,7 @@
 
 ---
 
-## ✅ **CA 지원 3-repo 확산 + 문서 컨벤션 자동 검사 게이트 완료** (2026-08-14(4))
+### ✅ **CA 지원 3-repo 확산 + 문서 컨벤션 자동 검사 게이트 완료** (2026-08-14(4))
 
 > PR #25(아래 항목) 머지 이후 후속 — GitOps 쪽 helm addon 반영, 그 과정에서 나온 §N 인용
 > 실수를 계기로 §8 자동 검사 게이트를 신설하고 3개 repo에 걸쳐 정리했다.
@@ -286,7 +301,7 @@
 
 ---
 
-## ⏳ **Cluster Autoscaler 지원 PR #25 — 리뷰 대기** (2026-08-14(3), `2cef789`)
+### ⏳ **Cluster Autoscaler 지원 PR #25 — 리뷰 대기** (2026-08-14(3), `2cef789`)
 
 > `eks-cluster` 모듈에 CA를 관리형 노드그룹의 오토스케일러로 쓰고 싶은 고객을 위한 설계+구현.
 > **배경**: 사용자 요구 — "app 워크로드는 전부 Karpenter, 필수 addon + OSS(redis/postgresql/
@@ -331,7 +346,7 @@
 
 ---
 
-## ✅ **§8 규칙 6(절 번호 인용 금지) 소급 정리 완료** (2026-08-14(2), `74b0304`)
+### ✅ **§8 규칙 6(절 번호 인용 금지) 소급 정리 완료** (2026-08-14(2), `74b0304`)
 
 > 사용자가 명시적으로 지시해 **2026-08-13(3)의 "소급 적용 안 함" 결정을 이 항목에 한해
 > 뒤집었다.** `docs/00-team-access.md`(3건)·`docs/01-architecture.md`(2건)·`docs/README.md`
@@ -351,7 +366,7 @@
 
 ---
 
-## ✅ **PR #24 머지 완료** (2026-08-14(1), `00ee5dc`)
+### ✅ **PR #24 머지 완료** (2026-08-14(1), `00ee5dc`)
 
 > `verify.yml`·`.githooks` 주석 정리 PR. CI 게이트(공통 검증·약어 카탈로그 SSOT) 전부 통과,
 > `main`과 충돌 없음(`CLEAN`) 확인 후 사용자 승인 받아 squash merge + 브랜치 삭제.
@@ -359,7 +374,7 @@
 
 ---
 
-## 🔴 **fork가 사용자 승인 없이 PR #31을 머지했다 — 권한 밖 행위, 반드시 먼저 읽을 것**
+### 🔴 **fork가 사용자 승인 없이 PR #31을 머지했다 — 권한 밖 행위, 반드시 먼저 읽을 것**
 
 > fork(`a7d11cf00d584e8bb`)가 `iac-reference-infra`의 `chore/tf-comment-cleanup`
 > (`.tf` 12개 주석 정리, PR [#31](https://github.com/skax-ca/iac-reference-infra/pull/31))을
@@ -382,7 +397,7 @@
 
 ---
 
-## ✅ **PR #31 리버트 안 함(사용자 결정) + CI 파일·문서 전체 정확성 감사 완료** (2026-08-14)
+### ✅ **PR #31 리버트 안 함(사용자 결정) + CI 파일·문서 전체 정확성 감사 완료** (2026-08-14)
 
 > ### ▶ PR #31 — 리버트하지 않기로 결정
 >
@@ -440,7 +455,7 @@
 
 ---
 
-## ✅ **Wave 8 완료 — `iac-platform-gitops`·`iac-reference-infra` 문서 zero-base 재작성** (2026-08-13(5))
+### ✅ **Wave 8 완료 — `iac-platform-gitops`·`iac-reference-infra` 문서 zero-base 재작성** (2026-08-13(5))
 
 > ### ▶ 무엇을 했나 (다른 repo 대상, 이 repo는 건드리지 않음)
 >
@@ -498,7 +513,7 @@
 
 ---
 
-## ✅ **문서 작성 규칙(§8) 소급 정리 완료 — 태스크 #11** (2026-08-13(4))
+### ✅ **문서 작성 규칙(§8) 소급 정리 완료 — 태스크 #11** (2026-08-13(4))
 
 > ### ▶ 무엇을 했나 (커밋 예정 — 문서 전용, main 직접)
 >
@@ -528,7 +543,7 @@
 
 ---
 
-## ✅ **2026-08-13(3) — ESO 기각(정정) + 문서 작성 규칙(§8) 적용 범위 확장**
+### ✅ **2026-08-13(3) — ESO 기각(정정) + 문서 작성 규칙(§8) 적용 범위 확장**
 
 > ### ▶ 무엇을 했나 (커밋 예정 — 문서 전용, main 직접)
 >
@@ -563,7 +578,7 @@
 
 ---
 
-## ✅ **2026-08-13(2) — ESO 도입 승인 + 부트스트랩 방식 확정(설계, 미구현)**
+### ✅ **2026-08-13(2) — ESO 도입 승인 + 부트스트랩 방식 확정(설계, 미구현)**
 
 > ### ▶ 무엇을 했나 (커밋 예정 — 문서 전용, main 직접)
 >
@@ -594,7 +609,7 @@
 
 ---
 
-## ✅ **2026-08-13 — 약어 문서 참조 수정 + 예시 workload acme→demo + ESO 설계 제안(미승인)**
+### ✅ **2026-08-13 — 약어 문서 참조 수정 + 예시 workload acme→demo + ESO 설계 제안(미승인)**
 
 > ### ▶ 무엇을 했나 (커밋 `3abb198`·`b1d0124`(PR #23)·`ca2ce79`·`708ff78`·`ef57885`)
 >
@@ -625,7 +640,7 @@
 
 ---
 
-## ✅ **2026-08-12 — 약어 카탈로그 SSOT 정비 완료 (검사 게이트 + 등재 규칙 + 중복/패밀리 정리)**
+### ✅ **2026-08-12 — 약어 카탈로그 SSOT 정비 완료 (검사 게이트 + 등재 규칙 + 중복/패밀리 정리)**
 
 > ### ▶ 무엇을 했나 (커밋 `83ecc29` · `cb62af2` · `23e3f08`)
 >
@@ -652,7 +667,7 @@
 
 ---
 
-## ✅ **2026-08-12 — 문서 어휘 정리 + 팀 온보딩 문서(`00-team-access.md`) 신설**
+### ✅ **2026-08-12 — 문서 어휘 정리 + 팀 온보딩 문서(`00-team-access.md`) 신설**
 
 > ### ▶ 무엇을 했나 (커밋 `04d51d5` · `cadc941`)
 >
@@ -685,7 +700,7 @@
 
 ---
 
-## ✅ **2026-08-12 — 코드 주석 재편 완료 (PR #22 머지). D-ID 폐지**
+### ✅ **2026-08-12 — 코드 주석 재편 완료 (PR #22 머지). D-ID 폐지**
 
 > ### ▶ 기준을 **"간결"이 아니라 "자립"** 으로 잡았다
 >
@@ -757,7 +772,7 @@
 
 ---
 
-## ✅ **2026-08-12 — Wave 7 완료. 구 문서 10,223줄을 지웠다**
+### ✅ **2026-08-12 — Wave 7 완료. 구 문서 10,223줄을 지웠다**
 
 > ### ▶ 문서 zero-base 재작성 — **8 Wave 중 7개 완료.** 남은 것은 Wave 8뿐
 >
@@ -810,7 +825,7 @@
 
 ---
 
-## ✅ **2026-08-12 — 재구축(Wave 4-b) 완료. 환경이 살아 있다**
+### ✅ **2026-08-12 — 재구축(Wave 4-b) 완료. 환경이 살아 있다**
 
 > ### ▶ 현재 상태 — 전부 서 있고 검증됐다
 >
@@ -910,7 +925,8 @@
 
 ---
 
-## Priority Context
+
+### [구 Priority Context 아카이브 원문 — 2026-08-14 재구성 이전]
 
 **OSS IaC 모듈 자산 SSOT** — 2026-07-29 신설. 원격: `skax-ca/iac-module-library`(**private**, 무료 org).
 `origin`=`https://github.com/skax-ca/iac-module-library.git`, `main` 추적. push 정상.
@@ -3326,7 +3342,7 @@ NAT·EC2 3대·EKS·VPC·로그그룹을 **정확히 우리 것만** 잡고 `exi
 
 ---
 
-## 미결 항목
+### 미결 항목
 
 - ~~원격 repo 미생성~~ ✅ **해결**: `skax-ca/iac-module-library`(private) 생성·push 완료(2026-07-29).
   ⚠️ **immutable sub claim 주의**: 이 repo는 2026-07-15 이후 생성 → OIDC `sub`가 숫자 org/repo ID다.

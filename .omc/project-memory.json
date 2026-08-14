@@ -1,0 +1,68 @@
+{
+  "techStack": "OpenTofu 1.12.5 단독(terraform 명령 아님) + GitHub Actions OIDC + S3 backend(use_lockfile=true, DynamoDB 불필요) + OPA/Conftest. aws provider >= 6.0(모듈)/~> 6.0(예제·프로젝트 루트). 커뮤니티 모듈(terraform-aws-modules/*)은 정확 핀. .terraform.lock.hcl 커밋 대상(registry.opentofu.org 확인 필수).",
+  "build": "로컬 게이트(git hook, core.hooksPath=.githooks): pre-commit=tofu fmt -recursive -check → tflint --recursive → trivy config . / pre-push(modules/ 변경 시만)=tofu test. CI(.github/workflows/verify.yml) 6게이트: fmt·tflint·trivy·modules(init+validate+test)·examples(init+validate)·lock registry 검사. 도구 버전 고정 — OpenTofu 1.12.5·tflint 0.63.1·trivy 0.72.0·aws ruleset 0.48.0. 로컬/CI 버전 반드시 일치(어긋나면 신뢰 붕괴).",
+  "conventions": "네이밍 SSOT=docs/aws-naming-abbreviations.md(약어 임의 생성 금지, 없으면 거버넌스 리뷰 후 등재). Name 태그 포맷=(resourcetype)-(workloadcode)-(env)-(regioncode)-(purpose)-(serial). 버전 정책=전 모듈 0.y.z(파괴적 변경도 마이너로 흡수, 마이너/메이저 판정 안 함), 1.0.0은 모듈별 개별 컷(일괄 컷 기각). 신규 모듈은 0.1.0 시작. 브랜치 규칙=.tf·.github/workflows 변경은 브랜치+PR, 문서·.omc/notepad.md 전용 변경은 main 직접 커밋. 문서 작성 규칙(구 06-conventions.md §8): 사건 서술 금지(notepad 전용)·400줄 상한·정정 서술 금지(현재 사실만).",
+  "structure": "이 repo(iac-module-library)=모듈·설계 현행 SSOT. terraform-enterprise-poc=동결 스냅샷(2026-07-28 졸업, 수정 금지 — drift 방지). silverte/eks-platform-gitops=PoC GitOps 구현체(동결, 참조만). <project>-infra(예: iac-reference-infra)=프로젝트별 배포 루트, 이 repo 모듈을 git tag로 소싱. iac-platform-gitops=플랫폼 GitOps 매니페스트(계층2, ArgoCD pull reconcile) — .yaml 매니페스트는 이 repo에 두지 않는다. 이 repo는 배포하지 않는다(apply는 소비 repo 몫, 여기 기준은 tofu test+example validate까지).",
+  "version": "1.0.0",
+  "lastScanned": 1786692747657,
+  "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
+  "customNotes": [
+    {
+      "timestamp": 1786692769517,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-14 notepad 재구성 시점 이관(원문은 notepad MANUAL 아카이브 「미결 항목」). ⚠️ docs/design/* 경로 참조는 Wave 8 zero-base 재작성(2026-08-12, 01~08로 개편)으로 무효화됐을 수 있으니 사용 전 현재 docs/ 구조로 재확인할 것. (1) 실행 Role 권한 축소(iamr-ref-dev-an2-gha-exec-01=AdministratorAccess) — 착수 시점은 모듈 집합 안정 후(최소 EKS 이식 후). (2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결. (3) plan/apply 권한 분리 — tofu plan도 state lock을 잡아 \"plan은 read-only\" 불성립. (4) CI init이 모듈 repo 전체를 clone — 태그·히스토리 증가 시 depth=1 검토. (5) plan artifact 암호화 — retention-days:1은 완화이지 해결 아님. (6) VPC 열린 항목: TGW attachment·prefix list 소유권·IPAM 연계·Flow Logs 대상 확장(S3/Firehose)·private NAT 옵션·per-AZ NAT 개수 기준 — 전부 수요 발생 시 착수, 현재 차단 요인 아님."
+    },
+    {
+      "timestamp": 1786692774929,
+      "source": "manual",
+      "category": "ops-workbench",
+      "content": "dev workbench(SSM) 운영 함정 3건(2026-08-11 실측): (1) aws-api MCP는 READ_OPERATIONS_ONLY라 ssm send-command 거부됨 — 로컬 `aws --profile team`으로 보낼 것. (2) SSM RunShellScript는 $HOME이 없음 — 스크립트 첫 줄에 `export HOME=/root`, `export KUBECONFIG=/root/.kube/config` 필수. --parameters는 JSON 파일로(인라인 배열은 개행 뭉개짐). (3) kubectl -o jsonpath는 맵 순회($k,$v:=)를 지원 안 함 — -o go-template 사용. ArgoCD 웹 UI는 로컬→SSM port-forward(workbench)→kubectl port-forward(argocd-server) 2홉으로 접근하며 인스턴스 교체 시 사라짐(우회이지 해결 아님, 자동화 필요 시 별도 설계). 비밀번호·Secret 값은 send-command로 조회 금지(CloudTrail 기록) — 대화형 세션에서만."
+    }
+  ],
+  "userDirectives": [
+    {
+      "timestamp": 1786692751925,
+      "directive": "PoC repo(terraform-enterprise-poc)의 모듈·설계를 수정하지 않는다 — 양쪽 개발은 곧 drift, 6개월 뒤 정답 판정 불가",
+      "context": "repo 경계 규칙, CLAUDE.md §0",
+      "source": "explicit",
+      "priority": "high"
+    },
+    {
+      "timestamp": 1786692754106,
+      "directive": "두 엔진(Terraform+OpenTofu) 동시 지원을 재제안하지 않는다 — docs/08-decisions.md가 실측 비용 5건 근거로 이미 기각. 재검토는 사건 발생 시에만",
+      "context": "엔진 결정 D-ENGINE, CLAUDE.md 엔진 절",
+      "source": "explicit",
+      "priority": "high"
+    },
+    {
+      "timestamp": 1786692756364,
+      "directive": "릴리스된 태그를 덮어쓰지 않는다 — 예외는 소비자가 0일 때뿐, 0.y.z 구간에선 다음 마이너를 내면 되므로 이 예외 자체가 필요할 일이 없다",
+      "context": "semver 거버넌스, CLAUDE.md 작업 원칙",
+      "source": "explicit",
+      "priority": "high"
+    },
+    {
+      "timestamp": 1786692758582,
+      "directive": "docs/*.md에 날짜·\"실측했다\" 같은 사건 서술을 쓰지 않는다 — notepad.md 전용. docs는 현재 사실만",
+      "context": "문서 작성 규칙 §8 P2·P7",
+      "source": "explicit",
+      "priority": "high"
+    },
+    {
+      "timestamp": 1786692760751,
+      "directive": ".tf 작성 전 관련 설계가 docs/에 존재·승인됐는지 확인한다. 없으면 구현을 멈추고 설계→검토→구현→검증 순서를 지킨다. \"간단해 보인다\"는 예외 사유가 아니다",
+      "context": "설계·검토 우선 규칙, CLAUDE.md 최우선 규칙",
+      "source": "explicit",
+      "priority": "high"
+    },
+    {
+      "timestamp": 1786692762944,
+      "directive": "새 리소스/인자 사용 전 mcp__opentofu__get-resource-docs(namespace·name·resource 단독 호출)로 스키마를 확인한다 — 추정으로 대체하지 않는다. 커뮤니티 모듈 wrapping은 get_module_details로 실제 upstream 변수명 확인 후 작성",
+      "context": "검증 절차, CLAUDE.md 「코드 작성 전」",
+      "source": "explicit",
+      "priority": "high"
+    }
+  ],
+  "hotPaths": []
+}

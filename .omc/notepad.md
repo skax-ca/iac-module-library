@@ -48,12 +48,14 @@
 >    `docs/05-modules.md`(최신 태그·계약 테스트 22→24·`efs_csi_iam_role_arn` 출력·
 >    `cluster_addons` opt-in 서술)·`examples/eks-cluster-enterprise/README.md` 갱신 +
 >    **`eks-cluster-v0.7.0` annotated 태그 컷·push 완료**.
+> 3. **소비 repo(`iac-reference-infra`) 반영 완료** — PR [#35](https://github.com/skax-ca/iac-reference-infra/pull/35)로
+>    `ref=eks-cluster-v0.7.0` 상향, squash merge. push가 트리거한 CI plan job 실측:
+>    **`No changes. Your infrastructure matches the configuration.`** — 예상대로 EBS opt-in
+>    전환이 이 소비자에게 무영향임을 확인. apply 불필요(트리거되지도 않음).
 >
 > ### ⏭️ 다음 세션 확인 사항
-> 1. **소비 repo(`iac-reference-infra`) 반영**은 별도 PR — `ref=eks-cluster-v0.7.0`으로 상향 후,
->    EBS가 이제 opt-in이므로 (실측상 `live/dev/eks/main.tf:408`가 이미 `aws-ebs-csi-driver`를
->    명시적으로 pin하고 있어 **plan diff 없이** 통과할 것으로 예상 — 실제 plan으로 재확인).
-> 2. metrics-server의 baseline→opt-in 전환은 **이번 스코프에서 제외됨** — 필요해지면 별도 논의.
+> 없음 — 이번 요청 스코프 완결. metrics-server의 baseline→opt-in 전환은 **이번 스코프에서
+> 제외됨**(사용자 결정) — 필요해지면 별도 논의.
 
 ---
 

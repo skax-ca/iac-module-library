@@ -156,8 +156,13 @@ output "effective_addon_names" {
 # ── 컨트롤러 IAM ─────────────────────────────────────────────────────────────
 
 output "ebs_csi_iam_role_arn" {
-  description = "EBS CSI Driver의 Pod Identity role ARN. aws-ebs-csi-driver addon을 opt-out하면 null이다."
+  description = "EBS CSI Driver의 Pod Identity role ARN. opt-in addon이라 cluster_addons에 aws-ebs-csi-driver를 명시하지 않으면 null이다."
   value       = try(aws_iam_role.ebs_csi[0].arn, null)
+}
+
+output "efs_csi_iam_role_arn" {
+  description = "EFS CSI Driver의 Pod Identity role ARN. opt-in addon이라 cluster_addons에 aws-efs-csi-driver를 명시하지 않으면 null이다."
+  value       = try(aws_iam_role.efs_csi[0].arn, null)
 }
 
 output "alb_controller_iam_role_arn" {

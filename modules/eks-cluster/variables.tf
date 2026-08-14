@@ -357,6 +357,25 @@ variable "enable_karpenter" {
   default     = true
 }
 
+variable "enable_cluster_autoscaler" {
+  description = <<-EOT
+    Cluster Autoscaler IAM 전제조건(Pod Identity role · least-privilege 정책 · scale-from-zero용
+    ASG node-template 태그) 생성 여부. helm 설치는 GitOps 소관.
+
+    true면 managed_node_groups의 각 ASG에 k8s.io/cluster-autoscaler/node-template/label/* ·
+    .../taint/* 태그가 붙는다(labels·taints 입력을 그대로 미러링). auto-discovery 태그
+    (k8s.io/cluster-autoscaler/enabled 등)는 EKS가 관리형 노드그룹 생성 시 자동으로 붙이므로
+    이 모듈이 별도로 만들지 않는다.
+
+    Karpenter와 동시에 켤 수 있다 — 서로 다른 리소스를 다룬다(Karpenter=EC2 직접 프로비저닝,
+    CA=managed_node_groups의 ASG). 상호 배제하지 않는다. 단, 워크로드를 taint로 분리하지 않으면
+    같은 pending pod에 두 컨트롤러가 동시에 반응해 중복 프로비저닝이 발생할 수 있다
+    (근거: karpenter.sh FAQ, aws/karpenter-provider-aws#2543).
+  EOT
+  type        = bool
+  default     = false
+}
+
 variable "enable_alb_controller_iam" {
   description = <<-EOT
     AWS Load Balancer Controller용 Pod Identity role 생성 여부.

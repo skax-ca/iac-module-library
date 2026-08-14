@@ -145,3 +145,60 @@ module "karpenter" {
 
   tags = var.tags
 }
+
+# ── Cluster Autoscaler: scale-from-zero용 node-template 태그 ───────────────────
+#
+# CA는 ASG에 살아 있는 노드를 봐야 라벨·taint를 안다. min_size = 0인 노드그룹이 스케일업할 때는
+# 볼 노드가 없으므로 ASG 태그로 미리 알려준다(kubernetes/autoscaler AWS README "Scaling from 0").
+# aws_eks_node_group 리소스엔 이 태그를 넣을 인자가 없다 — AWS가 소유한 ASG에 별도로 태그를 얹는
+# aws_autoscaling_group_tag를 쓴다. hashicorp/aws 공식 문서가 정확히 이 용도(EKS managed node
+# group의 ASG)로 이 리소스를 예시로 든다.
+#
+# ⚠️ min_size > 0인 노드그룹에도 무해하게 적용한다 — 이미 떠 있는 노드는 태그가 아니라 실물 Node
+#    오브젝트로 라벨·taint를 알리므로 이 태그는 그저 읽히지 않을 뿐이다. 어떤 노드그룹이 "지금"
+#    0으로 갈 수 있는지를 이 모듈이 예단하지 않는다(추측성 입력 금지 원칙 — CLAUDE.md).
+locals {
+  # EKS 노드그룹 taint 스키마(SCREAMING_SNAKE, main.tf 상단 번역과 동일 입력)를 k8s/CA가 쓰는
+  # 표기(PascalCase)로 다시 번역한다 — CA node-template 태그는 k8s taint effect 문자열을 요구한다.
+  ca_taint_effect = {
+    NO_SCHEDULE        = "NoSchedule"
+    NO_EXECUTE         = "NoExecute"
+    PREFER_NO_SCHEDULE = "PreferNoSchedule"
+  }
+
+  ca_node_template_tags = var.enable_cluster_autoscaler ? merge([
+    for ng_key, ng in var.managed_node_groups : merge(
+      {
+        for k, v in ng.labels :
+        "${ng_key}::label::${k}" => {
+          asg_name = try(module.eks.eks_managed_node_groups[ng_key].node_group_autoscaling_group_names[0], null)
+          key      = "k8s.io/cluster-autoscaler/node-template/label/${k}"
+          value    = v
+        }
+      },
+      {
+        for t in ng.taints :
+        "${ng_key}::taint::${t.key}" => {
+          asg_name = try(module.eks.eks_managed_node_groups[ng_key].node_group_autoscaling_group_names[0], null)
+          key      = "k8s.io/cluster-autoscaler/node-template/taint/${t.key}"
+          value    = "${coalesce(t.value, "")}:${local.ca_taint_effect[t.effect]}"
+        }
+      }
+    )
+  ]...) : {}
+}
+
+resource "aws_autoscaling_group_tag" "cluster_autoscaler_node_template" {
+  for_each = local.ca_node_template_tags
+
+  autoscaling_group_name = each.value.asg_name
+
+  tag {
+    key   = each.value.key
+    value = each.value.value
+
+    # 인스턴스가 아니라 CA의 시뮬레이터만 읽는 메타데이터다. propagate_at_launch = true로 두면
+    # kubelet이 실제로 이 라벨을 들고 부팅을 시도해 충돌할 수 있다(AWS 공식 예제도 false 사용).
+    propagate_at_launch = false
+  }
+}

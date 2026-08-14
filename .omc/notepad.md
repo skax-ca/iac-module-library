@@ -1,5 +1,50 @@
 # Notepad — iac-module-library
 
+## ⏳ **Cluster Autoscaler 지원 PR #25 — 리뷰 대기** (2026-08-14(3), `2cef789`)
+
+> `eks-cluster` 모듈에 CA를 관리형 노드그룹의 오토스케일러로 쓰고 싶은 고객을 위한 설계+구현.
+> **배경**: 사용자 요구 — "app 워크로드는 전부 Karpenter, 필수 addon + OSS(redis/postgresql/
+> mongodb)는 관리형 노드그룹 + CA". 리서치→설계→구현→독립 리뷰까지 한 세션에서 완결.
+>
+> ### ▶ 리서치로 확정한 것 (구현 전 근거 확보)
+> - Karpenter·CA 동시 운영은 **AWS가 금지한다는 근거 없음** — WebSearch 요약이 잘못 인용한
+>   "run one or the other"는 AWS 공식 문서 원문에 실제로 없다(2회 직접 fetch로 반증).
+>   진짜 근거는 karpenter.sh FAQ("can work alongside") + `aws/karpenter-provider-aws#2543`
+>   실사용 보고(taint 미분리 시 중복 프로비저닝, 파괴적이진 않음) + 컨트리뷰터 권고(taint 분리).
+> - taint(밀어내기)와 nodeSelector(끌어당기기)는 **둘 다 필요** — toleration만 주면 Karpenter가
+>   OSS 파드를 위해 새 노드를 띄워버릴 수 있다.
+> - DaemonSet(vpc-cni·eks-pod-identity-agent·ebs-csi node)에 **nodeSelector를 걸면 안 된다**
+>   — Karpenter 노드에서 네트워킹·Pod Identity가 통째로 죽는다. toleration만.
+> - 각 addon의 `configuration_values`가 tolerations를 지원하는지 **EKS API로 직접 확인**
+>   (`aws eks describe-addon-configuration`) — vpc-cni·eks-pod-identity-agent·ebs-csi·coredns·
+>   metrics-server는 지원, **kube-proxy만 스키마에 필드 없음**(`aws/containers-roadmap#2604`
+>   미해결 요청) — 대신 기본 매니페스트가 이미 `operator: Exists`라 무해함.
+> - CA도 Karpenter와 마찬가지로 **EKS 관리형 addon이 아니다**(라이브 API로 전체 카탈로그
+>   조회해 확인) — helm 설치는 계층 2(GitOps) 소관, 이 repo는 IAM만 만든다.
+>
+> ### ▶ 구현 (PR #25, `feat/eks-cluster-autoscaler-support`)
+> - `enable_cluster_autoscaler`: `terraform-aws-modules/eks-pod-identity`의
+>   `attach_cluster_autoscaler_policy` 재사용 — 새 upstream 의존성 없음.
+> - scale-from-zero용 `aws_autoscaling_group_tag` — `managed_node_groups`의 labels·taints를
+>   ASG의 `node-template/*` 태그로 미러링. `aws_eks_node_group`엔 이 태그를 넣을 인자가 없어
+>   hashicorp/aws 공식 예제가 제시하는 리소스를 그대로 씀.
+> - `docs/07-runbooks.md`에 taint 전략 런북 신설, `docs/05-modules.md`·
+>   `docs/02-choose-your-path.md` 갱신(네임스페이스 예외표에 CA 추가 — **관례일 뿐 공식
+>   근거 없음을 정직하게 표기**).
+> - 계약 테스트 2건 추가(20 → 22). fmt·tflint·trivy(신규 finding 0)·`tofu test` 전부 통과.
+> - **독립 에이전트로 컨벤션 재검토**(같은 세션 자기 승인 금지 원칙) — 9개 항목 전부 통과.
+>   유일한 우려사항("계약 테스트: 20"이 stale 아니냐)은 **git 이력으로 반증** — 이 필드는
+>   태그 스냅샷이지 main 실시간 카운트가 아님(v0.4.0·v0.5.0 태그 시점 실측 둘 다 정확히 20개).
+>
+> ### ⏭️ **다음 태스크**
+>
+> PR #25(https://github.com/skax-ca/iac-module-library/pull/25) 사용자 리뷰·머지 대기.
+> 머지 후: ① `docs/05-modules.md`의 "최신 태그·계약 테스트" 줄은 **다음 릴리스 태그 컷 시점에**
+> `eks-cluster-v0.6.0`·22로 함께 갱신(지금 미리 건드리지 않은 것은 의도적). ② taint 전략은
+> IaC 설계까지만 검증됐고 실제 워크로드 배치(GitOps 쪽 helm values·NodePool)는 미착수.
+
+---
+
 ## ✅ **§8 규칙 6(절 번호 인용 금지) 소급 정리 완료** (2026-08-14(2), `74b0304`)
 
 > 사용자가 명시적으로 지시해 **2026-08-13(3)의 "소급 적용 안 함" 결정을 이 항목에 한해

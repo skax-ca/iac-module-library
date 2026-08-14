@@ -397,6 +397,43 @@ run "karpenter_disabled_yields_null_outputs" {
   }
 }
 
+# ── AC10-b: Cluster Autoscaler 토글 ──────────────────────────────────────────
+#
+# ⚠️ aws_autoscaling_group_tag(scale-from-zero 태그)는 managed_node_groups가 채워졌을 때만
+#    의미가 있는데, 이 파일 머리말의 결정대로 NG를 채우면 중첩 모듈이 깨어난다. 여기서는
+#    "IAM opt-in"만 검증하고, 태그 미러링 자체(라벨·taint가 실제로 ASG 태그로 나오는지)는
+#    managed_node_groups NG 계약과 같은 이유로 examples의 라이브 apply가 담당한다.
+
+run "cluster_autoscaler_disabled_yields_null_output" {
+  command = plan
+
+  # 기본값은 off다 — Karpenter·ALBC·external-dns와 같은 opt-in 규약.
+  assert {
+    condition     = output.cluster_autoscaler_iam_role_arn == null
+    error_message = "enable_cluster_autoscaler 기본값은 false여야 한다."
+  }
+}
+
+run "cluster_autoscaler_opt_in_creates_role" {
+  command = plan
+
+  variables {
+    enable_cluster_autoscaler = true
+  }
+
+  assert {
+    condition     = output.cluster_autoscaler_iam_role_arn != null
+    error_message = "opt-in하면 Cluster Autoscaler Pod Identity role이 생성되어야 한다."
+  }
+
+  # managed_node_groups가 비어 있으므로(이 파일의 기본 시나리오) 미러링할 라벨·taint가 없다 —
+  # for_each가 빈 맵으로 평가되어 인스턴스가 0개여야 한다(에러가 아니라 정상적으로 0개).
+  assert {
+    condition     = length(aws_autoscaling_group_tag.cluster_autoscaler_node_template) == 0
+    error_message = "managed_node_groups가 비어 있으면 scale-from-zero 태그도 0개여야 한다."
+  }
+}
+
 # ── AC11: 컨트롤러 IAM 위임  ──────────────────────────────────────────
 
 run "controller_iam_is_opt_in" {

@@ -124,6 +124,19 @@ output "karpenter_discovery_tag" {
   }
 }
 
+# ── Cluster Autoscaler (GitOps가 소비) ───────────────────────────────────────
+#
+# enable_cluster_autoscaler = false 또는 kill switch면 null이다.
+
+output "cluster_autoscaler_iam_role_arn" {
+  description = <<-EOT
+    Cluster Autoscaler Pod Identity role ARN. GitOps helm values의 서비스 어카운트 annotation이
+    아니라 Pod Identity association으로 이미 바인딩되어 있다(namespace=kube-system,
+    service_account=cluster-autoscaler — 이 모듈이 고정한다).
+  EOT
+  value       = try(module.cluster_autoscaler_pod_identity.iam_role_arn, null)
+}
+
 # ── addon  ─────────────────────────────────────────────────────────────
 
 output "effective_addon_names" {

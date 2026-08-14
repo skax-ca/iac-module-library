@@ -109,3 +109,31 @@ module "external_dns_pod_identity" {
 
   tags = var.tags
 }
+
+module "cluster_autoscaler_pod_identity" {
+  source  = "terraform-aws-modules/eks-pod-identity/aws"
+  version = "2.8.2"
+
+  create = local.enabled && var.enable_cluster_autoscaler
+
+  name            = "iamr-${local.name_mid}-cluster-autoscaler"
+  use_name_prefix = false
+
+  # least-privilege 정책이 커뮤니티 큐레이션이다 — kubernetes/autoscaler AWS README의 권장 정책과
+  # 동일한 조건(SetDesiredCapacity·TerminateInstanceInAutoScalingGroup을 클러스터 소유 ASG로
+  # 태그 스코핑)을 upstream이 이미 만든다(cluster_autoscaler.tf 실측).
+  attach_cluster_autoscaler_policy = true
+  cluster_autoscaler_cluster_names = [module.eks.cluster_name]
+
+  # kube-system·cluster-autoscaler는 공식 요구사항이 아니라 관례다(Karpenter의 kube-system과
+  # 달리 APF FlowSchema 같은 근거가 없다) — docs/02-choose-your-path.md에 그대로 기록한다.
+  associations = {
+    this = {
+      cluster_name    = module.eks.cluster_name
+      namespace       = "kube-system"
+      service_account = "cluster-autoscaler"
+    }
+  }
+
+  tags = var.tags
+}

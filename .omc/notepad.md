@@ -1,5 +1,42 @@
 # Notepad — iac-module-library
 
+## ✅ **Cluster Autoscaler 실제 활성화 완료 — 5단계 전부 실측 검증** (2026-08-14(7))
+
+> 「CA 실제 활성화 경로」 5단계를 전부 마쳤다. 사용자가 중간에 "Karpenter만 켜고 CA는 꺼도
+> 되는지"를 물어 코드 근거(모듈 `iam.tf:117`·`main.tf:169`, `enable_cluster_autoscaler`
+> 하나로만 게이트된 리소스 2개뿐 — Karpenter와 완전 분리)로 답한 뒤, "CA까지 켜서 진행"으로 확정.
+>
+> ### ▶ 1. `eks-cluster-v0.6.0` 태그 컷 (이 repo)
+> annotated 태그로 컷. 문서 4개 갱신(`README.md`·`CLAUDE.md`·`docs/05-modules.md`·
+> `examples/eks-cluster-enterprise/README.md`, 커밋 `829956c`) — 이 README 자신이 "두 번
+> 걸렸다"고 경고해 둔 stale 태그 함정을 이번엔 피했다(태그 컷과 문서 갱신을 한 커밋에 묶음).
+>
+> ### ▶ 2·3. `iac-reference-infra` 모듈 상향 + CA 활성화 (PR [#34](https://github.com/skax-ca/iac-reference-infra/pull/34))
+> `ref=eks-cluster-v0.6.0` + `enable_cluster_autoscaler = true`. `tofu init -upgrade`를
+> 습관적으로 썼다가 무관한 aws provider 버전(6.57.1→6.60.0)까지 딸려 올라온 것을 사용자가
+> 지적 — lock 되돌리고 `-upgrade` 없이 재실행해 provider 안 건드리고도 충분함을 확인(git
+> ref 소싱은 ref 자체가 소스 키라 캐시 staleness가 애초에 없다). plan `6 to add, 0 to change,
+> 0 to destroy`(ASG 태그 2 + IAM 4) → apply `6 added, 0 changed, 0 destroyed`.
+>
+> ### ▶ 4. GitOps 카탈로그 구독 (PR [#12](https://github.com/skax-ca/iac-platform-gitops/pull/12))
+> `cluster-secret.yaml`에 `addon-cluster-autoscaler: enabled` 라벨 추가. 매니페스트 자체가
+> "taint 반영 전엔 negative affinity만으로 버틴다"고 미리 남겨둔 대로, `nodeSelector`+
+> `tolerations`(coredns·metrics-server와 동일 패턴)를 추가로 보완 — `helm template` 로컬
+> 렌더로 실제 반영 확인 후 커밋. stale 경고 주석(taint 미반영·egress 미확인 전제) 정리.
+> 이 repo는 "머지=배포"(automated selfHeal)라 병합 전 사용자 확인 받음.
+>
+> ### ▶ 5. 실측 검증
+> ArgoCD Application `Synced`/`Healthy` → CA 파드가 정확히 system 노드(`ip-10-51-36-199`)에
+> `Running` → 로그 확인: **system 노드 2대만 인식**(Karpenter 노드는 전혀 안 건드림),
+> ASG(`eks-eksn-demo-dev-an2-system-...`) 자동 발견 성공, IAM 인증 정상(에러 0),
+> `"No unschedulable pods"` 정상 steady state.
+>
+> ### ⏭️ 다음 태스크
+> 없음 — CA 활성화 경로 5단계 + taint 전략(ebs-csi-controller 누락 포함) 전부 완결.
+> 향후 수요 발생 시 착수할 열린 항목은 파일 하단 「미결 항목」 참조.
+
+---
+
 ## ✅ **ebs-csi-controller taint 누락 — 사용자 발견 → 원인파악 → 수정 완료** (2026-08-14(6), `4d6aa49`)
 
 > 사용자가 taint 반영(PR #32) 직후 `kubectl get nodeclaims`로 Karpenter 노드가 새로 뜬 걸

@@ -42,15 +42,18 @@
 > - 로컬 게이트(fmt·tflint·trivy) 전부 클린. `examples/eks-cluster-enterprise` init+validate
 >   Success. pre-push 훅이 vpc(13)·workbench(18) 회귀도 함께 확인 — 전부 pass.
 
+> ### ✅ 완료된 것
+> 1. **PR #27 머지 완료** — CI(`verify.yml`) 3게이트 통과 후 squash merge(`0b5277e`).
+> 2. **릴리스 준비 완료**(v0.6.0 때와 같은 순서, 커밋 `770f6bc`): `README.md`·`CLAUDE.md`·
+>    `docs/05-modules.md`(최신 태그·계약 테스트 22→24·`efs_csi_iam_role_arn` 출력·
+>    `cluster_addons` opt-in 서술)·`examples/eks-cluster-enterprise/README.md` 갱신 +
+>    **`eks-cluster-v0.7.0` annotated 태그 컷·push 완료**.
+>
 > ### ⏭️ 다음 세션 확인 사항
-> 1. **PR #27 머지 여부 확인** — CI(`verify.yml`) 통과 확인 후 머지.
-> 2. **머지 후 릴리스 준비**(v0.6.0 때와 같은 순서로 별도 커밋): `eks-cluster-v0.7.0` 태그 컷 +
->    `docs/05-modules.md`("최신 태그"·"계약 테스트: 22→24"·`cluster_addons`/출력 목록에
->    `efs_csi_iam_role_arn` 추가) + `README.md`·`CLAUDE.md`·
->    `examples/eks-cluster-enterprise/README.md` 갱신.
-> 3. **소비 repo(`iac-reference-infra`) 반영**은 별도 PR — 새 태그로 상향 후, EBS가 이제
->    opt-in이므로 (실측상 이미 명시돼 있어 무변경이지만) 계약 변경 인지 여부 재확인.
-> 4. metrics-server의 baseline→opt-in 전환은 **이번 스코프에서 제외됨** — 필요해지면 별도 논의.
+> 1. **소비 repo(`iac-reference-infra`) 반영**은 별도 PR — `ref=eks-cluster-v0.7.0`으로 상향 후,
+>    EBS가 이제 opt-in이므로 (실측상 `live/dev/eks/main.tf:408`가 이미 `aws-ebs-csi-driver`를
+>    명시적으로 pin하고 있어 **plan diff 없이** 통과할 것으로 예상 — 실제 plan으로 재확인).
+> 2. metrics-server의 baseline→opt-in 전환은 **이번 스코프에서 제외됨** — 필요해지면 별도 논의.
 
 ---
 

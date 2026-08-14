@@ -1,5 +1,37 @@
 # Notepad — iac-module-library
 
+## ✅ **CA replica 정책 확인 + scale-up 실측 테스트 완료** (2026-08-14(8))
+
+> 사용자 질문: "CA는 Karpenter와 다르게 pod 1개가 기본인가?" — 공식 문서로 확인.
+>
+> ### ▶ 조사 결과
+> - `helm show values`: CA 차트(9.59.0) `replicaCount: 1` vs Karpenter 차트(1.14.0)
+>   `replicas: 2`(우리 배포도 2로 일치) — **misconfiguration 아니고 upstream 기본값 그대로**.
+> - AWS EKS Best Practices Guide 원문: *"It uses leader election to ensure high
+>   availability, but work is done by a single replica at a time. **It is not
+>   horizontally scalable.**"* — CA는 애초에 구조적으로 수평 확장이 안 되는 설계라
+>   1개 이상 띄워도 의미가 없다(leader election은 failover 전용).
+>
+> ### ▶ scale-up 실측 테스트 (dev 클러스터, workbench SSM)
+> `nodeSelector: workload-class=system` + toleration + `cpu: 1000m` 요청하는 테스트
+> Deployment(3 replica) 배포 → 2개는 기존 노드에 즉시 스케줄, 1개 `Pending` →
+> CA 로그: `"Final scale-up plan: [{...system... 2->3 (max: 4)}]"` → 새 노드
+> (`ip-10-51-36-93`) 2분 39초만에 `Ready` → **새 노드에 `workload-class=system`
+> taint·label이 정확히 적용**(scale-from-zero ASG 태그가 실제로 CA의 사전 스케줄링
+> 시뮬레이션에 쓰였다는 증거) → 3번째 파드 새 노드로 정상 배치. 테스트 Deployment 삭제 완료.
+>
+> ⏳ **scale-down 미확인 채로 세션 종료** — `scale-down-unneeded-time`(10분) +
+> `scale-down-delay-after-add`(10분, 방금 스케일업해서 쿨다운 중) 때문에 최소
+> 10~20분 소요. 세션 종료 시점(파드 삭제 후 ~5분)까지는 3개 노드 유지 중이었다
+> (`ip-10-51-36-93` 정상 상태, 방치해도 안전 — AWS 실비용은 t4g.medium on-demand
+> 수십 분 분量, 소액).
+>
+> ### ⏭️ 다음 세션 확인 사항
+> `kubectl get nodes -l workload-class=system`으로 system 노드가 2개로 돌아갔는지
+> 확인(자동 완료됐어야 함 — 안 됐으면 `kubectl get nodeclaims`·CA 로그로 원인 확인).
+
+---
+
 ## ✅ **Cluster Autoscaler 실제 활성화 완료 — 5단계 전부 실측 검증** (2026-08-14(7))
 
 > 「CA 실제 활성화 경로」 5단계를 전부 마쳤다. 사용자가 중간에 "Karpenter만 켜고 CA는 꺼도

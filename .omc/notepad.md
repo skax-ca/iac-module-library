@@ -54,13 +54,24 @@
 > CI/훅이 없고(§8 게이트도 의도적으로 미설치) 과거 `5678d10` 전례도 문서 전용 direct
 > commit이라 같은 방식으로 진행했다.
 >
-> ### ⏭️ **다음 태스크**
+> ✅ **repo-server egress canary(`kubernetes.github.io`) 확인** — 사용자가 이미 여러 차례
+> 직접 실측 확인함(2026-08-14, 이 세션에서 구두 확인). 별도 재검증 불필요.
 >
-> 1. dev 클러스터 CA 구독 전 repo-server egress canary(`kubernetes.github.io`) 확인
+> ### ⏭️ **다음 태스크 — CA 실제 활성화 경로**
 >
-> ⚠️ CA를 실제로 켜려면(`enable_cluster_autoscaler=true`) **`eks-cluster-v0.6.0` 태그
-> 컷**(CA IAM 지원은 PR #25로 main엔 있으나 아직 태그 안 됨)이 먼저 필요 — taint 반영은
-> 그 전제조건 중 하나였고 이제 끝났다. 「다음 태스크」 3항목 중 남은 것은 egress canary 1건뿐이다.
+> 이번 taint 반영 + egress canary 확인으로 CA를 실제로 켤 준비가 다 됐다. 남은 것은
+> **`eks-cluster-v0.6.0` 태그 컷**뿐이다(CA IAM 지원은 PR #25로 main엔 있으나 아직 태그 안 됨).
+>
+> 1. `eks-cluster-v0.6.0` 태그 컷 — `docs/05-modules.md`의 "최신 태그·계약 테스트" 줄을
+>    `v0.5.0`→`v0.6.0`·계약 테스트 20→22로 함께 갱신(PR #25 노트에 미리 남겨둔 대로).
+> 2. `iac-reference-infra`의 `module "eks"` source `ref`를 `eks-cluster-v0.6.0`으로 상향
+>    (브랜치+PR, `.tf` 변경 규칙).
+> 3. `enable_cluster_autoscaler = true` 추가, `managed_node_groups.system`의 ASG에
+>    `k8s.io/cluster-autoscaler/node-template/*` 태그가 붙는지 plan으로 확인.
+> 4. GitOps(`iac-platform-gitops`)의 `cluster-autoscaler` 카탈로그를 dev 클러스터 Secret에
+>    `addon-cluster-autoscaler: enabled` 라벨로 구독.
+> 5. `docs/07-runbooks.md` §9의 ⑤(CA 동작 확인) 절차로 실측 검증
+>    (`kubectl logs -n kube-system deploy/cluster-autoscaler`).
 
 ---
 

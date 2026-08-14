@@ -326,7 +326,7 @@ kubectl get pods -n kube-system -o wide -l app=ebs-csi-node
 
 # ② coredns·metrics-server가 system 노드로만 배치됐는지 (nodeSelector+toleration 검증)
 kubectl get pods -n kube-system -o wide -l k8s-app=kube-dns
-kubectl get pods -n kube-system -o wide -l k8s-app=metrics-server
+kubectl get pods -n kube-system -o wide -l app.kubernetes.io/name=metrics-server
 
 # ③ 격리 검증 — toleration 없는 파드는 시스템 노드그룹에 절대 못 붙는다
 kubectl run probe --image=public.ecr.aws/eks-distro/kubernetes/pause:3.2 --restart=Never

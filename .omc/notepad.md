@@ -1,18 +1,30 @@
 # Notepad — iac-module-library
 
-## ✅ **PR #24 머지 완료** (2026-08-14, `00ee5dc`)
+## ✅ **§8 규칙 6(절 번호 인용 금지) 소급 정리 완료** (2026-08-14(2), `74b0304`)
 
-> `verify.yml`·`.githooks` 주석 정리 PR. CI 게이트(공통 검증·약어 카탈로그 SSOT) 전부 통과,
-> `main`과 충돌 없음(`CLEAN`) 확인 후 사용자 승인 받아 squash merge + 브랜치 삭제.
-> 로컬 `main`도 fast-forward로 동기화 완료. 2026-08-14(1) 세션의 「다음 태스크 1번」 해소.
+> 사용자가 명시적으로 지시해 **2026-08-13(3)의 "소급 적용 안 함" 결정을 이 항목에 한해
+> 뒤집었다.** `docs/00-team-access.md`(3건)·`docs/01-architecture.md`(2건)·`docs/README.md`
+> (1건)·`docs/AGENTS.md`(1건)·`examples/vpc-enterprise/README.md`(1건)·
+> `examples/eks-cluster-enterprise/README.md`(2건) — 총 6개 파일 10건의 `§N` 인용을
+> 문서 단위 링크 또는 절 제목 참조(`「...」`)로 교체. 내용 변경 없음, `main` 직접 커밋
+> (문서 전용). 재검증: `grep -rn "§[0-9]"` (notepad·`docs-archive-*` 태그 제외) **0건**.
+>
+> ⚠️ **아직 안 건드린 것**: `examples/eks-cluster-enterprise/README.md`의 날짜 붙은
+> "실측(1.35·an2, 2026-08-04)" 같은 서술은 §8 **규칙 7**(정정 서술 금지) 위반이지 규칙 6이
+> 아니다 — 이번 지시 범위 밖. 규칙 7 소급 정리가 필요하면 별도로 지시받는다.
 >
 > ### ⏭️ **다음 태스크**
 >
-> 1. 2026-08-14(1) 세션에서 스코프 밖으로 남긴 것(참고만, 급하지 않음): `docs/00·01`과 예제
->    README의 §N 인용 다수는 내용은 정확하지만 §8 규칙 6(절 번호 인용 금지) 스타일 위반 —
->    2026-08-13(3) 결정대로 소급 미적용 상태 유지 중. `examples/eks-cluster-enterprise/
->    README.md`의 날짜 붙은 "실측" 서술도 §8 규칙 7 대상이나 이번 스코프(13건) 밖이었다.
-> 2. 별도 백로그 없음 — 문서 zero-base 재작성(Wave 1~8) + CI 파일 정리까지 완결된 상태.
+> 없음 — 문서 zero-base 재작성(Wave 1~8) + CI 파일 정리 + §8 규칙 6 소급 정리까지 완결.
+> 위 규칙 7 잔존 위반은 참고 사항이지 착수 대상 아님(사용자 지시 시에만).
+
+---
+
+## ✅ **PR #24 머지 완료** (2026-08-14(1), `00ee5dc`)
+
+> `verify.yml`·`.githooks` 주석 정리 PR. CI 게이트(공통 검증·약어 카탈로그 SSOT) 전부 통과,
+> `main`과 충돌 없음(`CLEAN`) 확인 후 사용자 승인 받아 squash merge + 브랜치 삭제.
+> 로컬 `main`도 fast-forward로 동기화 완료.
 
 ---
 

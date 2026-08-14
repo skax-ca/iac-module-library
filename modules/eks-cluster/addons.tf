@@ -26,14 +26,18 @@ locals {
   # ── baseline addon ─────────────────────────────────────────────────────────
   #
   # core 4종은 비활성화가 차단된다(variables.tf validation). eks-pod-identity-agent가 core인 것은
-  # Karpenter·EBS CSI의 association 생존 전제이기 때문이다 — 빠지면 IAM에는 role이 있는데
+  # Karpenter·EBS/EFS CSI의 association 생존 전제이기 때문이다 — 빠지면 IAM에는 role이 있는데
   # Pod가 자격증명을 못 받는 **조용한 파손**이 된다.
+  #
+  # ⚠️ aws-ebs-csi-driver는 baseline이 아니다(2026-08-14 opt-in 전환). RWX/블록 스토리지 CSI는
+  # "새 클러스터가 나오자마자 모든 워크로드가 기대하는 최소 기능"이 아니라 워크로드 선택이라
+  # EFS CSI와 같은 규칙을 쓴다 — 소비자가 cluster_addons에 명시해야만 addon·IAM role이 생긴다.
+  # 향후 S3 Mountpoint CSI 등 다른 스토리지 addon도 이 규칙을 따른다.
   baseline_addon_names = [
     "vpc-cni",
     "coredns",
     "kube-proxy",
     "eks-pod-identity-agent",
-    "aws-ebs-csi-driver",
     "metrics-server",
   ]
 
@@ -77,8 +81,10 @@ locals {
   # ── 2) merge — 소비자가 이긴다. 누락은 삭제가 아니다 ────────────────────────
   merged_addons = merge(local.baseline_addons, var.cluster_addons)
 
-  # ebs-csi를 opt-out하면 IAM role도 만들지 않는다. iam.tf가 이 값을 쓴다.
+  # ebs-csi·efs-csi 둘 다 opt-in이다 — cluster_addons에 명시해야만 true가 된다(baseline이
+  # 아니므로 merged_addons에 아예 없으면 try()가 false로 떨어진다). iam.tf가 이 값을 쓴다.
   ebs_csi_enabled = local.enabled && try(local.merged_addons["aws-ebs-csi-driver"].enabled, false)
+  efs_csi_enabled = local.enabled && try(local.merged_addons["aws-efs-csi-driver"].enabled, false)
 
   # ── 3) custom networking configuration  ───────────────────────────────
   #
@@ -140,6 +146,16 @@ locals {
         pod_identity_association = [{
           role_arn        = aws_iam_role.ebs_csi[0].arn
           service_account = "ebs-csi-controller-sa"
+        }]
+      }
+      : {},
+
+      # 재주입 ③: EFS CSI도 같은 패턴 — 모듈이 만든 role을 가리킨다.
+      name == "aws-efs-csi-driver" && local.efs_csi_enabled
+      ? {
+        pod_identity_association = [{
+          role_arn        = aws_iam_role.efs_csi[0].arn
+          service_account = "efs-csi-controller-sa"
         }]
       }
       : {},

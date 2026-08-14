@@ -4,7 +4,7 @@
 # 않는다** — AWS 관리형이나 커뮤니티 큐레이션에 위임한다. self-authored 정책은 churn을 우리가 떠안는다.
 #
 # 두 갈래로 나뉜다:
-#   · AWS 관리형 정책으로 충분한 것(EBS CSI) → 이 파일이 role을 직접 만들고 addon이 association을 건다.
+#   · AWS 관리형 정책으로 충분한 것(EBS CSI · EFS CSI) → 이 파일이 role을 직접 만들고 addon이 association을 건다.
 #   · custom 정책이 필요한 것(ALBC · external-dns) → terraform-aws-modules/eks-pod-identity에 위임한다.
 #
 # 네이밍은 이원화되어 있다(의식적 결정): 이 모듈이 직접 저작하는 role은 약어 카탈로그를 지키고
@@ -53,6 +53,48 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   # AWS 관리형 정책에 위임한다 — self-author 하면 churn 을 우리가 떠안는다.
   # ⚠️ 고객 관리형 KMS 키로 볼륨을 암호화하면 KMS 권한이 더 필요하다.
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+}
+
+# ── EFS CSI Driver ───────────────────────────────────────────────────
+#
+# EBS CSI와 같은 취급이다 — AWS 관리형 정책 하나로 충분하다. EBS와 다른 점은 baseline이 아니라
+# opt-in이라는 것뿐이다(addons.tf 참조): RWX 공유 스토리지는 일부 워크로드만 쓰므로, 안 쓰는
+# 소비자에게 idle role을 강제하지 않는다. 활성화 여부는 baseline 소속과 무관하게 소비자가
+# cluster_addons에 이 addon을 추가했는지로만 판정된다(merge 메커니즘이 이미 일반적이라 별도
+# enable_* 변수가 필요 없다).
+
+data "aws_iam_policy_document" "efs_csi_assume_role" {
+  count = local.efs_csi_enabled ? 1 : 0
+
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["pods.eks.amazonaws.com"]
+    }
+
+    actions = ["sts:AssumeRole", "sts:TagSession"]
+  }
+}
+
+resource "aws_iam_role" "efs_csi" {
+  count = local.efs_csi_enabled ? 1 : 0
+
+  # 카탈로그 A.6 `iamr`. purpose 토큰이 곧 용도(efs-csi)다.
+  name               = "iamr-${local.name_mid}-efs-csi"
+  assume_role_policy = data.aws_iam_policy_document.efs_csi_assume_role[0].json
+
+  tags = merge(var.tags, {
+    Name = "iamr-${local.name_mid}-efs-csi"
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "efs_csi" {
+  count = local.efs_csi_enabled ? 1 : 0
+
+  role       = aws_iam_role.efs_csi[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
 }
 
 # ── 컨트롤러 IAM 위임  ────────────────────────────────────────────────

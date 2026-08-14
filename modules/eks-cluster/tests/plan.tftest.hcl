@@ -151,6 +151,13 @@ variables {
 run "naming_and_name_tag" {
   command = plan
 
+  # ebs-csi는 opt-in이라 아래 Name 태그 assertion이 리소스를 보려면 명시적으로 켜야 한다.
+  variables {
+    cluster_addons = {
+      "aws-ebs-csi-driver" = { enabled = true }
+    }
+  }
+
   assert {
     condition     = output.cluster_name == "eks-demo-prd-an2-main-01"
     error_message = "cluster_name이 eks-<workload>-<env>-<region_code>-<purpose>-<serial> 포맷으로 합성되어야 한다."
@@ -189,18 +196,18 @@ run "naming_and_name_tag" {
 run "addon_baseline_inherited" {
   command = plan
 
-  # cluster_addons를 비워도 baseline 6종이 살아 있어야 한다.
+  # cluster_addons를 비워도 baseline 5종(core 4 + metrics-server)이 살아 있어야 한다.
+  # aws-ebs-csi-driver는 2026-08-14부터 opt-in이라 baseline에 없다(efs-csi와 동일 규칙).
   # 이 계약이 깨지면 소비자가 addon 하나를 추가했을 때 coredns가 사라진다(= DNS 중단).
   assert {
     condition = output.effective_addon_names == tolist([
-      "aws-ebs-csi-driver",
       "coredns",
       "eks-pod-identity-agent",
       "kube-proxy",
       "metrics-server",
       "vpc-cni",
     ])
-    error_message = "cluster_addons가 비면 baseline 6종을 그대로 상속해야 한다."
+    error_message = "cluster_addons가 비면 baseline 5종을 그대로 상속해야 한다."
   }
 }
 
@@ -215,8 +222,8 @@ run "addon_increment_does_not_replace_baseline" {
   }
 
   assert {
-    condition     = length(output.effective_addon_names) == 7
-    error_message = "addon 1개를 추가하면 baseline 6종 + 1 = 7이어야 한다. 6이면 맵이 통째로 대체된 것이다."
+    condition     = length(output.effective_addon_names) == 6
+    error_message = "addon 1개를 추가하면 baseline 5종 + 1 = 6이어야 한다. 5면 맵이 통째로 대체된 것이다."
   }
 
   assert {
@@ -232,25 +239,71 @@ run "addon_opt_out_removes_addon_and_its_role" {
 
   variables {
     cluster_addons = {
-      "aws-ebs-csi-driver" = { enabled = false }
-      "metrics-server"     = { enabled = false }
+      "metrics-server" = { enabled = false }
     }
   }
 
   assert {
     condition     = length(output.effective_addon_names) == 4
-    error_message = "optional addon 2종을 opt-out하면 core 4종만 남아야 한다."
+    error_message = "baseline optional addon(metrics-server)을 opt-out하면 core 4종만 남아야 한다."
   }
+}
 
-  # ebs-csi를 빼면 그 role도 만들지 않는다 — 쓰지 않는 role을 남기지 않는다.
+# ── AC4-b: 스토리지 CSI addon — opt-in이라야 role이 생긴다 ────────────
+
+run "storage_csi_addons_disabled_by_default" {
+  command = plan
+
+  # cluster_addons를 비우면 EBS·EFS CSI 둘 다 baseline이 아니므로 role이 생기지 않는다.
   assert {
     condition     = length(aws_iam_role.ebs_csi) == 0
-    error_message = "aws-ebs-csi-driver를 opt-out하면 EBS CSI role도 생성하지 않아야 한다."
+    error_message = "aws-ebs-csi-driver를 명시하지 않으면 EBS CSI role을 만들지 않아야 한다(opt-in)."
   }
 
   assert {
     condition     = output.ebs_csi_iam_role_arn == null
-    error_message = "opt-out 시 출력은 에러가 아니라 null이어야 한다."
+    error_message = "opt-in하지 않은 상태의 출력은 에러가 아니라 null이어야 한다."
+  }
+
+  assert {
+    condition     = length(aws_iam_role.efs_csi) == 0
+    error_message = "aws-efs-csi-driver를 명시하지 않으면 EFS CSI role을 만들지 않아야 한다(opt-in)."
+  }
+
+  assert {
+    condition     = output.efs_csi_iam_role_arn == null
+    error_message = "opt-in하지 않은 상태의 출력은 에러가 아니라 null이어야 한다."
+  }
+}
+
+run "storage_csi_addons_opt_in_creates_roles" {
+  command = plan
+
+  variables {
+    cluster_addons = {
+      "aws-ebs-csi-driver" = { enabled = true }
+      "aws-efs-csi-driver" = { enabled = true }
+    }
+  }
+
+  assert {
+    condition     = aws_iam_role.ebs_csi[0].name == "iamr-demo-prd-an2-ebs-csi"
+    error_message = "EBS CSI를 opt-in하면 카탈로그 약어(iamr)를 따르는 role이 생겨야 한다."
+  }
+
+  assert {
+    condition     = aws_iam_role.efs_csi[0].name == "iamr-demo-prd-an2-efs-csi"
+    error_message = "EFS CSI를 opt-in하면 카탈로그 약어(iamr)를 따르는 role이 생겨야 한다."
+  }
+
+  assert {
+    condition     = output.ebs_csi_iam_role_arn != null && output.efs_csi_iam_role_arn != null
+    error_message = "opt-in한 스토리지 CSI의 role arn 출력은 null이 아니어야 한다."
+  }
+
+  assert {
+    condition     = contains(output.effective_addon_names, "aws-ebs-csi-driver") && contains(output.effective_addon_names, "aws-efs-csi-driver")
+    error_message = "opt-in한 addon은 effective_addon_names에 나타나야 한다."
   }
 }
 
@@ -289,12 +342,17 @@ run "kill_switch_destroys_everything" {
 
   variables {
     cluster_enabled = false
+    # ebs-csi가 opt-in인 채로는 kill switch를 거치지 않아도 role이 없어 검증이 무의미해진다 —
+    # 여기서 명시적으로 켜서 "opt-in한 addon도 kill switch가 이긴다"를 실제로 검증한다.
+    cluster_addons = {
+      "aws-ebs-csi-driver" = { enabled = true }
+    }
   }
 
   # 이 모듈이 직접 선언한 리소스가 사라진다.
   assert {
     condition     = length(aws_iam_role.ebs_csi) == 0
-    error_message = "cluster_enabled = false면 모듈이 만든 IAM role도 파기되어야 한다."
+    error_message = "cluster_enabled = false면 opt-in으로 켠 addon의 IAM role도 파기되어야 한다."
   }
 
   # ⚠️ **출력은 빈 문자열이 아니라 null이어야 한다.** upstream은 cluster_name에 ""를 돌려주는데

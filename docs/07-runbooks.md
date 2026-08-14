@@ -242,19 +242,21 @@ Karpenter 쪽 노드엔 그 taint가 없으니, 여유가 없으면 Karpenter가
 | 대상 | taint | nodeSelector/affinity |
 |---|---|---|
 | 시스템 관리형 노드그룹(`managed_node_groups`) | `workload-class=system:NO_SCHEDULE` 부여 | 라벨 `workload-class=system` 부여 |
-| coredns · metrics-server · **ebs-csi controller**(Deployment) | — | `nodeSelector: workload-class=system` + toleration 명시 필요 |
+| coredns · metrics-server · **ebs-csi controller**(Deployment) · **efs-csi controller**(Deployment) | — | `nodeSelector: workload-class=system` + toleration 명시 필요 |
 | vpc-cni · eks-pod-identity-agent (DaemonSet) | — | 명시 불필요 — 차트 기본값이 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다(실측: `aws/eks-charts`·`aws/eks-pod-identity-agent` 저장소의 `values.yaml`) |
 | ebs-csi node (DaemonSet) | — | `node.tolerateAllTaints = true` 명시 필요 — 기본 toleration은 `effect: NoExecute`만 커버해 우리가 부여하는 `NoSchedule`을 통과하지 못한다 |
+| **efs-csi node**(DaemonSet) | — | 명시 불필요 — ebs-csi node와 달리 차트 기본값이 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다(실측: `kubernetes-sigs/aws-efs-csi-driver` `charts/aws-efs-csi-driver/values.yaml`) — vpc-cni·eks-pod-identity-agent와 같은 부류 |
 | kube-proxy | — | 손댈 필요 없음 — 기본 매니페스트가 이미 `tolerations: [{operator: Exists}]`라 모든 taint를 통과한다 |
 | Cluster Autoscaler·Karpenter 컨트롤러 자체(helm) | — | `nodeSelector: workload-class=system` + toleration |
 | redis·postgresql·mongodb(helm) | — | `nodeSelector: workload-class=system` + toleration |
 | app 워크로드 | 아무것도 안 함 | 아무것도 안 함 — 기본값이 곧 Karpenter 영역 |
 | Karpenter `NodePool` | 의도적으로 taint 안 둠 | 없음 |
 
-⚠️ **DaemonSet에 `nodeSelector`를 걸면 안 된다.** vpc-cni·eks-pod-identity-agent·ebs-csi node에
-`nodeSelector: workload-class=system`을 주면 Karpenter 노드에서 네트워킹·Pod Identity가
-통째로 죽는다. vpc-cni·eks-pod-identity-agent는 위 표대로 애초에 손댈 필요가 없고, ebs-csi
-node만 toleration을 넓힌다 — 셋 다 nodeSelector는 예외 없이 금지다.
+⚠️ **DaemonSet에 `nodeSelector`를 걸면 안 된다.** vpc-cni·eks-pod-identity-agent·ebs-csi node·
+efs-csi node에 `nodeSelector: workload-class=system`을 주면 Karpenter 노드에서 네트워킹·
+Pod Identity·볼륨 마운트가 통째로 죽는다. vpc-cni·eks-pod-identity-agent·efs-csi node는
+위 표대로 애초에 손댈 필요가 없고, ebs-csi node만 toleration을 넓힌다 — 넷 다 nodeSelector는
+예외 없이 금지다.
 
 ⚠️ **Karpenter NodePool에 별도 taint를 두지 않는 것도 의도적 결정이다.** 위 분리로 이미 모든
 파드 종류가 한쪽으로만 갈 수 있게 강제되어 있어서(시스템 쪽=taint+nodeSelector 이중 관문,
@@ -269,18 +271,34 @@ Karpenter가 이 pod들을 위해 **불필요한 새 노드를 만든다**(실�
 클러스터에서 재현). `controller`는 coredns·metrics-server와 같은 취급이 맞다 — 컨트롤플레인
 컴포넌트는 DaemonSet이 아닌 이상 반드시 `nodeSelector`까지 명시해야 한다.
 
+🔑 **`aws-efs-csi-driver`도 구조가 완전히 같다** — `node`(DaemonSet)·`controller`(Deployment,
+2 replica)로 분리돼 있고, 스키마도 `node.*`·`controller.*`로 나뉜다(`charts/aws-efs-csi-driver/
+values.yaml` 실측). 다른 점은 `node`의 기본 toleration이 이미 `[{operator: Exists}]`라 손댈
+필요가 없다는 것뿐 — `controller`는 EBS와 동일하게 `nodeSelector`+`tolerations` 없이는 taint
+적용 순간 Karpenter 영역으로 떨어진다.
+
 ### addon toleration 주입 (`cluster_addons[name].configuration`)
 
 각 addon이 `configuration_values`로 tolerations/nodeSelector를 지원하는지 EKS API로 직접
 확인했다(`aws eks describe-addon-configuration --addon-name <name> --addon-version <ver>`).
-**실제로 손대야 하는 것은 ebs-csi(node)·ebs-csi(controller)·coredns·metrics-server
-넷뿐이다** — vpc-cni·eks-pod-identity-agent는 위 표대로 기본값이 이미 요구를 만족한다.
+**실제로 손대야 하는 것은 ebs-csi(node)·ebs-csi(controller)·efs-csi(controller)·coredns·
+metrics-server 다섯뿐이다** — vpc-cni·eks-pod-identity-agent·efs-csi(node)는 위 표대로
+기본값이 이미 요구를 만족한다.
 
 ```hcl
 cluster_addons = {
   "aws-ebs-csi-driver" = {
     configuration = jsonencode({
       node = { tolerateAllTaints = true }
+      controller = {
+        nodeSelector = { "workload-class" = "system" }
+        tolerations  = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
+      }
+    })
+  }
+  "aws-efs-csi-driver" = {
+    # node는 손댈 필요 없다 — 기본 toleration이 이미 모든 taint를 통과한다.
+    configuration = jsonencode({
       controller = {
         nodeSelector = { "workload-class" = "system" }
         tolerations  = [{ key = "workload-class", operator = "Equal", value = "system", effect = "NoSchedule" }]
@@ -306,11 +324,11 @@ cluster_addons = {
 EKS는 `configuration_values`의 배열 필드를 addon 차트 기본값과 **병합하지 않고 통째로
 교체**한다 — vpc-cni·eks-pod-identity-agent에 좁은 `tolerations`를 직접 쓰면 기본값
 (`operator: Exists`, 모든 taint 통과)보다 **좁아지는 후퇴**가 된다. `ebs-csi node`가
-`node.tolerateAllTaints`라는 불리언으로 같은 효과를 내는 것과 대비된다. `ebs-csi controller`는
-그런 불리언이 없어(스키마 확인) coredns·metrics-server와 같은 방식으로 갈 수밖에 없다.
-coredns·metrics-server·`ebs-csi controller`는 `tolerations`를 교체해도 무해하다 —
-`nodeSelector`가 배치를 system 노드로 좁히므로, 그 노드에 있는 taint는 `workload-class`
-하나뿐이라 잃을 다른 toleration이 없다.
+`node.tolerateAllTaints`라는 불리언으로 같은 효과를 내는 것과 대비된다. `ebs-csi controller`·
+`efs-csi controller`는 그런 불리언이 없어(스키마 확인) coredns·metrics-server와 같은 방식으로
+갈 수밖에 없다. coredns·metrics-server·`ebs-csi controller`·`efs-csi controller`는
+`tolerations`를 교체해도 무해하다 — `nodeSelector`가 배치를 system 노드로 좁히므로, 그 노드에
+있는 taint는 `workload-class` 하나뿐이라 잃을 다른 toleration이 없다.
 
 ⚠️ **`vpc-cni`는 `enable_custom_networking = true` 환경에서 이 절 자체가 무의미하다.** 모듈
 (`modules/eks-cluster/addons.tf`의 vpc-cni 재주입 로직)이 커스텀 네트워킹을 켜면 vpc-cni의
@@ -331,18 +349,20 @@ workbench 접속 자체는 「1. 클러스터에 접근하기」 그대로다 �
 kubectl get nodes -l workload-class=system
 kubectl describe node <system-노드-이름> | grep -A2 Taints
 
-# ① DaemonSet(vpc-cni·eks-pod-identity-agent·ebs-csi node)이 시스템 노드그룹에도 떠 있는지
-#    (toleration이 실제로 먹었는지 — vpc-cni·eks-pod-identity-agent는 차트 기본값,
-#    ebs-csi는 tolerateAllTaints로 커버한다)
+# ① DaemonSet(vpc-cni·eks-pod-identity-agent·ebs-csi node·efs-csi node)이 시스템 노드그룹에도
+#    떠 있는지(toleration이 실제로 먹었는지 — vpc-cni·eks-pod-identity-agent·efs-csi node는
+#    차트 기본값, ebs-csi는 tolerateAllTaints로 커버한다)
 kubectl get pods -n kube-system -o wide -l k8s-app=aws-node
 kubectl get pods -n kube-system -o wide -l app.kubernetes.io/name=eks-pod-identity-agent
 kubectl get pods -n kube-system -o wide -l app=ebs-csi-node
+kubectl get pods -n kube-system -o wide -l app=efs-csi-node
 
-# ② coredns·metrics-server·ebs-csi controller가 system 노드로만 배치됐는지
-#    (nodeSelector+toleration 검증 — 이 셋을 빠뜨리면 Karpenter가 불필요한 노드를 만든다)
+# ② coredns·metrics-server·ebs-csi controller·efs-csi controller가 system 노드로만 배치됐는지
+#    (nodeSelector+toleration 검증 — 이 넷을 빠뜨리면 Karpenter가 불필요한 노드를 만든다)
 kubectl get pods -n kube-system -o wide -l k8s-app=kube-dns
 kubectl get pods -n kube-system -o wide -l app.kubernetes.io/name=metrics-server
 kubectl get pods -n kube-system -o wide -l app=ebs-csi-controller
+kubectl get pods -n kube-system -o wide -l app=efs-csi-controller
 
 # ③ 격리 검증 — toleration 없는 파드는 시스템 노드그룹에 절대 못 붙는다
 kubectl run probe --image=public.ecr.aws/eks-distro/kubernetes/pause:3.2 --restart=Never

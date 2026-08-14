@@ -1,5 +1,59 @@
 # Notepad — iac-module-library
 
+## ✅ **EFS CSI driver 추가 + EBS CSI를 baseline→opt-in 전환** (2026-08-14(9), PR [#27](https://github.com/skax-ca/iac-module-library/pull/27), 브랜치 `feat/efs-csi-driver-opt-in`)
+
+> 사용자 질문: "EKS에 ebs-csi는 있는데 efs-csi가 없는 것 같다"에서 출발.
+
+> ### ▶ 조사 — AWS 공식 문서는 EBS·EFS를 구분하지 않는다
+> `docs.aws.amazon.com/eks/latest/userguide/{ebs-csi,efs-csi}.html`을 대조 확인 —
+> 둘 다 AWS가 자동 설치하는 addon이 아니고(자동 설치되는 건 vpc-cni·coredns·kube-proxy·
+> `eksctl` 0.184+의 metrics-server뿐), 둘 다 Pod Identity를 "AWS 권장"으로 동일하게 명시한다.
+> "EBS는 baseline, EFS는 opt-in"이라는 구분에 AWS 근거는 없다 — 순수 이 repo의 내부 판단이었다.
+
+> ### ▶ 이 repo 자체 근거 — 삭제된 원 설계 문서에서 발견
+> `git show de1df5c:docs/design/20-eks-module.md` §2.6(2026-08-06 Wave 7 재작성 때 삭제,
+> 판단은 승계 대상)에 EFS CSI가 이미 "기타 IAM 필요 addon(예: aws-efs-csi-driver)은 소비자가
+> pod_identity 필드로 role_arn 주입 — role 생성은 소비자 소관"으로 명시돼 있었다. 즉 EFS를
+> opt-in으로 두는 건 새 결정이 아니라 원래 있던 설계를 실행에 옮긴 것.
+
+> ### ▶ 사용자 제안 — "EBS도 opt-in이어야 하지 않나" → 실측으로 확인
+> 최초엔 baseline→opt-in 전환이 파괴적 변경이라 우려했으나, 실측 결과 우려가 틀렸다:
+> `examples/eks-cluster-enterprise/main.tf:293`와 `iac-reference-infra`
+> `live/dev/eks/main.tf:408` **둘 다 이미 `aws-ebs-csi-driver`를 `cluster_addons`에 명시적으로
+> pin**하고 있었다 — D-ADDON-VERSION-PIN-1 정책("addon 버전은 소비 루트가 소유")이 모든 소비자를
+> 이미 그 습관으로 밀어붙이고 있어서, baseline의 "안 써도 자동 활성화" 이점을 실제로 의지하는
+> 소비자가 없었다. 실질 영향 0으로 확인 후 EBS도 opt-in 전환 확정. metrics-server는 이번
+> 스코프에서 제외(사용자 결정 — 별도 판단 대상).
+
+> ### ▶ 구현
+> - `iam.tf`: `ebs_csi` 블록 복제 → `efs_csi` 신설(AWS 관리형 `AmazonEFSCSIDriverPolicy`).
+> - `addons.tf`: `baseline_addon_names`에서 `aws-ebs-csi-driver` 제거(core 4종 + metrics-server
+>   5종으로 축소). `efs_csi_enabled` local 추가, 재주입 블록에 EFS 케이스 추가. **신규 변수 0개**
+>   — 기존 merge 메커니즘만으로 게이트.
+> - `outputs.tf`: `efs_csi_iam_role_arn` 신설.
+> - `docs/07-runbooks.md`: EFS도 `node`(DaemonSet)·`controller`(Deployment, 2 replica) 분리
+>   구조임을 Helm chart(`charts/aws-efs-csi-driver/values.yaml`) 실측으로 확인해 taint
+>   전략표·예시·검증 절차에 반영. `node`는 기본 toleration이 이미 모든 taint를 통과해 손댈
+>   필요가 없고, `controller`는 EBS controller와 같은 함정(불리언 없음)을 **릴리스 전에** 미리
+>   잡았다 — EBS controller taint 누락(같은 날 세션 (6)·`4d6aa49`)이 남긴 교훈을 반영.
+> - `tests/plan.tftest.hcl`: baseline_inherited(6→5종)·increment(7→6종) 갱신, opt-out 테스트를
+>   metrics-server 단독으로 축소, EBS·EFS opt-in/opt-out 신규 테스트 2건 추가.
+>   **24 passed, 0 failed**(기존 22 + 2).
+> - 로컬 게이트(fmt·tflint·trivy) 전부 클린. `examples/eks-cluster-enterprise` init+validate
+>   Success. pre-push 훅이 vpc(13)·workbench(18) 회귀도 함께 확인 — 전부 pass.
+
+> ### ⏭️ 다음 세션 확인 사항
+> 1. **PR #27 머지 여부 확인** — CI(`verify.yml`) 통과 확인 후 머지.
+> 2. **머지 후 릴리스 준비**(v0.6.0 때와 같은 순서로 별도 커밋): `eks-cluster-v0.7.0` 태그 컷 +
+>    `docs/05-modules.md`("최신 태그"·"계약 테스트: 22→24"·`cluster_addons`/출력 목록에
+>    `efs_csi_iam_role_arn` 추가) + `README.md`·`CLAUDE.md`·
+>    `examples/eks-cluster-enterprise/README.md` 갱신.
+> 3. **소비 repo(`iac-reference-infra`) 반영**은 별도 PR — 새 태그로 상향 후, EBS가 이제
+>    opt-in이므로 (실측상 이미 명시돼 있어 무변경이지만) 계약 변경 인지 여부 재확인.
+> 4. metrics-server의 baseline→opt-in 전환은 **이번 스코프에서 제외됨** — 필요해지면 별도 논의.
+
+---
+
 ## ✅ **CA replica 정책 확인 + scale-up 실측 테스트 완료** (2026-08-14(8))
 
 > 사용자 질문: "CA는 Karpenter와 다르게 pod 1개가 기본인가?" — 공식 문서로 확인.

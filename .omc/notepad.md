@@ -1,5 +1,45 @@
 # Notepad — iac-module-library
 
+## ⏳ **`iac-reference-infra` taint 반영 — PR 리뷰 대기** (2026-08-14(5), `ade5127`)
+
+> 지난 세션 「다음 태스크 2번」(`workload-class=system` taint 반영, CA 실켜기 전 선행 작업) 착수.
+> 구현 전 `docs/07-runbooks.md §9`의 addon toleration 표에서 실측 근거 없이 적힌 오류를 발견해
+> **먼저 문서를 고치고(설계 우선 규칙), 그다음 구현**하는 순서로 진행(사용자 승인).
+>
+> ### ▶ 문서 정정 (이 repo, `ade5127`, main 직접 커밋 — 문서 전용)
+> - EKS API(`describe-addon-configuration`) + `aws/eks-charts`·`aws/eks-pod-identity-agent`
+>   저장소의 실제 `values.yaml`로 확인: **vpc-cni·eks-pod-identity-agent는 차트 기본
+>   tolerations가 이미 `operator: Exists`**라 모든 taint를 통과한다 — 문서가 제안했던 좁은
+>   toleration 명시는 **기본값보다 좁아지는 후퇴**(Helm 배열은 병합이 아니라 교체).
+> - `vpc-cni`는 `enable_custom_networking = true` 환경에서 모듈(`addons.tf`의 재주입 로직)이
+>   `configuration_values`를 통째로 덮어써 소비자 입력이 애초에 반영되지 않는다.
+> - `ebs-csi`(node)는 반대로 **실제로 필요** — 기본 toleration이 `effect: NoExecute`만
+>   커버해 우리가 붙이는 `NoSchedule`을 못 거른다. `node.tolerateAllTaints = true`(불리언)로 해결.
+> - `metrics-server` 설정 예시가 표에는 있는데 코드 예시엔 빠져 있던 것도 보완.
+>
+> ### ▶ 구현 (`iac-reference-infra`, PR [#32](https://github.com/skax-ca/iac-reference-infra/pull/32), `feat/eks-system-taint`)
+> - `managed_node_groups.system`에 `labels={workload-class=system}` + `taints=[{workload-class=system:NoSchedule}]`.
+> - `coredns`·`metrics-server`에 `nodeSelector`+toleration(공용 `local.workload_class_toleration`).
+> - `aws-ebs-csi-driver`에 `configuration.node.tolerateAllTaints = true`.
+> - `vpc-cni`·`eks-pod-identity-agent`는 위 문서 정정 그대로 **의도적으로 미변경**.
+> - `tofu fmt`·`tflint`·`trivy`(pre-commit) + `tofu validate`(pre-push) 전부 통과.
+> - CA 자체(`enable_cluster_autoscaler`)는 이 PR에 없다 — taint/toleration 배선까지만.
+>   또한 모듈 핀은 여전히 `eks-cluster-v0.5.0`(labels/taints는 그 태그에 이미 있었음,
+>   CA IAM 지원은 PR #25가 main에 머지됐지만 **아직 태그 안 컷됨** — 별도 착수 시점).
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. `iac-reference-infra` PR #32 사용자 리뷰·머지 대기. 머지 후 `workflow_dispatch`로
+>    plan 확인 → apply, 그리고 `kubectl get pods -n kube-system -o wide`로 DaemonSet 3종이
+>    system 노드에서도 뜨는지 + coredns/metrics-server가 system 노드로만 배치되는지 실측 확인.
+> 2. (이전 목록 유지) `iac-platform-gitops` README에 baseline/catalog 판단 기준 문장 반영
+> 3. (이전 목록 유지) dev 클러스터 CA 구독 전 repo-server egress canary 확인
+>
+> ⚠️ CA를 실제로 켜려면(`enable_cluster_autoscaler=true`) 이 PR 머지 **+ `eks-cluster-v0.6.0`
+> 태그 컷**(현재 main에만 있음) 둘 다 필요 — 아직 어느 쪽도 완료 안 됨.
+
+---
+
 ## ✅ **CA 지원 3-repo 확산 + 문서 컨벤션 자동 검사 게이트 완료** (2026-08-14(4))
 
 > PR #25(아래 항목) 머지 이후 후속 — GitOps 쪽 helm addon 반영, 그 과정에서 나온 §N 인용

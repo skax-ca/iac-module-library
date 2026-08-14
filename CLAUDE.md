@@ -53,7 +53,7 @@ module "vpc" {
 }
 ```
 
-태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.6.0`.
+태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.7.0`.
 
 ## 버전 정책: 전 모듈 `0.y.z`
 

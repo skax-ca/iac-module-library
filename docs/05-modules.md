@@ -57,7 +57,7 @@ VPC · 서브넷 그룹 · NAT · 라우팅 · Flow Logs.
 EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 커뮤니티 모듈을 **wrapper로 감싼** 형태다 — upstream 변수 rename을 내부에서 흡수한다.
 
-**최신 태그**: `eks-cluster-v0.6.0` · **계약 테스트**: 22
+**최신 태그**: `eks-cluster-v0.7.0` · **계약 테스트**: 24
 
 ### 핵심 입력
 
@@ -69,7 +69,7 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 | `public_access_cidrs` | public이 켜졌을 때만 의미가 있다 |
 | `enable_custom_networking` · `pod_subnet_ids` | pod를 secondary CIDR에 둔다 |
 | `managed_node_groups` | 노드그룹 정의. `ami_type`으로 graviton 선택 |
-| `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다 |
+| `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다. `aws-ebs-csi-driver`·`aws-efs-csi-driver`는 opt-in — 명시해야 addon·IAM role이 생긴다 |
 | `access_entries` | 클러스터 접근 주체 (workbench Role 포함) |
 | `cluster_security_group_additional_rules` | workbench -> 클러스터 인바운드가 여기로 들어온다 |
 | `enable_karpenter` · `enable_cluster_autoscaler` · `enable_alb_controller_iam` · `enable_external_dns_iam` | IAM만 만든다. 컨트롤러는 계층 2 |
@@ -97,7 +97,8 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 (namespace=`kube-system`, service_account=`cluster-autoscaler`로 고정 — 공식 요구사항이 아니라
 관례다. Karpenter의 `kube-system`과 달리 APF FlowSchema 같은 근거가 없다)
 
-**IAM (계층 2로 간다)**: `alb_controller_iam_role_arn` · `external_dns_iam_role_arn` · `ebs_csi_iam_role_arn`
+**IAM (계층 2로 간다)**: `alb_controller_iam_role_arn` · `external_dns_iam_role_arn` ·
+`ebs_csi_iam_role_arn` · `efs_csi_iam_role_arn`
 
 > Karpenter와 IAM 출력이 **계층 1과 계층 2를 잇는 선**이다.
 > 이 값들이 GitOps 저장소의 helm values로 들어간다.
@@ -167,7 +168,7 @@ module "vpc" {
 }
 
 module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.6.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.7.0"
 
   naming     = local.naming
   vpc_id     = module.vpc.vpc_id

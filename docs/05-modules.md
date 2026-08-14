@@ -57,7 +57,7 @@ VPC · 서브넷 그룹 · NAT · 라우팅 · Flow Logs.
 EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 커뮤니티 모듈을 **wrapper로 감싼** 형태다 — upstream 변수 rename을 내부에서 흡수한다.
 
-**최신 태그**: `eks-cluster-v0.5.0` · **계약 테스트**: 20
+**최신 태그**: `eks-cluster-v0.6.0` · **계약 테스트**: 22
 
 ### 핵심 입력
 
@@ -167,7 +167,7 @@ module "vpc" {
 }
 
 module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.5.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.6.0"
 
   naming     = local.naming
   vpc_id     = module.vpc.vpc_id

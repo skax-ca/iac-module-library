@@ -309,22 +309,36 @@ tolerations를 적어도 반영되지 않는다. 다행히 위 표대로 손댈 
 
 ### 테스트 절차 (workbench에서)
 
-```bash
-# ① DaemonSet이 시스템 노드그룹에도 떠 있는지 (toleration이 실제로 먹었는지)
-kubectl get pods -n kube-system -o wide -l k8s-app=aws-node
+workbench 접속 자체는 「1. 클러스터에 접근하기」 그대로다 — SSM 세션 시작 후 `kubectl`이 바로 된다.
+아래는 접속 이후, taint/toleration이 실제로 반영됐는지 보는 단계다.
 
-# ② 격리 검증 — toleration 없는 파드는 시스템 노드그룹에 절대 못 붙는다
+```bash
+# ⓪ system 노드그룹에 label·taint가 실제로 붙었는지
+kubectl get nodes -l workload-class=system
+kubectl describe node <system-노드-이름> | grep -A2 Taints
+
+# ① DaemonSet(vpc-cni·eks-pod-identity-agent·ebs-csi node)이 시스템 노드그룹에도 떠 있는지
+#    (toleration이 실제로 먹었는지 — vpc-cni·eks-pod-identity-agent는 차트 기본값,
+#    ebs-csi는 tolerateAllTaints로 커버한다)
+kubectl get pods -n kube-system -o wide -l k8s-app=aws-node
+kubectl get pods -n kube-system -o wide -l app.kubernetes.io/name=eks-pod-identity-agent
+kubectl get pods -n kube-system -o wide -l app=ebs-csi-node
+
+# ② coredns·metrics-server가 system 노드로만 배치됐는지 (nodeSelector+toleration 검증)
+kubectl get pods -n kube-system -o wide -l k8s-app=kube-dns
+kubectl get pods -n kube-system -o wide -l k8s-app=metrics-server
+
+# ③ 격리 검증 — toleration 없는 파드는 시스템 노드그룹에 절대 못 붙는다
 kubectl run probe --image=public.ecr.aws/eks-distro/kubernetes/pause:3.2 --restart=Never
 kubectl get pod probe -o wide   # Pending 이거나 Karpenter 노드에 배치되어야 한다
 
-# ③ 역방향 검증 — nodeSelector+toleration을 준 파드는 반드시 시스템 노드그룹에만 붙고
-#    Karpenter가 이 파드 때문에 새 노드를 만들지 않아야 한다
+# ④ 역방향 검증 — Karpenter가 system 노드그룹 파드 때문에 새 노드를 만들지 않는지
 kubectl get nodeclaims
 
-# ④ CA 동작 확인
+# ⑤ CA 활성화 이후에만: 동작 확인(`enable_cluster_autoscaler`를 켠 뒤에만 배포된다)
 kubectl logs -n kube-system deploy/cluster-autoscaler
 
-# ⑤ Karpenter 동작 확인 — app 파드가 시스템 노드그룹을 안 건드리는지
+# ⑥ Karpenter 동작 확인 — app 파드가 시스템 노드그룹을 안 건드리는지
 kubectl get nodes -l karpenter.sh/nodepool
 ```
 

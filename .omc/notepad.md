@@ -1,5 +1,56 @@
 # Notepad — iac-module-library
 
+## ✅ **CA 지원 3-repo 확산 + 문서 컨벤션 자동 검사 게이트 완료** (2026-08-14(4))
+
+> PR #25(아래 항목) 머지 이후 후속 — GitOps 쪽 helm addon 반영, 그 과정에서 나온 §N 인용
+> 실수를 계기로 §8 자동 검사 게이트를 신설하고 3개 repo에 걸쳐 정리했다.
+>
+> ### ▶ `iac-platform-gitops` — Cluster Autoscaler opt-in 카탈로그
+> - PR [#10](https://github.com/skax-ca/iac-platform-gitops/pull/10)(머지 `3ba35a3`) —
+>   `addons/catalog/cluster-autoscaler.yaml` 신설. **baseline이 아니라 catalog** —
+>   기준은 Terraform `enable_*` 기본값이 아니라(ALBC가 반증 사례: 기본값 false인데도
+>   baseline) **워크로드 무관하게 플랫폼 보편 요구인가**(baseline: ALBC·Karpenter·Kyverno)
+>   **vs 특정 아키텍처를 선택한 고객만 필요한가**(catalog: KEDA·CA).
+>   ⏸ **이 기준 문장을 README에 아직 안 적었다** — 다음에 반영.
+> - 실측 기반: `helm template` 로컬 렌더로 chart 버전(9.59.0)·cluster-scoped 리소스
+>   (ClusterRole·ClusterRoleBinding뿐, whitelist 추가 0건)·`rbac.serviceAccount.name`
+>   경로(ALBC·Karpenter와 다름) 전부 확인. Karpenter 자기 자신도 못 뜨는 노드에 CA도
+>   못 뜨게 `affinity`(`karpenter.sh/nodepool DoesNotExist`)로 막음 — Karpenter 차트는
+>   이게 기본값이지만 CA 차트는 비어 있어 명시로 채움.
+> - **dev 클러스터는 아직 미구독**(의도적) — ①egress canary 미실행 ②`iac-reference-infra`에
+>   `workload-class=system` taint 아직 없음. 이 둘이 끝나야 안전하게 구독시킬 수 있다.
+> - 네임스페이스 예외(`kube-system`)를 README 표에 추가하되 ALBC·Karpenter와 근거의
+>   성격이 다르다는 것(공식 근거 아니라 이미 고정된 Pod Identity association 때문,
+>   인과가 반대)을 정직하게 기록.
+>
+> ### ▶ 문서 작성 규칙(§8) 자동 검사 게이트 신설
+> - `iac-platform-gitops` 작업 중 §N 인용(§8 규칙 6)을 실제로 두 번(이 repo에서 한 번 고친
+>   직후 GitOps repo에서 또) 반복해서, 사람 기억 의존을 그만두기로 함.
+> - `iac-module-library` PR [#26](https://github.com/skax-ca/iac-module-library/pull/26)
+>   (머지 `e2168bb`) — `scripts/validate-doc-conventions.py` 신설(§N 인용·비표준 이모지
+>   7종 제한·400줄, 기계 판정 가능한 3개만). `.githooks/pre-commit` + CI
+>   `docs-conventions` job 양쪽에 연결. 이모지 판정 범위를 화살표 블록까지 넣었다가
+>   77건 오탐(실측) — 범위를 좁혀 해결. 코드펜스 안 리터럴도 오탐이었다(`06-conventions.md`의
+>   grep 예시) — 펜스 제외 로직으로 해결.
+> - **적용 범위는 `iac-module-library`만**(사용자 결정) — §8이 원래 "이 저장소" 스코프였고
+>   Wave 8 때 GitOps/infra repo는 "컨벤션보다 자기설명성 우선"으로 이미 결정된 바 있어,
+>   그 repo들에 게이트를 강제로 심지 않았다.
+> - `iac-platform-gitops` PR [#11](https://github.com/skax-ca/iac-platform-gitops/pull/11)
+>   (머지 `574164d`) — 위 스크립트로 스캔해 실제 위반 5건(§N 인용 2 + 비표준 이모지 3:
+>   `🖼️`·`🔀`) 발견·수정. 게이트는 안 심었지만(위 결정) 발견된 건 고쳤다 — 주석 줄만
+>   변경, 기능값 불변 확인(diff로 검증, "머지=배포" repo라 특히 엄격히).
+>
+> ### ⏭️ **다음 태스크**
+>
+> 1. `iac-platform-gitops` README에 baseline/catalog 판단 기준 문장 반영(위 참조)
+> 2. `iac-reference-infra`에 `workload-class=system` taint 반영 — CA를 실제로 켜기 전
+>    필수 선행 작업(`07-runbooks.md`의 taint 전략 절 참조)
+> 3. dev 클러스터 CA 구독 전 repo-server egress canary(`kubernetes.github.io`) 확인
+>
+> 없음 그 밖엔 — 이번 세션의 CA 지원 설계→구현→GitOps 반영→컨벤션 정리 전체 완결.
+
+---
+
 ## ⏳ **Cluster Autoscaler 지원 PR #25 — 리뷰 대기** (2026-08-14(3), `2cef789`)
 
 > `eks-cluster` 모듈에 CA를 관리형 노드그룹의 오토스케일러로 쓰고 싶은 고객을 위한 설계+구현.

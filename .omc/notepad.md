@@ -2,9 +2,21 @@
 
 ## Priority Context
 
-SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
+SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`(역할 에이전트·notepad 툴)와 전역 커맨드(`/session-start`·`/session-end`) 소관. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
 ### 2026-08-14 08:24
 ### 2026-08-18 01:01
 ## opencode 호환성 조사·정합 완료 (2026-08-18)

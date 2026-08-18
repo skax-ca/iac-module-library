@@ -5,6 +5,20 @@
 SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+### 2026-08-14 08:24
+## OMC 결합 제거 — 전역 session-start/end 위임화 + bootstrap opt-in 전환 (2026-08-14, 세션 2부)
+
+"notepad가 너무 커서 관리 어려우면 OMC 구조에서 어떻게 개선?" 질문에서 시작해 3단계로 확장:
+1. notepad.md 재구성(Priority 200KB→441B, Working/MANUAL 3단 구조 실제 적용, project-memory.json 신설) — 커밋 `fe4d795`.
+2. 전역 session-start/end(dotfiles-claude)가 OMC를 몰라도 되게 위임 구조로 전환 — `notepad-sync`라는 이름의 프로젝트 스코프 스킬이 있으면 호출, 없으면 건너뜀. bootstrap.sh의 OMC 플러그인 설치·스킬 링크·글로벌 CLAUDE.md 주입(11~13단계)을 `~/.claude/.omc-enabled`(머신별 로컬 플래그, git 비동기화) opt-in으로 전환.
+3. `notepad-sync`가 저장 판단 로직을 손으로 재구현했던 걸 발견 → `oh-my-claudecode:remember`(OMC 기본 제공)에 위임하도록 리팩터. 이 repo 고유 제약(Edit 직접 금지·Priority 500자·docs 사건서술 금지·project-memory.json 커밋 대상)만 추가로 얹음.
+
+⚠️ 실수 1건: dotfiles-claude 레포의 스킬 파일을 직접 고쳤다가 `sync.sh push`가 `~/.agents/skills`(진짜 원본)로 덮어써서 원복된 적 있음 — 레포는 미러일 뿐 원본이 아니었다. `~/.agents/skills`와 `~/.claude/CLAUDE.md`가 라이브 원본, 레포 사본은 파생물이라는 걸 다음에 dotfiles 편집할 때 잊지 말 것.
+
+발견(미해결, dotfiles-claude/README.md "알려진 이슈"에 기록해둠): `claude-npo/`(사내 MiniMax 프로파일 미러)가 2026-06-23 이후 sync.sh/bootstrap.sh 배관에서 빠진 채 방치 — 오늘 변경사항(opt-in 전환 등) 전혀 반영 안 됨. 다음에 손볼 것.
+
+커밋: dotfiles-claude `5861ee2`→`4806a76`(bootstrap opt-in)→`a2ad44a`(CLAUDE.md notepad-sync 요구사항)→`507b108`(세션관리 문구 정정). iac-module-library `fe4d795`→`37c3746`→`b3b4c0d`(notepad-sync 신설·리팩터).
+
 
 ## MANUAL
 

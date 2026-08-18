@@ -6,6 +6,20 @@ SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenT
 
 ## Working Memory
 ### 2026-08-14 08:24
+### 2026-08-18 01:01
+## opencode 호환성 조사·정합 완료 (2026-08-18)
+
+"이 프로젝트가 opencode에서도 잘 동작하나" 질문에서 시작. `opencode debug config`/`opencode debug skill`로 실측 조사:
+- ✅ 이미 되던 것: 프로젝트 루트 CLAUDE.md·AGENTS.md는 opencode 바이너리 내장 기본값(`["AGENTS.md", "CLAUDE.md"]`, disableClaudeCodePrompt 미설정 시)으로 자동 인식. 프로젝트 스코프 `.claude/skills/notepad-sync`도 opencode가 암묵적으로 스캔해서 인식(skills.paths 글로벌 경로 설정과 무관).
+- ❌ 안 되던 것(수정 완료): 프로젝트 `.mcp.json`(Claude Code 전용 포맷)을 opencode는 전혀 안 읽음. 프로젝트 루트에 `opencode.jsonc`가 없어서 CLAUDE.md가 필수로 요구하는 `mcp__opentofu__get-resource-docs` 확인 절차가 opencode에서 불가능했음.
+- 조치: `iac-module-library/opencode.jsonc` 신설(`.mcp.json`과 동등 내용, opencode 문법으로 변환 — `type:"local"`+`command` 배열, `environment` 키, `{env:VAR}` 치환). 프로젝트 config가 글로벌과 병합되고 같은 키로 override 가능함을 실측 확인 후, 글로벌에 이미 있던 동종 서버(`awslabs.aws-api-mcp-server`·`awslabs.aws-documentation-mcp-server`, cert/profile 설정 없어 이 프로젝트엔 부적합)를 이 프로젝트에서만 `enabled:false`로 꺼서 중복 제거.
+- 여전히 안 되는 것(의도적으로 안 고침): `mcp__t__*`(OMC notepad/project-memory 브리지)는 opencode에 아예 없음 — `notepad-sync`의 가드가 이미 이 경우를 감지해서 조용히 건너뛰도록 돼 있어 추가 조치 없이 안전. Claude Code hooks(`~/.claude/hooks/*.mjs`)도 Claude Code 전용 프로토콜이라 opencode에서 미실행 — 원래도 안 될 것으로 설계돼 있었음(문제 아님).
+- 남은 선택지(미결정): 글로벌 `awslabs.terraform-mcp-server`(HashiCorp Terraform 레지스트리)가 프로젝트의 `opentofu`(OpenTofu 레지스트리)와 용도가 겹침 — "OpenTofu 단독" 엔진 원칙과 살짝 어긋날 수 있지만 이번엔 범위 밖이라 안 건드림. 필요시 같은 방식(project override enabled:false)으로 끌 수 있음.
+
+커밋: `9c45e34`(opencode.jsonc 신설) → `7a0e234`(중복 서버 정리).
+
+
+## 2026-08-14 08:24
 ## OMC 결합 제거 — 전역 session-start/end 위임화 + bootstrap opt-in 전환 (2026-08-14, 세션 2부)
 
 "notepad가 너무 커서 관리 어려우면 OMC 구조에서 어떻게 개선?" 질문에서 시작해 3단계로 확장:

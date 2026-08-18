@@ -28,11 +28,8 @@ terraform.rc
 .idea/
 .vscode/
 
-# opencode 플러그인 런타임 의존성 (bun install 산출물 — 커밋 제외)
-# .opencode/agents|commands|plugins/*.ts, package.json 은 커밋 대상
-.opencode/node_modules/
-.opencode/bun.lock
-.opencode/bun.lockb
+# opencode 플러그인 런타임 의존성 — node_modules/package-lock.json 은 .opencode/.gitignore 가 무시
+# .opencode/agents|commands|plugins/*.ts, package.json, bun.lock 은 커밋 대상
 
 # OMC 런타임 상태 (커밋 제외)
 #

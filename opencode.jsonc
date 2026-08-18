@@ -1,12 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
-    // 글로벌 ~/.config/opencode/opencode.jsonc에 이름이 다른 동종 서버가 이미 있다
-    // (awslabs.aws-api-mcp-server / awslabs.aws-documentation-mcp-server). 이 프로젝트는
-    // 아래 aws-api/aws-docs에 이 repo 전용 설정(SSL 인증서 우회·team 프로필)을 갖고 있어
-    // 프로세스 중복·툴 이름 혼선을 막기 위해 이 프로젝트에서만 글로벌 쪽을 끈다.
-    "awslabs.aws-api-mcp-server": { "enabled": false },
-    "awslabs.aws-documentation-mcp-server": { "enabled": false },
     "opentofu": {
       "type": "local",
       "command": ["npx", "-y", "@opentofu/opentofu-mcp-server"],

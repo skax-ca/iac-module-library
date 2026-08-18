@@ -36,6 +36,12 @@
       "source": "manual",
       "category": "opencode-compat",
       "content": "정정(2026-08-18): 이전 메모(\"opencode.jsonc는 이 프로젝트에서 enabled:false로 꺼뒀다\")는 틀렸다 — 실제로는 enabled:true였고 이름도 글로벌과 달라(aws-api vs awslabs.aws-api-mcp-server) 두 서버가 동시에 로드되고 있었다. 이번 세션에 실제로 바로잡았다: Claude Code(.mcp.json)·opencode 프로젝트(opencode.jsonc)·opencode 글로벌(~/.config/opencode/opencode.jsonc) 세 곳 모두 aws-mcp·aws-docs로 이름을 통일해 프로젝트가 글로벌을 오버라이드하는 정상 구조로 만들었다(opencode는 같은 키면 프로젝트가 글로벌을 덮어쓴다 — 공식 문서로 확인). 또한 aws-api MCP 서버 자체가 폐기 예정이라 mcp-proxy-for-aws(원격 프록시, @1.6.4)로 전환했고, READ_OPERATIONS_ONLY→--read-only, AWS_API_MCP_PROFILE_NAME→--profile team으로 안전장치를 유지한 채 옮겼다. aws-well-architected(구 awslabs.well-architected-security-mcp-server)는 글로벌이 아니라 이 프로젝트 스코프에만 둔다(Claude Code·opencode 둘 다)."
+    },
+    {
+      "timestamp": 1787041392047,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-18 — 허브 계정 분리 설계를 docs/02-choose-your-path.md \"질문 D\"로 확정·커밋. escape 조건 판정: IAM Identity Center 보유 여부 미확인, 관리형 Capability 미지원 기능(Notifications 등) 중 필요한 게 있다고 판정 → self-managed 유지 확정. 결정 3건 문서화: ①허브 분리 트리거 조건 3개(다중 계정 워크로드·계정 격리 규제·허브 장애 반경) ②배포 루트는 새 저장소 없이 기존 <project>-infra에 hub 환경 추가 ③크로스 계정 IAM 신뢰 Role은 스포크 계정 소유(제약받는 쪽이 소유 원칙, 01-architecture.md 4절 판별2와 동일 결).\n남은 후속 작업(미착수): (a) IAM Identity Center 보유 여부 고객사에 확인 — 확인되면 관리형 Capability 재검토 여지 있으나 미지원 기능 필요 판정이 이미 나와 self-managed 유지가 유력. (b) 크로스 계정 신뢰 Role·EKS Access Entry의 실제 Terraform 계약(모듈 변수/출력) 미설계 — 02-choose-your-path.md는 IAM 경계만 정의, 05-modules.md급 설계 필요. (c) iac-platform-gitops의 addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml 전부 matchLabels:{environment: dev} 하드코딩 — stg/prd 스포크 추가해도 자동 팬아웃 안 됨(iac-platform-gitops 소관, 이 저장소는 관측만).\n관련: 기존 open-items \"(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결\"의 구체적 진전."
     }
   ],
   "userDirectives": [

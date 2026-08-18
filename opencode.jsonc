@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "opentofu": {
+      "type": "local",
+      "command": ["npx", "-y", "@opentofu/opentofu-mcp-server"],
+      "enabled": true
+    },
+    "aws-docs": {
+      "type": "local",
+      "command": ["uvx", "awslabs.aws-documentation-mcp-server@latest"],
+      "environment": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_DOCUMENTATION_PARTITION": "aws",
+        "SSL_CERT_FILE": "{env:HOME}/.claude/certs/ca-bundle.pem",
+        "REQUESTS_CA_BUNDLE": "{env:HOME}/.claude/certs/ca-bundle.pem",
+        "AWS_CA_BUNDLE": "{env:HOME}/.claude/certs/ca-bundle.pem"
+      },
+      "enabled": true
+    },
+    "aws-api": {
+      "type": "local",
+      "command": ["uvx", "awslabs.aws-api-mcp-server@latest"],
+      "environment": {
+        "FASTMCP_LOG_LEVEL": "ERROR",
+        "AWS_REGION": "ap-northeast-2",
+        "AWS_API_MCP_PROFILE_NAME": "team",
+        "READ_OPERATIONS_ONLY": "true"
+      },
+      "enabled": true
+    }
+  }
+}

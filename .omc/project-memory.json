@@ -30,6 +30,12 @@
       "source": "manual",
       "category": "opencode-compat",
       "content": "opencode 네이티브 오케스트레이션 구성(2026-08-18 구축) — `.opencode/` 소관: agents(planner/architect/code-reviewer/verifier, subagent+edit deny, verifier만 bash 허용)·commands(plan/review/verify, subtask 격리)·plugins/notepad.ts(`notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + `.omc/notepad.md` 직접 edit 차단 게이트 — OMC `mcp__t__*` 브리지의 native 대체). `/session-start`·`/session-end` 커맨드는 **전역** `~/.config/opencode/commands/` 소관(이 repo에 없음, 다른 repo에서도 동작) — dotfiles-claude `sync.sh` push / `bootstrap.sh` 복원에 `commands/` 동기화 포함. notepad 플러그인 툴은 opencode 재시작 후 활성화 — opencode 세션의 notepad 갱신 우선순위: (1) 플러그인 툴 경유 (2) 없으면 직접 편집(3단 구조 유지·Edit prepend 금지 정신 준수). 함정: bun install이 `.opencode/.gitignore`를 자동 생성해 package.json·lock을 무시한다 — `.opencode/.gitignore`가 직접 관리(node_modules·package-lock.json만 무시, package.json·bun.lock 커밋 대상)."
+    },
+    {
+      "timestamp": 1787032330685,
+      "source": "manual",
+      "category": "opencode-compat",
+      "content": "정정(2026-08-18): 이전 메모(\"opencode.jsonc는 이 프로젝트에서 enabled:false로 꺼뒀다\")는 틀렸다 — 실제로는 enabled:true였고 이름도 글로벌과 달라(aws-api vs awslabs.aws-api-mcp-server) 두 서버가 동시에 로드되고 있었다. 이번 세션에 실제로 바로잡았다: Claude Code(.mcp.json)·opencode 프로젝트(opencode.jsonc)·opencode 글로벌(~/.config/opencode/opencode.jsonc) 세 곳 모두 aws-mcp·aws-docs로 이름을 통일해 프로젝트가 글로벌을 오버라이드하는 정상 구조로 만들었다(opencode는 같은 키면 프로젝트가 글로벌을 덮어쓴다 — 공식 문서로 확인). 또한 aws-api MCP 서버 자체가 폐기 예정이라 mcp-proxy-for-aws(원격 프록시, @1.6.4)로 전환했고, READ_OPERATIONS_ONLY→--read-only, AWS_API_MCP_PROFILE_NAME→--profile team으로 안전장치를 유지한 채 옮겼다. aws-well-architected(구 awslabs.well-architected-security-mcp-server)는 글로벌이 아니라 이 프로젝트 스코프에만 둔다(Claude Code·opencode 둘 다)."
     }
   ],
   "userDirectives": [

@@ -123,7 +123,8 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 > — 스포크 클러스터와 실제로 통신해 reconcile하는 컴포넌트가 이쪽이다.
 
 ⚠️ 이 변수들은 **IAM 경계만** 만든다. private-only 엔드포인트에서 허브가 스포크에 실제로
-도달하려면 VPC Peering(또는 Transit Gateway)이 **별도로** 필요하다 —
+도달하려면 Transit Gateway 가 **별도로** 필요하다(VPC Peering 은 CIDR 3계층의 pod-dup 대역
+재사용 설계와 구조적으로 충돌해 쓸 수 없다 — 아래 참조) —
 `docs/02-choose-your-path.md`의 「네트워크 경로」 절 참조. 이 모듈은 그 리소스를 만들지
 않는다(재사용 모듈로 두지 않기로 한 이유도 그 절에 있다).
 

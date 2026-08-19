@@ -165,38 +165,61 @@ false`, private-only)을 스포크에도 그대로 쓰면 **답은 기본적으�
 IAM 경계만 만들고 놓치기 쉽다(원인이 아니라 증상만 보인다 — apply는 성공하는데 허브
 ArgoCD가 `dial tcp … i/o timeout`으로 spoke를 못 읽는다).
 
-**기본은 VPC Peering이다.** 아래 트리거가 걸리면 Transit Gateway로 대체한다.
+**기본은 Transit Gateway다.** 처음엔 VPC Peering을 기본값으로 뒀으나(스포크 1개뿐이니
+가장 단순한 선택이라 판단), 실제 배포에서 즉시 거부당했다 — 아래 「VPC Peering이 안 되는
+이유」를 먼저 읽는다. 스포크가 1개뿐이어도 Peering은 **선택지가 아니다.**
 
-| # | 트리거 조건 | 이유 |
-|---|----------|------|
-| 1 | 스포크가 **2개 이상**이거나 그럴 계획이 확정됐다 | peering은 관계마다 별도 연결이라 스포크가 늘수록(N개) 필요한 연결 수가 늘어난다 — 허브가 유일한 공통 상대라 완전 그래프까지는 아니지만, 스포크마다 관리 대상이 하나씩 늘어난다 |
-| 2 | 스포크끼리도 서로 통신해야 한다 | peering은 점대점이라 전이(transitive)가 안 된다 — 스포크 A↔B가 필요하면 peering을 스포크 개수만큼 따로 맺어야 한다 |
+### VPC Peering이 안 되는 이유 — CIDR 3계층 규약과 구조적으로 충돌한다
 
-**둘 다 아니면 peering이다.** *"나중에 스포크가 늘 수도 있으니"* 는 트리거가 아니다 —
-질문 D의 허브 분리 판단과 같은 원칙(139~140행)이다. 필요해지면 그때 Transit Gateway로
-옮긴다 — 무중단은 아니다(아래 「되돌릴 수 있는 선택」 표 참조).
+AWS 공식 문서(`vpc/latest/peering/invalid-peering-configurations.html` 「Overlapping CIDR
+blocks」)가 명시한다: **"CIDR 블록이 여러 개면, 실제로 라우팅할 대역이 겹치지 않아도
+그중 하나라도 겹치면 peering 자체를 생성할 수 없다."** (2026-08-19, `iac-reference-infra`
+실제 배포에서 `Failed due to ... overlapping CIDR range`로 실측 확인.)
 
-**전제조건 — CIDR 비중첩.** VPC Peering은 두 VPC의 CIDR이 겹치면 AWS API가 거부한다
-(peering 생성 시점에 걸린다 — plan으로는 안 잡히고 apply에서야 드러난다). 허브·스포크의
-CIDR을 신규로 배치할 때 이미 겹치지 않게 고르는 것이 이 요건의 이행이다(`vpc` 모듈의
-CIDR 3계층 절 참조) — peering을 도입하고 나서 되돌리려면 VPC 재생성이 필요하다(❌, 되돌릴
-수 없는 선택).
+`vpc` 모듈의 CIDR 3계층 규약은 **pod-dup 대역(`100.64.0.0/16`, RFC 6598)을 모든 VPC가
+그대로 재사용**하도록 설계돼 있다 — 비라우팅 대역이라 스포크마다 조율할 필요가 없게
+하려는 의도다(그래서 "dup"다). 이 설계 의도 자체가 Peering과 양립하지 않는다: 실제
+라우팅 대상은 uniq 대역(예: hub `10.53.0.0/16`·spoke `10.51.0.0/16`, 서로 겹치지 않는다)
+뿐인데도, 양쪽 VPC가 공유하는 dup 대역 때문에 AWS가 peering 생성 자체를 거부한다.
 
-**소유 — 이 계약은 "제약받는 쪽이 소유"(148행 IAM 신뢰와 같은 원칙) 축이 아니다.**
-Peering Connection은 AWS 리소스 모델 자체가 요청자(requester)·수락자(accepter) 양쪽을
-요구해 한쪽이 전담할 수 없다 — IAM 신뢰처럼 스포크 하나가 "제약받는 쪽"으로 정해지지
-않는다. 그래서 재사용 모듈을 두지 않는다: 정확히 2개 VPC 사이의 1:1 관계라 스포크가 늘 때마다
-"어느 배포 루트가 무엇을 소유하는가"만 반복되고 추상화할 공통 로직이 없다(워크벤치·
-eks-cluster급 재사용 모듈과 다르다) — **배포 루트가 vanilla 리소스로 직접 연결한다.**
+⛔ **"스포크의 pod CIDR을 고유하게 재배치하면 되지 않나"는 해법이 아니다.** VPC CIDR은
+되돌릴 수 없는 선택(아래 표, VPC 재생성 필요)이고, 무엇보다 스포크가 늘 때마다 그 스포크의
+pod CIDR을 다른 모든 스포크·허브와 안 겹치게 다시 조율해야 한다 — dup 대역을 도입한
+이유(스포크마다 조율 불필요) 자체가 무너진다. 스포크 1개에서 어쩌다 풀리는 해법을
+스포크 2개째부터 다시 겪는다면 해법이 아니라 미룬 것이다.
 
-필요한 리소스는 세 종류다. 어느 배포 루트가 만드는지까지 명시한다(양쪽 다 관여하는
-리소스가 있으므로 "허브가 다 한다"로 오인하지 않는다):
+### Transit Gateway 설계
+
+| # | 요소 | 값 |
+|---|------|-----|
+| 1 | 소유 계정 | **허브** — 허브가 유일한 공통 상대이므로 TGW도 허브가 영구 소유한다 |
+| 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위** 공유. 조직 전체 공유가 아니라 정확한 계정만 — IAM 신뢰(148행)와 같은 "정확한 대상만" 원칙 |
+| 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트(`aws_ec2_transit_gateway_route`)로 명시한다 |
+| 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"` — RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
+
+TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가) — 그리고 Peering은 애초에 못
+쓰므로 "스포크 1개일 때는 peering, 늘면 TGW로 전환"이라는 단계적 채택 자체가 성립하지
+않는다. 스포크가 하나뿐이어도 TGW가 유일한 선택지다.
+
+필요한 리소스는 소유가 두 갈래로 갈린다 — TGW 자체와 그 라우트테이블은 **허브 소유**(TGW
+owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제약), VPC 쪽 라우트테이블은
+**각자 소유**(자기 VPC 라우트테이블은 자기가 고친다):
 
 | # | 리소스 | 만드는 곳 |
 |---|--------|----------|
-| 1 | `aws_vpc_peering_connection`(요청) + `aws_vpc_peering_connection_accepter`(수락) | 요청은 한쪽 루트, 수락은 반대쪽 계정의 provider로 — **두 배포 루트가 함께 관여한다** |
-| 2 | 상대 CIDR로 가는 라우트 | **양쪽 다** — 허브의 ArgoCD가 도는 서브넷 라우트테이블 + 스포크의 EKS 서브넷(control plane ENI가 있는) 라우트테이블 |
-| 3 | 스포크 클러스터 SG에 허브발 443 인바운드 | **스포크만** — IAM 신뢰와 같은 이유("제약받는 쪽이 규칙을 연다"), 워크벤치 kubectl 인바운드와 같은 패턴(`eks-cluster`의 `cluster_security_group_additional_rules`) |
+| 1 | `aws_ec2_transit_gateway` | 허브 |
+| 2 | `aws_ram_resource_share` + `aws_ram_resource_association` + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
+| 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
+| 4 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, RAM 공유로 생성 가능) | 스포크 |
+| 5 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR → 허브 자신의 attachment | 허브 |
+| 6 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR → 스포크 자신의 attachment | 스포크 |
+| 7 | TGW 라우트테이블에 스포크 uniq CIDR → **스포크의** attachment(3번 완료 후 attachment ID 필요) | 허브(TGW owner만 가능) |
+| 8 | 스포크 클러스터 SG에 허브발 443 인바운드 | 스포크(IAM 신뢰와 같은 "제약받는 쪽이 규칙을 연다" 원칙) |
+
+⚠️ **값 전달이 2단계다** — TGW ID(AWS 무작위 부여, 결정적 합성 불가)가 허브→스포크로,
+스포크의 attachment ID(역시 무작위)가 스포크→허브로 각각 apply 후 수동 전달돼야 한다
+(repo 변수 경유). Peering의 1단계(connection ID 하나)보다 한 단계 더 든다 — TGW가
+"스포크가 늘어도 구조를 안 바꾼다"의 대가다.
 
 ---
 
@@ -214,7 +237,6 @@ eks-cluster급 재사용 모듈과 다르다) — **배포 루트가 vanilla 리
 | 관리형 <-> self-managed 전환 | ⏳ | 가능하나 재설치 + 재등록. 무중단이 아니다 |
 | 프로파일 A <-> B | ⏳ | A→B는 쉽고 B→A는 GitOps 저장소 신설이 필요 |
 | 허브 같은 계정 <-> 분리 | ⏳ | 가능하나 스포크마다 크로스 계정 신뢰 Role·Access Entry를 새로 만들어야 한다. 무중단이 아니다 |
-| VPC Peering -> Transit Gateway | ⏳ | 가능하나 라우트테이블을 TGW attachment 경로로 다시 걸어야 한다. 무중단이 아니다 |
 | addon 추가·제거 | ✅ | GitOps 저장소 커밋 |
 | 노드 타입·크기 | ✅ | Karpenter NodePool 또는 노드그룹 변경 |
 

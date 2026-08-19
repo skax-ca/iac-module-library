@@ -42,6 +42,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-18 — 허브 계정 분리 설계를 docs/02-choose-your-path.md \"질문 D\"로 확정·커밋. escape 조건 판정: IAM Identity Center 보유 여부 미확인, 관리형 Capability 미지원 기능(Notifications 등) 중 필요한 게 있다고 판정 → self-managed 유지 확정. 결정 3건 문서화: ①허브 분리 트리거 조건 3개(다중 계정 워크로드·계정 격리 규제·허브 장애 반경) ②배포 루트는 새 저장소 없이 기존 <project>-infra에 hub 환경 추가 ③크로스 계정 IAM 신뢰 Role은 스포크 계정 소유(제약받는 쪽이 소유 원칙, 01-architecture.md 4절 판별2와 동일 결).\n남은 후속 작업(미착수): (a) IAM Identity Center 보유 여부 고객사에 확인 — 확인되면 관리형 Capability 재검토 여지 있으나 미지원 기능 필요 판정이 이미 나와 self-managed 유지가 유력. (b) 크로스 계정 신뢰 Role·EKS Access Entry의 실제 Terraform 계약(모듈 변수/출력) 미설계 — 02-choose-your-path.md는 IAM 경계만 정의, 05-modules.md급 설계 필요. (c) iac-platform-gitops의 addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml 전부 matchLabels:{environment: dev} 하드코딩 — stg/prd 스포크 추가해도 자동 팬아웃 안 됨(iac-platform-gitops 소관, 이 저장소는 관측만).\n관련: 기존 open-items \"(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결\"의 구체적 진전."
+    },
+    {
+      "timestamp": 1787097950238,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-19 — open-items (b)(\"크로스 계정 신뢰 Role·EKS Access Entry의 실제 Terraform 계약 미설계\") 설계 완료, 구현 대기로 갱신. 산출물: docs/05-modules.md(신규 `cross-account-trust-role` 모듈 섹션 + `eks-cluster` \"크로스 계정 확장\" 서브섹션, 둘 다 \"설계 확정, 아직 태그되지 않았다\"로 명시 — 실제 .tf 미작성), docs/02-choose-your-path.md 질문 D에 05-modules.md 참조 링크 추가. 설계 전문은 .omc/plans/2026-08-19-cross-account-trust-role.md(확정된 사실 7건·ADR·독립 검토 반영분 포함). 핵심 결론: eks-cluster의 access_entries는 이미 type=any라 크로스 계정 principal을 그대로 받으므로 변경 불필요(AWS 공식 문서로 STANDARD 타입 access entry의 크로스 계정 허용을 확인) — 실제로 필요한 건 스포크 소유 신뢰 Role용 신규 얇은 모듈(cross-account-trust-role, ARN 정규식으로 root/와일드카드 위임 차단)과 허브 측 eks-cluster 확장(기존 alb_controller_pod_identity류 addon-IAM 패턴 재사용, service_account=argocd-application-controller, namespace는 argocd-seed.sh의 ARGOCD_NAMESPACE와 반드시 일치)뿐. 전제조건: 스포크 클러스터의 authentication_mode가 API 또는 API_AND_CONFIG_MAP이어야 함(CONFIG_MAP 단독이면 access entry가 조용히 무동작). 다음 착수 시 남는 것: 실제 .tf 구현 + tests/*.tftest.hcl(보안 테스트 케이스 2건: root ARN·와일드카드 ARN 입력 시 plan 실패 검증 포함)."
     }
   ],
   "userDirectives": [

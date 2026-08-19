@@ -152,6 +152,9 @@ aws pricing get-products --region us-east-1 \
 > `iac-platform-gitops`의 cluster Secret 계약(값이 어떻게 채워지는지)은 그 저장소 소관이다.
 > 이 표는 그 계약이 기대는 **IAM 경계**만 정의한다.
 
+이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`05-modules.md`](05-modules.md)의
+`eks-cluster` 크로스 계정 확장·`cross-account-trust-role` 모듈 섹션이 소유한다.
+
 ---
 
 ## 되돌릴 수 있는 선택 / 없는 선택

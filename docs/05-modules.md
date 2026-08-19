@@ -2,7 +2,9 @@
 
 **읽는 사람**: 배포 루트에서 모듈을 호출하려는 사람.
 
-세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
+핵심 세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
+크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인과 독립적으로 존재하며
+`eks-cluster`의 `access_entries`에 출력을 연결한다.
 
 ---
 
@@ -70,7 +72,7 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 | `enable_custom_networking` · `pod_subnet_ids` | pod를 secondary CIDR에 둔다 |
 | `managed_node_groups` | 노드그룹 정의. `ami_type`으로 graviton 선택 |
 | `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다. `aws-ebs-csi-driver`·`aws-efs-csi-driver`는 opt-in — 명시해야 addon·IAM role이 생긴다 |
-| `access_entries` | 클러스터 접근 주체 (workbench Role 포함) |
+| `access_entries` | 클러스터 접근 주체 (workbench Role 포함). `principal_arn`은 `type = STANDARD`(기본값)라면 클러스터와 **다른 AWS 계정**의 IAM Role도 받는다 — 크로스 계정 연결에 이 변수 자체는 변경이 필요 없다 |
 | `cluster_security_group_additional_rules` | workbench -> 클러스터 인바운드가 여기로 들어온다 |
 | `enable_karpenter` · `enable_cluster_autoscaler` · `enable_alb_controller_iam` · `enable_external_dns_iam` | IAM만 만든다. 컨트롤러는 계층 2 |
 | `deletion_protection` | 실수 삭제 방지 |
@@ -102,6 +104,23 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 
 > Karpenter와 IAM 출력이 **계층 1과 계층 2를 잇는 선**이다.
 > 이 값들이 GitOps 저장소의 helm values로 들어간다.
+
+### 크로스 계정 확장
+
+**설계 확정, 아직 태그되지 않았다.** 허브 계정의 self-managed ArgoCD가 스포크 계정의 EKS에
+접근하기 위한 입력·출력이다(`docs/02-choose-your-path.md` 질문 D의 IAM 경계를 구현한다).
+허브 계정에서만 켠다 — 스포크 쪽은 `cross-account-trust-role` 모듈이 소유한다.
+
+| 변수 | 설명 |
+|------|------|
+| `enable_argocd_hub_pod_identity` | kill switch. 기본 `false` |
+| `argocd_namespace` | ArgoCD가 설치된 네임스페이스. `scripts/argocd-seed.sh`의 `ARGOCD_NAMESPACE`와 반드시 일치해야 한다 — 하드코딩하지 않는다 |
+| `argocd_hub_assumable_role_arns` | 이 허브가 `sts:AssumeRole`로 접근할 수 있는 스포크 신뢰 Role ARN 목록. 스포크가 늘 때마다 이 목록에 추가한다 |
+
+**출력(설계 확정, 아직 태그되지 않았다)**: `argocd_hub_iam_role_arn`
+
+> Pod Identity의 association 대상은 `argocd-server`가 아니라 **`argocd-application-controller`**다
+> — 스포크 클러스터와 실제로 통신해 reconcile하는 컴포넌트가 이쪽이다.
 
 ---
 
@@ -153,6 +172,31 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 - 새 사용자는 로그인 시 자기 `0600` 사본을 받는다
 - 도구: kubectl · helm · argocd · eks-node-viewer · krew + 플러그인
 - 로그인 프로파일: `alias k` · `nv` · kubectl completion · 리전 export
+
+---
+
+## `cross-account-trust-role`
+
+**설계 확정, 아직 태그되지 않았다.** 스포크 계정이 소유하는 크로스 계정 IAM 신뢰 Role 하나만
+만드는 얇은 모듈. 허브의 특정 IAM Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은
+전혀 붙이지 않는다 — 실제 Kubernetes 권한은 `eks-cluster`의 `access_entries`가 매핑하는
+`kubernetes_groups`(RBAC)가 전담한다. `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며,
+크로스 계정 시나리오(`docs/02-choose-your-path.md` 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
+
+### 핵심 입력
+
+| 변수 | 설명 |
+|------|------|
+| `trusted_principal_arns` | 신뢰할 IAM Role/User ARN 목록. **특정 ARN만** 허용 — 계정 `:root` 전체 위임이나 와일드카드는 plan 단계에서 거부한다 |
+| `session_duration_seconds` | `max_session_duration`. 기본 `3600` |
+| `enabled` | kill switch. 기본 `true` |
+
+### 출력
+
+`role_arn` · `role_name`
+
+> `role_arn`이 스포크의 `eks-cluster` 모듈 `access_entries`로 들어가는 연결선이다.
+> 모듈이 서로를 직접 참조하지 않는다 — 배포 루트가 연결한다(다른 모듈과 같은 원칙).
 
 ---
 

@@ -19,7 +19,7 @@
 | purpose | 자원의 상세 용도 | `web`, `db`, `batch`, `admin` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **310개** 약어, 8개 카테고리.
+- 총 **311개** 약어, 8개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
@@ -70,6 +70,7 @@
 | 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다 — 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
 | 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
 | 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요(레퍼런스 소비 repo의 GitHub Actions OIDC). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
+| 2026-08-19 | `ram` | RAM 리소스 공유 (`aws_ram_resource_share`) | 허브-스포크 크로스 계정 Transit Gateway 공유에 필요(`docs/02-choose-your-path.md` 「네트워크 경로」). AWS 물리 ID 접두사가 없는 서비스 이름 기반 약어(규칙 1의 ALB·S3·Lambda류 케이스) — 리소스 공유 자체가 서비스 이름과 동일하다. `aws_ram_resource_association`·`aws_ram_principal_association`은 `name` 인자가 없는 종속 객체라 별도 약어를 신설하지 않는다(위 "종속 객체" 규약) |
 
 ---
 
@@ -356,7 +357,7 @@
 | Cognito | 사용자 풀 (User Pool) | `cup` | cup-demo-prd-an2-app-user-01 |
 | Cognito | 자격 증명 풀 (Identity Pool) | `cip` | cip-demo-prd-an2-web-auth-01 |
 
-## A.7 Management, Governance (30)
+## A.7 Management, Governance (31)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
@@ -390,6 +391,7 @@
 | SSM | AppConfig | `ssmac` | ssmac-demo-prd-an2-feature-flag |
 | CloudFormation | 스택 (Stack) | `cfns` | cfns-demo-prd-an2-network-base-01 |
 | CloudFormation | StackSet | `cfnss` | cfnss-demo-prd-an2-security-std |
+| RAM | 리소스 공유 (Resource Share) | `ram` | ram-demo-hub-an2-tgw-share |
 
 ## A.8 Developer Tools, Others (31)
 
@@ -439,9 +441,9 @@
 | A.4 | Storage | 33 |
 | A.5 | Analytics, AI, ML | 47 |
 | A.6 | Security, Identity, Compliance | 18 |
-| A.7 | Management, Governance | 30 |
+| A.7 | Management, Governance | 31 |
 | A.8 | Developer Tools, Others | 31 |
-| | **합계** | **310** |
+| | **합계** | **311** |
 
 > ⚠️ **총계는 세 곳에 있다** — 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

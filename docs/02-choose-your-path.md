@@ -196,6 +196,7 @@ pod CIDR을 다른 모든 스포크·허브와 안 겹치게 다시 조율해야
 | 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위** 공유. 조직 전체 공유가 아니라 정확한 계정만 — IAM 신뢰(148행)와 같은 "정확한 대상만" 원칙 |
 | 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트(`aws_ec2_transit_gateway_route`)로 명시한다 |
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"` — RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
+| 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `iac-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 `aws_ram_resource_share_accepter`(또는 CLI)로 초대를 수락하는 단계가 하나 늘어난다(아래 리소스 표 4번) |
 
 TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가) — 그리고 Peering은 애초에 못
 쓰므로 "스포크 1개일 때는 peering, 늘면 TGW로 전환"이라는 단계적 채택 자체가 성립하지
@@ -210,11 +211,12 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 | 1 | `aws_ec2_transit_gateway` | 허브 |
 | 2 | `aws_ram_resource_share` + `aws_ram_resource_association` + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
 | 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
-| 4 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, RAM 공유로 생성 가능) | 스포크 |
-| 5 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR → 허브 자신의 attachment | 허브 |
-| 6 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR → 스포크 자신의 attachment | 스포크 |
-| 7 | TGW 라우트테이블에 스포크 uniq CIDR → **스포크의** attachment(3번 완료 후 attachment ID 필요) | 허브(TGW owner만 가능) |
-| 8 | 스포크 클러스터 SG에 허브발 443 인바운드 | 스포크(IAM 신뢰와 같은 "제약받는 쪽이 규칙을 연다" 원칙) |
+| 4 | `aws_ram_resource_share_accepter`(RAM 초대 수락, 5번보다 먼저 필요) | 스포크 |
+| 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, 초대 수락 후 생성 가능) | 스포크 |
+| 6 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR → 허브 자신의 attachment | 허브 |
+| 7 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR → 스포크 자신의 attachment | 스포크 |
+| 8 | TGW 라우트테이블에 스포크 uniq CIDR → **스포크의** attachment(5번 완료 후 attachment ID 필요) | 허브(TGW owner만 가능) |
+| 9 | 스포크 클러스터 SG에 허브발 443 인바운드 | 스포크(IAM 신뢰와 같은 "제약받는 쪽이 규칙을 연다" 원칙) |
 
 ⚠️ **값 전달이 2단계다** — TGW ID(AWS 무작위 부여, 결정적 합성 불가)가 허브→스포크로,
 스포크의 attachment ID(역시 무작위)가 스포크→허브로 각각 apply 후 수동 전달돼야 한다

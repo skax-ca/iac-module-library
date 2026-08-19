@@ -581,6 +581,64 @@ run "external_dns_zone_guard_does_not_block_kill_switch" {
   }
 }
 
+# ── 허브 ArgoCD Pod Identity ──────────────────────────────────────────────
+
+run "argocd_hub_pod_identity_is_opt_in" {
+  command = plan
+
+  # 기본값은 off다 — ALBC·external-dns와 같은 opt-in 규약.
+  assert {
+    condition     = output.argocd_hub_iam_role_arn == null
+    error_message = "enable_argocd_hub_pod_identity 기본값은 false여야 한다."
+  }
+}
+
+run "argocd_hub_pod_identity_opt_in_creates_role" {
+  command = plan
+
+  variables {
+    enable_argocd_hub_pod_identity = true
+    # ⚠️ assumable role ARN은 선택 사항이 아니다 — 비우면 아래 가드가 거부한다.
+    argocd_hub_assumable_role_arns = ["arn:aws:iam::444455556666:role/iamr-spoke-prd-an2-argocd-hub"]
+  }
+
+  assert {
+    condition     = output.argocd_hub_iam_role_arn != null
+    error_message = "opt-in하면 허브 ArgoCD Pod Identity role이 생성되어야 한다."
+  }
+}
+
+run "argocd_hub_pod_identity_requires_assumable_role_arns" {
+  command = plan
+
+  variables {
+    enable_argocd_hub_pod_identity = true
+    argocd_hub_assumable_role_arns = []
+  }
+
+  # sts:AssumeRole은 리소스 수준 권한을 요구해 Resource = "*" 정책을 AWS가 400으로 거부한다.
+  # external_dns_hosted_zone_arns와 같은 이유로, 조합 자체를 계약에서 배제하는 것이
+  # 유일한 plan-time 검출 경로다.
+  expect_failures = [var.argocd_hub_assumable_role_arns]
+}
+
+run "argocd_hub_pod_identity_guard_does_not_block_kill_switch" {
+  command = plan
+
+  variables {
+    cluster_enabled                = false
+    enable_argocd_hub_pod_identity = true
+    argocd_hub_assumable_role_arns = []
+  }
+
+  # 파기 경로는 막지 않는다. iam.tf의 create = local.enabled && var.enable_argocd_hub_pod_identity
+  # 이라 kill switch가 꺼진 상태에서는 IAM 정책이 애초에 만들어지지 않는다.
+  assert {
+    condition     = output.argocd_hub_iam_role_arn == null
+    error_message = "cluster_enabled = false면 argocd hub role이 없어야 하고, 가드가 그 계획을 막아서도 안 된다."
+  }
+}
+
 # ── 환경 프로파일: 컨트롤플레인 로깅 ─────────────────────────────────────────
 
 run "invalid_log_type_is_rejected" {

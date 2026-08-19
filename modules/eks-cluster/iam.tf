@@ -152,6 +152,35 @@ module "external_dns_pod_identity" {
   tags = var.tags
 }
 
+module "argocd_hub_pod_identity" {
+  source  = "terraform-aws-modules/eks-pod-identity/aws"
+  version = "2.8.2"
+
+  create = local.enabled && var.enable_argocd_hub_pod_identity
+
+  name            = "iamr-${local.name_mid}-argocd-hub"
+  use_name_prefix = false
+
+  attach_custom_policy = true
+  policy_statements = [{
+    sid       = "AssumeSpokeTrustRoles"
+    actions   = ["sts:AssumeRole"]
+    resources = var.argocd_hub_assumable_role_arns
+  }]
+
+  associations = {
+    this = {
+      cluster_name = module.eks.cluster_name
+      namespace    = var.argocd_namespace
+      # argocd-server가 아니라 argocd-application-controller다 — 스포크 클러스터와 실제로
+      # 통신해 reconcile하는 컴포넌트가 이쪽이기 때문이다.
+      service_account = "argocd-application-controller"
+    }
+  }
+
+  tags = var.tags
+}
+
 module "cluster_autoscaler_pod_identity" {
   source  = "terraform-aws-modules/eks-pod-identity/aws"
   version = "2.8.2"

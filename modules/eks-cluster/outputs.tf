@@ -177,3 +177,12 @@ output "external_dns_iam_role_arn" {
   description = "external-dns의 Pod Identity role ARN(enable_external_dns_iam = true일 때)."
   value       = try(module.external_dns_pod_identity.iam_role_arn, null)
 }
+
+output "argocd_hub_iam_role_arn" {
+  description = <<-EOT
+    허브 ArgoCD(argocd-application-controller)의 Pod Identity role ARN
+    (enable_argocd_hub_pod_identity = true일 때). 이 Role은 스포크 계정의 크로스 계정
+    신뢰 Role(cross-account-trust-role 모듈 소유)을 assume한다.
+  EOT
+  value       = try(module.argocd_hub_pod_identity.iam_role_arn, null)
+}

@@ -54,6 +54,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-19 — open-items (b) 크로스 계정 신뢰 Role·EKS Access Entry 구현 완료, main 병합됨(PR #28, 커밋 74cee95). modules/cross-account-trust-role 신규 모듈 + modules/eks-cluster 확장(enable_argocd_hub_pod_identity 등) 전부 main에 있음. CI(공통 검증 게이트·문서 작성 규칙·약어 카탈로그 SSOT) 전부 pass 확인 후 squash 머지. docs/05-modules.md의 \"설계 확정, 아직 태그되지 않았다\" 표기는 아직 유효 — 실제 릴리스 태그(예: eks-cluster-v0.8.0, cross-account-trust-role-v0.1.0)를 컷하기 전까지는 그대로 둔다(태그 컷은 별도 결정 필요, 이번 세션에서 하지 않음). 남은 것: iac-platform-gitops 쪽 연동(cluster Secret 크로스 계정 등록, kubernetes_groups에 매핑되는 실제 RBAC)은 이 저장소 범위 밖 — 별도 작업."
+    },
+    {
+      "timestamp": 1787099827149,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-19 — eks-cluster-v0.8.0·cross-account-trust-role-v0.1.0 태그 컷·push 완료(둘 다 커밋 74cee95 기준). docs/05-modules.md의 \"설계 확정, 아직 태그되지 않았다\" 표기 전부 제거, 실제 최신 태그로 갱신(커밋 967adad). iac-reference-infra에서 이제 이 태그들로 모듈을 소싱할 수 있음 — 다음 작업은 그쪽 repo에서 hub/spoke 토폴로지 적용(진행 중, iac-reference-infra 세션 참조)."
     }
   ],
   "userDirectives": [

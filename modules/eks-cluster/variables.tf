@@ -418,3 +418,46 @@ variable "external_dns_hosted_zone_arns" {
     error_message = "enable_external_dns_iam = true면 external_dns_hosted_zone_arns가 비어 있을 수 없다. AWS가 Resource = \"*\" 정책을 거부하므로 apply가 실패한다 — 대상 hosted zone ARN을 지정하거나 enable_external_dns_iam = false로 명시한다."
   }
 }
+
+variable "enable_argocd_hub_pod_identity" {
+  description = <<-EOT
+    허브 ArgoCD(argocd-application-controller)가 스포크 계정의 크로스 계정 신뢰 Role을
+    assume할 수 있는 Pod Identity role 생성 여부.
+    기본 false인 이유는 유휴 role과 불필요한 diff를 만들지 않기 위해서다 — 소비자 opt-in.
+  EOT
+  type        = bool
+  default     = false
+}
+
+variable "argocd_namespace" {
+  description = <<-EOT
+    허브 ArgoCD가 설치된 네임스페이스. Pod Identity association의 namespace로 쓰인다.
+    ⚠️ scripts/argocd-seed.sh의 ARGOCD_NAMESPACE와 반드시 일치해야 한다 — 어긋나면
+    association이 실제 Pod의 서비스 어카운트와 매칭되지 않아 자격증명을 받지 못한다.
+  EOT
+  type        = string
+  default     = "argocd"
+}
+
+variable "argocd_hub_assumable_role_arns" {
+  description = <<-EOT
+    이 허브가 assume할 수 있는 스포크 크로스 계정 신뢰 Role ARN 목록.
+    스포크가 늘 때마다 이 목록에 추가한다(현재는 수동 갱신).
+
+    ⛔ enable_argocd_hub_pod_identity = true면 비워 둘 수 없다.
+    sts:AssumeRole은 리소스 수준 권한을 요구하는 액션이라 Resource = "*" 정책을
+    IAM이 거부한다(400 MalformedPolicyDocument) — external_dns_hosted_zone_arns와 같은 이유다.
+  EOT
+  type        = list(string)
+  default     = []
+
+  validation {
+    # external_dns_hosted_zone_arns와 완전히 같은 이유 — plan 단계에서 미리 막는다.
+    # ⚠️ cluster_enabled 게이트가 필수다(위 external_dns_hosted_zone_arns 주석과 같은 이유):
+    #    kill switch 경로에서는 argocd hub IAM이 애초에 생성되지 않으므로(iam.tf의
+    #    create = local.enabled && ...) 막을 이유가 없고, 막으면 "끌 수는 있으나 끈 상태를
+    #    유지할 수 없는" 반쪽 kill switch가 된다.
+    condition     = !(var.enable_argocd_hub_pod_identity && var.cluster_enabled) || length(var.argocd_hub_assumable_role_arns) > 0
+    error_message = "enable_argocd_hub_pod_identity = true면 argocd_hub_assumable_role_arns가 비어 있을 수 없다. AWS가 Resource = \"*\" 정책을 거부하므로 apply가 실패한다 — 대상 스포크 신뢰 Role ARN을 지정하거나 enable_argocd_hub_pod_identity = false로 명시한다."
+  }
+}

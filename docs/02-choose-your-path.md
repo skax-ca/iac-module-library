@@ -198,6 +198,7 @@ pod CIDR을 다른 모든 스포크·허브와 안 겹치게 다시 조율해야
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"` — RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
 | 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `iac-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 `aws_ram_resource_share_accepter`(또는 CLI)로 초대를 수락하는 단계가 하나 늘어난다(아래 리소스 표 4번) |
 | 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다.** AWS가 TGW 생성의 부산물로 자동 만드는 기본 라우트테이블은 `default_tags`가 안 닿는다(`iac-reference-infra` 2026-08-20 실측: 무태그). 명시적으로 만든 라우트테이블은 provider가 직접 만드는 리소스라 태그가 그대로 적용된다 — 「06-conventions.md」 「2」 강제 방식 6번의 이행 사례. spoke의 attachment는 RAM 으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
+| 7 | 값 전달 | **repo 변수 수동 복사가 아니라 `data` 소스로 발견한다** — 아래 「값 발견」 절 |
 
 TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가) — 그리고 Peering은 애초에 못
 쓰므로 "스포크 1개일 때는 peering, 늘면 TGW로 전환"이라는 단계적 채택 자체가 성립하지
@@ -210,19 +211,40 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 | # | 리소스 | 만드는 곳 |
 |---|--------|----------|
 | 1 | `aws_ec2_transit_gateway` | 허브 |
-| 2 | `aws_ram_resource_share` + `aws_ram_resource_association` + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
+| 2 | `aws_ram_resource_share`(`UniqCidr` 태그 포함) + `aws_ram_resource_association` + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
 | 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
-| 4 | `aws_ram_resource_share_accepter`(RAM 초대 수락, 5번보다 먼저 필요) | 스포크 |
-| 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, 초대 수락 후 생성 가능) | 스포크 |
+| 4 | `data.aws_ram_resource_share`(이름으로 조회) → `aws_ram_resource_share_accepter`(5번보다 먼저 필요) | 스포크 |
+| 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, `UniqCidr` 태그 포함, 초대 수락 후 생성 가능) | 스포크 |
 | 6 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR → 허브 자신의 attachment | 허브 |
-| 7 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR → 스포크 자신의 attachment | 스포크 |
-| 8 | TGW 라우트테이블에 스포크 uniq CIDR → **스포크의** attachment(5번 완료 후 attachment ID 필요) | 허브(TGW owner만 가능) |
-| 9 | 스포크 클러스터 SG에 허브발 443 인바운드 | 스포크(IAM 신뢰와 같은 "제약받는 쪽이 규칙을 연다" 원칙) |
+| 7 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR(4번 데이터소스의 `UniqCidr` 태그에서 읽는다) → 스포크 자신의 attachment | 스포크 |
+| 8 | `data.aws_ec2_transit_gateway_vpc_attachments`(복수형, 허브 소유 TGW에 붙은 attachment 전부 발견) → 발견된 것마다 TGW 라우트테이블에 라우트(대상 CIDR은 그 attachment의 `UniqCidr` 태그) | 허브(TGW owner만 가능) |
+| 9 | 스포크 클러스터 SG에 허브발 443 인바운드(CIDR은 2번의 `data.aws_ram_resource_share`에서 읽는다) | 스포크 |
 
-⚠️ **값 전달이 2단계다** — TGW ID(AWS 무작위 부여, 결정적 합성 불가)가 허브→스포크로,
-스포크의 attachment ID(역시 무작위)가 스포크→허브로 각각 apply 후 수동 전달돼야 한다
-(repo 변수 경유). Peering의 1단계(connection ID 하나)보다 한 단계 더 든다 — TGW가
-"스포크가 늘어도 구조를 안 바꾼다"의 대가다.
+### 값 발견 — repo 변수 수동 복사 대신 `data` 소스
+
+TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능하지만, **그 값을 담고 있는
+리소스의 이름은 결정적**이다(`ram-<workload>-hub-<region>-tgw-share`처럼 이 저장소의
+네이밍 규약 그대로 조합된다) — 그래서 값 자체가 아니라 **이름으로 찾아 값을 읽는다**.
+"하류가 다른 배포 루트라면 remote state 참조보다 Name 태그 data source 조회를 쓴다"는
+계정 내부 원칙을 계정 경계 너머로 그대로 확장한 것이다(`iac-reference-infra` 2026-08-20
+재설계 — 원래는 repo 변수 3개를 apply 후 수동으로 옮겨 적었다).
+
+| 필요한 값 | 발견 방법 |
+|-----------|----------|
+| 허브의 TGW ID | 스포크가 `data.aws_ram_resource_share`(이름, `resource_owner = "OTHER-ACCOUNTS"`)의 `resource_arns`에서 TGW ARN을 파싱 |
+| 허브의 uniq CIDR | 같은 데이터소스의 `tags["UniqCidr"]` — 허브가 RAM 공유 생성 시 남긴다 |
+| 스포크의 attachment ID·개수 | 허브가 `data.aws_ec2_transit_gateway_vpc_attachments`(복수형)로 자기 TGW에 붙은 것 전부 나열 — **스포크가 0개여도 에러가 아니라 빈 리스트**라 허브 apply는 스포크 존재 여부와 무관하게 항상 성공한다 |
+| 스포크의 uniq CIDR | `data.aws_ec2_transit_gateway_vpc_attachment`(단수, ID로 조회)의 `tags["UniqCidr"]` — 스포크가 자기 attachment 생성 시 남긴다 |
+
+⚠️ **예외 — 스포크 계정 ID만은 여전히 사람이 알려줘야 한다.** RAM `principal_association`은
+공유 대상 계정을 알아야 초대를 보낼 수 있는데, 허브는 스포크가 존재하는지조차 모르는
+상태에서 시작하므로 "발견"할 대상이 없다 — 이건 없앨 수 있는 수동 단계가 아니라
+hub-spoke 토폴로지 자체의 방향성(허브는 스포크를 몰라도 되지만, 초대는 누군가 시켜야 한다)이다.
+
+⚠️ **순서 제약은 여전히 하나 남는다** — 허브가 스포크보다 먼저 존재해야 한다(스포크가
+이름으로 찾을 대상이 있어야 하므로). 단수형 `data.aws_ram_resource_share`는 대상이 없으면
+**에러로 실패**하므로 이 순서를 거꾸로 하면 스포크 쪽에서 명확한 실패로 즉시 드러난다 —
+이것도 없애야 할 결함이 아니라 올바른 순서를 강제하는 가드다.
 
 ---
 

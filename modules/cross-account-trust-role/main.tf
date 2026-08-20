@@ -32,8 +32,13 @@ resource "aws_iam_role" "this" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect    = "Allow"
-      Action    = "sts:AssumeRole"
+      Effect = "Allow"
+      # sts:TagSession도 허용해야 한다 — 신뢰하는 주체(허브의 argocd_hub_pod_identity Role)가
+      # 이미 Pod Identity로 세션 태그를 받은 채로 이 Role을 체이닝 assume하는데, AWS STS는
+      # AssumeRole과 TagSession을 별개 액션으로 검사한다. TagSession을 안 열면 세션 태그가
+      # 붙은 assume 시도가 403 "not authorized to perform: sts:TagSession"으로 거부된다
+      # (실측, 2026-08-20 — hub→spoke 크로스 계정 ArgoCD 인증 실제 apply 중 발견).
+      Action    = ["sts:AssumeRole", "sts:TagSession"]
       Principal = { AWS = var.trusted_principal_arns }
     }]
   })

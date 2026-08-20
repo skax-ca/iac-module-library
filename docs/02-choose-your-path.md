@@ -211,7 +211,8 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 | # | 리소스 | 만드는 곳 |
 |---|--------|----------|
 | 1 | `aws_ec2_transit_gateway` | 허브 |
-| 2 | `aws_ram_resource_share` + `aws_ram_resource_association` + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
+| 2 | `aws_ram_resource_share` + `aws_ram_resource_association`(TGW·허브 uniq 프리픽스 리스트 둘 다) + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
+| 2b | `aws_ec2_managed_prefix_list`(허브 uniq CIDR 1개, 2번의 RAM 공유에 함께 실어 보낸다 — 아래 「값 발견」 참조) | 허브 |
 | 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
 | 4 | `data.aws_ram_resource_share`(이름으로 조회) → `aws_ram_resource_share_accepter`(5번보다 먼저 필요) | 스포크 |
 | 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, 초대 수락 후 생성 가능) | 스포크 |
@@ -243,7 +244,8 @@ TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능�
 | 허브의 TGW ID | 스포크가 `data.aws_ram_resource_share`(이름, `resource_owner = "OTHER-ACCOUNTS"`)의 `resource_arns`에서 TGW ARN을 파싱 — RAM 의 본래 목적이라 계정 경계를 넘는다 |
 | 스포크의 attachment ID·개수 | 허브가 `data.aws_ec2_transit_gateway_vpc_attachments`(복수형)로 자기 TGW에 붙은 것 전부 나열 — **스포크가 0개여도 에러가 아니라 빈 리스트**라 허브 apply는 스포크 존재 여부와 무관하게 항상 성공한다. TGW owner 로서 자기 TGW 에 붙은 attachment 를 나열하는 것뿐이라 계정 경계 문제가 없다 |
 | 어느 attachment 가 어느 스포크인가 | `data.aws_ec2_transit_gateway_vpc_attachment`(단수)의 `vpc_owner_id` — 태그가 아니라 EC2 API 고유 속성이라 계정 경계를 넘는다 |
-| 양쪽의 uniq CIDR | **발견하지 않는다.** 각자 자기 값은 하드코딩(주석으로 상대 파일을 인용)하고, 허브는 `vpc_owner_id → CIDR` 지도(`local`)를 하나 유지한다 — 어차피 `spoke_account_id`(위 2번)를 사람이 알려줘야 하므로 같은 자리에 CIDR 하나를 더 적는 것은 새 수동 단계가 아니라 기존 단계의 확장이다 |
+| 허브→스포크 방향 CIDR(허브 자신의 uniq) | **관리형 접두사 목록(`aws_ec2_managed_prefix_list`)으로 발견한다**(2026-08-20 이후 재설계). 허브가 자기 uniq CIDR을 담은 프리픽스 리스트를 만들어 위 2번 RAM 공유에 함께 실어 보낸다. 스포크는 `data.aws_ram_resource_share`의 `resource_arns`에서 `:prefix-list/`를 포함한 ARN을 파싱해 **ID만** 얻고, `aws_route`의 `destination_prefix_list_id`·SG 규칙의 `prefix_list_ids`로 직접 참조한다 — CIDR 텍스트 자체를 몰라도 된다. 근거: AWS RAM은 프리픽스 리스트 소유자만 공유할 수 있고, 공유받은 계정은 그 리스트를 자기 자원(라우트·SG)에서 직접 참조할 수 있다(AWS 공식: [Share customer-managed prefix lists](https://docs.aws.amazon.com/vpc/latest/userguide/sharing-managed-prefix-lists.html)) |
+| 스포크→허브 방향 CIDR(스포크 자신의 uniq) | **여전히 하드코딩한다** — 이 방향은 바꾸지 않는다. 스포크가 여럿이어도 허브는 `spoke_account_id`(위 2번, RAM 초대 대상)를 사람에게 안내받아야 하므로, 같은 자리에서 CIDR도 함께 받는 것(`local.spoke_uniq_cidrs` 지도)이 새 수동 단계가 아니라 기존 단계의 확장이다. 프리픽스 리스트가 자연스러운 쪽은 **1:N 발행자가 자기 값을 공표하는 방향**뿐이다 — N:1로 여러 스포크의 값을 허브가 모으는 이 방향은 발행자가 여럿이라 같은 구조가 성립하지 않는다 |
 
 ⚠️ **예외 — 스포크 계정 ID(와 그 CIDR)는 여전히 사람이 알려줘야 한다.** RAM
 `principal_association`은 공유 대상 계정을 알아야 초대를 보낼 수 있는데, 허브는 스포크가

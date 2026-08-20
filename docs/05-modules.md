@@ -135,7 +135,7 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 private 클러스터를 조작하는 운영 지점. **인바운드 규칙이 하나도 없다** —
 SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방향으로 흐른다.
 
-**최신 태그**: `workbench-v0.6.0` · **계약 테스트**: 18
+**최신 태그**: `workbench-v0.7.0` · **계약 테스트**: 19
 
 ### 핵심 입력
 
@@ -155,6 +155,18 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 `workbench_iam_role_arn` · `workbench_iam_role_name`
 
 > `workbench_security_group_id`와 `workbench_iam_role_arn`이 **경계의 실물**이다 (아래).
+
+### 부여되는 IAM 권한
+
+| 권한 | 언제 | 스코프 |
+|------|------|--------|
+| `AmazonSSMManagedInstanceCore`(관리형) | 항상 | - |
+| `eks:DescribeCluster` | `eks_cluster_name`·`eks_cluster_arn` 지정 시 | 해당 클러스터 ARN |
+| `ec2:DescribeSpotPriceHistory` · `pricing:GetProducts` | 항상 | `*`(AWS가 이 두 액션에 리소스 레벨 권한을 지원하지 않는다) |
+
+⚠️ 마지막 행의 `Resource = "*"`는 이 모듈의 스코프 원칙(가능하면 ARN으로 좁힌다)의 예외다.
+좁힐 대상 자체가 AWS API 계약에 없다 — `eks:DescribeCluster`처럼 클러스터 ARN으로 한정할 수 없다.
+둘 다 읽기전용이고 반환 데이터(spot 가격 이력·상품 가격표)는 계정 경계 없이 공개된 정보다.
 
 ### 클러스터 접근 3층 — 누가 무엇을 소유하는가
 

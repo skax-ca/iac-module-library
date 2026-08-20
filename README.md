@@ -13,7 +13,7 @@ Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC
 |------|----------|------------|------|
 | `vpc` | `vpc-v0.3.0` | 13 | VPC · 서브넷 · NAT · Flow Logs |
 | `eks-cluster` | `eks-cluster-v0.7.0` | 24 | EKS 클러스터 · 노드그룹 · addon · IAM |
-| `workbench` | `workbench-v0.6.0` | 18 | private 클러스터 운영 지점 (SSM 전용, 인바운드 0) |
+| `workbench` | `workbench-v0.7.0` | 19 | private 클러스터 운영 지점 (SSM 전용, 인바운드 0) |
 
 모든 모듈이 개발 단계(`0.y.z`)다. 실계정 배포로 검증된 조합이 `iac-reference-infra`에 있다.
 

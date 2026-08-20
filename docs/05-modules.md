@@ -185,8 +185,8 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 
 스포크 계정이 소유하는 크로스 계정 IAM 신뢰 Role 하나만 만드는 얇은 모듈. 허브의 특정 IAM
 Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이지 않는다 — 실제 Kubernetes
-권한은 `eks-cluster`의 `access_entries`가 매핑하는 `kubernetes_groups`(RBAC)가 전담한다.
-`vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
+권한은 스포크의 `eks-cluster` 모듈 `access_entries`가 결정한다(아래 「K8s 권한 부여 방식」
+참조). `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
 (`docs/02-choose-your-path.md` 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
 
 **최신 태그**: `cross-account-trust-role-v0.1.0` · **계약 테스트**: 5
@@ -205,6 +205,22 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 
 > `role_arn`이 스포크의 `eks-cluster` 모듈 `access_entries`로 들어가는 연결선이다.
 > 모듈이 서로를 직접 참조하지 않는다 — 배포 루트가 연결한다(다른 모듈과 같은 원칙).
+
+### K8s 권한 부여 방식 — access policy 우선, RBAC는 세밀한 제어가 필요할 때만
+
+`eks-cluster`의 `access_entries`는 이 Role에 K8s 권한을 주는 방식을 두 가지 제공한다. 선택
+기준은 AWS 공식 문서(EKS 사용 설명서 "Associate access policies with access entries")를 그대로
+따른다: **AWS 관리형 access policy로 요구가 충족되면 그것을 쓰고, 더 세밀한 범위 제어가
+필요할 때만 RBAC로 내려간다.**
+
+| 방식 | `access_entries` 필드 | 쓰는 경우 |
+|------|----------------------|----------|
+| 관리형 access policy | `policy_associations` | AWS가 제공하는 4개 정책(`AmazonEKSClusterAdminPolicy`·`AmazonEKSAdminPolicy`·`AmazonEKSEditPolicy`·`AmazonEKSViewPolicy`)으로 충분한 권한. GitOps 컨트롤러가 애드온·CRD 등 클러스터 스코프 리소스 전반을 다뤄야 하는 크로스 계정 ArgoCD 접근이 여기 해당한다 — `workbench` access entry와 같은 패턴이다 |
+| `kubernetes_groups` + K8s RBAC | `kubernetes_groups` | 네 정책 어느 것도 못 주는 세밀한 범위(특정 네임스페이스 조합·커스텀 verb 등)가 필요한 경우만. `ClusterRole`/`ClusterRoleBinding`은 이 모듈도 `eks-cluster`도 만들지 않는다 — GitOps 저장소(`iac-platform-gitops`)가 소유한다 |
+
+⚠️ access policy로 준 권한은 `kubectl auth can-i --list`에 나타나지 않는다 — AWS 전용 API
+(`aws eks list-associated-access-policies`)로만 조회된다. K8s 네이티브 도구로 권한을 감사해야
+하는 클러스터라면 이 제약을 감안해 `kubernetes_groups`를 택한다.
 
 ---
 

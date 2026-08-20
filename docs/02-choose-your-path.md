@@ -146,7 +146,7 @@ aws pricing get-products --region us-east-1 \
 | 1 | 배포 루트 | `<project>-infra`의 워크로드 환경이 허브를 겸한다 | `<project>-infra`에 `hub` 환경을 하나 추가한다. **저장소를 새로 만들지 않는다** |
 | 2 | cluster 등록(`iac-platform-gitops`) | `server: https://kubernetes.default.svc` | 스포크의 실제 EKS API 엔드포인트 + 크로스 계정 인증 config |
 | 3 | IAM 신뢰 | 불필요 — 같은 계정·같은 클러스터 | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유** — 제약받는 쪽이 그 제약을 소유한다는 원칙(`01-architecture.md` 4절 판별 2)과 같다 |
-| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요 — 허브의 IAM 주체를 그 클러스터 RBAC로 매핑 |
+| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요 — 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `05-modules.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
 | 5 | 장애 반경 | 허브 장애 = 그 계정 전체가 영향권 | 허브 장애 = pull만 멈춘다. desired state는 Git에 그대로 있고 워크로드 계정은 무관하다 |
 | 6 | 네트워크 경로 | 불필요 — 같은 VPC | 필요 — 아래 「네트워크 경로」 절 |
 

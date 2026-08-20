@@ -121,6 +121,42 @@ aws pricing get-products --region us-east-1 \
 > 통과하지 못한 채로 예외에 들어갔다.** 근거가 약하다는 것을 알고도 관례를 택한 결정이라는 뜻이고,
 > 그래서 여기 정직하게 적어둔다. 더 강한 근거 없이 이 전례를 들어 새 예외를 또 늘리지 않는다.
 
+### 리소스 이름 — Application 이름과 Helm release 이름을 분리한다
+
+ApplicationSet의 cluster generator는 Application 이름을 `{{name}}-<addon>`(예:
+`eks-demo-hub-an2-main-01-aws-lbc`)으로 짓는다 — 하나의 ArgoCD 인스턴스가 여러 클러스터를
+관리하므로, 콘솔에서 어느 클러스터의 addon인지 구분하려면 이 접두사가 필요하다.
+
+**release 이름을 따로 지정하지 않으면 이 접두사가 Kubernetes 리소스 이름까지 그대로
+전파된다.** ArgoCD는 `spec.source.helm.releaseName`을 지정하지 않으면 release 이름을
+Application 이름과 동일하게 쓰고([ArgoCD 공식 문서](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)),
+대부분의 차트는 `{{ .Release.Name }}-{{ .Chart.Name }}` 형태로 리소스 이름을 만든다 — 접두사가
+두 번 겹친다.
+
+⚠️ **가독성만의 문제가 아니다.** Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있다.
+`cluster-autoscaler` addon의 Deployment 이름이 실제로 이 한도에 걸려 `...cluster-autosca`로
+잘린 채 apply됐다(`iac-reference-infra` 2026-08-20 실측). 접두사가 길어질수록 서로 다른
+리소스가 63자 지점에서 같은 이름으로 잘려 충돌할 위험이 커진다.
+
+**결정**: release 이름이 리소스 이름에 그대로 쓰이는 addon은 `spec.source.helm.releaseName`을
+짧게 명시한다. Application 이름은 그대로 둔다 — 콘솔 식별(클러스터 구분)과 리소스 이름은
+서로 다른 축이다. [Kubernetes 공식 문서](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)도
+둘을 분리해서 다룬다 — 클러스터·인스턴스 식별은 `app.kubernetes.io/instance` 라벨의 몫이고,
+이름의 몫이 아니다.
+
+| addon | Application 이름 | `helm.releaseName` |
+|-------|------------------|---------------------|
+| aws-lbc | `{{name}}-aws-lbc` | `aws-lbc` |
+| karpenter | `{{name}}-karpenter` | `karpenter` |
+| cluster-autoscaler | `{{name}}-cluster-autoscaler` | `cluster-autoscaler` |
+| kyverno 계열(`kyverno`·`kyverno-policies`·`kyverno-custom-policies`) | 그대로 | **지정하지 않는다** — 이 차트들은 release 이름과 무관하게 컨트롤러 이름을 고정으로 렌더링해 애초에 접두사가 겹치지 않는다 |
+
+release 이름은 addon마다 **클러스터 안에서만** 유일하면 된다 — `destination.server`가
+클러스터마다 다르므로, hub와 spoke가 같은 release 이름(`aws-lbc`)을 써도 서로 다른
+클러스터에 있어 충돌하지 않는다. ArgoCD의 소유권 추적 라벨(`app.kubernetes.io/instance`)은
+release 이름이 아니라 Application 이름을 기준으로 붙으므로(ArgoCD 공식 문서), release
+이름을 바꿔도 클러스터·addon 단위 추적은 그대로 유지된다.
+
 ---
 
 ## 질문 D. 허브를 어디에 두는가 — 같은 계정 / 분리된 허브 계정

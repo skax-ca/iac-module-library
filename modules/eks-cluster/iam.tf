@@ -163,8 +163,13 @@ module "argocd_hub_pod_identity" {
 
   attach_custom_policy = true
   policy_statements = [{
-    sid       = "AssumeSpokeTrustRoles"
-    actions   = ["sts:AssumeRole"]
+    sid = "AssumeSpokeTrustRoles"
+    # sts:TagSession도 함께 필요하다 — 이 Role 자신이 Pod Identity로 assume될 때 이미
+    # 세션 태그가 붙는데(위 argocd_hub_pod_identity의 트러스트가 sts:TagSession도 허용하는
+    # 것과 같은 이유), 그 세션으로 스포크 Role을 다시 assume(체이닝)할 때도 AWS STS가
+    # sts:TagSession을 별도 액션으로 검사한다 — sts:AssumeRole만 있으면 403
+    # "not authorized to perform: sts:TagSession"으로 거부된다(실측, 2026-08-20).
+    actions   = ["sts:AssumeRole", "sts:TagSession"]
     resources = var.argocd_hub_assumable_role_arns
   }]
 

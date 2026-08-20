@@ -44,13 +44,22 @@ sgr-demo-prd-an2-web-01
    (등재 기준은 카탈로그의 [신규 약어 등재 규칙](aws-naming-abbreviations.md)).
 4. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
 5. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
-6. **모든 리소스는 태그를 단다 — `default_tags`가 닿지 않는 리소스도 예외가 아니다.**
-   `default_tags`는 provider가 **`resource` 블록으로 직접 만드는** 리소스에만 붙는다. TGW의
-   기본 연결 라우트테이블, VPC의 기본 라우트테이블·기본 보안그룹처럼 **AWS가 다른 리소스의
-   부산물로 자동 생성**하는 객체는 Terraform이 그 리소스를 생성하는 API 호출 자체를 하지
-   않으므로 `default_tags`가 낄 자리가 없다(실측: `iac-reference-infra` 2026-08-20, TGW
-   `association_default_route_table_id`가 무태그였음). 이런 리소스는 `aws_ec2_tag`로 리소스
-   ID를 직접 타겟해 태그를 붙인다 — 거버넌스 태그 하나당 `aws_ec2_tag` 하나다.
+6. **모든 리소스는 태그를 단다 — `default_tags`가 닿지 않는 묵시적 리소스도 예외가 아니다.**
+   `default_tags`는 provider가 **`resource` 블록으로 직접 만드는** 리소스에만 붙는다. AWS가
+   다른 리소스의 부산물로 자동 생성하는 객체(TGW의 기본 연결 라우트테이블, VPC의 기본
+   라우트테이블·기본 보안그룹 등)는 Terraform이 그 생성 API 호출 자체를 하지 않으므로
+   `default_tags`가 낄 자리가 없다(실측: `iac-reference-infra` 2026-08-20, TGW
+   `association_default_route_table_id`가 무태그였음). 우선순위는 셋이다:
+   1. **끌 수 있으면 끄고 명시적 리소스로 대체한다.** 예: TGW의
+      `default_route_table_association`/`_propagation`을 `disable`로 두고
+      `aws_ec2_transit_gateway_route_table`을 직접 만들어 연결한다 — provider가 직접 만드는
+      리소스라 `default_tags`가 그대로 적용된다.
+   2. **끌 수 없으면(VPC의 기본 라우트테이블·기본 보안그룹처럼 항상 생성되는 것) 전용
+      adoption 리소스로 입양한다.** `aws_default_route_table`·`aws_default_security_group` 등 —
+      이 역시 `resource` 블록이라 `default_tags`가 적용된다.
+   3. **위 둘 다 안 될 때만(우리가 소유하지 않는 리소스, 예: RAM 으로 받기만 하는 대상)
+      `aws_ec2_tag`로 리소스 ID를 직접 타겟한다.** 마지막 수단이다 — 거버넌스 태그 하나당
+      `aws_ec2_tag` 하나이고, `default_tags`처럼 한 번에 묶여 적용되지 않는다.
 
 ### 재사용 자산의 요건
 

@@ -175,9 +175,45 @@ run "kill_switch_disables_everything" {
   }
 
   assert {
+    condition     = length(aws_iam_role_policy.pricing_lookup) == 0
+    error_message = "workbench_enabled = false인데 가격 조회 정책이 계획됐다."
+  }
+
+  assert {
     # 출력이 null이어야 소비 루트가 try() 없이 eks-cluster에 그대로 넘겨도 깨지지 않는다.
     condition     = output.workbench_instance_id == null && output.workbench_security_group_id == null && output.workbench_iam_role_arn == null
     error_message = "kill switch 상태에서 출력이 null이 아니다 — 소비 루트의 조립이 깨진다."
+  }
+}
+
+# ── T-5b — 가격 조회 정책은 EKS 연동과 무관하게 항상 생성된다 ─────────────────────────
+run "pricing_lookup_policy_always_created" {
+  command = plan
+
+  assert {
+    condition     = length(aws_iam_role_policy.pricing_lookup) == 1
+    error_message = "workbench가 켜져 있는데 가격 조회 정책이 계획되지 않았다."
+  }
+
+  assert {
+    condition     = aws_iam_role_policy.pricing_lookup[0].name == "iamr-demo-prd-an2-workbench-01-pricing-policy"
+    error_message = "인라인 정책 이름이 부모 role 이름을 상속하지 않았다: ${aws_iam_role_policy.pricing_lookup[0].name}"
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_role_policy.pricing_lookup[0].policy, "ec2:DescribeSpotPriceHistory")
+    error_message = "가격 조회 정책에 ec2:DescribeSpotPriceHistory가 없다."
+  }
+
+  assert {
+    condition     = strcontains(aws_iam_role_policy.pricing_lookup[0].policy, "pricing:GetProducts")
+    error_message = "가격 조회 정책에 pricing:GetProducts가 없다."
+  }
+
+  assert {
+    # 두 액션 다 AWS가 리소스 레벨 권한을 지원하지 않는다(iam.tf 주석 참조) — Resource="*"가 계약이다.
+    condition     = strcontains(aws_iam_role_policy.pricing_lookup[0].policy, "\"Resource\":\"*\"")
+    error_message = "가격 조회 정책의 Resource가 \"*\"가 아니다."
   }
 }
 

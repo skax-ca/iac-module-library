@@ -65,6 +65,35 @@ resource "aws_iam_role_policy" "eks_describe" {
   })
 }
 
+# ── 가격 조회 — eks-node-viewer의 spot/on-demand 가격 표시 ───────────────────────
+#
+# ⚠️ 위 eks_describe와 달리 클러스터 ARN 같은 스코프 대상이 없다 — **AWS 자체 제약**이다(추정
+#    아님, IAM Policy Generator 데이터셋 실측 2026-08-20):
+#    · ec2:DescribeSpotPriceHistory — Resource types 컬럼이 비어 있다.
+#    · pricing:GetProducts — `AWS Price List` 서비스 전체가 `HasResource: false`. 이 서비스
+#      안의 어떤 액션도 리소스 레벨 권한을 지원하지 않는다.
+#    ⇒ `Resource = "*"`가 AWS가 정한 상한선이지, 이 모듈이 스코프를 게을리한 게 아니다.
+#    둘 다 읽기전용이고 반환 데이터(spot 가격 이력·상품 가격표)가 계정 경계 없이 공개된
+#    정보라 `Resource = "*"`를 감수한다. eks_describe와 다른 concern이라 정책도 분리한다.
+resource "aws_iam_role_policy" "pricing_lookup" {
+  count = local.enabled ? 1 : 0
+
+  name = "${local.role_name}-pricing-policy"
+  role = aws_iam_role.this[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ec2:DescribeSpotPriceHistory",
+        "pricing:GetProducts",
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 # ── 인스턴스 프로파일 ─────────────────────────────────────────────────────────
 #
 # 인스턴스 프로파일 약어는 카탈로그에 없고 임의 생성은 금지다. 「종속 객체는 약어를 새로 만들지 않고

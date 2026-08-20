@@ -44,6 +44,13 @@ sgr-demo-prd-an2-web-01
    (등재 기준은 카탈로그의 [신규 약어 등재 규칙](aws-naming-abbreviations.md)).
 4. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
 5. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
+6. **모든 리소스는 태그를 단다 — `default_tags`가 닿지 않는 리소스도 예외가 아니다.**
+   `default_tags`는 provider가 **`resource` 블록으로 직접 만드는** 리소스에만 붙는다. TGW의
+   기본 연결 라우트테이블, VPC의 기본 라우트테이블·기본 보안그룹처럼 **AWS가 다른 리소스의
+   부산물로 자동 생성**하는 객체는 Terraform이 그 리소스를 생성하는 API 호출 자체를 하지
+   않으므로 `default_tags`가 낄 자리가 없다(실측: `iac-reference-infra` 2026-08-20, TGW
+   `association_default_route_table_id`가 무태그였음). 이런 리소스는 `aws_ec2_tag`로 리소스
+   ID를 직접 타겟해 태그를 붙인다 — 거버넌스 태그 하나당 `aws_ec2_tag` 하나다.
 
 ### 재사용 자산의 요건
 

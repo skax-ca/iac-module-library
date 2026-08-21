@@ -48,6 +48,18 @@
       "source": "manual",
       "category": "team-doc",
       "content": "2026-08-21 — 팀 공유용 Notion 문서 \"AI를 활용한 IaC Asset 만들기\"를 3단계 구조로 작성 중(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12). 1단계(AI 코딩 에이전트: Claude Code MCP/OMC 플러그인/전용 스킬, 프로젝트 규칙, Conventions)와 2단계(IaC 도구와 설계: OpenTofu 배경·Terraform Enterprise 대비 도구선택, TFC/TFE에 없는 기능을 OSS로 직접 푼 설계 3사례 — Name태그 data source 조회·SG rule 개별 리소스화·TGW RAM 수락을 CI 단계로 이관) 완료. 3단계(EKS GitOps 패턴, 관심자 대상 세션)는 미착수. 다음 세션에서 이어서 작성 시 이 URL로 계속.\n⚠️ 이 문서를 Notion MCP로 편집할 때 한글을 \\uXXXX로 손계산해 넣지 말 것(글로벌 메모리 feedback_notion_hangul_manual_escape_bug 참조) — 여러 차례 다른 글자로 깨졌었다. 직접 타이핑하고 편집 후 notion-fetch로 재조회 대조할 것."
+    },
+    {
+      "timestamp": 1787291216633,
+      "source": "manual",
+      "category": "team-doc",
+      "content": "팀 공유용 Notion 문서 \"AI를 활용한 IaC Asset 만들기\"(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12) 3단계까지 전부 작성 완료 — 이전 메모(1·2단계만 완료, 3단계 미착수)를 대체한다. 3단계(EKS GitOps 패턴, 관심자 대상)는 사용자 선택에 따라 두 소재로 확정: ①허브-스포크 크로스 계정 아키텍처(IAM 신뢰 방향 역전·sts:TagSession 실사례·VPC Peering 대신 TGW를 쓰는 이유·RAM 초대 수락을 CI 단계로 옮긴 설계) ②ApplicationSet 자동 팬아웃 패턴(matchExpressions Exists 셀렉터·Karpenter 2-ApplicationSet 분리와 sync-wave·kube-system 네임스페이스 예외·Application/release 이름 분리(DNS-1123 63자 실측 사례)·finalizer 누락으로 인한 orphan 리소스). 편집 후 notion-fetch로 재조회해 한글 깨짐 없음 확인 완료. 다음에 이어갈 것이 남아있다면: 발표 자료(슬라이드) 변환 여부, 3단계 세션 일정."
+    },
+    {
+      "timestamp": 1787293286240,
+      "source": "manual",
+      "category": "team-doc",
+      "content": "이전 team-doc 메모(3단계 \"허브-스포크 크로스 계정 아키텍처 + ApplicationSet 팬아웃\" 2소재 버전)는 폐기 — 사용자가 전면 재작성을 요청해 대체됐다. 현재 Notion 문서(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12) 3단계 구조: ①아키텍처 다이어그램(iac-reference-infra 실제 배포 기준 — team계정=허브/vpc-demo-hub-an2-main/eks-demo-hub-an2-main-01, asset계정=스포크dev/vpc-demo-dev-an2-main/eks-demo-dev-an2-main-01, 3개 repo 관계, TGW·cross-account-trust-role 경로 포함 mermaid) ②Terraform·GitOps(플랫폼)·GitOps(앱) 3계층 표 및 이유 ③클러스터마다 GitOps 두면 생기는 문제 ④ArgoCD 정의+4대 기능(cluster 등록·ApplicationSet·self-heal·AppProject) ⑤프로젝트 적용 사례. 섹션 번호는 사용자가 직접 정리함(AI가 붙인 0/1 번호와 기존 무번호 소제목이 안 맞았던 것). 세션 종료 시점 상태: 사용자가 \"전체를 다시 리뷰해보고 얘기할게\"라고 함 — 다음 세션은 사용자의 리뷰 피드백을 먼저 확인할 것, 이 시점의 Notion 내용이 최종 승인된 것은 아니다."
     }
   ],
   "userDirectives": [

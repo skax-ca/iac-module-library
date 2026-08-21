@@ -209,24 +209,28 @@ WORKLOAD=<code> ENVIRONMENT=dev AWS_PROFILE=asset ./scripts/teardown-verify.sh
 자원이 하나도 안 잡혀 "잔존물 없음"으로 오판한다 — 스크립트는 지정된 계정만 본다. 나머지
 판정 기준(NAT·EC2·EBS·EIP·ALB/NLB·EKS·ENI·로그 그룹 순위)은 hub 13절 표와 같다.
 
-### 13. spoke 단독 teardown 시 hub TGW 잔존 라우트 — 열린 질문
+### 13. spoke 단독 teardown 시 hub TGW 잔존 라우트
 
 `deployment-facts.md`의 "teardown 후 재생성 시" 절은 **hub가 destroy된 경우**만 다룬다.
-spoke만 단독으로 destroy하고 hub는 그대로 두는 이번 경우는 다르다.
+spoke만 단독으로 destroy하고 hub는 그대로 두는 경우는 이 절이 다룬다.
 
-hub의 TGW 라우트·라우트테이블 연결은 **살아있는 데이터소스**
-(spoke attachment 자동 발견)로 개수가 결정된다. spoke의 attachment가 destroy로 사라진 뒤:
+hub의 spoke 라우트(`aws_route.vpc_to_spoke`·`aws_ec2_transit_gateway_route.tgw_rt_to_spoke`)는
+**살아있는 데이터소스**(`state=available` 필터의 attachment 자동 발견)로 개수가 결정되는
+`for_each` 기반이다. spoke의 attachment가 destroy로 사라지면:
 
-- AWS가 이 라우트를 attachment 삭제 시 **자동으로 정리**하는지
-- 아니면 dangling 상태로 남아 hub의 다음 plan에서 에러를 내는지
-- hub를 굳이 재적용하지 않아도 되는지, 정리를 위해 재적용이 **필요**한지
+- AWS는 그 라우트를 **즉시 지우지 않는다** — attachment 참조가 끊긴 static route를
+  `blackhole` 상태로 자동 전환한다(라우트 엔트리 자체는 남고, 트래픽만 조용히 드롭된다).
+- hub의 Terraform state는 이 전환을 스스로 알아채지 못한다 — `for_each`가 참조하는
+  데이터소스가 그 attachment를 더 이상 반환하지 않게 됐을 뿐이라, **다음 hub networking
+  plan/apply를 실제로 돌려야** 그 spoke의 라우트 2개가 destroy 대상으로 잡히고 정리된다.
+  **코드 수정은 필요 없다** — TGW 자체·RAM 공유·hub 자신의 attachment/route는 그대로 유지된 채
+  그 spoke의 라우트만 없어진다.
+- hub를 재적용하지 않고 방치해도 에러는 안 난다 — blackhole 라우트가 트래픽만 조용히
+  막을 뿐이고, 다음 spoke가 재배포돼도 그 spoke의 CIDR과 겹치지 않는 한 무관하다.
 
-**미실측이다.** 다음 spoke teardown 리허설에서 확인하고 이 절을 갱신한다.
-
-```bash
-# spoke networking destroy 직후, hub plan만 먼저 돌려 dangling 엔트리가 있는지 관찰
-gh workflow run deploy-hub-network.yml --ref main -f action=apply   # plan job까지만 확인
-```
+⚠️ `deploy-hub-network.yml`은 `workflow_dispatch`에서 **plan job이 끝나면 곧바로 apply
+job이 같은 run 안에서 이어진다** — "plan만 미리 보고 멈추는" 옵션은 없다. 정리할 각오가
+됐을 때만 dispatch한다.
 
 ### 14. 재배포 시 GitOps 재등록
 

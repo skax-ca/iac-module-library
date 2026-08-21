@@ -144,9 +144,22 @@ gh workflow run deploy-dev-network.yml --ref main -f action=apply
 보는 한, spoke 안의 LB·PVC·NodePool을 지워도 hub가 되살린다(대상만 원격일 뿐 hub 11절과
 같은 메커니즘).
 
+🔴 **cluster-secret.yaml을 한 번에 통째로 지우면 addon이 정리되지 않는다** — 리허설
+(2026-08-21, iac-reference-infra)로 실측 반증됐다. 이 Secret은 두 역할을 겸한다: ①ArgoCD가
+이 클러스터에 접속할 자격증명(`server`/`config`), ②ApplicationSet cluster generator가
+이 클러스터를 fan-out 대상으로 판단하는 라벨(`environment`·`tier`·`addon-*`). Secret을
+통째로 지우면 ArgoCD가 그 클러스터에 접속할 방법 자체를 잃어(`no clusters with this name`,
+argoproj/argo-cd#5817) cascade delete가 물리적으로 불가능해지고, Application 추적 기록만
+사라질 뿐 실제 Deployment·DaemonSet·Webhook·ClusterPolicy는 spoke 클러스터에 orphan으로
+남는다. **두 역할을 분리해 2단계로 진행해야 한다**:
+
 ```bash
-# ① hub 쪽 GitOps 저장소에서 이 spoke의 cluster-secret.yaml을 먼저 지운다
-#    — 이게 spoke판 "컨트롤러 정지"다
+# ① 매칭 라벨만 먼저 지운다 — secret-type과 server/config(접속 정보)는 그대로 둔다.
+#    이렇게 하면 ApplicationSet은 이 클러스터를 더 이상 발견 못 해 Application을
+#    정상적으로 제거하려 하고, 그 순간에도 ArgoCD는 여전히 이 클러스터에 접속 가능해
+#    cascade delete(resources-finalizer)가 실제로 완주한다.
+#    (kubectl delete로 Application을 직접 지우는 것도 통하지 않는다 — 매칭이 살아있는 동안은
+#     selfHeal이 즉시 되살린다. 반드시 "매칭을 끊기"여야 한다.)
 
 # ② hub의 root-app이 새 커밋을 실제로 반영했는지 확인
 #    (Synced/Healthy만으로는 반영을 보장 못 한다 — sync revision이 새 커밋 SHA인지 본다)
@@ -155,11 +168,19 @@ kubectl -n argocd get application root-app -o jsonpath='{.status.sync.revision}'
 # ③ 이 spoke가 만든 Application들이 실제로 pruned됐는지 hub에서 확인
 kubectl -n argocd get applications | grep <spoke-cluster-name>   # 결과 없어야 함
 
-# ④ 이후 hub-lifecycle.md 11절의 LB·PVC·NodePool 정리를 이 spoke의 workbench에서
-#    동일하게 수행 — hub가 이미 fan-out을 멈췄으니 되살아나지 않는다
+# ④ spoke 클러스터 자체에서 addon 워크로드가 실제로 사라졌는지 확인한다
+#    (③만으로는 부족하다 — Application 추적 기록 삭제와 실제 리소스 삭제는 별개다)
+kubectl get pods -A   # ArgoCD 관리 addon(aws-lbc·keda·kyverno·karpenter 등) 파드가 없어야 함
+kubectl get nodepools 2>&1   # Karpenter를 쓰면 NodePool CR도 없어야 함
+
+# ⑤ ③④ 확인 후에만 cluster-secret.yaml을 완전히 삭제해 클러스터 등록 자체를 해제한다
+#    (server/config까지 포함해 전체 삭제 — 이 시점엔 정리할 것이 이미 없어 안전하다)
 ```
 
-**순서가 중요하다.** ①②③을 건너뛰고 바로 지우면 hub가 여전히 fan-out 중이라 되살아난다.
+**순서가 중요하다.** ①②③④를 건너뛰고 Secret을 한 번에 지우면 hub의 Application 추적
+기록은 사라지지만 실제 addon은 spoke에 orphan으로 남는다 — 이후 spoke EKS 클러스터
+자체를 destroy(11절)하면 결국 함께 사라지므로 destroy 자체를 막지는 않지만, 클러스터를
+재파괴하지 않고 addon만 걷어내려는 시나리오(예: 재구성 리허설)에서는 치명적이다.
 
 ### 11. 2단계 · 3단계 — destroy
 

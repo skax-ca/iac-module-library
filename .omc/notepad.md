@@ -5,6 +5,10 @@
 SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`(역할 에이전트·notepad 툴)와 전역 커맨드(`/session-start`·`/session-end`) 소관. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+
+### 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
 ### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
 
 opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
@@ -56,136 +60,6 @@ iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps �
 포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
 notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
 이어가려면 그 repo에서 시작할 것.
-
-## 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
-
-opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
-- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
-- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
-- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
-- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
-- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
-- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
-- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
-
-### 2026-08-14 08:24
-### 2026-08-18 01:01
-### 2026-08-18 05:51
-iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
-같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
-### 2026-08-18 07:37
-### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
-
-라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
-
-- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
-- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
-- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
-- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
-- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
-- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
-
-다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
-### 2026-08-18 08:23
-### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
-
-오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
-
-**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
-
-리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
-
-남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
-
-
-## 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
-
-opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
-- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
-- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
-- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
-- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
-- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
-- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
-- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
-
-### 2026-08-14 08:24
-### 2026-08-18 01:01
-### 2026-08-18 05:51
-iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
-같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
-### 2026-08-18 07:37
-### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
-
-라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
-
-- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
-- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
-- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
-- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
-- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
-- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
-
-다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
-
-
-## 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
-
-opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
-- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
-- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
-- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
-- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
-- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
-- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
-- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
-
-### 2026-08-14 08:24
-### 2026-08-18 01:01
-### 2026-08-18 05:51
-iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
-같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
-
-
-## 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
-
-opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
-- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
-- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
-- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
-- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
-- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
-- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
-- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
-
-### 2026-08-14 08:24
-### 2026-08-18 01:01
-## opencode 호환성 조사·정합 완료 (2026-08-18)
-
-"이 프로젝트가 opencode에서도 잘 동작하나" 질문에서 시작. `opencode debug config`/`opencode debug skill`로 실측 조사:
-- ✅ 이미 되던 것: 프로젝트 루트 CLAUDE.md·AGENTS.md는 opencode 바이너리 내장 기본값(`["AGENTS.md", "CLAUDE.md"]`, disableClaudeCodePrompt 미설정 시)으로 자동 인식. 프로젝트 스코프 `.claude/skills/notepad-sync`도 opencode가 암묵적으로 스캔해서 인식(skills.paths 글로벌 경로 설정과 무관).
-- ❌ 안 되던 것(수정 완료): 프로젝트 `.mcp.json`(Claude Code 전용 포맷)을 opencode는 전혀 안 읽음. 프로젝트 루트에 `opencode.jsonc`가 없어서 CLAUDE.md가 필수로 요구하는 `mcp__opentofu__get-resource-docs` 확인 절차가 opencode에서 불가능했음.
-- 조치: `iac-module-library/opencode.jsonc` 신설(`.mcp.json`과 동등 내용, opencode 문법으로 변환 — `type:"local"`+`command` 배열, `environment` 키, `{env:VAR}` 치환). 프로젝트 config가 글로벌과 병합되고 같은 키로 override 가능함을 실측 확인 후, 글로벌에 이미 있던 동종 서버(`awslabs.aws-api-mcp-server`·`awslabs.aws-documentation-mcp-server`, cert/profile 설정 없어 이 프로젝트엔 부적합)를 이 프로젝트에서만 `enabled:false`로 꺼서 중복 제거.
-- 여전히 안 되는 것(의도적으로 안 고침): `mcp__t__*`(OMC notepad/project-memory 브리지)는 opencode에 아예 없음 — `notepad-sync`의 가드가 이미 이 경우를 감지해서 조용히 건너뛰도록 돼 있어 추가 조치 없이 안전. Claude Code hooks(`~/.claude/hooks/*.mjs`)도 Claude Code 전용 프로토콜이라 opencode에서 미실행 — 원래도 안 될 것으로 설계돼 있었음(문제 아님).
-- 남은 선택지(미결정): 글로벌 `awslabs.terraform-mcp-server`(HashiCorp Terraform 레지스트리)가 프로젝트의 `opentofu`(OpenTofu 레지스트리)와 용도가 겹침 — "OpenTofu 단독" 엔진 원칙과 살짝 어긋날 수 있지만 이번엔 범위 밖이라 안 건드림. 필요시 같은 방식(project override enabled:false)으로 끌 수 있음.
-
-커밋: `9c45e34`(opencode.jsonc 신설) → `7a0e234`(중복 서버 정리).
-
-
-## 2026-08-14 08:24
-## OMC 결합 제거 — 전역 session-start/end 위임화 + bootstrap opt-in 전환 (2026-08-14, 세션 2부)
-
-"notepad가 너무 커서 관리 어려우면 OMC 구조에서 어떻게 개선?" 질문에서 시작해 3단계로 확장:
-1. notepad.md 재구성(Priority 200KB→441B, Working/MANUAL 3단 구조 실제 적용, project-memory.json 신설) — 커밋 `fe4d795`.
-2. 전역 session-start/end(dotfiles-claude)가 OMC를 몰라도 되게 위임 구조로 전환 — `notepad-sync`라는 이름의 프로젝트 스코프 스킬이 있으면 호출, 없으면 건너뜀. bootstrap.sh의 OMC 플러그인 설치·스킬 링크·글로벌 CLAUDE.md 주입(11~13단계)을 `~/.claude/.omc-enabled`(머신별 로컬 플래그, git 비동기화) opt-in으로 전환.
-3. `notepad-sync`가 저장 판단 로직을 손으로 재구현했던 걸 발견 → `oh-my-claudecode:remember`(OMC 기본 제공)에 위임하도록 리팩터. 이 repo 고유 제약(Edit 직접 금지·Priority 500자·docs 사건서술 금지·project-memory.json 커밋 대상)만 추가로 얹음.
-
-⚠️ 실수 1건: dotfiles-claude 레포의 스킬 파일을 직접 고쳤다가 `sync.sh push`가 `~/.agents/skills`(진짜 원본)로 덮어써서 원복된 적 있음 — 레포는 미러일 뿐 원본이 아니었다. `~/.agents/skills`와 `~/.claude/CLAUDE.md`가 라이브 원본, 레포 사본은 파생물이라는 걸 다음에 dotfiles 편집할 때 잊지 말 것.
-
-발견(미해결, dotfiles-claude/README.md "알려진 이슈"에 기록해둠): `claude-npo/`(사내 MiniMax 프로파일 미러)가 2026-06-23 이후 sync.sh/bootstrap.sh 배관에서 빠진 채 방치 — 오늘 변경사항(opt-in 전환 등) 전혀 반영 안 됨. 다음에 손볼 것.
-
-커밋: dotfiles-claude `5861ee2`→`4806a76`(bootstrap opt-in)→`a2ad44a`(CLAUDE.md notepad-sync 요구사항)→`507b108`(세션관리 문구 정정). iac-module-library `fe4d795`→`37c3746`→`b3b4c0d`(notepad-sync 신설·리팩터).
-
 
 ## MANUAL
 
@@ -3548,3 +3422,4 @@ NAT·EC2 3대·EKS·VPC·로그그룹을 **정확히 우리 것만** 잡고 `exi
   **5** private NAT 옵션 · **9** per-AZ NAT 개수 기준(호스트 그룹이 넓으면 미사용 NAT가 AZ당 ~$43/월).
   ✅ 해소됨: **6**(IAM inline 약어 — 부모 이름 상속 규약) · **7**(confused deputy — vpc-v1.1.0) ·
   **8**(`fl` 약어 등재). ⚠️ 남은 6건은 전부 **수요 발생 시** 착수 성격이라 지금 차단 요인이 아니다.
+

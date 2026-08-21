@@ -65,15 +65,53 @@ hub와 같은 방식으로 `backend.hcl`을 만들고(`key = "dev/networking.tfs
 gh workflow run deploy-dev-network.yml --ref main -f action=apply
 ```
 
-apply 안에서 `aws_ram_resource_share_accepter`가 **자동으로** hub의 RAM 초대를 수락한다 —
-콘솔이나 CLI로 따로 누르지 않는다. **이 수락이 이후 모든 것의 실질적 관문이다**: 수락 전에는
-spoke 계정의 어느 state에서도 hub의 TGW·프리픽스 리스트가 안 보인다.
+🔴 **"apply 안에서 자동으로 수락한다"는 완전 신규(또는 재배포) spoke에는 성립하지 않는다
+— 사람이 한 번 개입해야 한다(2026-08-21 실측, 이전 서술은 틀렸다).** 원인은 Terraform
+자체의 구조적 한계다: `main.tf`의 `data.aws_ram_resource_share`(resource_owner=
+OTHER-ACCOUNTS)는 초대가 이미 **ACCEPTED**여야만 찾아지는데, `aws_ram_resource_share_accepter`
+리소스는 반대로 초대가 아직 **PENDING**이어야만 생성(=수락)할 수 있다 — 두 요구가 서로를
+막는 순환이고, PENDING 초대만 조회하는 Terraform 데이터소스 자체가 없어 코드만으로는 못
+깬다. 깨는 절차:
+
+```bash
+# 1) spoke apply 전에 먼저 CLI 로 수락한다 — exec role 불필요, 계정의 개인 IAM user 권한으로 충분하다.
+aws ram get-resource-share-invitations --profile <spoke-profile> --region <region> \
+  --query "resourceShareInvitations[?resourceShareName=='ram-<workload>-hub-<region-code>-tgw-share' && status=='PENDING']"
+aws ram accept-resource-share-invitation --profile <spoke-profile> --region <region> \
+  --resource-share-invitation-arn <위 조회로 얻은 ARN>
+
+# 2) spoke networking 의 main.tf 에 aws_ram_resource_share_accepter 를 겨냥한 import 블록을
+#    "일회성"으로 추가한다(코드 예시는 iac-reference-infra live/dev/networking/main.tf 커밋
+#    이력 참조) → apply → 성공 확인 후 그 커밋에서처럼 import 블록을 제거한다. 영구 코드가
+#    아니다 — 남겨 두면 다음 진짜 PENDING 재배포 때 import 대상이 없어 그 자체가 실패한다.
+gh workflow run deploy-dev-network.yml --ref main -f action=apply
+```
+
+apply 안의 자동 경로는 오직 "이미 CLI로 수락된 초대를 이어받는" 경우에만 통한다. **이
+수락이 이후 모든 것의 실질적 관문이다**: 수락 전에는 spoke 계정의 어느 state에서도 hub의
+TGW·프리픽스 리스트가 안 보인다.
+
+⚠️ **재배포(teardown 이후) 시 추가로 확인할 것 — hub 쪽 RAM principal association 자체가
+없어져 있을 수 있다.** spoke teardown이 `aws_ram_resource_share_accepter`를 destroy하면,
+AWS RAM이 이를 실제 disassociation으로 처리해 hub의 `aws_ram_principal_association.spoke_dev`가
+**hub의 Terraform state에는 남아 있지만 AWS 실물에서는 사라진다**(2026-08-21 실측: hub 재적용
+전엔 spoke networking plan이 `no matching RAM Resource Share found`로 즉시 실패한다). 이 경우
+위 CLI 수락을 시도하기 **전에** hub networking을 먼저 재적용해 association을 재생성해야
+새 PENDING 초대가 생긴다 — hub 재적용은 이때 그 김에 13절의 blackhole 라우트도 함께 정리한다.
 
 > 🔑 **hub→spoke 방향 라우트는 이 apply만으로 안 끝난다.** hub의 networking이 spoke보다
 > 먼저 서므로, 그 시점엔 spoke attachment가 없어 hub 최초 apply에 못 들어간다 — spoke
 > networking apply(=RAM 수락) 뒤 **hub networking을 한 번 더 재적용**해야 hub→spoke 라우트가
 > 채워진다. 전체 순서: hub networking → hub eks → spoke networking → spoke eks → **hub
 > networking 재적용**. TGW 전용으로 따로 기억할 단계는 이 마지막 재적용 하나뿐이다.
+
+🔴 **완전 신규(또는 완전 재배포) VPC의 첫 apply에서 `aws_route.to_hub`가 "Invalid for_each
+argument"로 plan 자체를 거부할 수 있다**(2026-08-21 실측). `route_table_ids_by_group["node-uniq"]`
+는 module output(리스트)인데, 그 라우트테이블 자신이 **같은 apply 안에서 처음 생성**되면
+apply 시점까지 값을 모른다 — 그런 리스트를 `for_each` 키로 쓰면 OpenTofu가 plan을 거부한다.
+고정 개수(AZ 수)로 만든 정적 인덱스 집합을 `for_each` 키로 쓰고, 실제 라우트테이블 ID는 그
+인덱스로 apply 시점에 조회하도록 바꾼다(코드는 `iac-reference-infra` `live/dev/networking/main.tf`
+커밋 이력 참조) — 처음부터 이렇게 작성하면 재배포 때마다 이 실패를 다시 겪지 않는다.
 
 ### 5. EKS와 workbench (L2) — `cross-account-trust-role` 연결
 

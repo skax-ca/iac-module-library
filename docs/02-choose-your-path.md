@@ -185,12 +185,35 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 | 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요 — 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `05-modules.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
 | 5 | 장애 반경 | 허브 장애 = 그 계정 전체가 영향권 | 허브 장애 = pull만 멈춘다. desired state는 Git에 그대로 있고 워크로드 계정은 무관하다 |
 | 6 | 네트워크 경로 | 불필요 — 같은 VPC | 필요 — 아래 「네트워크 경로」 절 |
+| 7 | state·CI 분리 | 불필요 — 단일 state·단일 워크플로 | 필수 — 계정마다 별도 state·별도 CI job. 하나로 합치지 않는 이유는 아래 「state를 계정 경계에서 나누는 이유」 절 |
 
 > `iac-platform-gitops`의 cluster Secret 계약(값이 어떻게 채워지는지)은 그 저장소 소관이다.
 > 이 표는 그 계약이 기대는 **IAM 경계**만 정의한다.
 
 이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`05-modules.md`](05-modules.md)의
 `eks-cluster` 크로스 계정 확장·`cross-account-trust-role` 모듈 섹션이 소유한다.
+
+### state를 계정 경계에서 나누는 이유 — 멀티 provider 단일 설정을 쓰지 않는다
+
+HashiCorp 공식 예제(`aws_ram_resource_share_accepter` 문서, 아래 「RAM 초대 수락」 절 참조)는
+sender·receiver를 provider 2개로 같은 설정 안에 두고 한 apply로 처리한다. 이 프로젝트가 그
+방식을 쓰지 않는 이유는 "더 어려워서"가 아니라 구체적인 비용 세 가지 때문이다
+(`iac-reference-infra` 2026-08-21 논의):
+
+1. **락 경합**: state lock의 범위는 파일 하나다. 합치면 스포크 한 곳을 고치는 동안 허브와
+   다른 모든 스포크가 함께 잠긴다 — 스포크가 여럿으로 늘어나는 이 프로젝트의 전제와
+   정면으로 부딪힌다.
+2. **매 plan·apply의 전송 비용**: S3 backend는 state 전체를 매번 통째로 GetObject·
+   PutObject한다(증분 프로토콜이 아니다) — 리소스 수가 계정 수만큼 곱해져 커진다.
+3. **자격증명 동시 보유(가장 심각)**: 단일 설정은 그 CI job 하나가 허브·스포크 양쪽의
+   실행 Role 세션(둘 다 AdministratorAccess)을 **같은 프로세스에 동시에** 들고 있어야
+   한다. 지금은 스포크만 건드리는 job에는 스포크 자격증명만 존재해, 그 job이 침해돼도
+   허브는 물리적으로 노출되지 않는다 — 합치면 이 격리가 사라진다.
+
+이 판단은 `iac-reference-infra`가 **같은 계정 안에서도** 이미 한 번 내린 것과 같다 —
+`live/dev/networking`·`live/dev/eks`가 같은 계정인데도 독립 state로 분리돼 있다(그 저장소
+사용자 결정: "vpc·eks 독립 배포"). 계정이 갈리면 이 원칙을 되돌릴 이유가 아니라 강화할
+이유가 된다.
 
 ### 네트워크 경로 — IAM 경계와 별개다
 

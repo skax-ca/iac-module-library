@@ -1,0 +1,232 @@
+# 04. spoke 계정 생애주기 — 세우기와 걷어내기
+
+**읽는 사람**: spoke(예: asset 계정의 dev)의 인프라를 세우거나 걷어내는 사람.
+
+> ⚠️ **hub가 먼저 서 있어야 한다.** spoke는 hub의 `argocd_hub_pod_identity` Role·TGW·프리픽스
+> 리스트에 의존한다 — `03-hub-lifecycle.md`부터 본다.
+> **검증 상태**: 세우기·걷어내기 둘 다 `iac-reference-infra`의 dev(spoke 첫 인스턴스)로
+> 실환경 검증했다. spoke 단독 teardown 시 hub 쪽 잔존물 처리(13절)는 **열린 질문**이다.
+
+레퍼런스 구현이 `iac-reference-infra`의 `live/dev/`에 있다.
+
+---
+
+## 세우기
+
+### 0. 준비물
+
+hub와 같다 — `tofu`·`aws`·`gh`·`session-manager-plugin`·`jq`, private repo면 GitHub App
+접근. hub 세우기 때 이미 설치했다면 이 절은 건너뛴다.
+
+### 1. 착수 전에 확정할 값 — hub와 다른 것만
+
+| 값 | 예 | 왜 되돌릴 수 없나 |
+|----|-----|------------------|
+| `SPOKE_ENV` | `dev` | 부트스트랩 자원 이름 전체(버킷·Role)에 들어간다 |
+| 계정 | asset 계정 | 계정 자체는 안 바뀐다 — 옮기려면 재부트스트랩 |
+| VPC CIDR(uniq) | hub와 겹치지 않는 대역 | VPC 재생성. hub와 dup 허용 대역은 RFC 6598로 겹쳐도 된다 |
+| 클러스터 이름 | `eks-demo-dev-an2-main-01` | 클러스터 재생성 |
+
+hub와 공통인 값(workload 코드·리전·EKS public 여부)은 `03-hub-lifecycle.md` 1절과 같다 —
+같은 배포 저장소 안의 다른 env이므로 workload 코드는 반드시 hub와 동일해야 한다.
+
+### 2. 배포 저장소 — hub와 같은 repo, 새 env 하나
+
+```
+live/dev/networking/       hub와 같은 repo에 env만 새로 추가
+live/dev/eks/
+```
+
+`bootstrap/`·`.github/workflows/`는 hub 세우기 때 이미 있다 — 새로 만들지 않는다.
+
+### 3. 부트스트랩 — `BOOTSTRAP_TARGET=spoke SPOKE_ENV=<env>`
+
+```bash
+export EXPECTED_ACCOUNT=<asset 계정 12자리 ID>   # 필수. hub와 다른 계정이다
+cd bootstrap
+BOOTSTRAP_TARGET=spoke SPOKE_ENV=dev AWS_PROFILE=asset ./bootstrap.sh
+BOOTSTRAP_TARGET=spoke SPOKE_ENV=dev AWS_PROFILE=asset ./verify.sh
+```
+
+기대 상태(SSOT)는 `../bootstrap/README.md`가 소유한다. **`AWS_PROFILE`을 반드시 spoke
+계정 프로파일로 지정한다** — 기본 프로파일이 hub(team) 계정이면 조용히 hub를 다시 건드린다.
+
+OIDC provider·입구/실행 Role은 **spoke 계정 안에 별도로** 생긴다(hub와 공유하지 않는다 —
+OIDC provider는 URL당 계정에 1개 제약이라 계정이 다르면 각자 가진다). `sub` 2패턴의
+`environment` 값은 `SPOKE_ENV`(예: `dev`)다.
+
+### 4. 네트워크 (L1) — TGW attachment + RAM 초대 수락
+
+hub와 같은 방식으로 `backend.hcl`을 만들고(`key = "dev/networking.tfstate"`) `init`·
+`validate`까지 로컬에서 한다. `main.tf`는 hub의 TGW·프리픽스 리스트를 `data` 소스로
+발견해 attachment와 라우트를 만든다.
+
+```bash
+gh workflow run deploy-dev-network.yml --ref main -f action=apply
+```
+
+apply 안에서 `aws_ram_resource_share_accepter`가 **자동으로** hub의 RAM 초대를 수락한다 —
+콘솔이나 CLI로 따로 누르지 않는다. **이 수락이 이후 모든 것의 실질적 관문이다**: 수락 전에는
+spoke 계정의 어느 state에서도 hub의 TGW·프리픽스 리스트가 안 보인다.
+
+> 🔑 **hub→spoke 방향 라우트는 이 apply만으로 안 끝난다.** hub의 networking이 spoke보다
+> 먼저 서므로, 그 시점엔 spoke attachment가 없어 hub 최초 apply에 못 들어간다 — spoke
+> networking apply(=RAM 수락) 뒤 **hub networking을 한 번 더 재적용**해야 hub→spoke 라우트가
+> 채워진다. 전체 순서: hub networking → hub eks → spoke networking → spoke eks → **hub
+> networking 재적용**. TGW 전용으로 따로 기억할 단계는 이 마지막 재적용 하나뿐이다.
+
+### 5. EKS와 workbench (L2) — `cross-account-trust-role` 연결
+
+hub와 같은 세 모듈(`workbench`→`eks-cluster`) 연결 순서 경고가 그대로 적용된다
+(`03-hub-lifecycle.md` 5절). 여기에 `cross-account-trust-role` 모듈을 추가한다 — trust
+policy의 Principal이 hub의 `argocd_hub_pod_identity` Role ARN이다.
+
+```bash
+gh workflow run deploy-dev-eks.yml --ref main -f action=apply
+```
+
+⚠️ **hub의 `argocd_hub_pod_identity`가 아직 `enable=false`여도 이 apply는 성공한다** — AWS는
+trust policy의 Principal 존재를 **생성 시점에 검증하지 않는다**(`iac-reference-infra`
+2026-08-19 실측 확인). 순서를 걱정해 hub를 먼저 켤 필요는 없지만, 크로스 계정 인증이 실제로
+되려면 결국 hub 쪽도 켜야 한다(6절에서 등록한 뒤 확인).
+
+### 6. GitOps 등록 — hub에 `cluster-secret.yaml` 신규 등록
+
+spoke는 자체 ArgoCD가 없다. hub의 ArgoCD가 크로스 계정으로 원격 관리하므로, **GitOps
+저장소에 이 클러스터를 등록**하는 것이 spoke의 "L3"에 해당한다 — hub처럼 자기 `argocd-seed.sh`
+를 돌리지 않는다.
+
+`<project>-platform-gitops`에 `clusters/<env>/<cluster-name>/cluster-secret.yaml`을
+추가한다:
+
+| 필드 | 값 | 확인 방법 |
+|---|---|---|
+| `metadata.labels.environment` | `<SPOKE_ENV>` | baseline ApplicationSet이 이 라벨의 **존재만** 검사(값은 경로 해석용) |
+| `metadata.labels.vpcName`·`karpenterNodeRole` 등 | per-cluster addon 파라미터 | 실측한다(추정 금지) — `aws ec2 describe-vpcs`·`aws iam list-roles` |
+| `addon-<name>: enabled` 라벨 | opt-in 카탈로그 구독 | 필요한 addon만 |
+| `stringData.server` | **EKS API endpoint**(`https://<hash>.<region>.eks.amazonaws.com`) | ⚠️ 클러스터 ARN이 아니다 — ARN 계약은 AWS 완전관리형 "EKS Capability for Argo CD"(이 프로젝트가 안 쓰는 별개 제품) 전용, self-managed ArgoCD 공식 계약은 API endpoint다 |
+| `stringData.config.awsAuthConfig.roleARN` | `cross-account-trust-role`이 만든 Role ARN(5절) | |
+| `stringData.config.tlsClientConfig.caData` | 클러스터의 CA(base64) | `aws eks describe-cluster --query 'cluster.certificateAuthority.data'` |
+
+root-app이 이 커밋을 pull하면 baseline ApplicationSet이 이 클러스터를 fan-out 대상에
+자동 추가한다. **재배포 시 재등록**은 14절 — 처음 등록과 절차는 같지만 `server`·`caData`가
+반드시 바뀐다는 것과 기존 `addon-*` 라벨을 그대로 옮겨야 한다는 함정이 있다.
+
+### 7. 완료 판정
+
+hub 7절과 같은 6항목을 이 spoke 클러스터 기준으로 확인한다. 3번(root Application이 커밋
+SHA를 읽음)·4번(Application `Synced`/`Healthy`)은 hub의 ArgoCD에서 확인한다 — spoke 자신에는
+ArgoCD가 없다.
+
+---
+
+## 걷어내기
+
+### 8. 시작 전에 — 공용 계정이면 특히 읽는다
+
+hub 8절과 동일한 원칙(태그로 특정, 이름으로 지우지 않는다)이 spoke 계정에도 그대로
+적용된다 — `--profile`만 spoke 계정 것으로 바꾼다.
+
+### 9. 0단계 — 삭제 보호 해제
+
+hub 10절과 같은 2단계 apply 패턴(`deletion_protection = false` → 커밋 → apply). VPC와
+EKS가 다르게 반응하는 것도 동일(hub 10절 참조).
+
+```bash
+gh workflow run deploy-dev-eks.yml     --ref main -f action=apply
+gh workflow run deploy-dev-network.yml --ref main -f action=apply
+```
+
+### 10. 1단계 — IaC 밖 자원 선처리 (컨트롤러 정지 대상이 hub다)
+
+⚠️ **hub-lifecycle.md 11절과 다르다.** spoke는 자체 ArgoCD가 없으므로 "컨트롤러를 scale
+0"할 대상이 spoke 안에 없다 — hub의 ApplicationSet이 이 spoke를 계속 fan-out 대상으로
+보는 한, spoke 안의 LB·PVC·NodePool을 지워도 hub가 되살린다(대상만 원격일 뿐 hub 11절과
+같은 메커니즘).
+
+```bash
+# ① hub 쪽 GitOps 저장소에서 이 spoke의 cluster-secret.yaml을 먼저 지운다
+#    — 이게 spoke판 "컨트롤러 정지"다
+
+# ② hub의 root-app이 새 커밋을 실제로 반영했는지 확인
+#    (Synced/Healthy만으로는 반영을 보장 못 한다 — sync revision이 새 커밋 SHA인지 본다)
+kubectl -n argocd get application root-app -o jsonpath='{.status.sync.revision}'
+
+# ③ 이 spoke가 만든 Application들이 실제로 pruned됐는지 hub에서 확인
+kubectl -n argocd get applications | grep <spoke-cluster-name>   # 결과 없어야 함
+
+# ④ 이후 hub-lifecycle.md 11절의 LB·PVC·NodePool 정리를 이 spoke의 workbench에서
+#    동일하게 수행 — hub가 이미 fan-out을 멈췄으니 되살아나지 않는다
+```
+
+**순서가 중요하다.** ①②③을 건너뛰고 바로 지우면 hub가 여전히 fan-out 중이라 되살아난다.
+
+### 11. 2단계 · 3단계 — destroy
+
+hub 12절과 같은 패턴, 워크플로 이름과 `confirm` 문자열만 다르다.
+
+```bash
+gh workflow run deploy-dev-eks.yml --ref main \
+  -f action=destroy -f confirm='destroy live/dev/eks'
+
+gh workflow run deploy-dev-network.yml --ref main \
+  -f action=destroy -f confirm='destroy live/dev/networking'
+```
+
+### 12. 4단계 — 잔존물 검증
+
+```bash
+WORKLOAD=<code> ENVIRONMENT=dev AWS_PROFILE=asset ./scripts/teardown-verify.sh
+```
+
+⚠️ **`AWS_PROFILE`을 spoke 계정으로 정확히 지정한다.** `team`(hub)으로 잘못 실행하면 dev
+자원이 하나도 안 잡혀 "잔존물 없음"으로 오판한다 — 스크립트는 지정된 계정만 본다. 나머지
+판정 기준(NAT·EC2·EBS·EIP·ALB/NLB·EKS·ENI·로그 그룹 순위)은 hub 13절 표와 같다.
+
+### 13. spoke 단독 teardown 시 hub TGW 잔존 라우트 — 열린 질문
+
+`deployment-facts.md`의 "teardown 후 재생성 시" 절은 **hub가 destroy된 경우**만 다룬다.
+spoke만 단독으로 destroy하고 hub는 그대로 두는 이번 경우는 다르다.
+
+hub의 TGW 라우트·라우트테이블 연결은 **살아있는 데이터소스**
+(spoke attachment 자동 발견)로 개수가 결정된다. spoke의 attachment가 destroy로 사라진 뒤:
+
+- AWS가 이 라우트를 attachment 삭제 시 **자동으로 정리**하는지
+- 아니면 dangling 상태로 남아 hub의 다음 plan에서 에러를 내는지
+- hub를 굳이 재적용하지 않아도 되는지, 정리를 위해 재적용이 **필요**한지
+
+**미실측이다.** 다음 spoke teardown 리허설에서 확인하고 이 절을 갱신한다.
+
+```bash
+# spoke networking destroy 직후, hub plan만 먼저 돌려 dangling 엔트리가 있는지 관찰
+gh workflow run deploy-hub-network.yml --ref main -f action=apply   # plan job까지만 확인
+```
+
+### 14. 재배포 시 GitOps 재등록
+
+spoke EKS를 destroy 후 재생성하면 클러스터 이름이 같아도 API endpoint·CA 인증서는 **반드시
+새로 발급**된다. 6절에서 등록한 `cluster-secret.yaml`은 옛 값을 그대로 갖고 있으므로, 재적용
+없이는 hub ArgoCD가 죽은 엔드포인트를 계속 찌른다.
+
+```bash
+aws eks describe-cluster --profile asset --region ap-northeast-2 --name <cluster-name> \
+  --query 'cluster.{endpoint:endpoint,ca:certificateAuthority.data}'
+```
+
+`server`·`caData`만 갱신하고 **`addon-*` 라벨은 그대로 유지**한다(빠뜨리면 addon 구독이
+조용히 빠진 채 재배포된다 — 갱신 전에 `git diff`로 기존 라벨 목록을 먼저 확인한다).
+`roleARN`은 안 바뀐다 — `cross-account-trust-role`의 Role 이름은 네이밍 규약상 결정적이라
+재생성 후에도 동일하다.
+
+### 15. 되돌릴 수 없는 것 / 자주 막히는 지점
+
+hub 15·16절과 동일하다(state 버킷·로그 그룹·EBS·OIDC provider는 되돌릴 수 없고, ENI 잔존·
+`prevent_destroy`·state lock 등 자주 막히는 지점도 같다) — 여기서 반복하지 않는다. spoke
+고유의 막히는 지점은 12절(profile 실수)과 13절(hub 잔존 라우트) 두 가지뿐이다.
+
+---
+
+## 다음
+
+- hub 세우기·걷어내기 → [`03-hub-lifecycle.md`](03-hub-lifecycle.md)
+- 운영 → [`07-runbooks.md`](07-runbooks.md)

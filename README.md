@@ -44,9 +44,9 @@ iac-platform-gitops         플랫폼 매니페스트. ArgoCD가 pull로 reconci
 |--------|---------|
 | 이 조직에 막 합류했다 | [`docs/00-team-access.md`](docs/00-team-access.md) — GitHub org 구조·합류 방법 |
 | 팀에 처음 왔다 | [`docs/01-architecture.md`](docs/01-architecture.md) — 전체 그림 |
-| 새 프로젝트를 맡았다 | [`docs/02-choose-your-path.md`](docs/02-choose-your-path.md) → [`docs/03-new-project.md`](docs/03-new-project.md) |
+| 새 프로젝트를 맡았다 | [`docs/02-choose-your-path.md`](docs/02-choose-your-path.md) → hub는 [`docs/03-hub-lifecycle.md`](docs/03-hub-lifecycle.md), spoke는 [`docs/04-spoke-lifecycle.md`](docs/04-spoke-lifecycle.md) |
 | 모듈을 쓰려 한다 | [`docs/05-modules.md`](docs/05-modules.md) — 입출력 계약 |
-| 환경을 걷어내야 한다 | [`docs/04-teardown.md`](docs/04-teardown.md) |
+| 환경을 걷어내야 한다 | hub는 [`docs/03-hub-lifecycle.md`](docs/03-hub-lifecycle.md), spoke는 [`docs/04-spoke-lifecycle.md`](docs/04-spoke-lifecycle.md) |
 | 왜 이렇게 됐는지 궁금하다 | [`docs/08-decisions.md`](docs/08-decisions.md) — 검토하고 기각한 것들 |
 
 ---

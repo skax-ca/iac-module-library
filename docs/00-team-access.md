@@ -75,7 +75,7 @@ GitHub Actions job
 
 | 알고 싶은 것 | 어디 |
 |---|---|
-| 부트스트랩 절차(OIDC provider·두 Role 생성) | [`03-new-project.md`](03-new-project.md) |
+| 부트스트랩 절차(OIDC provider·두 Role 생성) | [`03-hub-lifecycle.md`](03-hub-lifecycle.md) |
 | 실행 단계 규칙(plan artifact·승인 게이트·동시 실행) | `CLAUDE.md` "실행 기반" · [`06-conventions.md`](06-conventions.md) |
 
 ⚠️ 2026-07-15 이후 생성된 저장소는 `sub` claim이 이름이 아니라 **숫자 org/repo ID**를 쓴다 —
@@ -86,4 +86,4 @@ GitHub Actions job
 ## 다음
 
 - 전체 그림 → [`01-architecture.md`](01-architecture.md)
-- 새 프로젝트 착수 → [`03-new-project.md`](03-new-project.md)
+- 새 프로젝트 착수 → hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)

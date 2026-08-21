@@ -319,6 +319,6 @@ TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능�
 
 ## 다음
 
-- 골랐다 → [`03-new-project.md`](03-new-project.md)
-- 걷어내야 한다 → [`04-teardown.md`](04-teardown.md)
+- 골랐다 → hub를 세운다면 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke를 세운다면 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
+- 걷어내야 한다 → hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
 - 왜 이 선택지만 있나 → [`08-decisions.md`](08-decisions.md)

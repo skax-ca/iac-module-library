@@ -2,8 +2,8 @@
 
 **읽는 사람**: 이미 선 환경을 운영하는 사람.
 
-환경을 **만드는** 절차는 [`03-new-project.md`](03-new-project.md),
-**걷어내는** 절차는 [`04-teardown.md`](04-teardown.md)가 소유한다.
+환경을 **만들고 걷어내는** 절차는 hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md),
+spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)가 소유한다.
 
 ---
 

@@ -7,8 +7,8 @@
 | [00-team-access.md](00-team-access.md) | 새로 합류해 이 조직에 접근 권한부터 얻어야 하는 사람 |
 | [01-architecture.md](01-architecture.md) | 팀에 처음 온 사람. 이 자산이 무엇을 만들고 무엇을 만들지 않는지 |
 | [02-choose-your-path.md](02-choose-your-path.md) | 새 고객사 프로젝트의 구성을 결정해야 하는 사람 |
-| [03-new-project.md](03-new-project.md) | 새 배포 루트를 세우는 사람 |
-| [04-teardown.md](04-teardown.md) | 환경을 걷어내는 사람 |
+| [03-hub-lifecycle.md](03-hub-lifecycle.md) | hub 배포 루트를 세우거나 걷어내는 사람 |
+| [04-spoke-lifecycle.md](04-spoke-lifecycle.md) | spoke 배포 루트를 세우거나 걷어내는 사람 |
 | [05-modules.md](05-modules.md) | 배포 루트에서 모듈을 호출하려는 사람 |
 | [06-conventions.md](06-conventions.md) | 이 저장소에 코드를 쓰거나 모듈을 소비하는 사람 |
 | [07-runbooks.md](07-runbooks.md) | 이미 선 환경을 운영하는 사람 |

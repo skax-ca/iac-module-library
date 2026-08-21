@@ -171,7 +171,7 @@ flowchart TB
 
 - **이 저장소(`iac-module-library`)는 이 그림 어디에도 실행 주체로 등장하지 않는다** — 소싱만 되고, CI·AWS 계정·클러스터는 전부 `project-infra`(계층 1)와 `iac-platform-gitops`(계층 2) 몫이다.
 - 인증 체인 상세 → [`00-team-access.md`](00-team-access.md)
-- 부트스트랩·워크플로 명령 실물 → [`03-new-project.md`](03-new-project.md)
+- 부트스트랩·워크플로 명령 실물 → [`03-hub-lifecycle.md`](03-hub-lifecycle.md)
 
 ---
 

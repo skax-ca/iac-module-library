@@ -13,8 +13,8 @@
 | `00-team-access.md` | GitHub org/Team 구조 · 합류 방법 · GitHub↔AWS 인증 패턴 개요 |
 | `01-architecture.md` | 전체 그림 · 3계층 소유 모델 · 계층 경계 판별 |
 | `02-choose-your-path.md` | 프로파일 A/B · 관리형 vs self-managed ArgoCD · addon 배치 |
-| `03-new-project.md` | 새 배포 루트 착수 절차 |
-| `04-teardown.md` | 파기 절차. 공용 계정에서 가장 위험한 작업이라 독립 문서다 |
+| `03-hub-lifecycle.md` | hub 배포 루트 착수·파기 절차 |
+| `04-spoke-lifecycle.md` | spoke 배포 루트 착수·파기 절차. 파기는 공용 계정에서 가장 위험한 작업이다 |
 | `05-modules.md` | 모듈 입출력 계약 (`vpc` · `eks-cluster` · `workbench`) |
 | `06-conventions.md` | 엔진 · 네이밍 · 버전 · 검증 게이트 · 브랜치 · 문서 작성 규칙 |
 | `07-runbooks.md` | 운영 절차 |

@@ -10,8 +10,8 @@
 
 | 스크립트 | 무엇 | 설계 SSOT |
 |---|---|---|
-| `argocd-seed.sh` | self-managed ArgoCD 부트스트랩 seed (0·2·3·4·5단계) | [`02-choose-your-path.md`](../docs/02-choose-your-path.md) · [`03-new-project.md`](../docs/03-new-project.md) |
-| `teardown-verify.sh` | 철수 후 잔존물 검사(read-only) — 지우지 않고 남은 것만 찾는다 | [`04-teardown.md`](../docs/04-teardown.md) |
+| `argocd-seed.sh` | self-managed ArgoCD 부트스트랩 seed (0·2·3·4·5단계). hub만 자기 seed를 돈다 | [`02-choose-your-path.md`](../docs/02-choose-your-path.md) · [`03-hub-lifecycle.md`](../docs/03-hub-lifecycle.md) |
+| `teardown-verify.sh` | 철수 후 잔존물 검사(read-only) — 지우지 않고 남은 것만 찾는다 | [`03-hub-lifecycle.md`](../docs/03-hub-lifecycle.md) · [`04-spoke-lifecycle.md`](../docs/04-spoke-lifecycle.md) |
 | `validate-abbreviations.py` | 약어 카탈로그(`aws-naming-abbreviations.md`) SSOT 일관성 검사 | `.githooks/pre-commit`(카탈로그 staged 시)와 CI `docs-ssot` 게이트가 실행 |
 
 ---

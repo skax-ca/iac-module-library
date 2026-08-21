@@ -280,5 +280,5 @@ module "workbench" {
 
 ## 다음
 
-- 이 값들을 어떻게 정하나 → [`03-new-project.md`](03-new-project.md)
+- 이 값들을 어떻게 정하나 → hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
 - 네이밍·버전 규칙 → [`06-conventions.md`](06-conventions.md)

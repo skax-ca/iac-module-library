@@ -42,6 +42,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-21 — 이전 open-items(2026-08-14~19 기록분, 크로스 계정 IAM 설계·GitOps hub 소유권·matchLabels 다중환경)을 iac-reference-infra·iac-platform-gitops 실물과 대조해 실증, 아래로 대체(구 항목들은 삭제):\n① iac-platform-gitops의 addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml — matchLabels:{environment:dev} 하드코딩 문제 해소 확인. 현재 selector는 matchExpressions{key:environment,operator:Exists}로 environment 라벨이 있는 클러스터 전부(dev·hub·향후 spoke)를 매칭 — 다중환경 자동 팬아웃 이미 구현됨.\n② 크로스 계정 IAM(cross-account-trust-role·eks-cluster 확장)은 태그 v0.8.0/v0.1.0 이후 iac-reference-infra 실apply에서 sts:TagSession 누락 버그 발견 → 이 repo PR #29로 수정, eks-cluster-v0.9.0·cross-account-trust-role-v0.2.0으로 재태그(v0.8.0/v0.1.0은 구버전, 신규 소비는 v0.9.0/v0.2.0 사용). iac-reference-infra에서 7개 Application Synced/Healthy로 크로스 계정 ArgoCD 인증까지 실제 검증 완료.\n③ iac-reference-infra의 spoke(dev) 환경은 배포→크로스 계정 인증 검증→teardown 리허설까지 완주(teardown-verify.sh exit 0, 잔존물 없음). 그 과정에서 ArgoCD cluster-secret 통삭제 시 cascade delete가 안 되는 버그 발견·해결(라벨 먼저 제거 → Secret 삭제 2단계 순서), docs/04-spoke-lifecycle.md 10절에 반영 완료(commit 76a0e36·9fdec11). hub TGW 잔존 라우트 동작도 실측(13절, commit 797be6b) — attachment 삭제 시 자동 blackhole, 다음 hub apply로 자동 정리.\n현재 상태: spoke는 해체됨, 재배포 대기. 다음 착수는 iac-reference-infra 쪽(04-spoke-lifecycle.md 절차로 live/dev/{networking,eks} 재apply) — 그 repo 자체 project-memory/notepad가 SSOT이므로 여기서는 진행상황을 재중계하지 않는다(repo 경계 원칙)."
+    },
+    {
+      "timestamp": 1787290784887,
+      "source": "manual",
+      "category": "team-doc",
+      "content": "2026-08-21 — 팀 공유용 Notion 문서 \"AI를 활용한 IaC Asset 만들기\"를 3단계 구조로 작성 중(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12). 1단계(AI 코딩 에이전트: Claude Code MCP/OMC 플러그인/전용 스킬, 프로젝트 규칙, Conventions)와 2단계(IaC 도구와 설계: OpenTofu 배경·Terraform Enterprise 대비 도구선택, TFC/TFE에 없는 기능을 OSS로 직접 푼 설계 3사례 — Name태그 data source 조회·SG rule 개별 리소스화·TGW RAM 수락을 CI 단계로 이관) 완료. 3단계(EKS GitOps 패턴, 관심자 대상 세션)는 미착수. 다음 세션에서 이어서 작성 시 이 URL로 계속.\n⚠️ 이 문서를 Notion MCP로 편집할 때 한글을 \\uXXXX로 손계산해 넣지 말 것(글로벌 메모리 feedback_notion_hangul_manual_escape_bug 참조) — 여러 차례 다른 글자로 깨졌었다. 직접 타이핑하고 편집 후 notion-fetch로 재조회 대조할 것."
     }
   ],
   "userDirectives": [

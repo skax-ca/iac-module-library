@@ -42,6 +42,11 @@
         "FASTMCP_LOG_LEVEL": "ERROR"
       },
       "enabled": true
+    },
+    "notion": {
+      "type": "local",
+      "command": ["npx", "-y", "mcp-remote", "https://mcp.notion.com/mcp"],
+      "enabled": true
     }
   }
 }

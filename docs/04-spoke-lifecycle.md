@@ -65,39 +65,18 @@ hub와 같은 방식으로 `backend.hcl`을 만들고(`key = "dev/networking.tfs
 gh workflow run deploy-dev-network.yml --ref main -f action=apply
 ```
 
-🔴 **"apply 안에서 자동으로 수락한다"는 완전 신규(또는 재배포) spoke에는 성립하지 않는다
-— 사람이 한 번 개입해야 한다(2026-08-21 실측, 이전 서술은 틀렸다).** 원인은 Terraform
-자체의 구조적 한계다: `main.tf`의 `data.aws_ram_resource_share`(resource_owner=
-OTHER-ACCOUNTS)는 초대가 이미 **ACCEPTED**여야만 찾아지는데, `aws_ram_resource_share_accepter`
-리소스는 반대로 초대가 아직 **PENDING**이어야만 생성(=수락)할 수 있다 — 두 요구가 서로를
-막는 순환이고, PENDING 초대만 조회하는 Terraform 데이터소스 자체가 없어 코드만으로는 못
-깬다. 깨는 절차:
+✅ **apply 안에서 자동으로 수락한다 — 사람 개입이 필요 없다(2026-08-21 재설계 이후).**
+RAM 초대 수락은 Terraform 리소스가 아니라 `deploy-dev-network.yml` plan job의 CI 단계가
+전담한다(`02-choose-your-path.md` 「RAM 초대 수락」 절 — 설계 배경·왜 Terraform 리소스로는
+안 되는지·`removed` 블록으로 무엇을 바꿨는지 전부 그 절에 있다). 완전 신규 spoke의 첫
+apply든, teardown 이후 재배포든 동일하게 이 CI 단계가 처리한다 — 사람이 CLI를 직접
+돌리거나 import 블록을 추가할 필요가 이제 없다.
 
-```bash
-# 1) spoke apply 전에 먼저 CLI 로 수락한다 — exec role 불필요, 계정의 개인 IAM user 권한으로 충분하다.
-aws ram get-resource-share-invitations --profile <spoke-profile> --region <region> \
-  --query "resourceShareInvitations[?resourceShareName=='ram-<workload>-hub-<region-code>-tgw-share' && status=='PENDING']"
-aws ram accept-resource-share-invitation --profile <spoke-profile> --region <region> \
-  --resource-share-invitation-arn <위 조회로 얻은 ARN>
-
-# 2) spoke networking 의 main.tf 에 aws_ram_resource_share_accepter 를 겨냥한 import 블록을
-#    "일회성"으로 추가한다(코드 예시는 iac-reference-infra live/dev/networking/main.tf 커밋
-#    이력 참조) → apply → 성공 확인 후 그 커밋에서처럼 import 블록을 제거한다. 영구 코드가
-#    아니다 — 남겨 두면 다음 진짜 PENDING 재배포 때 import 대상이 없어 그 자체가 실패한다.
-gh workflow run deploy-dev-network.yml --ref main -f action=apply
-```
-
-apply 안의 자동 경로는 오직 "이미 CLI로 수락된 초대를 이어받는" 경우에만 통한다. **이
-수락이 이후 모든 것의 실질적 관문이다**: 수락 전에는 spoke 계정의 어느 state에서도 hub의
-TGW·프리픽스 리스트가 안 보인다.
-
-⚠️ **재배포(teardown 이후) 시 추가로 확인할 것 — hub 쪽 RAM principal association 자체가
-없어져 있을 수 있다.** spoke teardown이 `aws_ram_resource_share_accepter`를 destroy하면,
-AWS RAM이 이를 실제 disassociation으로 처리해 hub의 `aws_ram_principal_association.spoke_dev`가
-**hub의 Terraform state에는 남아 있지만 AWS 실물에서는 사라진다**(2026-08-21 실측: hub 재적용
-전엔 spoke networking plan이 `no matching RAM Resource Share found`로 즉시 실패한다). 이 경우
-위 CLI 수락을 시도하기 **전에** hub networking을 먼저 재적용해 association을 재생성해야
-새 PENDING 초대가 생긴다 — hub 재적용은 이때 그 김에 13절의 blackhole 라우트도 함께 정리한다.
+⛔ **이전엔 여기 "hub 쪽 RAM principal association이 사라져 있을 수 있다"는 경고가
+있었다 — 지금은 구조적으로 재발하지 않는다.** `aws_ram_resource_share_accepter`가 더는
+Terraform이 생성·삭제하는 리소스가 아니므로(`removed` 블록), spoke teardown이 그 리소스를
+destroy하며 `DisassociateResourceShare`를 호출하던 경로 자체가 없다 — hub의 association은
+teardown 이후에도 계속 ACTIVE로 남는다.
 
 > 🔑 **hub→spoke 방향 라우트는 이 apply만으로 안 끝난다.** hub의 networking이 spoke보다
 > 먼저 서므로, 그 시점엔 spoke attachment가 없어 hub 최초 apply에 못 들어간다 — spoke

@@ -232,7 +232,7 @@ pod CIDR을 다른 모든 스포크·허브와 안 겹치게 다시 조율해야
 | 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위** 공유. 조직 전체 공유가 아니라 정확한 계정만 — IAM 신뢰(148행)와 같은 "정확한 대상만" 원칙 |
 | 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트(`aws_ec2_transit_gateway_route`)로 명시한다 |
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"` — RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
-| 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `iac-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 `aws_ram_resource_share_accepter`(또는 CLI)로 초대를 수락하는 단계가 하나 늘어난다(아래 리소스 표 4번) |
+| 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `iac-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 초대를 수락하는 단계가 하나 늘어난다. **수락은 Terraform 리소스가 아니라 CI 단계가 한다** — 아래 「RAM 초대 수락」 절 참조(아래 리소스 표 4번) |
 | 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다.** AWS가 TGW 생성의 부산물로 자동 만드는 기본 라우트테이블은 `default_tags`가 안 닿는다(`iac-reference-infra` 2026-08-20 실측: 무태그). 명시적으로 만든 라우트테이블은 provider가 직접 만드는 리소스라 태그가 그대로 적용된다 — 「06-conventions.md」 「2」 강제 방식 6번의 이행 사례. spoke의 attachment는 RAM 으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
 | 7 | 값 전달 | **repo 변수 수동 복사가 아니라 `data` 소스로 발견한다** — 아래 「값 발견」 절 |
 
@@ -250,12 +250,52 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 | 2 | `aws_ram_resource_share` + `aws_ram_resource_association`(TGW·허브 uniq 프리픽스 리스트 둘 다) + `aws_ram_principal_association`(스포크 계정 ID) | 허브 |
 | 2b | `aws_ec2_managed_prefix_list`(허브 uniq CIDR 1개, 2번의 RAM 공유에 함께 실어 보낸다 — 아래 「값 발견」 참조) | 허브 |
 | 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
-| 4 | `data.aws_ram_resource_share`(이름으로 조회) → `aws_ram_resource_share_accepter`(5번보다 먼저 필요) | 스포크 |
+| 4 | CI 단계(스포크 워크플로 plan job, `tofu init` 이전)가 pending 초대를 CLI로 수락 → `data.aws_ram_resource_share`(이름으로 조회, 5번보다 먼저 필요) — **Terraform 리소스가 아니다**, 아래 「RAM 초대 수락」 절 참조 | 스포크 |
 | 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, 초대 수락 후 생성 가능) | 스포크 |
 | 6 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR(하드코딩, 아래 「값 발견」 참조) → 허브 자신의 attachment | 허브 |
 | 7 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR(하드코딩) → 스포크 자신의 attachment | 스포크 |
 | 8 | `data.aws_ec2_transit_gateway_vpc_attachments`(복수형, 허브 소유 TGW에 붙은 attachment 전부 발견) → 발견된 것마다 TGW 라우트테이블에 라우트(대상 CIDR은 `vpc_owner_id`로 아래 CIDR 지도에서 조회) | 허브(TGW owner만 가능) |
 | 9 | 스포크 클러스터 SG에 허브발 443 인바운드(CIDR은 하드코딩) | 스포크 |
+
+### RAM 초대 수락 — Terraform 리소스가 아니라 CI 단계다
+
+**처음엔 `aws_ram_resource_share_accepter`를 스포크 root의 평범한 Terraform 리소스로
+뒀으나, 실제 teardown+재배포 리허설(`iac-reference-infra` 2026-08-21)에서 두 가지
+실측 사실이 겹쳐 이 방식이 구조적으로 성립하지 않는다는 게 드러났다** — 둘 다 코드
+리뷰만으로는 못 잡고, 완전 파기 후 재배포를 실제로 돌려봐야 드러나는 종류다.
+
+1. **teardown이 hub 쪽까지 조용히 깬다.** `aws_ram_resource_share_accepter`의 delete는
+   AWS provider 소스(`internal/service/ram/resource_share_accepter.go`)에서
+   `DisassociateResourceShare`를 직접 호출한다 — 스포크를 파기할 때마다 그 API가 실행돼,
+   **허브의 `aws_ram_principal_association`을 허브 state 모르게 실물에서 해제시킨다.**
+   허브는 destroy된 적이 없으니 state는 "여전히 있다"고 믿는 채로 drift가 남는다.
+2. **재배포 시 Terraform 혼자서는 수락을 못 한다.** `data.aws_ram_resource_share`
+   (`resource_owner = "OTHER-ACCOUNTS"`)는 초대가 **이미 ACCEPTED**여야 찾아지는데,
+   `aws_ram_resource_share_accepter`는 반대로 초대가 **아직 PENDING**이어야 생성(=수락)
+   된다 — 새로 만들어진 초대는 항상 PENDING으로 시작하므로 둘이 서로를 막는 순환이다.
+   AWS provider에 PENDING 초대만 조회하는 데이터소스 자체가 없어 코드만으로는 못 깬다.
+   (HashiCorp 공식 예제도 이 문제를 Terraform 하나로 풀지 않는다 — sender·receiver를
+   provider 2개로 같은 설정 안에 두는 게 전제다. 이 프로젝트처럼 계정마다 repo·state·CI가
+   완전히 분리돼 있으면 그 전제가 성립하지 않는다.)
+
+**해법은 "수락"을 Terraform 리소스 그래프 밖으로 빼는 것이다** — AWS RAM 공식 문서가
+정확히 이걸 권장한다: *"`GetResourceShareInvitations`로 자동 모니터링을 구현해 pending
+초대를 처리하라"*(pending 초대는 기본 12일 후 자동 만료되고 이 기간은 설정으로 못 바꾼다).
+
+- 스포크 워크플로의 **plan job**(`tofu init` 이전)에 CLI 단계를 추가한다: 실행 Role을
+  체인 assume(`sts:AssumeRole` 자체는 CI 인증에 이미 있는 흐름과 같다) → 대상 공유 이름의
+  PENDING 초대가 있으면 `accept-resource-share-invitation` → 없으면 no-op(멱등). apply
+  job에는 필요 없다 — 이 저장소는 "저장된 plan을 그대로 적용"하는 설계라(「승인한
+  계획 = 적용된 계획」 원칙) apply 시점에는 data source를 다시 읽지 않는다.
+- 스포크 root의 `aws_ram_resource_share_accepter`는 **`removed` 블록**(destroy = false)
+  으로 전환한다 — Terraform이 더는 이 리소스를 생성도 삭제도 하지 않으므로, teardown이
+  `DisassociateResourceShare`를 호출하는 경로 자체가 사라진다(위 1번의 근본 해결).
+  기존에 이 리소스가 이미 state에 있는 root만 이 블록이 필요하다 — 신규 스포크는 애초에
+  이 리소스가 생긴 적이 없으므로 CI 단계만으로 충분하다.
+
+이 설계로 teardown·재배포·완전 신규 배포 셋 다 사람 개입(CLI 수동 수락) 없이 CI가
+끝까지 처리한다 — "apply 안에서 자동으로 수락한다"가 다시 참이 되지만, 그 자동화의
+주체가 Terraform 리소스 그래프가 아니라 **CI 파이프라인의 한 단계**로 바뀐 것이다.
 
 ### 값 발견 — repo 변수 수동 복사 대신 `data` 소스, 단 CIDR 은 예외
 

@@ -103,7 +103,7 @@ aws pricing get-products --region us-east-1 \
 > 다룬다: Karpenter=EC2 직접 프로비저닝, CA=`managed_node_groups`의 ASG). 단, 워크로드를
 > taint로 분리하지 않으면 같은 pending pod에 두 컨트롤러가 동시에 반응해 중복 프로비저닝이
 > 일어날 수 있다(근거: karpenter.sh FAQ · `aws/karpenter-provider-aws#2543`). 검증된 taint
-> 분리 패턴(「Karpenter + Cluster Autoscaler 동시 운영」)은 [`07-runbooks.md`](07-runbooks.md)를 참조한다.
+> 분리 패턴(「Karpenter + Cluster Autoscaler 동시 운영」)은 `eks-reference-infra`의 운영 문서를 참조한다.
 
 ### 네임스페이스 배치
 
@@ -135,7 +135,7 @@ Application 이름과 동일하게 쓰고([ArgoCD 공식 문서](https://argo-cd
 
 ⚠️ **가독성만의 문제가 아니다.** Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있다.
 `cluster-autoscaler` addon의 Deployment 이름이 실제로 이 한도에 걸려 `...cluster-autosca`로
-잘린 채 apply됐다(`iac-reference-infra` 2026-08-20 실측). 접두사가 길어질수록 서로 다른
+잘린 채 apply됐다(`eks-reference-infra` 2026-08-20 실측). 접두사가 길어질수록 서로 다른
 리소스가 63자 지점에서 같은 이름으로 잘려 충돌할 위험이 커진다.
 
 **결정**: release 이름이 리소스 이름에 그대로 쓰이는 addon은 `spec.source.helm.releaseName`을
@@ -180,17 +180,17 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 | # | 갈림점 | 같은 계정 | 분리된 허브 계정 |
 |---|--------|----------|-----------------|
 | 1 | 배포 루트 | `<project>-infra`의 워크로드 환경이 허브를 겸한다 | `<project>-infra`에 `hub` 환경을 하나 추가한다. **저장소를 새로 만들지 않는다** |
-| 2 | cluster 등록(`iac-platform-gitops`) | `server: https://kubernetes.default.svc` | 스포크의 실제 EKS API 엔드포인트 + 크로스 계정 인증 config |
-| 3 | IAM 신뢰 | 불필요 — 같은 계정·같은 클러스터 | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유** — 제약받는 쪽이 그 제약을 소유한다는 원칙(`01-architecture.md` 4절 판별 2)과 같다 |
-| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요 — 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `05-modules.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
+| 2 | cluster 등록(`eks-platform-gitops`) | `server: https://kubernetes.default.svc` | 스포크의 실제 EKS API 엔드포인트 + 크로스 계정 인증 config |
+| 3 | IAM 신뢰 | 불필요 — 같은 계정·같은 클러스터 | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유** — 제약받는 쪽이 그 제약을 소유한다는 원칙(`overview.md` 4절 판별 2)과 같다 |
+| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요 — 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `module-index.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
 | 5 | 장애 반경 | 허브 장애 = 그 계정 전체가 영향권 | 허브 장애 = pull만 멈춘다. desired state는 Git에 그대로 있고 워크로드 계정은 무관하다 |
 | 6 | 네트워크 경로 | 불필요 — 같은 VPC | 필요 — 아래 「네트워크 경로」 절 |
 | 7 | state·CI 분리 | 불필요 — 단일 state·단일 워크플로 | 필수 — 계정마다 별도 state·별도 CI job. 하나로 합치지 않는 이유는 아래 「state를 계정 경계에서 나누는 이유」 절 |
 
-> `iac-platform-gitops`의 cluster Secret 계약(값이 어떻게 채워지는지)은 그 저장소 소관이다.
+> `eks-platform-gitops`의 cluster Secret 계약(값이 어떻게 채워지는지)은 그 저장소 소관이다.
 > 이 표는 그 계약이 기대는 **IAM 경계**만 정의한다.
 
-이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`05-modules.md`](05-modules.md)의
+이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`module-index.md`](../../module-index.md)의
 `eks-cluster` 크로스 계정 확장·`cross-account-trust-role` 모듈 섹션이 소유한다.
 
 ### state를 계정 경계에서 나누는 이유 — 멀티 provider 단일 설정을 쓰지 않는다
@@ -198,7 +198,7 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 HashiCorp 공식 예제(`aws_ram_resource_share_accepter` 문서, 아래 「RAM 초대 수락」 절 참조)는
 sender·receiver를 provider 2개로 같은 설정 안에 두고 한 apply로 처리한다. 이 프로젝트가 그
 방식을 쓰지 않는 이유는 "더 어려워서"가 아니라 구체적인 비용 세 가지 때문이다
-(`iac-reference-infra` 2026-08-21 논의):
+(`eks-reference-infra` 2026-08-21 논의):
 
 1. **락 경합**: state lock의 범위는 파일 하나다. 합치면 스포크 한 곳을 고치는 동안 허브와
    다른 모든 스포크가 함께 잠긴다 — 스포크가 여럿으로 늘어나는 이 프로젝트의 전제와
@@ -210,7 +210,7 @@ sender·receiver를 provider 2개로 같은 설정 안에 두고 한 apply로 �
    한다. 지금은 스포크만 건드리는 job에는 스포크 자격증명만 존재해, 그 job이 침해돼도
    허브는 물리적으로 노출되지 않는다 — 합치면 이 격리가 사라진다.
 
-이 판단은 `iac-reference-infra`가 **같은 계정 안에서도** 이미 한 번 내린 것과 같다 —
+이 판단은 `eks-reference-infra`가 **같은 계정 안에서도** 이미 한 번 내린 것과 같다 —
 `live/dev/networking`·`live/dev/eks`가 같은 계정인데도 독립 state로 분리돼 있다(그 저장소
 사용자 결정: "vpc·eks 독립 배포"). 계정이 갈리면 이 원칙을 되돌릴 이유가 아니라 강화할
 이유가 된다.
@@ -232,7 +232,7 @@ ArgoCD가 `dial tcp … i/o timeout`으로 spoke를 못 읽는다).
 
 AWS 공식 문서(`vpc/latest/peering/invalid-peering-configurations.html` 「Overlapping CIDR
 blocks」)가 명시한다: **"CIDR 블록이 여러 개면, 실제로 라우팅할 대역이 겹치지 않아도
-그중 하나라도 겹치면 peering 자체를 생성할 수 없다."** (2026-08-19, `iac-reference-infra`
+그중 하나라도 겹치면 peering 자체를 생성할 수 없다."** (2026-08-19, `eks-reference-infra`
 실제 배포에서 `Failed due to ... overlapping CIDR range`로 실측 확인.)
 
 `vpc` 모듈의 CIDR 3계층 규약은 **pod-dup 대역(`100.64.0.0/16`, RFC 6598)을 모든 VPC가
@@ -255,8 +255,8 @@ pod CIDR을 다른 모든 스포크·허브와 안 겹치게 다시 조율해야
 | 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위** 공유. 조직 전체 공유가 아니라 정확한 계정만 — IAM 신뢰(148행)와 같은 "정확한 대상만" 원칙 |
 | 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트(`aws_ec2_transit_gateway_route`)로 명시한다 |
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"` — RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
-| 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `iac-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 초대를 수락하는 단계가 하나 늘어난다. **수락은 Terraform 리소스가 아니라 CI 단계가 한다** — 아래 「RAM 초대 수락」 절 참조(아래 리소스 표 4번) |
-| 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다.** AWS가 TGW 생성의 부산물로 자동 만드는 기본 라우트테이블은 `default_tags`가 안 닿는다(`iac-reference-infra` 2026-08-20 실측: 무태그). 명시적으로 만든 라우트테이블은 provider가 직접 만드는 리소스라 태그가 그대로 적용된다 — 「06-conventions.md」 「2」 강제 방식 6번의 이행 사례. spoke의 attachment는 RAM 으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
+| 5 | `allow_external_principals` | **`true`.** hub·spoke가 같은 AWS Organization 소속이어도 초대 없는 조직 내부 공유는 쓰지 않는다 — 그 기능은 **조직 관리 계정**에서 `enable-sharing-with-aws-organization`을 먼저 실행해야 켜지는데(AWS RAM 공식 문서 실측 확인, `eks-reference-infra` 2026-08-20), 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 관리 계정 권한 없이 **표준 계정 간 공유(초대)**로 동작한다 — 스포크가 초대를 수락하는 단계가 하나 늘어난다. **수락은 Terraform 리소스가 아니라 CI 단계가 한다** — 아래 「RAM 초대 수락」 절 참조(아래 리소스 표 4번) |
+| 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다.** AWS가 TGW 생성의 부산물로 자동 만드는 기본 라우트테이블은 `default_tags`가 안 닿는다(`eks-reference-infra` 2026-08-20 실측: 무태그). 명시적으로 만든 라우트테이블은 provider가 직접 만드는 리소스라 태그가 그대로 적용된다 — 「conventions.md」 「2」 강제 방식 6번의 이행 사례. spoke의 attachment는 RAM 으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
 | 7 | 값 전달 | **repo 변수 수동 복사가 아니라 `data` 소스로 발견한다** — 아래 「값 발견」 절 |
 
 TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가) — 그리고 Peering은 애초에 못
@@ -285,7 +285,7 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 6번(VPC 쪽 라우트)의 `for_each` key에 8번처럼 attachment ID를 섞어 쓰면 안 된다 — attachment
 ID는 스포크 재배포마다 새로 발급되는 "원격 API가 만드는 값"이라(Terraform 공식 문서
 `language/meta-arguments/for_each`가 피하라는 패턴), key가 바뀔 때마다 이 리소스가
-destroy+create로 강제 교체된다. 실측(`iac-reference-infra` 2026-08-24): 그 destroy가 API
+destroy+create로 강제 교체된다. 실측(`eks-reference-infra` 2026-08-24): 그 destroy가 API
 응답 지연으로 `aws_route`의 delete 기본 타임아웃(5m)에 걸려 apply가 실패했고, 재시도한
 apply가 "변경 없음"을 잘못 판단해 라우트가 며칠간 누락된 채 hub↔spoke가 완전 단절됐다
 (Reachability Analyzer+flow log로 확인). 6번의 실제 인자는 attachment ID와 무관하므로
@@ -296,7 +296,7 @@ key도 attachment ID가 맞다: 리소스의 실제 인자가 그 값에 의존�
 ### RAM 초대 수락 — Terraform 리소스가 아니라 CI 단계다
 
 **처음엔 `aws_ram_resource_share_accepter`를 스포크 root의 평범한 Terraform 리소스로
-뒀으나, 실제 teardown+재배포 리허설(`iac-reference-infra` 2026-08-21)에서 두 가지
+뒀으나, 실제 teardown+재배포 리허설(`eks-reference-infra` 2026-08-21)에서 두 가지
 실측 사실이 겹쳐 이 방식이 구조적으로 성립하지 않는다는 게 드러났다** — 둘 다 코드
 리뷰만으로는 못 잡고, 완전 파기 후 재배포를 실제로 돌려봐야 드러나는 종류다.
 
@@ -339,7 +339,7 @@ TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능�
 리소스의 이름은 결정적**이다(`ram-<workload>-hub-<region>-tgw-share`처럼 이 저장소의
 네이밍 규약 그대로 조합된다) — 그래서 값 자체가 아니라 **이름으로 찾아 값을 읽는다**.
 "하류가 다른 배포 루트라면 remote state 참조보다 Name 태그 data source 조회를 쓴다"는
-계정 내부 원칙을 계정 경계 너머로 확장한 것이다(`iac-reference-infra` 2026-08-20 재설계 —
+계정 내부 원칙을 계정 경계 너머로 확장한 것이다(`eks-reference-infra` 2026-08-20 재설계 —
 원래는 repo 변수 3개를 apply 후 수동으로 옮겨 적었다).
 
 ⛔ **태그로는 값을 실어 나를 수 없다 — 실측 확인(2026-08-20).** 처음에는 CIDR 도 태그
@@ -395,6 +395,6 @@ TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능�
 
 ## 다음
 
-- 골랐다 → hub를 세운다면 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke를 세운다면 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
-- 걷어내야 한다 → hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
-- 왜 이 선택지만 있나 → [`08-decisions.md`](08-decisions.md)
+- 골랐다 → `eks-reference-infra`의 hub/spoke 세우기 절차를 따른다
+- 걷어내야 한다 → `eks-reference-infra`의 hub/spoke 걷어내기 절차를 따른다
+- 왜 이 선택지만 있나 → [`decisions.md`](../../decisions.md)

@@ -1,6 +1,6 @@
 # EKS 모듈 인터페이스
 #
-# 계약: docs/05-modules.md
+# 계약: docs/module-index.md
 #
 # 관심사 순서
 # (정체성 → kill switch/보호 → 클러스터 → 환경 프로파일 → custom networking → 노드 → addon → IAM).
@@ -432,7 +432,7 @@ variable "enable_argocd_hub_pod_identity" {
 variable "argocd_namespace" {
   description = <<-EOT
     허브 ArgoCD가 설치된 네임스페이스. Pod Identity association의 namespace로 쓰인다.
-    ⚠️ scripts/argocd-seed.sh의 ARGOCD_NAMESPACE와 반드시 일치해야 한다 — 어긋나면
+    ⚠️ argocd-seed.sh(`eks-reference-infra`)의 ARGOCD_NAMESPACE와 반드시 일치해야 한다 — 어긋나면
     association이 실제 Pod의 서비스 어카운트와 매칭되지 않아 자격증명을 받지 못한다.
   EOT
   type        = string

@@ -11,7 +11,7 @@
 Terraform 호환성은 **계약이 아니라 부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다.
 OpenTofu 고유 기능(`encryption` 블록 · `.tofu` 확장자 · `language {}`)을 쓸 때는 설계에 이유를 남긴다.
 
-왜 OpenTofu인가는 [`08-decisions.md`](08-decisions.md)가 소유한다.
+왜 OpenTofu인가는 [`decisions.md`](decisions.md)가 소유한다.
 
 ---
 
@@ -29,7 +29,7 @@ sgr-demo-prd-an2-web-01
 
 | 구성 요소 | 값 |
 |-----------|-----|
-| 리소스 약어 | [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md) — **SSOT** |
+| 리소스 약어 | [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md)(**SSOT**) |
 | workload | 프로젝트별 입력 변수. 이 저장소가 고정하지 않는다 |
 | env | `prd` / `stg` / `dev` |
 | 리전코드 | `an2`(ap-northeast-2) · `ue1`(us-east-1) |
@@ -44,21 +44,21 @@ sgr-demo-prd-an2-web-01
    (등재 기준은 카탈로그의 [신규 약어 등재 규칙](aws-naming-abbreviations.md)).
 4. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
 5. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
-6. **모든 리소스는 태그를 단다 — `default_tags`가 닿지 않는 묵시적 리소스도 예외가 아니다.**
+6. **모든 리소스는 태그를 단다. `default_tags`가 닿지 않는 묵시적 리소스도 예외가 아니다.**
    `default_tags`는 provider가 **`resource` 블록으로 직접 만드는** 리소스에만 붙는다. AWS가
    다른 리소스의 부산물로 자동 생성하는 객체(TGW의 기본 연결 라우트테이블, VPC의 기본
    라우트테이블·기본 보안그룹 등)는 Terraform이 그 생성 API 호출 자체를 하지 않으므로
-   `default_tags`가 낄 자리가 없다(실측: `iac-reference-infra` 2026-08-20, TGW
+   `default_tags`가 낄 자리가 없다(실측: `eks-reference-infra` 2026-08-20, TGW
    `association_default_route_table_id`가 무태그였음). 우선순위는 셋이다:
    1. **끌 수 있으면 끄고 명시적 리소스로 대체한다.** 예: TGW의
       `default_route_table_association`/`_propagation`을 `disable`로 두고
-      `aws_ec2_transit_gateway_route_table`을 직접 만들어 연결한다 — provider가 직접 만드는
+      `aws_ec2_transit_gateway_route_table`을 직접 만들어 연결한다. provider가 직접 만드는
       리소스라 `default_tags`가 그대로 적용된다.
    2. **끌 수 없으면(VPC의 기본 라우트테이블·기본 보안그룹처럼 항상 생성되는 것) 전용
-      adoption 리소스로 입양한다.** `aws_default_route_table`·`aws_default_security_group` 등 —
+      adoption 리소스로 입양한다.** `aws_default_route_table`·`aws_default_security_group` 등이며,
       이 역시 `resource` 블록이라 `default_tags`가 적용된다.
    3. **위 둘 다 안 될 때만(우리가 소유하지 않는 리소스, 예: RAM 으로 받기만 하는 대상)
-      `aws_ec2_tag`로 리소스 ID를 직접 타겟한다.** 마지막 수단이다 — 거버넌스 태그 하나당
+      `aws_ec2_tag`로 리소스 ID를 직접 타겟한다.** 마지막 수단이다. 거버넌스 태그 하나당
       `aws_ec2_tag` 하나이고, `default_tags`처럼 한 번에 묶여 적용되지 않는다.
 
 ### 재사용 자산의 요건
@@ -89,10 +89,11 @@ workload code · 계정 ID · 리전을 **하드코딩하지 않는다.** 고객
 |------|-----|--------|
 | OpenTofu (모듈) | `>= 1.12.0` | `versions.tf` |
 | OpenTofu (실행) | `1.12.5` | CI · 로컬 |
-| aws provider (모듈) | `>= 6.0` — **하한만** | `versions.tf` |
-| aws provider (루트) | `~> 6.0` — 상한은 루트가 통제 | `examples/` · 배포 루트 |
+| aws provider (모듈) | `>= 6.0`(**하한만**) | `versions.tf` |
+| aws provider (루트) | `~> 6.0`(상한은 루트가 통제) | `examples/` · 배포 루트 |
 | tflint | `v0.63.1` + aws ruleset `0.48.0` | `.tflint.hcl` |
 | trivy | `v0.72.0` | CI · 훅 |
+| terraform-docs | `v0.24.0` | CI · 훅 |
 | 커뮤니티 모듈 | **정확 핀** | `main.tf` |
 
 **CI와 로컬 훅의 도구 버전을 일치시킨다.** 어긋나면 *"로컬은 통과했는데 CI가 막는다"* 가 생기고,
@@ -108,10 +109,11 @@ workload code · 계정 ID · 리전을 **하드코딩하지 않는다.** 고객
 ## 4. 모듈 소싱
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
 ```
 
-**`ref=main`을 쓰지 않는다** — 움직이는 참조다. 태그로 고정한다.
+`vX.Y.Z`는 자리표시자다 — 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
+**`ref=main`을 쓰지 않는다**(움직이는 참조다). 태그로 고정한다.
 
 ---
 
@@ -151,7 +153,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 **코드와 이 저장소의 문서에는 쓰지 않는다.** `.omc/notepad.md`에서만 쓴다.
 
 식별자는 포인터이고, 포인터의 값은 역참조 가능성 하나다. 이 문서 집합은 결정을 **내용으로**
-싣는다 — 기각한 안은 [08-decisions.md](08-decisions.md)의 한 행이고, 채택한 결정은 코드 자체가
+싣는다: 기각한 안은 [decisions.md](decisions.md)의 한 행이고, 채택한 결정은 코드 자체가
 그 구현이다. 어느 쪽도 별도 식별자를 필요로 하지 않는다.
 
 코드에서 결정을 가리켜야 하면 **그 결정이 무엇인지 쓴다.**
@@ -168,8 +170,8 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 
 | 위치 | 독자 | 담는 것 |
 |------|------|---------|
-| `variable`/`output`의 `description` | **소비자** — 모듈을 호출하는 사람 | 무엇을 넘기고, 무엇이 깨지는가 |
-| `.tf` 주석 | **유지보수자** — 모듈을 고치는 사람 | 왜 이렇게 파생·번역하는가 |
+| `variable`/`output`의 `description` | **소비자**(모듈을 호출하는 사람) | 무엇을 넘기고, 무엇이 깨지는가 |
+| `.tf` 주석 | **유지보수자**(모듈을 고치는 사람) | 왜 이렇게 파생·번역하는가 |
 
 **경고는 두 등급뿐이다.** `⚠️` 실패가 조용하다 · `⛔` 하지 말 것(이미 시도해서 깨졌다).
 다른 기호는 쓰지 않는다.
@@ -181,11 +183,11 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 #
 # <이 파일에만 있는 비직관적 결정 1~3개, 각 한 줄>
 #
-# 계약: docs/05-modules.md
+# 계약: docs/module-index.md
 ```
 
 **지우기 전에**: *"이 줄이 없으면 다음 사람이 무엇을 틀리나"* 에 답한다.
-답할 수 없으면 지운다. 답할 수 있으면 **짧게 다시 쓴다 — 지우지 않는다.**
+답할 수 없으면 지운다. 답할 수 있으면 **짧게 다시 쓴다. 지우지 않는다.**
 
 판정:
 
@@ -213,28 +215,29 @@ git config core.hooksPath .githooks
 `--no-verify` 우회는 긴급 시에만 쓰고 **사유를 커밋 메시지에 남긴다.**
 
 > `tflint`의 `terraform_unused_declarations`는 선언만 하고 쓰지 않은 변수를 잡는다.
-> 따라서 `variables.tf`만 있고 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다** —
+> 따라서 `variables.tf`만 있고 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다.**
 > 실제 커밋 단위는 "변수가 전부 소비되는 시점"이다.
 
 ### CI (`.github/workflows/verify.yml`)
 
-게이트 6개를 돈다:
+게이트 7개를 돈다:
 
 | # | 게이트 |
 |---|--------|
 | 1 | `tofu fmt` |
 | 2 | `tflint --recursive` |
 | 3 | `trivy config` |
-| 4 | modules: `init -lockfile=readonly` + `validate` + `test` — **테스트 없는 모듈은 실패** |
+| 4 | modules: `init -lockfile=readonly` + `validate` + `test`(**테스트 없는 모듈은 실패**) |
 | 5 | examples: `init -lockfile=readonly` + `validate` |
 | 6 | lock registry 검사 |
+| 7 | terraform-docs drift 검사 |
 
 **계약 테스트가 없는 모듈은 릴리스하지 않는다.** 게이트 4가 강제한다.
 
 이 저장소는 배포하지 않으므로 **apply 워크플로가 없다.** 누락이 아니라 설계다.
 
 > CI는 읽기 전용이라 `cancel-in-progress: true`다.
-> **배포 루트의 apply는 반대여야 한다** — apply 중단은 state 잠금과 부분 적용을 남긴다.
+> **배포 루트의 apply는 반대여야 한다.** apply 중단은 state 잠금과 부분 적용을 남긴다.
 
 ### trivy 예외
 
@@ -258,7 +261,7 @@ git config core.hooksPath .githooks
 
 ## 8. 문서 작성 규칙
 
-**적용 범위**: 팀원이 읽는 모든 문서 — `docs/*.md` · 저장소 전역의 `README.md`·`AGENTS.md` ·
+**적용 범위**: 팀원이 읽는 모든 문서. `docs/*.md` · 저장소 전역의 `README.md` ·
 루트 `CLAUDE.md`. 예외는 `.omc/`(에이전트 전용 운영 기록, 팀원 열람 대상이 아니다) 하나뿐이다.
 
 이 문서 집합이 다시 부풀지 않게 하는 장치다.
@@ -267,8 +270,32 @@ git config core.hooksPath .githooks
 |---|------|
 | 1 | **독자로 파일을 가른다.** 각 문서 첫 줄에 "읽는 사람"을 쓴다 |
 | 2 | **변경 이력을 본문에 쓰지 않는다.** 이력은 `CHANGELOG.md`와 git이 소유한다 |
-| 3 | **이모지는 고정 어휘 7종만 쓴다.** 표 상태열: `✅ ⏳ ❌`. 본문 강조 4종: `⚠️`(경고) · `⛔`(금지/차단) · `🔴`(중대 발견·미판정) · `🔑`(핵심 통찰). 이 밖은 쓰지 않는다 — 추가 강조는 볼드체 텍스트로 한다 |
-| 4 | **한 문서는 400줄을 넘지 않는다.** 넘으면 독자가 갈린 것이다(데이터 카탈로그는 예외 — `aws-naming-abbreviations.md`) |
+| 3 | **이모지는 고정 어휘 7종만 쓴다.** 표 상태열: `✅ ⏳ ❌`. 본문 강조 4종: `⚠️`(경고) · `⛔`(금지/차단) · `🔴`(중대 발견·미판정) · `🔑`(핵심 통찰). 이 밖은 쓰지 않는다. 추가 강조는 볼드체 텍스트로 한다 |
+| 4 | **한 문서는 400줄을 넘지 않는다.** 넘으면 독자가 갈린 것이다(데이터 카탈로그는 예외: `aws-naming-abbreviations.md`) |
 | 5 | **선택은 표로, 절차는 명령으로.** 산문으로 고르게 하지 않는다 |
 | 6 | **문서 간 링크는 문서 단위.** 절 번호를 인용해야 하는 문서를 만들지 않는다 |
 | 7 | **정정 서술을 남기지 않는다.** 문서는 현재 사실만 진술한다 |
+
+---
+
+## 9. 문체 규칙
+
+**적용 범위**: 8절과 같다.
+
+hardikpandya/stop-slop 스킬의 8개 규칙을 문체 기준으로 채택한다(2026-08-24). 규칙 자체는 예외 없이
+전면 채택하되, 채택 시점에 이미 있던 위반은 `scripts/validate-doc-conventions.py`의
+`LEGACY_EM_DASH_ALLOWLIST`로 grandfather한다 — 정리는 구조 변경과 분리된 후속 작업이다.
+신규 작성·이 목록 밖의 변경분에는 즉시 적용된다.
+
+| # | 규칙 |
+|---|------|
+| 1 | 필러 표현을 없앤다. 도입부 헛기침·강조용 부사를 뺀다 |
+| 2 | 정형화된 구조를 깬다. 이분법 대비·부정 나열·극적 단문·수사적 밑밥·가짜 행위 주체를 쓰지 않는다 |
+| 3 | 능동태를 쓴다. 모든 문장에 실제 행위자를 세운다 |
+| 4 | 구체적으로 쓴다. 막연한 단정과 "항상"·"절대" 같은 극단어 대신 대상을 짚는다 |
+| 5 | 독자를 현장에 둔다. 3인칭 관찰자 시점 대신 구체적 상황으로 쓴다 |
+| 6 | 리듬을 바꾼다. 문장 길이를 섞는다. em-dash(유니코드 U+2014)를 쓰지 않는다 |
+| 7 | 독자를 믿는다. 사실을 바로 말하고 완충·정당화 표현을 뺀다 |
+| 8 | 인용구처럼 들리는 문장을 다시 쓴다 |
+
+**기계 판정 대상은 규칙 6의 em-dash 금지 하나뿐이다.** 나머지 7개는 8절과 같은 이유로 사람이 리뷰 시 적용한다. 정규식으로 "필러 표현"·"수사적 밑밥"을 판정하면 오탐이 사람 검토보다 비싸진다.

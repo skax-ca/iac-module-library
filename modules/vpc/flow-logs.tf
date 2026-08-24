@@ -4,7 +4,7 @@
 # 대상은 CloudWatch Logs로 고정한다 — S3·Firehose는 버킷/스트림 소유권이 모듈 밖이다.
 # KMS 키도 계정 전역 공유 자산이라 모듈이 만들지 않고 ARN을 주입받는다.
 #
-# 계약: docs/05-modules.md
+# 계약: docs/module-index.md
 
 locals {
   # vpc_enabled 게이트를 함께 통과한다 — VPC가 꺼지면 Flow Logs도 사라진다.

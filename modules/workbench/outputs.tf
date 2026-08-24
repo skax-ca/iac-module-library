@@ -7,7 +7,7 @@
 # ⚠️ workbench_enabled = false면 전부 null이다. 소비 루트가 try()나 조건식 없이 eks-cluster에
 #    그대로 넘겨도 깨지지 않아야 kill switch가 양쪽을 함께 비운다.
 #
-# 계약: docs/05-modules.md
+# 계약: docs/module-index.md
 
 output "workbench_instance_id" {
   description = "SSM 접속 대상. `aws ssm start-session --target <id>` 에 그대로 쓴다."

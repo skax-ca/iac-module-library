@@ -14,12 +14,12 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 - **라이선스는 채택 근거가 아니다.** HashiCorp FAQ는 *"고객이 자기 프로덕션에서 BSL 제품을 쓰는 것을
   컨설턴트가 돕는 행위"* 를 **명시적으로 허용**한다. 고객 비용 장벽은 CLI가 아니라 **HCP/TFE 구독**에
   있었고 GitHub Actions + S3로 이미 해소됐다. 채택 근거는 **리워크 0 + 조달 마찰 제거**다
-  (`docs/08-decisions.md`).
+  (`docs/decisions.md`).
 - **두 엔진 동시 지원은 검토 후 기각했다**(실측 비용 5건). *"둘 다 지원하면 되지 않나"* 라는
-  질문이 나오면 **`docs/08-decisions.md`를 먼저 읽는다** — 이미 값을 매겨 기각한 안이다.
+  질문이 나오면 **`docs/decisions.md`를 먼저 읽는다** — 이미 값을 매겨 기각한 안이다.
 - **Terraform 호환성은 계약이 아니라 부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다:
   **OpenTofu 고유 기능(`encryption` 블록·`.tofu` 확장자·`language {}` 블록 등)을 쓸 때는 이유를 설계 문서에 남긴다.**
-  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(`docs/06-conventions.md`).
+  강제 장치는 없다 — 얇은 모듈에는 애초에 등장할 이유가 없는 것들이다(`docs/conventions.md`).
 
 ---
 
@@ -31,14 +31,14 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 | `terraform-enterprise-poc` | TFC 기반 **동결 스냅샷**(2026-07-28 졸업). TFE 제안서 레퍼런스 전용 — **고치지 않는다** |
 | `silverte/eks-platform-gitops` | PoC GitOps 구현체 — **동결**. 참조 자산으로만 쓴다 |
 | `<project>-infra` (향후 N개) | 프로젝트/고객별 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
-| **`iac-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**) — ArgoCD가 pull로 reconcile |
+| **`eks-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**) — ArgoCD가 pull로 reconcile |
 
 > ⚠️ **`.yaml` 매니페스트는 이 repo에 두지 않는다.** 여기는 모듈(`.tf`)과 설계(`docs/`)만 소유한다.
-> ArgoCD Application·AppProject·cluster Secret은 **`iac-platform-gitops`** 소관이다
-> (3계층 소유 모델 — `docs/01-architecture.md`).
+> ArgoCD Application·AppProject·cluster Secret은 **`eks-platform-gitops`** 소관이다
+> (3계층 소유 모델 — `docs/architectures/eks-gitops-hub-spoke/overview.md`).
 
 - 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md`
-  — ⚠️ 그중 **엔진 축의 근거는 `docs/08-decisions.md`가 교체**했다.
+  — ⚠️ 그중 **엔진 축의 근거는 `docs/decisions.md`가 교체**했다.
   결론(OpenTofu)은 같지만 **이유가 다르다** — PoC repo는 라이선스를, 여기는 조달 마찰·운영 비용을 든다.
   PoC repo는 동결이라 그쪽에 개정 표시가 없으므로 **`08`을 함께 읽는다.**
 - ⛔ **PoC repo에서 모듈·설계를 수정하지 않는다.** 양쪽 개발은 곧 drift이고, 6개월 뒤 어느 쪽이
@@ -48,16 +48,17 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
+  source = "git::https://github.com/<org>/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
   # ...
 }
 ```
 
-태그는 **컴포넌트별 semver**: `vpc-v0.3.0` · `eks-cluster-v0.7.0`.
+`vX.Y.Z`는 자리표시자다 — 실제 최신 태그는 `git tag -l`로 확인한다.
+태그는 **컴포넌트별 semver**: `vpc-vX.Y.Z` · `eks-cluster-vX.Y.Z`.
 
 ## 버전 정책: 전 모듈 `0.y.z`
 
-번호 체계의 SSOT는 **`docs/06-conventions.md`**이고, 기각한 안은 **`docs/08-decisions.md`**가 갖는다.
+번호 체계의 SSOT는 **`docs/conventions.md`**이고, 기각한 안은 **`docs/decisions.md`**가 갖는다.
 
 - **모든 모듈이 개발 단계(`0.y.z`)다.** 이 구간에서는 **파괴적 변경도 마이너로 흡수**하고
   소비자에게 계약 안정을 약속하지 않는다 — semver가 `0.y.z`에 부여한 뜻 그대로다.
@@ -74,12 +75,12 @@ module "vpc" {
 **구현하기 전에 반드시 설계 및 검토를 완료한 후 구현할 것.**
 
 - 코드(`.tf`) 작성/변경 전에 관련 설계가 `docs/`에 존재하고 승인·검토되었는지 확인한다.
-  모듈 계약은 `docs/05-modules.md`, 규약은 `docs/06-conventions.md`가 소유한다.
+  모듈 계약은 `docs/module-index.md`, 규약은 `docs/conventions.md`가 소유한다.
 - 설계가 없거나 불완전하면 **구현을 멈추고** 먼저 설계 문서(설계 → 검토 → 승인)를 작성/보완한다.
 - "간단해 보인다"는 이유로 이 단계를 건너뛰지 않는다. 새 모듈·아키텍처 변경·인터페이스 변경은 예외 없음.
 - 순서: **설계 문서화 → 검토/승인 → 구현 → 검증(fmt/validate/test)**.
 
-> ⛔ **기각한 안을 다시 제안하기 전에 `docs/08-decisions.md`를 읽는다.** 거기 적힌 이유가
+> ⛔ **기각한 안을 다시 제안하기 전에 `docs/decisions.md`를 읽는다.** 거기 적힌 이유가
 > 더 이상 성립하지 않음을 먼저 보여야 재검토가 열린다.
 
 ---
@@ -122,7 +123,7 @@ module "vpc" {
 - **semver 거버넌스 계약**: upstream 파괴적 변경을 인터페이스 유지로 흡수 = 내부 **마이너**(소비자 무영향),
   숨길 수 없으면 내부 **메이저**(의도적 마이그레이션). upstream cadence와 소비자 cadence를 분리한다.
 - **버전 핀**: OpenTofu **`>= 1.12.0` 전 모듈 통일**(실행도 1.12.x). 모듈별 하한 대장은 두지 않는다 —
-  *"근거로만 올린다"* 는 **1.13 이상**에만 적용된다(근거는 `docs/08-decisions.md`).
+  *"근거로만 올린다"* 는 **1.13 이상**에만 적용된다(근거는 `docs/decisions.md`).
   aws `~> 6.0`(예제·프로젝트 루트)/`>= 6.0`(모듈),
   커뮤니티 모듈은 정확 핀. `.terraform.lock.hcl` 커밋 필수 —
   ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인(PoC의 lock을 복사하면 안 된다).
@@ -181,10 +182,11 @@ pre-push (modules/ 변경 시만): tofu test
 - tflint: `.tflint.hcl`(terraform recommended preset + aws ruleset 정확 핀). 설치:
   `brew install trivy opentofu` + tflint는 GitHub 릴리스 바이너리, 이후 `GITHUB_TOKEN=$(gh auth token) tflint --init`.
 - trivy 예외는 `.trivyignore`로만 — 항목마다 사유·백로그 링크 필수, 무단 추가 금지.
-- **모듈 CI**: `.github/workflows/verify.yml`이 **게이트 6개**를 검증한다.
+- **모듈 CI**: `.github/workflows/verify.yml`이 **게이트 7개**를 검증한다.
   ① `tofu fmt` ② `tflint --recursive` ③ `trivy config` ④ modules: `init -lockfile=readonly`
   + `validate` + `test`(tests 없는 모듈은 **실패**) ⑤ examples: `init -lockfile=readonly` + `validate`
-  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — `docs/06-conventions.md`).
+  ⑥ **lock registry 검사**(`registry.terraform.io` 섞이면 실패 — `docs/conventions.md`)
+  ⑦ **terraform-docs drift 검사**(모듈 `README.md`가 `.tf` 변경을 반영했는지).
   - ⚠️ **CI와 로컬 훅의 도구 버전·플래그를 일치시킨다.** 어긋나면 "로컬은 통과했는데 CI가 막는다"가
     생기고, 그러면 사람이 CI를 신뢰하지 않게 된다. 기준: OpenTofu 1.12.5 ·
     tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. **한쪽을 바꾸면 다른 쪽도 바꾼다.**
@@ -252,7 +254,7 @@ pre-push (modules/ 변경 시만): tofu test
   미완성 복잡도와 맞바꾸지 않는다.
 - ⚠️ **이 repo에서 "동작한다"의 기준은 `tofu test` + 예제 `validate` 까지다.** 배포하지 않으므로
   `apply` 판정은 소비 repo 몫이다 — 그 경계를 넘어 "검증했다"고 쓰지 않는다.
-- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(`docs/06-conventions.md`, CI 게이트 ④가 강제).
+- ⛔ 계약 테스트가 없는 모듈은 릴리스하지 않는다(`docs/conventions.md`, CI 게이트 ④가 강제).
 
 ### 임시방편으로 넘기지 않는다
 

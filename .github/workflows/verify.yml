@@ -1,7 +1,7 @@
-# 모듈 검증 CI — docs/06-conventions.md §6 "검증 게이트" 의 구현.
+# 모듈 검증 CI — docs/conventions.md §6 "검증 게이트" 의 구현.
 #
 # ⚠️ 이 repo는 **배포하지 않는다.** apply 워크플로가 없는 것은 누락이 아니라 설계다(CLAUDE.md).
-#    배포는 소비 repo(iac-reference-infra 등)의 몫이다.
+#    배포는 소비 repo(eks-reference-infra 등)의 몫이다.
 #
 # ⚠️ **로컬 게이트와 도구 버전·플래그를 정확히 일치시킨다**(로컬 훅: .githooks/{pre-commit,pre-push}).
 #    기준: OpenTofu 1.12.5 · tflint 0.63.1 · trivy 0.72.0 · aws ruleset 0.48.0. 한쪽을 바꾸면 다른 쪽도 바꾼다.
@@ -43,14 +43,14 @@ jobs:
           # wrapper는 stdout을 가로채 후속 스텝의 grep을 깨뜨린다. 게이트에는 불필요하다.
           tofu_wrapper: false
 
-      - name: "게이트 1/6 — tofu fmt"
+      - name: "게이트 1/7 — tofu fmt"
         run: tofu fmt -recursive -check -diff
 
       - uses: terraform-linters/setup-tflint@v6.3.0
         with:
           tflint_version: ${{ env.TFLINT_VERSION }}
 
-      - name: "게이트 2/6 — tflint"
+      - name: "게이트 2/7 — tflint"
         env:
           # 플러그인(aws ruleset 0.48.0)을 GitHub 릴리스에서 받는다 — 익명 호출은 rate limit 에 걸린다.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,7 +58,7 @@ jobs:
           tflint --init
           tflint --recursive
 
-      - name: "게이트 3/6 — trivy config"
+      - name: "게이트 3/7 — trivy config"
         run: |
           # trivy-action 대신 바이너리를 직접 설치한다 — 액션은 플래그를 자기 입력으로 번역해
           # 로컬 pre-commit 과 완전히 같은 명령을 만들 수 없다.
@@ -91,7 +91,7 @@ jobs:
           echo "TF_PLUGIN_CACHE_DIR=${cache_dir}" >> "$GITHUB_ENV"  # provider 출처만 바꾼다 — 로컬 훅 parity 유지
           echo "TF_PLUGIN_CACHE_DIR=${cache_dir}"
 
-      - name: "게이트 4/6 — modules: validate + test"
+      - name: "게이트 4/7 — modules: validate + test"
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -112,12 +112,12 @@ jobs:
           done
           [ "$found" = 1 ] || { echo "modules/ 가 비어 있다"; exit 1; }
 
-      - name: "게이트 5/6 — examples: validate"
+      - name: "게이트 5/7 — examples: validate"
         run: |
           set -euo pipefail
           shopt -s nullglob
           found=0
-          for e in examples/*/; do
+          for e in modules/*/examples/*/; do
             # 최상위에 .tf 가 없는 디렉토리(문서 전용 등)는 예제가 아니므로 건너뛴다.
             [ -n "$(find "$e" -maxdepth 1 -name '*.tf' -print -quit 2>/dev/null)" ] || continue
             found=1
@@ -127,12 +127,12 @@ jobs:
             tofu -chdir="$e" validate
             echo "::endgroup::"
           done
-          [ "$found" = 1 ] || { echo "examples/ 에 검증할 .tf 가 하나도 없다"; exit 1; }
+          [ "$found" = 1 ] || { echo "modules/*/examples/ 에 검증할 .tf 가 하나도 없다"; exit 1; }
 
-      - name: "게이트 6/6 — lock 파일 registry 검사"
+      - name: "게이트 6/7 — lock 파일 registry 검사"
         run: |
           set -euo pipefail
-          # 06-conventions.md §3(lock 파일): lock 은 커밋 + registry.opentofu.org 여야 한다 —
+          # conventions.md §3(lock 파일): lock 은 커밋 + registry.opentofu.org 여야 한다 —
           # 다른 스택(PoC)의 lock 을 복사하면 registry.terraform.io 가 섞여 들어온다.
           # $(find ...) 를 for 로 순회하면 경로의 공백에서 깨진다(그리고 zsh 에서는 아예 분할되지
           # 않아 로컬 검증이 조용히 무의미해진다). -print0 + read -d '' 로 고정한다.
@@ -151,6 +151,18 @@ jobs:
           echo "  검사한 lock: ${n}개"
           exit $rc
 
+      - name: "게이트 7/7 — terraform-docs drift 검사"
+        run: |
+          set -euo pipefail
+          # terraform-docs version: v0.24.0
+          curl -sSLo /tmp/terraform-docs.tar.gz \
+            https://github.com/terraform-docs/terraform-docs/releases/download/v0.24.0/terraform-docs-v0.24.0-$(uname -s | tr '[:upper:]' '[:lower:]')-amd64.tar.gz
+          tar -xzf /tmp/terraform-docs.tar.gz -C /tmp terraform-docs
+          chmod +x /tmp/terraform-docs
+          for dir in modules/*/; do
+            /tmp/terraform-docs markdown table --output-mode inject --output-check --output-file README.md "$dir"
+          done
+
   # 약어 카탈로그는 데이터 SSOT — 문서 중 유일하게 코드 게이트가 있는 것.
   # 로컬 게이트는 .githooks/pre-commit (카탈로그 staged 시만). 한쪽을 바꾸면 다른 쪽도 바꾼다.
   docs-ssot:
@@ -161,7 +173,7 @@ jobs:
       - name: "게이트 — 약어 카탈로그 SSOT 일관성"
         run: python3 scripts/validate-abbreviations.py
 
-  # 문서 작성 규칙(docs/06-conventions.md 문서 작성 규칙 절)의 기계 판정 가능한 3개(§N 인용·
+  # 문서 작성 규칙(docs/conventions.md 문서 작성 규칙 절)의 기계 판정 가능한 3개(§N 인용·
   # 비표준 이모지·400줄 초과). 로컬 게이트는 .githooks/pre-commit(문서 staged 시만). 한쪽을
   # 바꾸면 다른 쪽도 바꾼다. CI는 전체 저장소를 본다(로컬은 staged 파일만 — 속도 차이).
   docs-conventions:

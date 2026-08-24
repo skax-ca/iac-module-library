@@ -1,4 +1,4 @@
-# examples/vpc-enterprise — 엔터프라이즈 프리셋
+# modules/vpc/examples/enterprise — 엔터프라이즈 프리셋
 
 서브넷 그룹 설계를 **그대로 옮긴 9그룹 구성**이다. 최소 예제가 계약의 형태를 보인다면,
 이 예제는 **고객사 착수 템플릿**이다 — 온프레미스 연동, 용도별 대역 분리, EKS custom networking,
@@ -7,7 +7,7 @@ TGW attachment 전용 서브넷까지 들어 있다.
 > ⚠️ **이 예제의 존재 이유는 검증이 아니라 착수 템플릿이다.** isolated 라우팅·secondary CIDR·
 > AZ 커버리지 precondition 검증은 `modules/vpc/tests/plan.tftest.hcl`이 담당한다. 이 예제는
 > 프로덕션 구성을 흉내 내는 것이 허용된 자리이고
-> (`examples/AGENTS.md`의 "최소로 유지" 원칙에 대한 **의도된 예외**다).
+> ("최소로 유지" 원칙에 대한 **의도된 예외**다).
 
 ## CIDR 3계층
 
@@ -68,17 +68,17 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다** — `git tag -l 'vpc-v*'`로 확인한다. 위 표의 태그가
 낡은 채 복사되면 그대로 굳는데, 실패 방식이 나쁘다: `vpc-v0.2.0`은 Flow Logs confused deputy
 방어(보안 수정)라 **그것이 빠진 채로도 `apply`는 성공한다.** 릴리스 이력은 각 태그의 annotated
-메시지(`git show vpc-v0.3.0`)와 [`docs/05-modules.md`](../../docs/05-modules.md)에 있다.
+메시지(`git show vpc-v0.3.0`)와 [`docs/module-index.md`](../../../../docs/module-index.md)에 있다.
 
-⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/06-conventions.md`](../../docs/06-conventions.md)) —
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../docs/conventions.md)) —
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 (2026-08-05 이전에 발행된 `vpc-v1.x` 태그는 같은 커밋의 `v0.x`로 재매핑됐고 **더 이상 존재하지 않는다**.)
 
 ## 실행
 
 ```bash
-tofu -chdir=examples/vpc-enterprise init -backend=false
-tofu -chdir=examples/vpc-enterprise validate
+tofu -chdir=modules/vpc/examples/enterprise init -backend=false
+tofu -chdir=modules/vpc/examples/enterprise validate
 ```
 
 > ⚠️ `validate`는 계약 위반을 잡지 못한다(`plan`에서만 평가된다). 계약 검증은

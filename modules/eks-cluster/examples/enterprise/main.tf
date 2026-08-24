@@ -1,8 +1,8 @@
 # eks-cluster + workbench 예제 (배포 루트 형태)
 #
 # ⚠️ **이 예제의 목적은 검증이 아니라 "고객사 착수 템플릿"이다.**
-#    계약 검증은 modules/eks-cluster/tests/ 가 이미 커버한다(examples/AGENTS.md의 "최소로 유지"
-#    원칙에 대한 **의도된 예외**). examples/vpc-enterprise 와 같은 위치다.
+#    계약 검증은 modules/eks-cluster/tests/ 가 이미 커버한다("최소로 유지"
+#    원칙에 대한 **의도된 예외**). modules/vpc/examples/enterprise 와 같은 위치다.
 #    따라서 여기서는 "왜 이 값인가"를 주석으로 남기는 것이 코드 자체만큼 중요하다.
 #
 # 보이는 것: custom networking · Karpenter discovery 양쪽 태그 · 컨트롤러 IAM opt-in ·
@@ -26,7 +26,7 @@ locals {
 }
 
 module "vpc" {
-  source = "../../modules/vpc"
+  source = "../../../vpc"
 
   naming = {
     workload    = var.workload
@@ -126,7 +126,7 @@ resource "aws_route53_zone" "internal" {
 #
 # ⚠️ workbench 은 eks 모듈의 출력을 참조하지 않는다 — 위에서 합성한 local.cluster_arn 만 쓴다.
 module "workbench" {
-  source = "../../modules/workbench"
+  source = "../../../workbench"
 
   naming = {
     workload    = var.workload
@@ -168,7 +168,7 @@ module "workbench" {
 }
 
 module "eks" {
-  source = "../../modules/eks-cluster"
+  source = "../.."
 
   naming = {
     workload    = var.workload

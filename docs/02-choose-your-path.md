@@ -275,10 +275,23 @@ owner만 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제�
 | 3 | `aws_ec2_transit_gateway_vpc_attachment`(허브 자신의 attachment) | 허브 |
 | 4 | CI 단계(스포크 워크플로 plan job, `tofu init` 이전)가 pending 초대를 CLI로 수락 → `data.aws_ram_resource_share`(이름으로 조회, 5번보다 먼저 필요) — **Terraform 리소스가 아니다**, 아래 「RAM 초대 수락」 절 참조 | 스포크 |
 | 5 | `aws_ec2_transit_gateway_vpc_attachment`(스포크의 attachment, 초대 수락 후 생성 가능) | 스포크 |
-| 6 | 허브 라우트테이블(node-uniq)에 스포크 uniq CIDR(하드코딩, 아래 「값 발견」 참조) → 허브 자신의 attachment | 허브 |
+| 6 | 허브의 트래픽 발생원이 있는 **모든** VPC 라우트테이블 그룹(node-uniq·vm-uniq 등 — 하나라도 빠지면 그 그룹의 소스는 스포크에 못 닿는다)에 스포크 uniq CIDR(하드코딩, 아래 「값 발견」 참조) → 허브 소유 TGW(아래 「`for_each` key」 절 참조) | 허브 |
 | 7 | 스포크 라우트테이블(node-uniq)에 허브 uniq CIDR(하드코딩) → 스포크 자신의 attachment | 스포크 |
 | 8 | `data.aws_ec2_transit_gateway_vpc_attachments`(복수형, 허브 소유 TGW에 붙은 attachment 전부 발견) → 발견된 것마다 TGW 라우트테이블에 라우트(대상 CIDR은 `vpc_owner_id`로 아래 CIDR 지도에서 조회) | 허브(TGW owner만 가능) |
 | 9 | 스포크 클러스터 SG에 허브발 443 인바운드(CIDR은 하드코딩) | 스포크 |
+
+### `for_each` key는 attachment ID가 아니라 안정값으로 — 6번의 함정
+
+6번(VPC 쪽 라우트)의 `for_each` key에 8번처럼 attachment ID를 섞어 쓰면 안 된다 — attachment
+ID는 스포크 재배포마다 새로 발급되는 "원격 API가 만드는 값"이라(Terraform 공식 문서
+`language/meta-arguments/for_each`가 피하라는 패턴), key가 바뀔 때마다 이 리소스가
+destroy+create로 강제 교체된다. 실측(`iac-reference-infra` 2026-08-24): 그 destroy가 API
+응답 지연으로 `aws_route`의 delete 기본 타임아웃(5m)에 걸려 apply가 실패했고, 재시도한
+apply가 "변경 없음"을 잘못 판단해 라우트가 며칠간 누락된 채 hub↔spoke가 완전 단절됐다
+(Reachability Analyzer+flow log로 확인). 6번의 실제 인자는 attachment ID와 무관하므로
+key를 **`spoke_account_id`**(설정값, 불변)로 바꾸면 스포크를 몇 번 갈아엎어도 유지된다.
+**8번은 다르다** — `transit_gateway_attachment_id` 자체가 attachment ID에 의존하므로
+key도 attachment ID가 맞다: 리소스의 실제 인자가 그 값에 의존하는지로 key를 고른다.
 
 ### RAM 초대 수락 — Terraform 리소스가 아니라 CI 단계다
 

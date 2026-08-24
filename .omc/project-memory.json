@@ -60,6 +60,18 @@
       "source": "manual",
       "category": "team-doc",
       "content": "이전 team-doc 메모(3단계 \"허브-스포크 크로스 계정 아키텍처 + ApplicationSet 팬아웃\" 2소재 버전)는 폐기 — 사용자가 전면 재작성을 요청해 대체됐다. 현재 Notion 문서(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12) 3단계 구조: ①아키텍처 다이어그램(iac-reference-infra 실제 배포 기준 — team계정=허브/vpc-demo-hub-an2-main/eks-demo-hub-an2-main-01, asset계정=스포크dev/vpc-demo-dev-an2-main/eks-demo-dev-an2-main-01, 3개 repo 관계, TGW·cross-account-trust-role 경로 포함 mermaid) ②Terraform·GitOps(플랫폼)·GitOps(앱) 3계층 표 및 이유 ③클러스터마다 GitOps 두면 생기는 문제 ④ArgoCD 정의+4대 기능(cluster 등록·ApplicationSet·self-heal·AppProject) ⑤프로젝트 적용 사례. 섹션 번호는 사용자가 직접 정리함(AI가 붙인 0/1 번호와 기존 무번호 소제목이 안 맞았던 것). 세션 종료 시점 상태: 사용자가 \"전체를 다시 리뷰해보고 얘기할게\"라고 함 — 다음 세션은 사용자의 리뷰 피드백을 먼저 확인할 것, 이 시점의 Notion 내용이 최종 승인된 것은 아니다."
+    },
+    {
+      "timestamp": 1787532574772,
+      "source": "manual",
+      "category": "skill-tooling",
+      "content": "2026-08-24 — 글로벌 스킬 정리: terraform-engineer·terraform-module-library를 글로벌(~/.agents/skills, dotfiles-claude 동기화 대상)에서 제거(이 프로젝트 어디에도 참조 이력 없음 확인 후). terraform-style-guide는 CLAUDE.md:168이 .tf 작성 시 명시적으로 요구하므로 프로젝트 스코프로 이전(.claude/skills/terraform-style-guide 심볼릭 링크 + .agents/skills/terraform-style-guide 실물 + skills-lock.json, 커밋 8e20117). 같은 세션에 hardikpandya/stop-slop(prose에서 AI 문체 패턴 제거)도 글로벌로 신규 설치·dotfiles 반영 완료.\n⚠️ 작업 중 `npx skills remove <name> -g -y`가 스코프 격리를 어기고 같은 이름의 프로젝트 스코프 설치본까지 삭제하는 버그를 실측함(상세는 이 저장소 auto-memory feedback_npx_skills_remove_scope_leak 참조) — 재발생 시 재설치 후 파일 실물+심볼릭 링크 유효성(`find`, `test -e`)을 반드시 재검증할 것."
+    },
+    {
+      "timestamp": 1787532580152,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-24 — /stop-slop으로 \"이 프로젝트에 작성된 모든 문서를 검토해줘\" 요청 중 세션 종료로 중단. 대상 범위 확정함: docs/06-conventions.md §8이 규정하는 문서 전체(docs/*.md 9개 + README.md 4곳[루트·docs·examples·modules] + AGENTS.md 4곳 + 루트 CLAUDE.md, 총 18개 파일).\n🔴 발견한 충돌: stop-slop 규칙(\"No em dashes\")이 이 저장소 자체의 기존 문서 규약(docs/06-conventions.md §8)과 정면 충돌 — 그 규약 자체가 em-dash(—)를 구조적 장치로 적극 사용 중(예: 06-conventions.md 153행). 사용자에게 3가지 처리 방식(① em-dash는 유지하고 나머지 규칙만 적용 ② stop-slop 그대로 적용하고 06-conventions.md도 함께 개정 ③ 검토만 하고 위반 목록만 보고, 수정은 안 함) 중 선택을 물었으나 답변 전에 세션종료로 중단됨 — 다음 세션 시작 시 이 질문부터 이어갈 것."
     }
   ],
   "userDirectives": [

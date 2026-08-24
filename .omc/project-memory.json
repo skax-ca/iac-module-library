@@ -72,6 +72,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-24 — /stop-slop으로 \"이 프로젝트에 작성된 모든 문서를 검토해줘\" 요청 중 세션 종료로 중단. 대상 범위 확정함: docs/06-conventions.md §8이 규정하는 문서 전체(docs/*.md 9개 + README.md 4곳[루트·docs·examples·modules] + AGENTS.md 4곳 + 루트 CLAUDE.md, 총 18개 파일).\n🔴 발견한 충돌: stop-slop 규칙(\"No em dashes\")이 이 저장소 자체의 기존 문서 규약(docs/06-conventions.md §8)과 정면 충돌 — 그 규약 자체가 em-dash(—)를 구조적 장치로 적극 사용 중(예: 06-conventions.md 153행). 사용자에게 3가지 처리 방식(① em-dash는 유지하고 나머지 규칙만 적용 ② stop-slop 그대로 적용하고 06-conventions.md도 함께 개정 ③ 검토만 하고 위반 목록만 보고, 수정은 안 함) 중 선택을 물었으나 답변 전에 세션종료로 중단됨 — 다음 세션 시작 시 이 질문부터 이어갈 것."
+    },
+    {
+      "timestamp": 1787548456487,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-24 — docs/·modules/·examples/·scripts/ 전면 재구성 계획을 ralplan 방식(사용자 요청, /oh-my-claudecode:plan --consensus)으로 수립했다. 계획 파일: `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상, git 미추적 — .omc/plans/*는 의도적 운영 아티팩트라 커밋 안 됨. 다음 세션에서 경로 재확인 필요).\n\n핵심 결정(사용자 피드백 반영): docs/를 foundations(team-access·module-index·conventions·decisions·aws-naming) + architectures/eks-gitops-hub-spoke/(overview·choose-your-path만 유지)로 분리. hub-lifecycle·spoke-lifecycle·runbooks.md와 scripts/argocd-seed.sh·teardown-verify.sh는 `iac-reference-infra`(EKS GitOps 패턴 레퍼런스 레포로 역할 명확화 예정)로 이관 후 이 repo에서 제거 — repo 경계 원칙(SSOT=모듈+설계, 배포 루트=<project>-infra)을 문서 배치에도 적용. modules/는 networking·compute·security·(data 미생성)로 도메인화, top-level examples/는 폐지하고 각 예제를 \"주인공 모듈\"의 examples/로 흡수. 모듈 문서는 terraform-docs 자동 생성으로 전환(CI 게이트 6→7). stop-slop 8개 규칙(em-dash 금지 포함) 규칙 자체는 전면 채택하되 기존 위반 493건 정리는 별도 후속 작업(Phase 6, allowlist 방식)으로 분리.\n\n검증 상태: Architect·Critic 순차 검증을 18회 반복해 실제 CI/훅/grep 파손 결함을 계속 실측으로 찾아냄(vendoring SSOT 관계 누락, CI 게이트 4 glob 파손, pre-push 무음무력화, validate-doc-conventions.py 비재귀 glob, trivyignore.yaml 경로 파손, --exclude-dir=.omc 무력화, grep 파이프 필터가 ./접두사 가정 오류로 no-op, decisions.md 자기모순, 게이트 개수 표기 누락, docs/README·AGENTS.md 상대링크가 모든 grep 회피, catch-all이 정당한 서술까지 오검출). v17·v18에서 Architect APPROVE(사소한 anchoring 버그 1건만, 즉시 수정 완료). **Critic 최종 확인은 Anthropic API 서버 과부하(529 Overloaded)로 4회 연속 실패 — 계획 결함이 아니라 인프라 문제.** 다음 세션에서: (1) 계획 파일 존재 확인 (2) Critic 최종 확인 재시도 또는 사용자 명시 승인으로 바로 실행(team/ralph) 착수 여부 결정."
     }
   ],
   "userDirectives": [

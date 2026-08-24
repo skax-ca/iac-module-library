@@ -28,6 +28,9 @@ terraform.rc
 .idea/
 .vscode/
 
+# 로컬 전용 작업물 (push 안 함) — 팀 공유 자료 초안·개인 스크래치 등
+.local/
+
 # opencode 플러그인 런타임 의존성 — node_modules/package-lock.json 은 .opencode/.gitignore 가 무시
 # .opencode/agents|commands|plugins/*.ts, package.json, bun.lock 은 커밋 대상
 

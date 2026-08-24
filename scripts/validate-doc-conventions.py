@@ -32,7 +32,6 @@ LINE_LIMIT_EXCEPTIONS = {"docs/aws-naming-abbreviations.md"}
 # 2026-08-24 채택 시점에 이미 em-dash를 쓰고 있던 파일 — 정리는 후속 작업(범위 밖).
 # 신규 작성/이 목록 밖의 변경분에는 즉시 적용된다.
 LEGACY_EM_DASH_ALLOWLIST = {
-    "CLAUDE.md",
     "docs/architectures/eks-gitops-hub-spoke/choose-your-path.md",
     "modules/vpc/examples/enterprise/README.md",
     "modules/eks-cluster/examples/enterprise/README.md",

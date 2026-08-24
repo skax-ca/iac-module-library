@@ -52,7 +52,7 @@
 | **cluster generator**로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
 | `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`보다 우선해 무력화한다 |
 | `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
-| root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락** — root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
+| root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
 | `argocd app sync --dry-run`의 `Phase: Succeeded`를 **SSA 성공 증거로** | dry-run은 그것을 증명하지 않는다 |
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
 | self-managed에서 **CodeConnections** | argo-cd에 지원이 없다. 관리형 Capability의 direct integration 기능이다 |
@@ -79,7 +79,7 @@
 | 비밀번호를 **`ssm send-command`** 로 조회 | 출력이 SSM에 저장되고 CloudTrail에 남는다. 대화형 세션에서만 읽는다 |
 | `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
 | 고객사 **IdP · 도메인 하드코딩** | 재사용 자산은 환경값을 갖지 않는다 |
-| 로컬에서 파기하려고 **실행 Role 신뢰에 사용자 추가** | 파기가 승인 게이트를 우회하게 된다. 파기 경로는 신뢰 경계 **안에** 낸다 — 워크플로 `action=destroy`(hub/spoke 파기 절차는 `eks-reference-infra` 소관) |
+| 로컬에서 파기하려고 **실행 Role 신뢰에 사용자 추가** | 파기가 승인 게이트를 우회하게 된다. 파기 경로는 신뢰 경계 **안에** 낸다(워크플로 `action=destroy`, hub/spoke 파기 절차는 `eks-reference-infra` 소관) |
 | 잔존물을 **자동으로 지우는** 스크립트 | 만드는 스크립트는 멱등성이 안전망이지만 파기는 아니다. 공용 계정에서 한 번 잘못 돌면 끝이다. **삭제는 사람이, 검증은 기계가** |
 
 ---

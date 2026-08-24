@@ -274,7 +274,7 @@ module "workbench" {
 }
 ```
 
-> `vX.Y.Z`는 자리표시자다 — 실제 최신 태그는 `git tag -l '<component>-v*'`로 확인한다.
+> `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l '<component>-v*'`로 확인한다.
 > `ref=main`을 쓰지 않는다. 태그로 고정한다.
 
 ---

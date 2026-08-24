@@ -1,10 +1,10 @@
-# scripts — 이 저장소의 거버넌스 도구
+# scripts: 이 저장소의 거버넌스 도구
 
 **읽는 사람**: 이 저장소의 문서·네이밍 규약을 검증하는 사람.
 
 이 저장소 자신의 문서/네이밍 거버넌스 도구만 소유한다. ArgoCD 부트스트랩 등
 소비 프로젝트가 실행하는 운영 절차(`argocd-seed.sh` · `teardown-verify.sh`)는
-`eks-reference-infra`(EKS GitOps 패턴 레퍼런스 레포)로 이관됐다 — 이 저장소는
+`eks-reference-infra`(EKS GitOps 패턴 레퍼런스 레포)로 이관됐다. 이 저장소는
 배포하지 않으므로 배포 절차를 소유하지 않는다(`CLAUDE.md` 「이 repo의 위치」).
 
 | 스크립트 | 무엇 | 실행 주체 |

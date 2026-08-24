@@ -42,11 +42,11 @@ eks-platform-gitops          플랫폼 매니페스트. ArgoCD가 pull로 reconc
 
 | 당신이 | 읽을 것 |
 |--------|---------|
-| 이 조직에 막 합류했다 | [`docs/team-access.md`](docs/team-access.md) — GitHub org 구조·합류 방법 |
-| 팀에 처음 왔다 | [`docs/architectures/README.md`](docs/architectures/README.md) — 아키텍처 패턴 라우팅표 |
-| 새 프로젝트를 맡았다 | [`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md`](docs/architectures/eks-gitops-hub-spoke/choose-your-path.md) — 패턴을 고른 뒤 세우기·걷어내기 절차는 `eks-reference-infra` 참조 |
-| 모듈을 쓰려 한다 | [`docs/module-index.md`](docs/module-index.md) — 입출력 계약 |
-| 왜 이렇게 됐는지 궁금하다 | [`docs/decisions.md`](docs/decisions.md) — 검토하고 기각한 것들 |
+| 이 조직에 막 합류했다 | [`docs/team-access.md`](docs/team-access.md): GitHub org 구조·합류 방법 |
+| 팀에 처음 왔다 | [`docs/architectures/README.md`](docs/architectures/README.md): 아키텍처 패턴 라우팅표 |
+| 새 프로젝트를 맡았다 | [`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md`](docs/architectures/eks-gitops-hub-spoke/choose-your-path.md): 패턴을 고른 뒤 세우기·걷어내기 절차는 `eks-reference-infra` 참조 |
+| 모듈을 쓰려 한다 | [`docs/module-index.md`](docs/module-index.md): 입출력 계약 |
+| 왜 이렇게 됐는지 궁금하다 | [`docs/decisions.md`](docs/decisions.md): 검토하고 기각한 것들 |
 
 ---
 
@@ -61,8 +61,8 @@ module "vpc" {
 }
 ```
 
-`vX.Y.Z`는 자리표시자다 — 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
-태그는 컴포넌트별 semver다. `ref=main`을 쓰지 않는다 — 움직이는 참조다.
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
+태그는 컴포넌트별 semver다. `ref=main`을 쓰지 않는다(움직이는 참조다).
 
 ---
 

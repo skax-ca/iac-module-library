@@ -112,7 +112,7 @@ workload code · 계정 ID · 리전을 **하드코딩하지 않는다.** 고객
 source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
 ```
 
-`vX.Y.Z`는 자리표시자다 — 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
 **`ref=main`을 쓰지 않는다**(움직이는 참조다). 태그로 고정한다.
 
 ---
@@ -284,7 +284,7 @@ git config core.hooksPath .githooks
 
 hardikpandya/stop-slop 스킬의 8개 규칙을 문체 기준으로 채택한다(2026-08-24). 규칙 자체는 예외 없이
 전면 채택하되, 채택 시점에 이미 있던 위반은 `scripts/validate-doc-conventions.py`의
-`LEGACY_EM_DASH_ALLOWLIST`로 grandfather한다 — 정리는 구조 변경과 분리된 후속 작업이다.
+`LEGACY_EM_DASH_ALLOWLIST`로 grandfather한다. 정리는 구조 변경과 분리된 후속 작업이다.
 신규 작성·이 목록 밖의 변경분에는 즉시 적용된다.
 
 | # | 규칙 |

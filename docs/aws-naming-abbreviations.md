@@ -195,7 +195,7 @@
 | Direct Connect | AWS 인터커넥트 | `dxic` | dxic-demo-prd-an2-partner-01 |
 | Direct Connect | Last Mile Interconnect | `dxlm` | dxlm-demo-prd-an2-site-a-01 |
 
-> ⚠️ DX 게이트웨이 연결(`aws_dx_gateway_association`)은 DX 전용 약어를 만들지 않는다 — 연결 대상이
+> ⚠️ DX 게이트웨이 연결(`aws_dx_gateway_association`)은 DX 전용 약어를 만들지 않는다. 연결 대상이
 > VPC 자원이므로 그 약어를 그대로 쓴다: 가상 프라이빗 GW `vgw`(VPN) · 전송 게이트웨이 `tgw`(Transit Gateway).
 > DX 절의 독립 자원 약어는 `dxgw`(Direct Connect Gateway)뿐이다.
 
@@ -444,7 +444,7 @@
 | A.8 | Developer Tools, Others | 31 |
 | | **합계** | **311** |
 
-> ⚠️ **총계는 세 곳에 있다** — 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
+> ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**
 > `scripts/validate-abbreviations.py`가 세 값의 일치를 강제한다.
 
@@ -455,12 +455,12 @@
 | 약어 | AWS 물리 ID | 비고 |
 |---|---|---|
 | `snet` | `subnet-` | 근거 미기록 |
-| `sgr` | `sg-` | 위 등재 규칙 1항 — 보안 그룹 `GroupName`이 `sg-`로 시작할 수 없다 |
+| `sgr` | `sg-` | 위 등재 규칙 1항: 보안 그룹 `GroupName`이 `sg-`로 시작할 수 없다 |
 | `ngw` | `nat-` | 근거 미기록 |
 | `nacl` | `acl-` | 근거 미기록 |
 | `kp` | `key-` | 근거 미기록 |
-| `dh` | `h-` | 물리 ID가 1자(`h-`)라 name 토큰으로 무의미 — 서비스 기반 |
+| `dh` | `h-` | 물리 ID가 1자(`h-`)라 name 토큰으로 무의미(서비스 기반) |
 
-이 약어들은 등재 규칙이 정해지기 **전**의 결정이고, 비고는 현재 사실만 적었다 — 기록에 없는 사유를
+이 약어들은 등재 규칙이 정해지기 **전**의 결정이고, 비고는 현재 사실만 적었다. 기록에 없는 사유를
 재구성하지 않는다. 마이그레이션은 하지 않는다(릴리스된 `modules/vpc`가 실사용 중, 기각 근거는
 [`decisions.md`](decisions.md)).

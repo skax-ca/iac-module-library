@@ -33,14 +33,6 @@ LINE_LIMIT_EXCEPTIONS = {"docs/aws-naming-abbreviations.md"}
 # 신규 작성/이 목록 밖의 변경분에는 즉시 적용된다.
 LEGACY_EM_DASH_ALLOWLIST = {
     "CLAUDE.md",
-    "README.md",
-    "scripts/README.md",
-    "docs/conventions.md",
-    "docs/decisions.md",
-    "docs/module-index.md",
-    "docs/team-access.md",
-    "docs/aws-naming-abbreviations.md",
-    "docs/architectures/README.md",
     "docs/architectures/eks-gitops-hub-spoke/choose-your-path.md",
     "modules/vpc/examples/enterprise/README.md",
     "modules/eks-cluster/examples/enterprise/README.md",

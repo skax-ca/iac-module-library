@@ -22,6 +22,34 @@ if [ -n "$docs_staged" ]; then
   python3 scripts/validate-doc-conventions.py $docs_staged
 fi
 
+# 하드코딩된 ref=<component>-vX.Y.Z 소스 태그가 실제 최신 태그와 어긋나는지 검사.
+# eks-cluster examples/enterprise/README.md가 이 함정에 세 번 걸렸던 실측 전례(2026-08-25,
+# 최신이 v0.9.0인데 README는 v0.7.0을 가리키고 있었다) — 반복된 실제 사고라 "추측 대비"가
+# 아니라 현재 요구다. 검사 대상은 `ref=` 바로 뒤에 붙은 태그뿐이다(그 밖의 산문 속 과거 버전
+# 언급, 예: "vpc-v0.2.0이 고친 버그"는 의도적 역사 서술이라 오탐이 아니라 그냥 대상이 아니다).
+md_staged=$(printf '%s\n' "$changed" | grep -E '\.md$' | grep -v '^\.omc/' || true)
+if [ -n "$md_staged" ]; then
+  stale_found=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    while IFS=: read -r lineno match; do
+      [ -z "$match" ] && continue
+      component=$(printf '%s' "$match" | sed -E 's/^ref=(.+)-v[0-9]+\.[0-9]+\.[0-9]+$/\1/')
+      latest=$(git tag -l "${component}-v*" | sort -V | tail -1)
+      tag=${match#ref=}
+      if [ -n "$latest" ] && [ "$tag" != "$latest" ]; then
+        echo "[pre-commit] ⚠️  $f:$lineno — ref=$tag 가 최신 태그($latest)와 다르다."
+        echo "    의도적 역사 서술이 아니면 태그를 갱신하거나 vX.Y.Z 자리표시자로 바꾼다."
+        stale_found=1
+      fi
+    done < <(grep -noE 'ref=(vpc|eks-cluster|workbench|cross-account-trust-role)-v[0-9]+\.[0-9]+\.[0-9]+' "$f")
+  done <<< "$md_staged"
+  if [ "$stale_found" -eq 1 ]; then
+    echo "[pre-commit] stale 태그 참조 발견 — 의도적이면 git commit --no-verify로 우회(사유를 커밋 메시지에 명시)"
+    exit 1
+  fi
+fi
+
 # Terraform 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
 staged=$(printf '%s\n' "$changed" | grep -E '\.(tf|tfvars)$|\.terraform\.lock\.hcl$|^\.tflint\.hcl$|^\.trivyignore(\.yaml)?$' || true)
 [ -z "$staged" ] && exit 0

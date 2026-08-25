@@ -18,7 +18,7 @@ paths:
 
 | 구성 요소 | 값 |
 |-----------|-----|
-| resourcetype | 리소스별 표준 약어 → `docs/aws-naming-abbreviations.md` (**SSOT, 임의 생성 금지**) |
+| resourcetype | 리소스별 표준 약어 → `docs/naming/abbreviations/aws.md` (**SSOT, 임의 생성 금지**) |
 | workloadcode | **프로젝트별 입력 변수**(이 repo는 특정 값을 고정하지 않는다) |
 | env | `prd` / `stg` / `dev` (+ 역할 계정 토큰) |
 | regioncode | `an2`(ap-northeast-2) / `ue1`(us-east-1) 등 사용 리전만 등재 |

@@ -29,7 +29,7 @@ sgr-demo-prd-an2-web-01
 
 | 구성 요소 | 값 |
 |-----------|-----|
-| 리소스 약어 | [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md)(**SSOT**) |
+| 리소스 약어 | [`naming/abbreviations/aws.md`](naming/abbreviations/aws.md)(**SSOT**) |
 | workload | 프로젝트별 입력 변수. 이 저장소가 고정하지 않는다 |
 | env | `prd` / `stg` / `dev` |
 | 리전코드 | `an2`(ap-northeast-2) · `ue1`(us-east-1) |
@@ -41,7 +41,7 @@ sgr-demo-prd-an2-web-01
 1. **거버넌스 태그는 `default_tags`로.** 배포 루트의 provider에 설정한다. 개별 리소스에 반복하지 않는다.
 2. **`Name`은 모듈이 조합한다.** 소비자는 `naming` 객체만 넘긴다. 약어를 직접 쓰지 않는다.
 3. **약어가 없으면 만들지 말고 등재한다.** 거버넌스 리뷰 후 카탈로그에 추가하고 쓴다
-   (등재 기준은 카탈로그의 [신규 약어 등재 규칙](aws-naming-abbreviations.md)).
+   (등재 기준은 카탈로그의 [신규 약어 등재 규칙](naming/abbreviations/aws.md)).
 4. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
 5. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
 6. **모든 리소스는 태그를 단다. `default_tags`가 닿지 않는 묵시적 리소스도 예외가 아니다.**

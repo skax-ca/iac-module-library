@@ -390,11 +390,3 @@ TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능�
 | 노드 타입·크기 | ✅ | Karpenter NodePool 또는 노드그룹 변경 |
 
 `❌` 행은 **착수 전에 고객사와 확정한다.** 나중에 바꾸면 재생성이고, 재생성은 재구축이다.
-
----
-
-## 다음
-
-- 골랐다 → `eks-reference-infra`의 hub/spoke 세우기 절차를 따른다
-- 걷어내야 한다 → `eks-reference-infra`의 hub/spoke 걷어내기 절차를 따른다
-- 왜 이 선택지만 있나 → [`decisions.md`](../../decisions.md)

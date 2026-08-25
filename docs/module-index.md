@@ -158,11 +158,6 @@ module "workbench" {
 
 > `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l '<component>-v*'`로 확인한다.
 > `ref=main`을 쓰지 않는다. 태그로 고정한다.
-
----
-
-## 다음
-
-- 이 값들을 어떻게 정하나 → `eks-reference-infra`의 hub/spoke 세우기·걷어내기 절차 참조
-- 배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명) → [overview.md](architectures/eks-gitops-hub-spoke/overview.md)의 「실행 기반」 절
-- 네이밍·버전 규칙 → [`conventions.md`](conventions.md)
+>
+> 배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은 이 저장소가 아니라
+> [overview.md](architectures/eks-gitops-hub-spoke/overview.md)의 「실행 기반」 절이 소유한다.

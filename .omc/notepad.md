@@ -1,8 +1,9 @@
 # Notepad — iac-module-library
 
 ## Priority Context
+SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/decisions.md`(재제안 전 필독). 규약=`docs/conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. `.tf` 전용 규칙은 `.claude/rules/terraform.md`(경로 스코프, paths: **/*.tf). 최신 태그·모듈 현황 SSOT는 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`, 전역 커맨드는 /session-start·/session-end 소관. 영구 사실·미결 항목은 project-memory.json, 지난 세션 전문은 이 notepad ## MANUAL(자동 로드 안 됨) 참조.
 
-SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/08-decisions.md`(재제안 전 필독). 규약=`docs/06-conventions.md`, 네이밍=`docs/aws-naming-abbreviations.md`. 최신 태그·모듈 현황 SSOT는 이 파일이 아니라 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`(역할 에이전트·notepad 툴)와 전역 커맨드(`/session-start`·`/session-end`) 소관. 영구 사실·미결 항목은 `project-memory.json`, 지난 세션 전문은 이 notepad `## MANUAL`(자동 로드 안 됨) 참조.
+## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
 ### 2026-08-21 15:58

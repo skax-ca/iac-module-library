@@ -1,4 +1,4 @@
-# 08. 검토하고 기각한 것들
+# 검토하고 기각한 것들
 
 **읽는 사람**: *"왜 X 안 해요?"* 라고 묻고 싶은 사람. 또는 그 질문을 받은 사람.
 
@@ -49,10 +49,10 @@
 | 하지 말 것 | 이유 |
 |---|---|
 | `iac-module-library`를 ArgoCD App **설치 범위에 추가** | ArgoCD가 **모듈 소스까지 reconcile**하게 된다 |
-| **cluster generator**로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
-| `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`보다 우선해 무력화한다 |
-| `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
-| root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
+| **cluster generator**(등록된 클러스터마다 Application을 자동 복제하는 ApplicationSet 제너레이터)로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
+| `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`(kubectl 대신 API 서버가 patch를 계산하는 적용 방식)보다 우선해 무력화한다 |
+| `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync`(배포된 상태가 Git과 어긋났다는 ArgoCD 신호) 해소 | 정답은 **앱별 `ServerSideDiff=true`**(서버가 계산한 diff로 동기화 여부를 판정하는 옵션). 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
+| root App(전체 매니페스트를 훑는 최상위 Application) 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
 | `argocd app sync --dry-run`의 `Phase: Succeeded`를 **SSA 성공 증거로** | dry-run은 그것을 증명하지 않는다 |
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
 | self-managed에서 **CodeConnections** | argo-cd에 지원이 없다. 관리형 Capability의 direct integration 기능이다 |
@@ -99,6 +99,6 @@
 
 | 근거 | 무엇이 반증했나 |
 |---|---|
-| *"`system-cluster-critical` 때문에 `kube-system`에 두어야 한다"* | 네임스페이스 제약이 아니다. Karpenter가 `kube-system`인 진짜 이유는 **APF FlowSchema**다 |
+| *"`system-cluster-critical` 때문에 `kube-system`에 두어야 한다"* | 네임스페이스 제약이 아니다. Karpenter가 `kube-system`인 진짜 이유는 **APF FlowSchema**(`kube-apiserver`의 API Priority and Fairness 요청 분류 규칙)다 |
 | *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 진짜 원인은 **CRD 스키마 defaulting**이다 |
 | *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃이 Secret의 라벨과 이름을 읽는다** |

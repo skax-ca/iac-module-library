@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# docs/conventions.md §8(문서 작성 규칙)·§9(문체 규칙) 중 기계로 판정 가능한 4개만 검사한다.
-# 나머지 규칙(§8의 1 "읽는 사람" 첫 줄 · 2 변경 이력 금지 · 5 표/명령 · 7 정정 서술 금지, §9의
+# docs/writing-style.md 1절(구조 규칙)·2절(문체 규칙) 중 기계로 판정 가능한 4개만 검사한다.
+# 나머지 규칙(1절의 1 "읽는 사람" 첫 줄 · 2 변경 이력 금지 · 5 표/명령 · 7 정정 서술 금지, 2절의
 # 1~5·7~8)은 문맥 판단이 필요해 자동화하지 않는다 — 억지로 정규식화하면 오탐이 사람 검토보다 비싸진다.
 #
-#  1. §8 규칙 6 — 문서 간 §N 인용 금지. "§" 문자 자체가 이 저장소 정리 이후 정당한 용례가
-#     없으므로(자기 절 번호도 "## 8." 형식이지 "§8"이 아니다), "§" 등장 자체를 위반으로 본다.
-#  2. §8 규칙 3 — 이모지는 고정 7종(✅⏳❌⚠️⛔🔴🔑)만 허용. 그 밖의 이모지 범위 문자를 잡는다.
-#  3. §8 규칙 4 — 문서 400줄 제한. `docs/aws-naming-abbreviations.md`(데이터 카탈로그)는 규칙이
+#  1. 1절 규칙 6 — 문서 간 §N 인용 금지. "§" 문자 자체가 이 저장소 정리 이후 정당한 용례가
+#     없으므로(자기 절 번호도 "## 1." 형식이지 "§1"이 아니다), "§" 등장 자체를 위반으로 본다.
+#  2. 1절 규칙 3 — 이모지는 고정 7종(✅⏳❌⚠️⛔🔴🔑)만 허용. 그 밖의 이모지 범위 문자를 잡는다.
+#  3. 1절 규칙 4 — 문서 400줄 제한. `docs/aws-naming-abbreviations.md`(데이터 카탈로그)는 규칙이
 #     명시한 예외라 건너뛴다.
-#  4. §9 규칙 6 — em-dash("—") 금지. 전체 대상 파일에 예외 없이 적용한다.
+#  4. 2절 규칙 6 — em-dash("—") 금지. 전체 대상 파일에 예외 없이 적용한다.
 #
-#  적용 범위: §8이 스스로 선언한 범위와 같다 — docs/*.md · 저장소 전역 README.md ·
+#  적용 범위: writing-style.md가 스스로 선언한 범위와 같다 — docs/*.md · 저장소 전역 README.md ·
 #  루트 CLAUDE.md. .omc/는 제외(에이전트 전용 운영 기록).
 #
 #  실행 (repo 루트에서): python3 scripts/validate-doc-conventions.py [파일...]
@@ -52,7 +52,7 @@ def strip_fenced_code(lines: list[str]) -> list[bool]:
     """줄 인덱스별로 코드펜스(``` ... ```) 안인지 표시한다.
 
     펜스 안은 예시 명령·출력이라 "§"·이모지가 리터럴로 등장해도 위반이 아니다
-    (예: docs/conventions.md의 grep 예시가 검색 대상으로 "§"를 쓴다).
+    (예: docs/writing-style.md의 grep 예시가 검색 대상으로 "§"를 쓴다).
     """
     in_fence = [False] * len(lines)
     inside = False
@@ -100,7 +100,7 @@ def check_file(path: str) -> list[str]:
             if in_fence[i - 1]:
                 continue
             if "—" in line:
-                errors.append(f"{path}:{i}: §9 위반 — em-dash('—'). 마침표·쉼표·괄호로 바꾼다")
+                errors.append(f"{path}:{i}: em-dash 금지 위반 — em-dash('—'). 마침표·쉼표·괄호로 바꾼다")
 
     return errors
 
@@ -114,7 +114,7 @@ def main() -> int:
     if all_errors:
         for e in all_errors:
             print(f"[ERROR] {e}")
-        print(f"\n문서 작성 규칙(§8·§9) 위반 {len(all_errors)}건")
+        print(f"\n문서 작성 규칙 위반 {len(all_errors)}건")
         return 1
 
     print(f"문서 작성 규칙 검사 통과 — {len(targets)}개 파일")

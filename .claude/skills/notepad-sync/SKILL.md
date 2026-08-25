@@ -48,7 +48,7 @@ Claude Code 세션에서 한다** — 그 세션 안에서는 이 절 전체가 
      않는다 — 이 repo에서 2026-08-14 Priority Context 200KB 비대화의 직접 원인이
      됐던 패턴이다.
    - Priority Context는 `notepad_write_priority`로 **전체 교체**한다(append 아님), 500자 이내 유지.
-   - `docs/*.md`에는 날짜·사건 서술을 쓰지 않는다(`docs/conventions.md` §8 — 이 repo의
+   - `docs/*.md`에는 날짜·사건 서술을 쓰지 않는다(`docs/writing-style.md` — 이 repo의
      docs는 설계·규약만 소유) — `remember`가 "docs"를 저장 후보로 제안해도 서술형 내용이면
      notepad로 돌린다.
    - `project-memory.json`은 `.gitignore` 화이트리스트로 git 커밋 대상이다(notepad.md와 함께

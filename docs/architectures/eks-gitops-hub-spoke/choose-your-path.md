@@ -1,4 +1,4 @@
-# 02. 선택 가이드: 새 프로젝트에서 무엇을 고르는가
+# 선택 가이드: 새 프로젝트에서 무엇을 고르는가
 
 **읽는 사람**: 새 고객사 프로젝트를 맡아 구성을 결정해야 하는 사람.
 
@@ -111,7 +111,7 @@ aws pricing get-products --region us-east-1 \
 
 | addon | 네임스페이스 | 이유 |
 |-------|-------------|------|
-| **Karpenter** | `kube-system` | APF FlowSchema가 이 네임스페이스를 전제한다 |
+| **Karpenter** | `kube-system` | APF FlowSchema(`kube-apiserver`의 API Priority and Fairness 요청 분류 규칙)가 이 네임스페이스를 전제한다 |
 | **AWS Load Balancer Controller** | `kube-system` | 공식 문서 + Pod Identity association |
 | **Cluster Autoscaler** | `kube-system` | ⚠️ **관례일 뿐, 아래 바를 충족하지 못한다**. 알면서 택했다(공식 요구사항도 official 문서 근거도 없음) |
 | 그 밖에 전부 | 전용 ns | 격리 |
@@ -123,7 +123,7 @@ aws pricing get-products --region us-east-1 \
 
 ### 리소스 이름: Application 이름과 Helm release 이름을 분리한다
 
-ApplicationSet의 cluster generator는 Application 이름을 `{{name}}-<addon>`(예:
+ApplicationSet의 cluster generator(등록된 클러스터마다 Application을 자동 복제하는 제너레이터)는 Application 이름을 `{{name}}-<addon>`(예:
 `eks-demo-hub-an2-main-01-aws-lbc`)으로 짓는다. 하나의 ArgoCD 인스턴스가 여러 클러스터를
 관리하므로, 콘솔에서 어느 클러스터의 addon인지 구분하려면 이 접두사가 필요하다.
 

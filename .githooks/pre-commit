@@ -12,12 +12,12 @@ if printf '%s\n' "$changed" | grep -qx 'docs/aws-naming-abbreviations.md'; then
   python3 scripts/validate-abbreviations.py
 fi
 
-# 문서 작성 규칙(docs/conventions.md §8) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.
-# 적용 범위는 §8이 스스로 선언한 것과 같다: docs/*.md · 저장소 전역 README.md ·
+# 문서 작성 규칙(docs/writing-style.md) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.
+# 적용 범위는 writing-style.md가 스스로 선언한 것과 같다: docs/*.md · 저장소 전역 README.md ·
 # 루트 CLAUDE.md, .omc/는 제외. staged된 파일만 검사한다(스크립트가 인자를 받으면 그것만 본다).
 docs_staged=$(printf '%s\n' "$changed" | grep -E '^docs/.*\.md$|(^|/)README\.md$|^CLAUDE\.md$' | grep -v '^\.omc/' || true)
 if [ -n "$docs_staged" ]; then
-  echo "[pre-commit] 문서 변경 감지 — 작성 규칙(§8) 검사"
+  echo "[pre-commit] 문서 변경 감지 — 작성 규칙 검사"
   # shellcheck disable=SC2086
   python3 scripts/validate-doc-conventions.py $docs_staged
 fi

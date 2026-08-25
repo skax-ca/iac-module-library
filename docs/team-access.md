@@ -1,4 +1,4 @@
-# 00. 팀 온보딩: 접근과 구조
+# 팀 온보딩: 접근과 구조
 
 **읽는 사람**: 새로 합류해 이 조직에 접근 권한부터 얻어야 하는 사람.
 
@@ -6,7 +6,7 @@
 
 ## 1. 이 문서 집합이 무엇인가: 레퍼런스이지 실제 배포가 아니다
 
-이 저장소(`iac-module-library`)는 **모듈과 설계의 SSOT**다. `.tf` 코드와 `docs/`의 나머지 문서는
+이 저장소(`iac-module-library`)는 **모듈과 설계의 SSOT**(Single Source of Truth, 단일 진실 공급원)다. `.tf` 코드와 `docs/`의 나머지 문서는
 고객사 프로젝트가 인프라를 세울 때 따르는 **패턴**을 담을 뿐, 우리 팀이 실제로 운영 중인
 계정·저장소 그 자체가 아니다. 이 저장소는 배포하지 않는다.
 
@@ -32,8 +32,10 @@ gh api --method PUT orgs/skax-ca/teams/iac/repos/skax-ca/<repo> -f permission='m
 ```
 
 **무료 플랜의 제약**: private repo에 required reviewers를 걸 수 없다. 승인 게이트가 필요하면
-Team 플랜 이상이 필요하다([`decisions.md`](decisions.md)의 "승인 게이트는 GitHub Team 이상
-요구" 전제).
+Team 플랜 이상이 필요하다.
+
+**GitHub Actions(CI) 무료 사용량**: private 저장소 기준 **월 2,000분**까지 무료다(공개 저장소는
+표준 러너로 무제한). Artifact storage 500MB · Cache storage 10GB(저장소당)를 넘으면 과금된다.
 
 ---
 

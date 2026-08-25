@@ -9,6 +9,7 @@
 | [conventions.md](conventions.md) | 이 저장소에 코드를 쓰거나 모듈을 소비하는 사람 |
 | [decisions.md](decisions.md) | *"왜 X 안 해요?"* 라고 묻고 싶은 사람 |
 | [architectures/](architectures/README.md) | 새 고객사 프로젝트의 아키텍처 패턴을 골라야 하는 사람 |
+| [writing-style.md](writing-style.md) | 저장소 문서를 쓰거나 고치는 사람 |
 
 ## 데이터
 
@@ -18,7 +19,7 @@
 
 ## 작성 규칙
 
-[conventions.md](conventions.md)가 소유한다. 요약하면 문서당 400줄 이하,
+[writing-style.md](writing-style.md)가 소유한다. 요약하면 문서당 400줄 이하,
 변경 이력을 본문에 쓰지 않고, 현재 사실만 쓴다.
 
 이 문서 집합 이전의 판이 필요하면 태그 `docs-archive-20260811`에 전문이 있다.

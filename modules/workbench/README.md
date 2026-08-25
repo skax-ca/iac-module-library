@@ -19,6 +19,27 @@ module "workbench" {
 포함한 실전 예시는 [`../eks-cluster/examples/enterprise/README.md`](../eks-cluster/examples/enterprise/README.md)를
 참조한다.
 
+## 부여되는 IAM 권한
+
+| 권한 | 언제 | 스코프 |
+|------|------|--------|
+| `AmazonSSMManagedInstanceCore`(관리형) | 항상 | - |
+| `eks:DescribeCluster` | `eks_cluster_name`·`eks_cluster_arn` 지정 시 | 해당 클러스터 ARN |
+| `ec2:DescribeSpotPriceHistory` · `pricing:GetProducts` | 항상 | `*`(AWS가 이 두 액션에 리소스 레벨 권한을 지원하지 않는다) |
+
+⚠️ 마지막 행의 `Resource = "*"`는 이 모듈의 스코프 원칙(가능하면 ARN으로 좁힌다)의 예외다.
+좁힐 대상 자체가 AWS API 계약에 없다. `eks:DescribeCluster`처럼 클러스터 ARN으로 한정할 수 없다.
+둘 다 읽기전용이고 반환 데이터(spot 가격 이력·상품 가격표)는 계정 경계 없이 공개된 정보다.
+
+## 부팅 후 상태
+
+`eks_cluster_name`을 주면 `user_data`가 다음을 만든다:
+
+- kubeconfig 정본 `0444` (읽기 전용) + `/etc/skel/.kube/config` 상속
+- 새 사용자는 로그인 시 자기 `0600` 사본을 받는다
+- 도구: kubectl · helm · argocd · eks-node-viewer · krew + 플러그인
+- 로그인 프로파일: `alias k` · `nv` · kubectl completion · 리전 export
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

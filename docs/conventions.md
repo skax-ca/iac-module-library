@@ -283,9 +283,8 @@ git config core.hooksPath .githooks
 **적용 범위**: 8절과 같다.
 
 hardikpandya/stop-slop 스킬의 8개 규칙을 문체 기준으로 채택한다(2026-08-24). 규칙 자체는 예외 없이
-전면 채택하되, 채택 시점에 이미 있던 위반은 `scripts/validate-doc-conventions.py`의
-`LEGACY_EM_DASH_ALLOWLIST`로 grandfather한다. 정리는 구조 변경과 분리된 후속 작업이다.
-신규 작성·이 목록 밖의 변경분에는 즉시 적용된다.
+전면 채택한다. 채택 시점에 있던 기존 위반도 전부 정리했고, `scripts/validate-doc-conventions.py`는
+위 적용 범위 전체에서 규칙 6(em-dash 금지)을 예외 없이 강제한다.
 
 | # | 규칙 |
 |---|------|

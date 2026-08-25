@@ -44,7 +44,7 @@ GitOps를 "인프라 대 앱" 한 덩어리로 다루지 않는다. **소유자�
 
 | 계층 | 무엇 | 소유자 | 어디에 | 도구 | 범위 |
 |------|------|--------|--------|------|:---:|
-| **1. 인프라** | 클러스터 · baseline addon · IAM · Access Entry | 플랫폼팀 | `<project>-infra` | OpenTofu | ✅ |
+| **1. 인프라** | 클러스터 · baseline addon · IAM · Access Entry | 플랫폼팀 | `eks-reference-infra` | OpenTofu | ✅ |
 | **2. 플랫폼 GitOps** | helm addon · Karpenter NodePool · 클러스터 등록 · AppProject | 플랫폼팀 | `eks-platform-gitops` | ArgoCD | ✅ |
 | **3. 앱 GitOps** | 비즈니스 워크로드 | **각 앱팀** | 앱팀별 저장소 N개 | ArgoCD | ❌ |
 
@@ -77,8 +77,7 @@ iac-module-library         모듈(.tf) + 설계 문서.        어느 계층도 
         |                  배포하지 않는다
         |  git tag
         v
-<project>-infra            계층 1을 실행한다.            state는 S3, 실행은 GitHub Actions
-        |                  (eks-reference-infra가 레퍼런스)
+eks-reference-infra        계층 1을 실행한다.            state는 S3, 실행은 GitHub Actions
         |  EKS + ArgoCD seed
         v
 eks-platform-gitops        계층 2의 매니페스트.          ArgoCD가 pull로 reconcile

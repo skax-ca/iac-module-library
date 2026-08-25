@@ -15,7 +15,16 @@
 
 ## 질문 A. GitOps가 필요한가: 프로파일 A / B
 
-역량 선언이 아니라 **판정 가능한 사실**로 정한다.
+두 프로파일의 차이는 **addon을 어떻게 클러스터에 반영하는가**다(앱 워크로드는 두 프로파일
+모두 이 저장소의 범위 밖이다. [overview.md](overview.md)의 3계층 모델 참조).
+
+| | 프로파일 A(GitOps) | 프로파일 B(직접 배포) |
+|---|---|---|
+| addon 반영 방식 | ArgoCD가 `eks-platform-gitops` 저장소를 **pull**해 반영 | ArgoCD 없이 배포 루트가 직접 설치한다. **이 저장소는 방법을 규정하지 않는다**(helm 직접 설치 등은 모듈 범위 밖) |
+| 필요한 저장소 | `eks-platform-gitops`(계층 2) 추가로 필요 | 불필요 |
+| 이 문서가 다루는 범위 | 이 디렉토리(`eks-gitops-hub-spoke/`) 전체가 이 프로파일이다 | 별도 가이드 없음. GitOps가 필요 없다고 판정되면 이 디렉토리의 질문 B·C·D는 적용하지 않는다 |
+
+역량 선언이 아니라 **판정 가능한 사실**로 고른다.
 
 | # | 질문 | GitOps가 값을 주는 조건 |
 |---|------|------------------------|
@@ -23,10 +32,8 @@
 | 2 | 앱 배포 주체가 **앱팀**인가 | 인프라팀 하나면 Git 경유의 위임·감사 가치가 줄어든다 |
 | 3 | 엔드포인트를 **private으로 유지**해야 하는가 | pull 모델이 필요한 진짜 이유다 |
 
-**판정**: 1이 "예"거나 3이 "예"면 **프로파일 A(GitOps)**. 둘 다 아니면 **프로파일 B(직접 배포)**.
+**판정**: 1이 "예"거나 3이 "예"면 **프로파일 A**. 둘 다 아니면 **프로파일 B**.
 2는 경계 사례의 보조 신호다.
-
-> **프로파일 B에는 ArgoCD가 없다.** 질문 B·C의 절반이 사라지고, addon은 전부 계층 1이 된다.
 
 ---
 
@@ -105,6 +112,28 @@ aws pricing get-products --region us-east-1 \
 > 일어날 수 있다(근거: karpenter.sh FAQ · `aws/karpenter-provider-aws#2543`). 검증된 taint
 > 분리 패턴(「Karpenter + Cluster Autoscaler 동시 운영」)은 `eks-reference-infra`의 운영 문서를 참조한다.
 
+### 설정 CR이 계층 2인가 3인가: 판별 두 가지
+
+위 표의 "설정 CR"은 계층 2로 단순 표기했지만, 실제로는 계층 2(플랫폼)와 계층 3(앱, 이
+저장소 범위 밖)으로 갈릴 수 있다. *"cluster-scoped면 플랫폼, namespace-scoped면 앱"* 은
+**성립하지 않는다**. 반례가 실재한다. 스코프가 아니라 아래 두 질문이 정한다.
+
+**판별 1: 인프라 정체성을 담는가?**
+IAM role · 비용 · 용량 · 발급 신뢰를 인코딩하면 **계층 2**다. 스코프와 무관하다.
+
+**판별 2: 누군가를 제약하는 규칙인가?**
+가드레일은 **제약받는 쪽이 소유하면 무의미**하다. 앱팀을 제약하는 정책은 **계층 2**다.
+
+| CR | 스코프 | 계층 | 판별 |
+|---|---|---|---|
+| Karpenter NodePool · EC2NodeClass | cluster | 2 | 1: `spec.role`이 IAM을 인코딩 |
+| Kyverno ClusterPolicy | cluster | 2 | 2: 앱팀을 제약하는 가드레일 |
+| cert-manager Issuer | **namespace** | **2** | 1: 발급 신뢰는 인프라다 |
+| KEDA ScaledObject | namespace | 3 | 특정 워크로드에 결합 |
+| KEDA ClusterTriggerAuthentication | **cluster** | **2** | 앱 인증에 결합하나 공유 제공물 |
+
+굵게 표시한 두 행이 *"스코프로 판정하면 틀린다"* 의 증거다.
+
 ### 네임스페이스 배치
 
 **계층 2 addon은 전용 네임스페이스를 신설한다.** 예외는 셋이다.
@@ -180,7 +209,7 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 |---|--------|----------|-----------------|
 | 1 | 배포 루트 | `<project>-infra`의 워크로드 환경이 허브를 겸한다 | `<project>-infra`에 `hub` 환경을 하나 추가한다. **저장소를 새로 만들지 않는다** |
 | 2 | cluster 등록(`eks-platform-gitops`) | `server: https://kubernetes.default.svc` | 스포크의 실제 EKS API 엔드포인트 + 크로스 계정 인증 config |
-| 3 | IAM 신뢰 | 불필요(같은 계정·같은 클러스터) | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유**: 제약받는 쪽이 그 제약을 소유한다는 원칙([overview.md](overview.md)의 「그 CR은 계층 2인가 3인가」 판별 2)과 같다 |
+| 3 | IAM 신뢰 | 불필요(같은 계정·같은 클러스터) | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유**: 제약받는 쪽이 그 제약을 소유한다는 원칙(질문 C 「설정 CR이 계층 2인가 3인가」 판별 2)과 같다 |
 | 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요: 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, [module-catalog.md](../../module-catalog.md)의 `cross-account-trust-role` 모듈 섹션 참조) |
 | 5 | 장애 반경 | 허브 장애 = 그 계정 전체가 영향권 | 허브 장애 = pull만 멈춘다. desired state는 Git에 그대로 있고 워크로드 계정은 무관하다 |
 | 6 | 네트워크 경로 | 불필요(같은 VPC) | 필요. 아래 「네트워크 경로」 절 |

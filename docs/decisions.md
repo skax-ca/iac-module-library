@@ -63,8 +63,23 @@
 | addon 증분 **여러 개를 한 PR에** | 실패 원인 귀인이 불가능해진다. 하나씩 넣는다 |
 | **Kyverno를 정책 0개로** 설치 | 아무것도 하지 않는 **죽은 경로**다. Audit 모드는 위험 없이 값을 낸다 |
 | **internal ALB + Ingress**를 지금 만들기 | ACM 인증서 · Route53 · `global.domain` · SG가 새로 필요하고 **고객사마다 다르다**. 요구가 생기면 그때 연다 |
+| ArgoCD Application 이름 접두사를 그대로 Helm **release 이름**으로 흘려보내기 | Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있다. 접두사가 길어질수록 리소스 이름이 잘려 충돌한다(`cluster-autoscaler`에서 실제로 발생). `spec.source.helm.releaseName`을 짧게 명시하고 Application 이름과 분리한다 |
 | `argocd --core`로 **비밀번호 변경** | core는 argocd-server를 우회해 **세션 토큰이 없다**. `--port-forward`를 쓴다 |
 | **pod IP 직결**로 ArgoCD 접속 | VPC CNI라 도달은 되지만 주소가 **재스케줄마다 바뀌고** SG 두 층을 뚫어야 한다 |
+
+---
+
+## 크로스 계정 네트워킹 (허브-스포크 TGW)
+
+| 하지 말 것 | 이유 |
+|---|---|
+| 허브·스포크를 provider 2개로 **한 Terraform 설정에 묶어 한 번에 apply** | 세 가지 비용 때문에 기각. ① **락 경합**: state lock 범위가 파일 하나라, 스포크 하나를 고치는 동안 허브와 다른 모든 스포크가 함께 잠긴다 ② **전송 비용**: S3 backend는 state 전체를 매번 통째로 주고받아 계정 수만큼 커진다 ③ **자격증명 동시 보유**: 한 CI job이 허브·스포크 양쪽 실행 Role을 동시에 들고 있어야 해, 그 job이 침해되면 허브까지 노출된다 |
+| 허브-스포크 연결에 **VPC Peering** | CIDR 3계층 규약의 pod-dup 대역(`100.64.0.0/16`) 재사용이 AWS의 "CIDR이 여러 개면 하나라도 겹치면 peering 생성 자체를 거부한다" 제약과 구조적으로 충돌한다(AWS 공식 문서). 스포크의 pod CIDR을 재배치해 피하는 것도 해법이 아니다(스포크가 늘 때마다 재조율해야 해, dup 대역을 쓰는 이유 자체가 무너진다). **Transit Gateway를 쓴다** |
+| TGW RAM 공유에서 **조직 내부 공유**(`enable-sharing-with-aws-organization`) 사용 | 이 기능은 조직 **관리 계정**에서만 켤 수 있는데, 배포 계정은 멤버 계정이라 그 권한이 없다. `allow_external_principals = true`로 두고 **표준 계정 간 공유(초대)**로 대체한다 |
+| TGW 라우트 `for_each`의 key에 **attachment ID**(AWS가 발급하는 값) 사용 | 스포크 재배포마다 새로 발급돼, key가 바뀔 때마다 그 리소스가 destroy+create로 강제 교체된다(Terraform 공식 문서가 피하라는 패턴). 실제로 이 destroy가 API 응답 지연으로 삭제 타임아웃에 걸려 apply가 실패했고, 재시도가 "변경 없음"으로 잘못 판단해 라우트가 며칠간 빠진 채 hub-spoke가 단절된 적이 있다. 리소스의 실제 인자가 그 값에 의존하지 않으면 **불변인 설정값**(예: `spoke_account_id`)을 key로 쓴다 |
+| `aws_ram_resource_share_accepter`를 스포크 root의 **평범한 Terraform 리소스**로 두기 | 두 가지가 구조적으로 성립하지 않는다. ① 그 리소스의 delete가 `DisassociateResourceShare`를 직접 호출해, 스포크를 파기할 때마다 허브의 RAM 연결이 허브 state 모르게 실물에서 풀린다 ② 재배포 시 조회용 데이터소스는 초대가 ACCEPTED여야 찾아지는데 이 리소스는 초대가 PENDING이어야 생성(수락)돼, 서로가 서로를 막는 순환이 된다. **수락은 Terraform 리소스가 아니라 CI 파이프라인의 한 단계로 둔다**(스포크 plan job이 CLI로 수락). 기존에 이 리소스가 이미 state에 있는 root만 `removed` 블록(destroy = false)으로 전환한다 |
+| 계정 간 값 전달에 **AWS 태그** 사용(예: CIDR을 커스텀 태그에 담기) | AWS 태그는 종류를 가리지 않고 계정 경계를 넘지 않는다(`describe-tags`·`DescribeTransitGatewayVpcAttachments`·RAM 데이터소스의 `tags` 전부 실측: 빈 값 또는 `null`). RAM이 명시적으로 공유하는 리소스 ARN 자체와 EC2 API가 고유 속성으로 노출하는 값(`vpc_owner_id` 등)만 계정 경계를 넘는다. CIDR처럼 태그로 넘기려던 값은 **관리형 접두사 목록**(`aws_ec2_managed_prefix_list`)으로 대체한다 |
+| TGW ID·CIDR 같은 값을 **repo 변수로 수동 복사** | "하류가 다른 배포 루트라면 remote state 대신 Name 태그 `data` 소스로 조회한다"는 계정 내부 원칙을 계정 경계 너머로 그대로 확장한다: 값 자체가 아니라 그 값을 담은 리소스의 **결정적 이름**으로 찾아 `data` 소스로 읽는다 |
 
 ---
 

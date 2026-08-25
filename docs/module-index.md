@@ -23,7 +23,7 @@
 예: `vpc-demo-prd-an2-main` · `eks-demo-prd-an2-main-01`
 
 리소스 약어는 [`aws-naming-abbreviations.md`](aws-naming-abbreviations.md)가 소유한다.
-**없는 약어를 임의로 만들지 않는다** — 등재 후 쓴다.
+**없는 약어를 임의로 만들지 않는다.** 등재 후 쓴다.
 
 ---
 
@@ -57,7 +57,7 @@ VPC · 서브넷 그룹 · NAT · 라우팅 · Flow Logs.
 ## `eks-cluster`
 
 EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
-커뮤니티 모듈을 **wrapper로 감싼** 형태다 — upstream 변수 rename을 내부에서 흡수한다.
+커뮤니티 모듈을 **wrapper로 감싼** 형태다. upstream 변수 rename을 내부에서 흡수한다.
 
 **최신 태그**: `eks-cluster-v0.8.0` · **계약 테스트**: 28
 
@@ -71,18 +71,18 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 | `public_access_cidrs` | public이 켜졌을 때만 의미가 있다 |
 | `enable_custom_networking` · `pod_subnet_ids` | pod를 secondary CIDR에 둔다 |
 | `managed_node_groups` | 노드그룹 정의. `ami_type`으로 graviton 선택 |
-| `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다. `aws-ebs-csi-driver`·`aws-efs-csi-driver`는 opt-in — 명시해야 addon·IAM role이 생긴다 |
-| `access_entries` | 클러스터 접근 주체 (workbench Role 포함). `principal_arn`은 `type = STANDARD`(기본값)라면 클러스터와 **다른 AWS 계정**의 IAM Role도 받는다 — 크로스 계정 연결에 이 변수 자체는 변경이 필요 없다 |
+| `cluster_addons` | managed addon과 **버전 핀**. 핀은 소비 루트가 소유한다. `aws-ebs-csi-driver`·`aws-efs-csi-driver`는 opt-in(명시해야 addon·IAM role이 생긴다) |
+| `access_entries` | 클러스터 접근 주체 (workbench Role 포함). `principal_arn`은 `type = STANDARD`(기본값)라면 클러스터와 **다른 AWS 계정**의 IAM Role도 받는다. 크로스 계정 연결에 이 변수 자체는 변경이 필요 없다 |
 | `cluster_security_group_additional_rules` | workbench -> 클러스터 인바운드가 여기로 들어온다 |
 | `enable_karpenter` · `enable_cluster_autoscaler` · `enable_alb_controller_iam` · `enable_external_dns_iam` | IAM만 만든다. 컨트롤러는 계층 2 |
 | `deletion_protection` | 실수 삭제 방지 |
 
-> **Karpenter와 Cluster Autoscaler는 동시에 켤 수 있다** — 상호 배제하지 않는다(서로 다른 리소스를
+> **Karpenter와 Cluster Autoscaler는 동시에 켤 수 있다.** 상호 배제하지 않는다(서로 다른 리소스를
 > 다룬다: Karpenter=EC2 직접 프로비저닝, CA=`managed_node_groups`의 ASG). 단, 워크로드를 taint로
 > 분리하지 않으면 같은 pending pod에 두 컨트롤러가 동시에 반응해 중복 프로비저닝이 발생할 수
 > 있다(근거: [karpenter.sh FAQ](https://karpenter.sh/docs/faq/) · `aws/karpenter-provider-aws#2543`).
 > 검증된 분리 패턴(taint+nodeSelector 이중 관문, DaemonSet은 nodeSelector 금지)은
-> [`07-runbooks.md`](07-runbooks.md)를 참조한다.
+> `eks-reference-infra`(EKS GitOps 패턴 레퍼런스)의 운영 문서를 참조한다.
 
 ### 출력
 
@@ -96,7 +96,7 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 `karpenter_sqs_queue_name` · `karpenter_discovery_tag`
 
 **Cluster Autoscaler (계층 2로 간다)**: `cluster_autoscaler_iam_role_arn`
-(namespace=`kube-system`, service_account=`cluster-autoscaler`로 고정 — 공식 요구사항이 아니라
+(namespace=`kube-system`, service_account=`cluster-autoscaler`로 고정. 공식 요구사항이 아니라
 관례다. Karpenter의 `kube-system`과 달리 APF FlowSchema 같은 근거가 없다)
 
 **IAM (계층 2로 간다)**: `alb_controller_iam_role_arn` · `external_dns_iam_role_arn` ·
@@ -108,31 +108,31 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 ### 크로스 계정 확장
 
 허브 계정의 self-managed ArgoCD가 스포크 계정의 EKS에 접근하기 위한 입력·출력이다
-(`docs/02-choose-your-path.md` 질문 D의 IAM 경계를 구현한다, `eks-cluster-v0.8.0`부터).
-허브 계정에서만 켠다 — 스포크 쪽은 `cross-account-trust-role` 모듈이 소유한다.
+(`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md` 질문 D의 IAM 경계를 구현한다, `eks-cluster-v0.8.0`부터).
+허브 계정에서만 켠다. 스포크 쪽은 `cross-account-trust-role` 모듈이 소유한다.
 
 | 변수 | 설명 |
 |------|------|
 | `enable_argocd_hub_pod_identity` | kill switch. 기본 `false` |
-| `argocd_namespace` | ArgoCD가 설치된 네임스페이스. `scripts/argocd-seed.sh`의 `ARGOCD_NAMESPACE`와 반드시 일치해야 한다 — 하드코딩하지 않는다 |
+| `argocd_namespace` | ArgoCD가 설치된 네임스페이스. argocd-seed.sh(`eks-reference-infra`)의 `ARGOCD_NAMESPACE`와 반드시 일치해야 한다. 하드코딩하지 않는다 |
 | `argocd_hub_assumable_role_arns` | 이 허브가 `sts:AssumeRole`로 접근할 수 있는 스포크 신뢰 Role ARN 목록. 스포크가 늘 때마다 이 목록에 추가한다 |
 
 **출력**: `argocd_hub_iam_role_arn`
 
-> Pod Identity의 association 대상은 `argocd-server`가 아니라 **`argocd-application-controller`**다
-> — 스포크 클러스터와 실제로 통신해 reconcile하는 컴포넌트가 이쪽이다.
+> Pod Identity의 association 대상은 `argocd-server`가 아니라 **`argocd-application-controller`**다.
+> 스포크 클러스터와 실제로 통신해 reconcile하는 컴포넌트가 이쪽이다.
 
 ⚠️ 이 변수들은 **IAM 경계만** 만든다. private-only 엔드포인트에서 허브가 스포크에 실제로
 도달하려면 Transit Gateway 가 **별도로** 필요하다(VPC Peering 은 CIDR 3계층의 pod-dup 대역
-재사용 설계와 구조적으로 충돌해 쓸 수 없다 — 아래 참조) —
-`docs/02-choose-your-path.md`의 「네트워크 경로」 절 참조. 이 모듈은 그 리소스를 만들지
+재사용 설계와 구조적으로 충돌해 쓸 수 없다. 아래 참조).
+`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md`의 「네트워크 경로」 절 참조. 이 모듈은 그 리소스를 만들지
 않는다(재사용 모듈로 두지 않기로 한 이유도 그 절에 있다).
 
 ---
 
 ## `workbench`
 
-private 클러스터를 조작하는 운영 지점. **인바운드 규칙이 하나도 없다** —
+private 클러스터를 조작하는 운영 지점. **인바운드 규칙이 하나도 없다.**
 SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방향으로 흐른다.
 
 **최신 태그**: `workbench-v0.7.0` · **계약 테스트**: 19
@@ -165,10 +165,10 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 | `ec2:DescribeSpotPriceHistory` · `pricing:GetProducts` | 항상 | `*`(AWS가 이 두 액션에 리소스 레벨 권한을 지원하지 않는다) |
 
 ⚠️ 마지막 행의 `Resource = "*"`는 이 모듈의 스코프 원칙(가능하면 ARN으로 좁힌다)의 예외다.
-좁힐 대상 자체가 AWS API 계약에 없다 — `eks:DescribeCluster`처럼 클러스터 ARN으로 한정할 수 없다.
+좁힐 대상 자체가 AWS API 계약에 없다. `eks:DescribeCluster`처럼 클러스터 ARN으로 한정할 수 없다.
 둘 다 읽기전용이고 반환 데이터(spot 가격 이력·상품 가격표)는 계정 경계 없이 공개된 정보다.
 
-### 클러스터 접근 3층 — 누가 무엇을 소유하는가
+### 클러스터 접근 3층: 누가 무엇을 소유하는가
 
 | 층 | 무엇 | 소유 모듈 |
 |:--:|------|----------|
@@ -196,10 +196,10 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 ## `cross-account-trust-role`
 
 스포크 계정이 소유하는 크로스 계정 IAM 신뢰 Role 하나만 만드는 얇은 모듈. 허브의 특정 IAM
-Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이지 않는다 — 실제 Kubernetes
+Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이지 않는다. 실제 Kubernetes
 권한은 스포크의 `eks-cluster` 모듈 `access_entries`가 결정한다(아래 「K8s 권한 부여 방식」
 참조). `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
-(`docs/02-choose-your-path.md` 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
+(`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md` 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
 
 **최신 태그**: `cross-account-trust-role-v0.1.0` · **계약 테스트**: 5
 
@@ -207,7 +207,7 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 
 | 변수 | 설명 |
 |------|------|
-| `trusted_principal_arns` | 신뢰할 IAM Role/User ARN 목록. **특정 ARN만** 허용 — 계정 `:root` 전체 위임이나 와일드카드는 plan 단계에서 거부한다 |
+| `trusted_principal_arns` | 신뢰할 IAM Role/User ARN 목록. **특정 ARN만** 허용. 계정 `:root` 전체 위임이나 와일드카드는 plan 단계에서 거부한다 |
 | `session_duration_seconds` | `max_session_duration`. 기본 `3600` |
 | `enabled` | kill switch. 기본 `true` |
 
@@ -216,9 +216,9 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 `role_arn` · `role_name`
 
 > `role_arn`이 스포크의 `eks-cluster` 모듈 `access_entries`로 들어가는 연결선이다.
-> 모듈이 서로를 직접 참조하지 않는다 — 배포 루트가 연결한다(다른 모듈과 같은 원칙).
+> 모듈이 서로를 직접 참조하지 않는다. 배포 루트가 연결한다(다른 모듈과 같은 원칙).
 
-### K8s 권한 부여 방식 — access policy 우선, RBAC는 세밀한 제어가 필요할 때만
+### K8s 권한 부여 방식: access policy 우선, RBAC는 세밀한 제어가 필요할 때만
 
 `eks-cluster`의 `access_entries`는 이 Role에 K8s 권한을 주는 방식을 두 가지 제공한다. 선택
 기준은 AWS 공식 문서(EKS 사용 설명서 "Associate access policies with access entries")를 그대로
@@ -227,10 +227,10 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 
 | 방식 | `access_entries` 필드 | 쓰는 경우 |
 |------|----------------------|----------|
-| 관리형 access policy | `policy_associations` | AWS가 제공하는 4개 정책(`AmazonEKSClusterAdminPolicy`·`AmazonEKSAdminPolicy`·`AmazonEKSEditPolicy`·`AmazonEKSViewPolicy`)으로 충분한 권한. GitOps 컨트롤러가 애드온·CRD 등 클러스터 스코프 리소스 전반을 다뤄야 하는 크로스 계정 ArgoCD 접근이 여기 해당한다 — `workbench` access entry와 같은 패턴이다 |
-| `kubernetes_groups` + K8s RBAC | `kubernetes_groups` | 네 정책 어느 것도 못 주는 세밀한 범위(특정 네임스페이스 조합·커스텀 verb 등)가 필요한 경우만. `ClusterRole`/`ClusterRoleBinding`은 이 모듈도 `eks-cluster`도 만들지 않는다 — GitOps 저장소(`iac-platform-gitops`)가 소유한다 |
+| 관리형 access policy | `policy_associations` | AWS가 제공하는 4개 정책(`AmazonEKSClusterAdminPolicy`·`AmazonEKSAdminPolicy`·`AmazonEKSEditPolicy`·`AmazonEKSViewPolicy`)으로 충분한 권한. GitOps 컨트롤러가 애드온·CRD 등 클러스터 스코프 리소스 전반을 다뤄야 하는 크로스 계정 ArgoCD 접근이 여기 해당한다. `workbench` access entry와 같은 패턴이다 |
+| `kubernetes_groups` + K8s RBAC | `kubernetes_groups` | 네 정책 어느 것도 못 주는 세밀한 범위(특정 네임스페이스 조합·커스텀 verb 등)가 필요한 경우만. `ClusterRole`/`ClusterRoleBinding`은 이 모듈도 `eks-cluster`도 만들지 않는다. GitOps 저장소(`eks-platform-gitops`)가 소유한다 |
 
-⚠️ access policy로 준 권한은 `kubectl auth can-i --list`에 나타나지 않는다 — AWS 전용 API
+⚠️ access policy로 준 권한은 `kubectl auth can-i --list`에 나타나지 않는다. AWS 전용 API
 (`aws eks list-associated-access-policies`)로만 조회된다. K8s 네이티브 도구로 권한을 감사해야
 하는 클러스터라면 이 제약을 감안해 `kubernetes_groups`를 택한다.
 
@@ -240,7 +240,7 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
 
   naming           = local.naming
   cidr_block       = "10.50.0.0/24"
@@ -248,7 +248,7 @@ module "vpc" {
 }
 
 module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-v0.7.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-vX.Y.Z"
 
   naming     = local.naming
   vpc_id     = module.vpc.vpc_id
@@ -263,7 +263,7 @@ module "eks" {
 }
 
 module "workbench" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-v0.6.0"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-vX.Y.Z"
 
   naming           = local.naming
   vpc_id           = module.vpc.vpc_id
@@ -274,11 +274,30 @@ module "workbench" {
 }
 ```
 
+> `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l '<component>-v*'`로 확인한다.
 > `ref=main`을 쓰지 않는다. 태그로 고정한다.
+
+---
+
+## 소비 repo 실행 기반
+
+이 repo는 모듈만 소유한다. 실행은 프로젝트 repo의 GitHub Actions가 담당하며, 다음을 반드시 지킨다.
+
+| 항목 | 규칙 |
+|------|------|
+| plan → apply | plan을 **artifact로 저장**해 승인 후 **그 파일을 apply**한다. 누락 시 "승인한 계획 ≠ 적용된 계획" 구멍 |
+| 승인 게이트 | Environment protection rules(required reviewers). prd는 항상 수동 승인 |
+| 동시 실행 | `concurrency: {group: <root>, cancel-in-progress: false}`. 누락 시 state 충돌 |
+| 자격증명 | GitHub OIDC → 입구 Role → 실행 Role(2단 체인). 정적 키 금지 |
+| state | S3 + `use_lockfile = true` (DynamoDB 불필요) |
+
+> ⚠️ **GitHub immutable sub claim**: 2026-07-15 이후 생성된 repo의 OIDC `sub`는 이름이 아니라
+> 숫자 org/repo ID를 쓴다: `repo:<org>@<org_id>/<repo>@<repo_id>:environment:dev`.
+> 신뢰 정책 작성 전 실제 토큰의 `sub`를 확인할 것.
 
 ---
 
 ## 다음
 
-- 이 값들을 어떻게 정하나 → hub는 [`03-hub-lifecycle.md`](03-hub-lifecycle.md), spoke는 [`04-spoke-lifecycle.md`](04-spoke-lifecycle.md)
-- 네이밍·버전 규칙 → [`06-conventions.md`](06-conventions.md)
+- 이 값들을 어떻게 정하나 → `eks-reference-infra`의 hub/spoke 세우기·걷어내기 절차 참조
+- 네이밍·버전 규칙 → [`conventions.md`](conventions.md)

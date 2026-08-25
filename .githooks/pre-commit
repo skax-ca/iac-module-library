@@ -12,14 +12,42 @@ if printf '%s\n' "$changed" | grep -qx 'docs/aws-naming-abbreviations.md'; then
   python3 scripts/validate-abbreviations.py
 fi
 
-# 문서 작성 규칙(docs/06-conventions.md §8) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.
-# 적용 범위는 §8이 스스로 선언한 것과 같다: docs/*.md · 저장소 전역 README.md·AGENTS.md ·
+# 문서 작성 규칙(docs/conventions.md §8) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.
+# 적용 범위는 §8이 스스로 선언한 것과 같다: docs/*.md · 저장소 전역 README.md ·
 # 루트 CLAUDE.md, .omc/는 제외. staged된 파일만 검사한다(스크립트가 인자를 받으면 그것만 본다).
-docs_staged=$(printf '%s\n' "$changed" | grep -E '^docs/.*\.md$|(^|/)README\.md$|(^|/)AGENTS\.md$|^CLAUDE\.md$' | grep -v '^\.omc/' || true)
+docs_staged=$(printf '%s\n' "$changed" | grep -E '^docs/.*\.md$|(^|/)README\.md$|^CLAUDE\.md$' | grep -v '^\.omc/' || true)
 if [ -n "$docs_staged" ]; then
   echo "[pre-commit] 문서 변경 감지 — 작성 규칙(§8) 검사"
   # shellcheck disable=SC2086
   python3 scripts/validate-doc-conventions.py $docs_staged
+fi
+
+# 하드코딩된 ref=<component>-vX.Y.Z 소스 태그가 실제 최신 태그와 어긋나는지 검사.
+# eks-cluster examples/enterprise/README.md가 이 함정에 세 번 걸렸던 실측 전례(2026-08-25,
+# 최신이 v0.9.0인데 README는 v0.7.0을 가리키고 있었다) — 반복된 실제 사고라 "추측 대비"가
+# 아니라 현재 요구다. 검사 대상은 `ref=` 바로 뒤에 붙은 태그뿐이다(그 밖의 산문 속 과거 버전
+# 언급, 예: "vpc-v0.2.0이 고친 버그"는 의도적 역사 서술이라 오탐이 아니라 그냥 대상이 아니다).
+md_staged=$(printf '%s\n' "$changed" | grep -E '\.md$' | grep -v '^\.omc/' || true)
+if [ -n "$md_staged" ]; then
+  stale_found=0
+  while IFS= read -r f; do
+    [ -f "$f" ] || continue
+    while IFS=: read -r lineno match; do
+      [ -z "$match" ] && continue
+      component=$(printf '%s' "$match" | sed -E 's/^ref=(.+)-v[0-9]+\.[0-9]+\.[0-9]+$/\1/')
+      latest=$(git tag -l "${component}-v*" | sort -V | tail -1)
+      tag=${match#ref=}
+      if [ -n "$latest" ] && [ "$tag" != "$latest" ]; then
+        echo "[pre-commit] ⚠️  $f:$lineno — ref=$tag 가 최신 태그($latest)와 다르다."
+        echo "    의도적 역사 서술이 아니면 태그를 갱신하거나 vX.Y.Z 자리표시자로 바꾼다."
+        stale_found=1
+      fi
+    done < <(grep -noE 'ref=(vpc|eks-cluster|workbench|cross-account-trust-role)-v[0-9]+\.[0-9]+\.[0-9]+' "$f")
+  done <<< "$md_staged"
+  if [ "$stale_found" -eq 1 ]; then
+    echo "[pre-commit] stale 태그 참조 발견 — 의도적이면 git commit --no-verify로 우회(사유를 커밋 메시지에 명시)"
+    exit 1
+  fi
 fi
 
 # Terraform 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
@@ -41,5 +69,15 @@ echo "  3/3 trivy config (MEDIUM+)"
 trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
   --skip-dirs '**/.terraform' --tf-exclude-downloaded-modules \
   --ignorefile .trivyignore.yaml .
+
+# terraform-docs version: v0.24.0
+# 모듈 .tf가 staged되면 README.md가 그 변경을 반영했는지 drift 검사.
+modules_tf_staged=$(printf '%s\n' "$staged" | grep -E '^modules/[^/]+/[^/]+\.tf$' || true)
+if [ -n "$modules_tf_staged" ]; then
+  echo "  terraform-docs drift 검사"
+  for m in $(printf '%s\n' "$modules_tf_staged" | sed -E 's#^(modules/[^/]+)/.*#\1#' | sort -u); do
+    terraform-docs markdown table --output-mode inject --output-check --output-file README.md "$m/"
+  done
+fi
 
 echo "[pre-commit] 게이트 통과 ✓"

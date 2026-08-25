@@ -48,7 +48,7 @@ locals {
 }
 
 module "vpc" {
-  source = "../../modules/vpc"
+  source = "../.."
 
   naming = {
     workload    = var.workload

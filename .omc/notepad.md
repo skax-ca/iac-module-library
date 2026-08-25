@@ -67,6 +67,522 @@ notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 �
 3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
 4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
 5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+### 2026-08-25 00:06
+2026-08-25 — docs/conventions.md §9 em-dash grandfather 전면 해제(사용자 요청). scripts/validate-doc-conventions.py의 LEGACY_EM_DASH_ALLOWLIST(12개 파일, 2026-08-24 채택 시점 grandfather)를 4단계로 정리: ①docs/team-access.md 즉시 delist(실위반 0, 전부 코드펜스 안) ②소형 7개 파일(README.md·docs/architectures/README.md·aws-naming-abbreviations.md·conventions.md·decisions.md·module-index.md·scripts/README.md) 20건 ③CLAUDE.md 38건(최상위 규칙 문서, diff 전수 검토로 의미 보존 확인) ④example README 2개(vpc·eks-cluster examples/enterprise) 53건 + choose-your-path.md 77건. 총 188건을 마침표·콜론·괄호·쉼표로 치환 후 LEGACY_EM_DASH_ALLOWLIST 자체를 코드에서 제거, §9 본문을 "정리 완료" 사실로 갱신. 브랜치 docs-modules-restructure에 4커밋 추가(a612d54·27b8bcf·3c486c1·d614276), 로컬 문서 검증(validate-doc-conventions.py) 전체 통과. 아직 push 안 함 — 다음 세션 시작 시 push 여부 확인.
+
+같은 세션에서 사용자가 별도로 제안한 "terraform 코드 생성 README만 남기고 나머지 6개 README(root·docs/README·docs/architectures/README·scripts/README·example README 2개) 삭제 후 릴리즈 시점에 재작성" 안건은 평가 후 기각(사용자가 "보류, 현행 유지" 선택). 근거: ①이 저장소는 레포 전체 버전/릴리즈 개념이 없다(모듈별 semver만 존재, docs/conventions.md:78·docs/decisions.md:15-16이 전 모듈 일괄 컷 명시적 기각) — "릴리즈할 때"라는 트리거 자체가 정의 불가 ②삭제 대상 6개 전부 terraform 코드에서 뽑아낼 수 없는 손수 작성 산문(라우팅/온보딩 또는 설계 근거)이라 "다시 작성"이 자동화가 아니라 수작업 재현 ③삭제 후보 6개 중 5개가 방금 정리한 em-dash allowlist와 겹쳐 순서 충돌 위험이 있었음. 이 안건은 재발의되지 않는 한 다시 꺼내지 않는다.
+### 2026-08-25 00:26
+2026-08-25 (이어서) — 주석 감사 작업. /oh-my-claudecode:ai-slop-cleaner 스킬 로드 + HashiCorp 공식 스타일 가이드·일반 업계 컨센서스("why not what") 리서치 후 3분류 기준(KEEP/CUT/구분선-재검토) 제안, 사용자 승인받아 실행.
+
+시범: 소형 파일 5개(cross-account-trust-role 2개·vpc/variables.tf·workbench/variables.tf·eks-cluster/outputs.tf, 91줄) + eks-cluster/iam.tf(51줄) 전수 검토 → **삭제 후보 0건**. 전부 사고 이력·upstream 함정·검증 로직 근거·모듈 경계 책임 중 하나에 해당. 최초 조사 단계에서 "# Cluster"·"# IAM Role" 같은 라벨형 주석이 있다고 봤던 건 재검색으로 반증됨(실재하지 않음, 최초 grep이 오탐이었던 것으로 추정) — 다음에 같은 주장을 다시 보면 먼저 재검증할 것.
+
+사용자에게 "나머지 25개 파일도 같은 결과 예상, 어떻게 할까" 질문 → "전체 스윗 중단, 현재 상태 유지" 선택. 대신 판정 기준(KEEP: 사고 이력·upstream 비직관 동작·검증 근거·모듈 경계, CUT: 인접 리소스명과 중복되는 라벨, 구분선: 100줄+5블록 이상일 때만 유지)을 `.agents/skills/terraform-style-guide/SKILL.md`(`.claude/skills/`는 심볼릭 링크)의 새 "## Comments" 절에 codify, 커밋(70df056)해 향후 신규 코드에도 같은 기준이 적용되게 함. 결론: 이 저장소 .tf 주석은 이미 목표 상태였고, 실제로 지운 코드는 없다.
+
+브랜치 `docs-modules-restructure`에 이번 세션 커밋 6개 추가(em-dash grandfather 4단계 + notepad 기록 + 주석 규칙 codify). 여전히 push 안 함.
+### 2026-08-25 00:35
+2026-08-25 (이어서) — CLAUDE.md 재구성. 공식 Claude Code memory 가이드(<200줄 목표, /doctor가 제안하는 트림 기준 — 유도 가능한 내용 삭제, paths: 스코프 규칙 활용) + 커뮤니티 컨센서스(150줄 이후 준수율 저하, 250줄부터 섹션째 스킵) 리서치 후 사용자 승인받아 실행.
+
+262줄 → 96줄로 축소(f0a6300):
+① docs/decisions.md·docs/conventions.md와 문장 단위 중복이던 라이선스 근거·버전정책 문단 트림, 링크로 대체(CLAUDE.md 스스로 "SSOT는 conventions.md"라 선언해 놓고 그 내용을 다시 베끼고 있었음 — drift 위험)
+② CI 도구 버전(OpenTofu 1.12.5·tflint 0.63.1 등) 하드코딩 제거, .github/workflows/verify.yml·.tflint.hcl을 직접 읽게 함
+③ .tf 전용 82줄(리소스 네이밍·아키텍처 & 모듈 규칙·검증 코드작성전후·작업 원칙)을 신설 `.claude/rules/terraform.md`(paths: ["**/*.tf"])로 이동 — .tf 안 건드리는 세션(오늘 em-dash 정리·주석 감사가 그랬듯)은 이 비용을 안 냄
+④ "실행 기반(프로젝트 repo가 담당)" 절은 이 repo가 아니라 소비 repo 설계 문서라 docs/module-index.md "소비 repo 실행 기반" 절로 이동
+
+내용 손실 없음 — 전부 유지 또는 이동, 이동 자리엔 상호 참조("위" 참조가 깨지는 곳은 "CLAUDE.md의 「...」"로 명시 수정). 브랜치·PR 규칙은 .tf 전용이 아니라(어떤 파일을 만지든 이 규칙이 먼저 적용돼야 하므로) 루트에 유지하고 ###→##로 승격.
+
+이번 세션 총 7개 커밋이 docs-modules-restructure 브랜치에 쌓임. 여전히 push 안 함 — 다음 세션 시작 시 diff 전체 재검토 후 push/PR 여부 확인할 것.
+### 2026-08-25 00:58
+2026-08-25 (이어서) — README.md 전체(10개) 모범사례 리서치 후 개선 4항목 실행 완료.
+
+리서치: 일반 README 2026 우선순위("코드 변경 시 정확성 유지")·terraform-docs 관례("Usage 절은 반드시 손으로 쓴다") 확인.
+
+실행:
+① module README 4개(vpc·eks-cluster·workbench·cross-account-trust-role)의 `` 위에 설명+버전핀 Usage 예시 추가. inject 모드가 마커 바깥을 안 건드림을 CI와 동일 버전(terraform-docs v0.24.0)으로 로컬 실측 확인 후 커밋(1e3eb33).
+② 루트 README.md "현황" 표에서 하드코딩 태그·테스트개수 컬럼 삭제(eks-cluster가 이미 2단계 stale — v0.7.0 vs 실제 v0.9.0, cross-account-trust-role은 표에 아예 누락돼 있었음 실측). git tag -l 안내로 대체, 누락 행 추가.
+③ eks-cluster examples/enterprise/README.md의 하드코딩 eks-cluster-v0.7.0·workbench-v0.7.0을 vX.Y.Z로 교체(이 파일 자신이 "두 번 이 함정에 걸렸다"고 이미 적어뒀는데 지금이 세 번째였음).
+④ .githooks/pre-commit에 stale 태그 검사 추가(323c2b0): staged .md에서 `ref=<component>-vX.Y.Z` 패턴을 뽑아 실제 최신 git 태그와 대조, 어긋나면 커밋 차단. 정상 케이스(vpc-v0.3.0, 현재 최신과 일치)·stale 케이스(eks-cluster-v0.7.0 vs 실제 v0.9.0) 양쪽 다 별도 bash 테스트로 탐지 로직 검증 완료. 저장소 전체에서 `ref=` 뒤 하드코딩 태그는 vpc examples/enterprise/README.md 2곳뿐(둘 다 최신과 일치) — 오탐 없음 확인.
+
+이번 세션 총 10개 커밋이 docs-modules-restructure 브랜치에 쌓임(em-dash grandfather 4·주석감사 codify 1·CLAUDE.md 재구성 2·README 개선 2). 여전히 push/PR 안 함 — 다음 세션에서 전체 diff 재검토 후 결정할 것.
+### 2026-08-25 01:44
+2026-08-25 (세션 마무리) — docs-modules-restructure 브랜치 push + PR #31 생성 완료.
+
+push 전 로컬에서 CI 7개 게이트 전부 재검증(main 대비 이 브랜치가 .tf·.github/workflows/verify.yml을 포함해 CLAUDE.md 브랜치·PR 규칙상 PR 필수임을 확인 후 진행): tofu fmt ✓ tflint ✓ trivy config(4개 대상 misconfig 0) ✓ 모듈 4개 tofu test 전체 65/65 pass(vpc13·eks-cluster28·workbench19·cross-account-trust-role5) ✓ 예제 2개 validate ✓ lock registry 검사 ✓ terraform-docs drift 검사(4개 모듈 README 최신) ✓ + validate-doc-conventions.py(18개 파일)·validate-abbreviations.py(311개) 통과.
+
+PR: https://github.com/skax-ca/iac-module-library/pull/31 (base main ← docs-modules-restructure). push 시점 origin main 대비 14커밋 ahead. PR 본문에 이번 세션 전체 작업(em-dash grandfather 해제·주석 감사·CLAUDE.md 재구성·README 개선·pre-commit stale 태그 검사) 요약과 검증 체크리스트 기록. CI 트리거됨(문서 작성 규칙 게이트 즉시 pass, 공통 검증·약어 카탈로그는 pending).
+
+다음 세션에서: (1) PR #31 CI 전체 통과 확인 (2) 통과하면 머지 여부/방식(squash 등) 사용자 확인 후 진행 (3) 머지 후 브랜치 정리.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+### 2026-08-25 00:06
+2026-08-25 — docs/conventions.md §9 em-dash grandfather 전면 해제(사용자 요청). scripts/validate-doc-conventions.py의 LEGACY_EM_DASH_ALLOWLIST(12개 파일, 2026-08-24 채택 시점 grandfather)를 4단계로 정리: ①docs/team-access.md 즉시 delist(실위반 0, 전부 코드펜스 안) ②소형 7개 파일(README.md·docs/architectures/README.md·aws-naming-abbreviations.md·conventions.md·decisions.md·module-index.md·scripts/README.md) 20건 ③CLAUDE.md 38건(최상위 규칙 문서, diff 전수 검토로 의미 보존 확인) ④example README 2개(vpc·eks-cluster examples/enterprise) 53건 + choose-your-path.md 77건. 총 188건을 마침표·콜론·괄호·쉼표로 치환 후 LEGACY_EM_DASH_ALLOWLIST 자체를 코드에서 제거, §9 본문을 "정리 완료" 사실로 갱신. 브랜치 docs-modules-restructure에 4커밋 추가(a612d54·27b8bcf·3c486c1·d614276), 로컬 문서 검증(validate-doc-conventions.py) 전체 통과. 아직 push 안 함 — 다음 세션 시작 시 push 여부 확인.
+
+같은 세션에서 사용자가 별도로 제안한 "terraform 코드 생성 README만 남기고 나머지 6개 README(root·docs/README·docs/architectures/README·scripts/README·example README 2개) 삭제 후 릴리즈 시점에 재작성" 안건은 평가 후 기각(사용자가 "보류, 현행 유지" 선택). 근거: ①이 저장소는 레포 전체 버전/릴리즈 개념이 없다(모듈별 semver만 존재, docs/conventions.md:78·docs/decisions.md:15-16이 전 모듈 일괄 컷 명시적 기각) — "릴리즈할 때"라는 트리거 자체가 정의 불가 ②삭제 대상 6개 전부 terraform 코드에서 뽑아낼 수 없는 손수 작성 산문(라우팅/온보딩 또는 설계 근거)이라 "다시 작성"이 자동화가 아니라 수작업 재현 ③삭제 후보 6개 중 5개가 방금 정리한 em-dash allowlist와 겹쳐 순서 충돌 위험이 있었음. 이 안건은 재발의되지 않는 한 다시 꺼내지 않는다.
+### 2026-08-25 00:26
+2026-08-25 (이어서) — 주석 감사 작업. /oh-my-claudecode:ai-slop-cleaner 스킬 로드 + HashiCorp 공식 스타일 가이드·일반 업계 컨센서스("why not what") 리서치 후 3분류 기준(KEEP/CUT/구분선-재검토) 제안, 사용자 승인받아 실행.
+
+시범: 소형 파일 5개(cross-account-trust-role 2개·vpc/variables.tf·workbench/variables.tf·eks-cluster/outputs.tf, 91줄) + eks-cluster/iam.tf(51줄) 전수 검토 → **삭제 후보 0건**. 전부 사고 이력·upstream 함정·검증 로직 근거·모듈 경계 책임 중 하나에 해당. 최초 조사 단계에서 "# Cluster"·"# IAM Role" 같은 라벨형 주석이 있다고 봤던 건 재검색으로 반증됨(실재하지 않음, 최초 grep이 오탐이었던 것으로 추정) — 다음에 같은 주장을 다시 보면 먼저 재검증할 것.
+
+사용자에게 "나머지 25개 파일도 같은 결과 예상, 어떻게 할까" 질문 → "전체 스윗 중단, 현재 상태 유지" 선택. 대신 판정 기준(KEEP: 사고 이력·upstream 비직관 동작·검증 근거·모듈 경계, CUT: 인접 리소스명과 중복되는 라벨, 구분선: 100줄+5블록 이상일 때만 유지)을 `.agents/skills/terraform-style-guide/SKILL.md`(`.claude/skills/`는 심볼릭 링크)의 새 "## Comments" 절에 codify, 커밋(70df056)해 향후 신규 코드에도 같은 기준이 적용되게 함. 결론: 이 저장소 .tf 주석은 이미 목표 상태였고, 실제로 지운 코드는 없다.
+
+브랜치 `docs-modules-restructure`에 이번 세션 커밋 6개 추가(em-dash grandfather 4단계 + notepad 기록 + 주석 규칙 codify). 여전히 push 안 함.
+### 2026-08-25 00:35
+2026-08-25 (이어서) — CLAUDE.md 재구성. 공식 Claude Code memory 가이드(<200줄 목표, /doctor가 제안하는 트림 기준 — 유도 가능한 내용 삭제, paths: 스코프 규칙 활용) + 커뮤니티 컨센서스(150줄 이후 준수율 저하, 250줄부터 섹션째 스킵) 리서치 후 사용자 승인받아 실행.
+
+262줄 → 96줄로 축소(f0a6300):
+① docs/decisions.md·docs/conventions.md와 문장 단위 중복이던 라이선스 근거·버전정책 문단 트림, 링크로 대체(CLAUDE.md 스스로 "SSOT는 conventions.md"라 선언해 놓고 그 내용을 다시 베끼고 있었음 — drift 위험)
+② CI 도구 버전(OpenTofu 1.12.5·tflint 0.63.1 등) 하드코딩 제거, .github/workflows/verify.yml·.tflint.hcl을 직접 읽게 함
+③ .tf 전용 82줄(리소스 네이밍·아키텍처 & 모듈 규칙·검증 코드작성전후·작업 원칙)을 신설 `.claude/rules/terraform.md`(paths: ["**/*.tf"])로 이동 — .tf 안 건드리는 세션(오늘 em-dash 정리·주석 감사가 그랬듯)은 이 비용을 안 냄
+④ "실행 기반(프로젝트 repo가 담당)" 절은 이 repo가 아니라 소비 repo 설계 문서라 docs/module-index.md "소비 repo 실행 기반" 절로 이동
+
+내용 손실 없음 — 전부 유지 또는 이동, 이동 자리엔 상호 참조("위" 참조가 깨지는 곳은 "CLAUDE.md의 「...」"로 명시 수정). 브랜치·PR 규칙은 .tf 전용이 아니라(어떤 파일을 만지든 이 규칙이 먼저 적용돼야 하므로) 루트에 유지하고 ###→##로 승격.
+
+이번 세션 총 7개 커밋이 docs-modules-restructure 브랜치에 쌓임. 여전히 push 안 함 — 다음 세션 시작 시 diff 전체 재검토 후 push/PR 여부 확인할 것.
+### 2026-08-25 00:58
+2026-08-25 (이어서) — README.md 전체(10개) 모범사례 리서치 후 개선 4항목 실행 완료.
+
+리서치: 일반 README 2026 우선순위("코드 변경 시 정확성 유지")·terraform-docs 관례("Usage 절은 반드시 손으로 쓴다") 확인.
+
+실행:
+① module README 4개(vpc·eks-cluster·workbench·cross-account-trust-role)의 `<!-- BEGIN_TF_DOCS -->` 위에 설명+버전핀 Usage 예시 추가. inject 모드가 마커 바깥을 안 건드림을 CI와 동일 버전(terraform-docs v0.24.0)으로 로컬 실측 확인 후 커밋(1e3eb33).
+② 루트 README.md "현황" 표에서 하드코딩 태그·테스트개수 컬럼 삭제(eks-cluster가 이미 2단계 stale — v0.7.0 vs 실제 v0.9.0, cross-account-trust-role은 표에 아예 누락돼 있었음 실측). git tag -l 안내로 대체, 누락 행 추가.
+③ eks-cluster examples/enterprise/README.md의 하드코딩 eks-cluster-v0.7.0·workbench-v0.7.0을 vX.Y.Z로 교체(이 파일 자신이 "두 번 이 함정에 걸렸다"고 이미 적어뒀는데 지금이 세 번째였음).
+④ .githooks/pre-commit에 stale 태그 검사 추가(323c2b0): staged .md에서 `ref=<component>-vX.Y.Z` 패턴을 뽑아 실제 최신 git 태그와 대조, 어긋나면 커밋 차단. 정상 케이스(vpc-v0.3.0, 현재 최신과 일치)·stale 케이스(eks-cluster-v0.7.0 vs 실제 v0.9.0) 양쪽 다 별도 bash 테스트로 탐지 로직 검증 완료. 저장소 전체에서 `ref=` 뒤 하드코딩 태그는 vpc examples/enterprise/README.md 2곳뿐(둘 다 최신과 일치) — 오탐 없음 확인.
+
+이번 세션 총 10개 커밋이 docs-modules-restructure 브랜치에 쌓임(em-dash grandfather 4·주석감사 codify 1·CLAUDE.md 재구성 2·README 개선 2). 여전히 push/PR 안 함 — 다음 세션에서 전체 diff 재검토 후 결정할 것.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+### 2026-08-25 00:06
+2026-08-25 — docs/conventions.md §9 em-dash grandfather 전면 해제(사용자 요청). scripts/validate-doc-conventions.py의 LEGACY_EM_DASH_ALLOWLIST(12개 파일, 2026-08-24 채택 시점 grandfather)를 4단계로 정리: ①docs/team-access.md 즉시 delist(실위반 0, 전부 코드펜스 안) ②소형 7개 파일(README.md·docs/architectures/README.md·aws-naming-abbreviations.md·conventions.md·decisions.md·module-index.md·scripts/README.md) 20건 ③CLAUDE.md 38건(최상위 규칙 문서, diff 전수 검토로 의미 보존 확인) ④example README 2개(vpc·eks-cluster examples/enterprise) 53건 + choose-your-path.md 77건. 총 188건을 마침표·콜론·괄호·쉼표로 치환 후 LEGACY_EM_DASH_ALLOWLIST 자체를 코드에서 제거, §9 본문을 "정리 완료" 사실로 갱신. 브랜치 docs-modules-restructure에 4커밋 추가(a612d54·27b8bcf·3c486c1·d614276), 로컬 문서 검증(validate-doc-conventions.py) 전체 통과. 아직 push 안 함 — 다음 세션 시작 시 push 여부 확인.
+
+같은 세션에서 사용자가 별도로 제안한 "terraform 코드 생성 README만 남기고 나머지 6개 README(root·docs/README·docs/architectures/README·scripts/README·example README 2개) 삭제 후 릴리즈 시점에 재작성" 안건은 평가 후 기각(사용자가 "보류, 현행 유지" 선택). 근거: ①이 저장소는 레포 전체 버전/릴리즈 개념이 없다(모듈별 semver만 존재, docs/conventions.md:78·docs/decisions.md:15-16이 전 모듈 일괄 컷 명시적 기각) — "릴리즈할 때"라는 트리거 자체가 정의 불가 ②삭제 대상 6개 전부 terraform 코드에서 뽑아낼 수 없는 손수 작성 산문(라우팅/온보딩 또는 설계 근거)이라 "다시 작성"이 자동화가 아니라 수작업 재현 ③삭제 후보 6개 중 5개가 방금 정리한 em-dash allowlist와 겹쳐 순서 충돌 위험이 있었음. 이 안건은 재발의되지 않는 한 다시 꺼내지 않는다.
+### 2026-08-25 00:26
+2026-08-25 (이어서) — 주석 감사 작업. /oh-my-claudecode:ai-slop-cleaner 스킬 로드 + HashiCorp 공식 스타일 가이드·일반 업계 컨센서스("why not what") 리서치 후 3분류 기준(KEEP/CUT/구분선-재검토) 제안, 사용자 승인받아 실행.
+
+시범: 소형 파일 5개(cross-account-trust-role 2개·vpc/variables.tf·workbench/variables.tf·eks-cluster/outputs.tf, 91줄) + eks-cluster/iam.tf(51줄) 전수 검토 → **삭제 후보 0건**. 전부 사고 이력·upstream 함정·검증 로직 근거·모듈 경계 책임 중 하나에 해당. 최초 조사 단계에서 "# Cluster"·"# IAM Role" 같은 라벨형 주석이 있다고 봤던 건 재검색으로 반증됨(실재하지 않음, 최초 grep이 오탐이었던 것으로 추정) — 다음에 같은 주장을 다시 보면 먼저 재검증할 것.
+
+사용자에게 "나머지 25개 파일도 같은 결과 예상, 어떻게 할까" 질문 → "전체 스윗 중단, 현재 상태 유지" 선택. 대신 판정 기준(KEEP: 사고 이력·upstream 비직관 동작·검증 근거·모듈 경계, CUT: 인접 리소스명과 중복되는 라벨, 구분선: 100줄+5블록 이상일 때만 유지)을 `.agents/skills/terraform-style-guide/SKILL.md`(`.claude/skills/`는 심볼릭 링크)의 새 "## Comments" 절에 codify, 커밋(70df056)해 향후 신규 코드에도 같은 기준이 적용되게 함. 결론: 이 저장소 .tf 주석은 이미 목표 상태였고, 실제로 지운 코드는 없다.
+
+브랜치 `docs-modules-restructure`에 이번 세션 커밋 6개 추가(em-dash grandfather 4단계 + notepad 기록 + 주석 규칙 codify). 여전히 push 안 함.
+### 2026-08-25 00:35
+2026-08-25 (이어서) — CLAUDE.md 재구성. 공식 Claude Code memory 가이드(<200줄 목표, /doctor가 제안하는 트림 기준 — 유도 가능한 내용 삭제, paths: 스코프 규칙 활용) + 커뮤니티 컨센서스(150줄 이후 준수율 저하, 250줄부터 섹션째 스킵) 리서치 후 사용자 승인받아 실행.
+
+262줄 → 96줄로 축소(f0a6300):
+① docs/decisions.md·docs/conventions.md와 문장 단위 중복이던 라이선스 근거·버전정책 문단 트림, 링크로 대체(CLAUDE.md 스스로 "SSOT는 conventions.md"라 선언해 놓고 그 내용을 다시 베끼고 있었음 — drift 위험)
+② CI 도구 버전(OpenTofu 1.12.5·tflint 0.63.1 등) 하드코딩 제거, .github/workflows/verify.yml·.tflint.hcl을 직접 읽게 함
+③ .tf 전용 82줄(리소스 네이밍·아키텍처 & 모듈 규칙·검증 코드작성전후·작업 원칙)을 신설 `.claude/rules/terraform.md`(paths: ["**/*.tf"])로 이동 — .tf 안 건드리는 세션(오늘 em-dash 정리·주석 감사가 그랬듯)은 이 비용을 안 냄
+④ "실행 기반(프로젝트 repo가 담당)" 절은 이 repo가 아니라 소비 repo 설계 문서라 docs/module-index.md "소비 repo 실행 기반" 절로 이동
+
+내용 손실 없음 — 전부 유지 또는 이동, 이동 자리엔 상호 참조("위" 참조가 깨지는 곳은 "CLAUDE.md의 「...」"로 명시 수정). 브랜치·PR 규칙은 .tf 전용이 아니라(어떤 파일을 만지든 이 규칙이 먼저 적용돼야 하므로) 루트에 유지하고 ###→##로 승격.
+
+이번 세션 총 7개 커밋이 docs-modules-restructure 브랜치에 쌓임. 여전히 push 안 함 — 다음 세션 시작 시 diff 전체 재검토 후 push/PR 여부 확인할 것.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+### 2026-08-25 00:06
+2026-08-25 — docs/conventions.md §9 em-dash grandfather 전면 해제(사용자 요청). scripts/validate-doc-conventions.py의 LEGACY_EM_DASH_ALLOWLIST(12개 파일, 2026-08-24 채택 시점 grandfather)를 4단계로 정리: ①docs/team-access.md 즉시 delist(실위반 0, 전부 코드펜스 안) ②소형 7개 파일(README.md·docs/architectures/README.md·aws-naming-abbreviations.md·conventions.md·decisions.md·module-index.md·scripts/README.md) 20건 ③CLAUDE.md 38건(최상위 규칙 문서, diff 전수 검토로 의미 보존 확인) ④example README 2개(vpc·eks-cluster examples/enterprise) 53건 + choose-your-path.md 77건. 총 188건을 마침표·콜론·괄호·쉼표로 치환 후 LEGACY_EM_DASH_ALLOWLIST 자체를 코드에서 제거, §9 본문을 "정리 완료" 사실로 갱신. 브랜치 docs-modules-restructure에 4커밋 추가(a612d54·27b8bcf·3c486c1·d614276), 로컬 문서 검증(validate-doc-conventions.py) 전체 통과. 아직 push 안 함 — 다음 세션 시작 시 push 여부 확인.
+
+같은 세션에서 사용자가 별도로 제안한 "terraform 코드 생성 README만 남기고 나머지 6개 README(root·docs/README·docs/architectures/README·scripts/README·example README 2개) 삭제 후 릴리즈 시점에 재작성" 안건은 평가 후 기각(사용자가 "보류, 현행 유지" 선택). 근거: ①이 저장소는 레포 전체 버전/릴리즈 개념이 없다(모듈별 semver만 존재, docs/conventions.md:78·docs/decisions.md:15-16이 전 모듈 일괄 컷 명시적 기각) — "릴리즈할 때"라는 트리거 자체가 정의 불가 ②삭제 대상 6개 전부 terraform 코드에서 뽑아낼 수 없는 손수 작성 산문(라우팅/온보딩 또는 설계 근거)이라 "다시 작성"이 자동화가 아니라 수작업 재현 ③삭제 후보 6개 중 5개가 방금 정리한 em-dash allowlist와 겹쳐 순서 충돌 위험이 있었음. 이 안건은 재발의되지 않는 한 다시 꺼내지 않는다.
+### 2026-08-25 00:26
+2026-08-25 (이어서) — 주석 감사 작업. /oh-my-claudecode:ai-slop-cleaner 스킬 로드 + HashiCorp 공식 스타일 가이드·일반 업계 컨센서스("why not what") 리서치 후 3분류 기준(KEEP/CUT/구분선-재검토) 제안, 사용자 승인받아 실행.
+
+시범: 소형 파일 5개(cross-account-trust-role 2개·vpc/variables.tf·workbench/variables.tf·eks-cluster/outputs.tf, 91줄) + eks-cluster/iam.tf(51줄) 전수 검토 → **삭제 후보 0건**. 전부 사고 이력·upstream 함정·검증 로직 근거·모듈 경계 책임 중 하나에 해당. 최초 조사 단계에서 "# Cluster"·"# IAM Role" 같은 라벨형 주석이 있다고 봤던 건 재검색으로 반증됨(실재하지 않음, 최초 grep이 오탐이었던 것으로 추정) — 다음에 같은 주장을 다시 보면 먼저 재검증할 것.
+
+사용자에게 "나머지 25개 파일도 같은 결과 예상, 어떻게 할까" 질문 → "전체 스윗 중단, 현재 상태 유지" 선택. 대신 판정 기준(KEEP: 사고 이력·upstream 비직관 동작·검증 근거·모듈 경계, CUT: 인접 리소스명과 중복되는 라벨, 구분선: 100줄+5블록 이상일 때만 유지)을 `.agents/skills/terraform-style-guide/SKILL.md`(`.claude/skills/`는 심볼릭 링크)의 새 "## Comments" 절에 codify, 커밋(70df056)해 향후 신규 코드에도 같은 기준이 적용되게 함. 결론: 이 저장소 .tf 주석은 이미 목표 상태였고, 실제로 지운 코드는 없다.
+
+브랜치 `docs-modules-restructure`에 이번 세션 커밋 6개 추가(em-dash grandfather 4단계 + notepad 기록 + 주석 규칙 codify). 여전히 push 안 함.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+### 2026-08-25 00:06
+2026-08-25 — docs/conventions.md §9 em-dash grandfather 전면 해제(사용자 요청). scripts/validate-doc-conventions.py의 LEGACY_EM_DASH_ALLOWLIST(12개 파일, 2026-08-24 채택 시점 grandfather)를 4단계로 정리: ①docs/team-access.md 즉시 delist(실위반 0, 전부 코드펜스 안) ②소형 7개 파일(README.md·docs/architectures/README.md·aws-naming-abbreviations.md·conventions.md·decisions.md·module-index.md·scripts/README.md) 20건 ③CLAUDE.md 38건(최상위 규칙 문서, diff 전수 검토로 의미 보존 확인) ④example README 2개(vpc·eks-cluster examples/enterprise) 53건 + choose-your-path.md 77건. 총 188건을 마침표·콜론·괄호·쉼표로 치환 후 LEGACY_EM_DASH_ALLOWLIST 자체를 코드에서 제거, §9 본문을 "정리 완료" 사실로 갱신. 브랜치 docs-modules-restructure에 4커밋 추가(a612d54·27b8bcf·3c486c1·d614276), 로컬 문서 검증(validate-doc-conventions.py) 전체 통과. 아직 push 안 함 — 다음 세션 시작 시 push 여부 확인.
+
+같은 세션에서 사용자가 별도로 제안한 "terraform 코드 생성 README만 남기고 나머지 6개 README(root·docs/README·docs/architectures/README·scripts/README·example README 2개) 삭제 후 릴리즈 시점에 재작성" 안건은 평가 후 기각(사용자가 "보류, 현행 유지" 선택). 근거: ①이 저장소는 레포 전체 버전/릴리즈 개념이 없다(모듈별 semver만 존재, docs/conventions.md:78·docs/decisions.md:15-16이 전 모듈 일괄 컷 명시적 기각) — "릴리즈할 때"라는 트리거 자체가 정의 불가 ②삭제 대상 6개 전부 terraform 코드에서 뽑아낼 수 없는 손수 작성 산문(라우팅/온보딩 또는 설계 근거)이라 "다시 작성"이 자동화가 아니라 수작업 재현 ③삭제 후보 6개 중 5개가 방금 정리한 em-dash allowlist와 겹쳐 순서 충돌 위험이 있었음. 이 안건은 재발의되지 않는 한 다시 꺼내지 않는다.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
+### 2026-08-24 08:44
+2026-08-24 — docs/modules 재구성 계획(v21) Phase 0~5·7 실행 완료, 브랜치 `docs-modules-restructure`. Critic 재검증 REJECT(AGENTS.md 편집 전제 소멸·개명 미전파) → 계획 재작성 → 실행 착수 → 도중 사용자가 modules/ 도메인 재편을 flat으로 재결정(v21) → 물리 이동 되돌리고 파급 수정 → Phase 3~5 마무리 → 로컬 전체 재검증(tofu fmt/tflint/trivy/4모듈 test 65개/2예제 validate/약어·문서규칙 검사/terraform-docs drift/문자열 grep 9종) 전부 통과. 실행 중 `.omc/notepad.md`·`project-memory.json`이 bulk sed(--exclude-dir=.omc 무력화)로 일시 오염됐다가 즉시 복구됨(상세는 project-memory open-items 참조). 커밋 안 함 — 사용자 diff 검토 대기 중. 다음 세션 재개 시: 이 브랜치 그대로 있는지, `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상) 로컬에 남아있는지 먼저 확인.
+
+
+## 2026-08-21 15:58
+iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
+
+### 2026-08-18 (opencode 세션) — opencode OMC-동등 구조 구축·전역화
+
+opencode에서 OMC를 못 쓰는 갭(notepad 브리지·팀 오케스트레이션·통합 커맨드) → 공식 docs 리서치로 `agents+commands+plugins`면 전부 native 재현 가능함을 확인 후 구축:
+- `.opencode/agents/`: planner·architect·code-reviewer·verifier (subagent + edit deny, verifier만 bash 허용)
+- `.opencode/commands/`: plan·review·verify (이 repo 특화, subtask 격리)
+- `.opencode/plugins/notepad.ts`: `notepad_read`/`notepad_write_priority|working|manual` 커스텀 툴 + 내장 edit가 `.omc/notepad.md` 직접 수정 시 차단 게이트. bun 단위 테스트 10건 통과
+- 함정: bun install이 `.opencode/.gitignore` 자동 생성하며 package.json까지 무시 → 커밋 누락. `.opencode/.gitignore`를 직접 관리(node_modules·package-lock.json만 무시)로 해결
+- 전역화: `/session-start`·`/session-end` 커맨드는 전역 `~/.config/opencode/commands/`로 이동(프로젝트 스코프 제거) — 다른 repo에서도 동작. dotfiles-claude `sync.sh` push · `bootstrap.sh` 복원에 `commands/` 동기화 추가
+- 커밋: iac-module-library `ceea7ca`(feat 구성) → `d2427da`(deps 커밋 대상화) / dotfiles-claude `1b468bb`
+- ⚠️ notepad 플러그인 툴은 opencode **재시작 후** 활성화 — 이 세션은 직접 편집으로 갱신함. 다음부터는 툴 경유가 우선
+
+### 2026-08-14 08:24
+### 2026-08-18 01:01
+### 2026-08-18 05:51
+iac-platform-gitops 라인바이라인 리뷰(초보자 대상, ArgoCD/GitOps 개념부터) 진행 중. 완료: README, bootstrap/root-app.yaml(상세 설명), skip-file-rendering 마커 예시(karpenter/nodepool), kyverno-policies(업스트림) vs 커스텀 정책 구조 설명. 다음 리뷰 지점(README 레이아웃 순서): bootstrap/argocd-app.yaml → bootstrap/argocd-values.yaml → clusters/dev/eks-demo-dev-an2-main-01/cluster-secret.yaml → projects/platform.yaml → addons/catalog/*.yaml.
+같은 세션에서 iac-platform-gitops에 PR #13~#16 머지(코드 리뷰 겸 실습): #13 karpenter.yaml 자기소멸 마커 버그 수정(README 자체가 경고한 함정에 실제로 걸렸던 것) + README cluster-autoscaler 구독상태 drift 수정. #14 require-karpenter-resources 커스텀 Kyverno 정책 신규(requests cpu/memory + limits.memory 필수, Enforce, argocd ns 제외). #15 그 정책의 Application이 Directory 타입으로 자기 자신도 걸러버리던 버그 수정(Chart.yaml 추가). #16 ServerSideDiff=true 누락으로 인한 영구 OutOfSync 수정. 전부 workbench(i-0f5c40a9bc34446d0, ec2-demo-dev-an2-workbench-01) SSM 경유로 라이브 확인 완료, PolicyReport 위반 0건.
+### 2026-08-18 07:37
+### 2026-08-18 (이어서) — iac-platform-gitops 리뷰 중 "허브-스포크 폐기 → 클러스터당 ArgoCD" 구조 평가 (분석만, 코드 변경 없음)
+
+라인바이라인 리뷰(bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml 완료) 도중 사용자 질문에 답하며 평가:
+
+- 🔴 **root-app.yaml**(`path: .` + `recurse: true`)이 저장소 전체를 스캔한다. exclude는 `clusters/**/values.yaml`·`bootstrap/argocd-values.yaml`뿐이고 `cluster-secret.yaml`은 32행 주석이 "제외 대상 아님, 그대로 recurse"라 명시. 클러스터당 ArgoCD로 가면 각 인스턴스가 저장소에 등록된 **모든** 클러스터의 cluster Secret을 다 읽어버려 "이게 내 것인가 남의 것인가"를 구분할 방법이 없다.
+- 🔴 **addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml** 전부 `ApplicationSet` cluster generator + `matchLabels: {environment: dev}` 팬아웃(실측: grep으로 3개 파일 4개 generator 전수 확인). self-managed는 `server`가 항상 `https://kubernetes.default.svc`(자기 자신)이므로, 클러스터 A·B·C가 각자 ArgoCD를 가지면 A의 ArgoCD가 A·B·C 3개 cluster Secret을 전부 매칭해 같은 addon을 자기 클러스터에 **3중 설치**하는 충돌이 예상된다(추론, 미실측 — 전환을 실제로 검토할 때 검증 필요).
+- 🟡 README 52~53행 "확장 규칙(O(1)): 클러스터 디렉토리 1개 추가 = 자동 팬아웃"이 이 저장소의 핵심 가치제안인데 허브-스포크 전제다. 클러스터당 모델에서는 성립하지 않을 뿐 아니라 위 충돌 때문에 오히려 위험한 안내가 된다.
+- 🟢 문제없음: `bootstrap/argocd-app.yaml`(자기관리 흡수)·`argocd-values.yaml`·`projects/platform.yaml`의 sourceRepos/clusterResourceWhitelist(인스턴스별 사본 중복은 되지만 충돌 아님)·`addons/catalog/*`의 차트 스펙(taint 전략 등, 클러스터 무관 재사용 가능)·Terraform 계층(1)은 이 결정과 무관.
+- 재설계 필요 범위(미착수, 평가만): ①root-app.yaml 스캔 범위를 클러스터별로 스코핑 ②baseline addon의 ApplicationSet fan-out을 평범한 Application으로 단순화 ③cluster-secret.yaml의 존재 이유(라벨 옵트인·`{{name}}` 파라미터 공급)를 클러스터당 모델에서 무엇으로 대체할지.
+- project-memory `notes`의 open-items "(2) GitOps hub(iac-platform-gitops) 소유권 재검토 — 부분 미결"과 같은 맥락일 가능성 높음. `iac-module-library` CLAUDE.md의 "설계 우선" 원칙대로, 실제 전환은 코드 착수 전에 설계 문서화·검토가 먼저 필요한 규모의 변경.
+
+다음 리뷰 지점: `addons/baseline/aws-load-balancer-controller.yaml` → `karpenter.yaml` → `kyverno.yaml`(아직 라인바이라인으로 안 봄, 이번 평가에서는 generator 패턴만 grep 확인).
+### 2026-08-18 08:23
+### 2026-08-18 세션 종료 — iac-platform-gitops 리뷰 재개 지점
+
+오늘 완료한 라인바이라인 리뷰: bootstrap/argocd-app.yaml → argocd-values.yaml → clusters/dev/.../cluster-secret.yaml → projects/platform.yaml → addons/catalog/{keda,cluster-autoscaler}.yaml → addons/baseline/aws-load-balancer-controller.yaml.
+
+**내일 재개 지점**: `addons/baseline/karpenter.yaml` → `addons/baseline/kyverno.yaml`(아직 라인바이라인으로 안 봄). `bootstrap/root-app.yaml`은 grep으로 일부만 확인했고 전체 라인바이라인은 미완.
+
+리뷰 도중 논의가 GitOps 허브-스포크 계정 분리 아키텍처로 확장되어, `iac-module-library`의 `docs/02-choose-your-path.md`에 "질문 D. 허브를 어디에 두는가" 섹션을 신설하고 이번 세션에 커밋함(세부 결정은 project-memory `open-items` 참조 — 세션 시작 시 project_memory_read로 확인). self-managed 유지 확정, 허브는 기존 `<project>-infra`에 환경 추가, 크로스 계정 IAM Role은 스포크 소유.
+
+남은 후속 작업 3건(IdC 보유 확인·크로스 계정 IAM Terraform 계약 설계·baseline matchLabels 다중환경 일반화)은 project-memory open-items에 상세 기록함 — 이 세 가지가 다음에 "허브 분리 설계"를 이어갈 때 실제 착수 후보다.
+### 2026-08-19 01:18
+### 2026-08-19 — 허브-스포크 크로스 계정 IAM 설계·구현·릴리스 완료 (본 repo 작업)
+
+`docs/02-choose-your-path.md` 질문 D를 실제 Terraform 계약으로 구현: 신규 모듈
+`cross-account-trust-role`(스포크 소유 크로스 계정 신뢰 Role) + `eks-cluster` 확장
+(허브 ArgoCD Pod Identity). 독립 보안 검토(REVISE→반영) 거쳐 PR #28 머지, CI 전부 pass,
+`eks-cluster-v0.8.0`·`cross-account-trust-role-v0.1.0` 태그 컷·push 완료.
+
+후속 소비 작업(`iac-reference-infra`에서 실제 hub/spoke 토폴로지 적용, `live/dev` teardown
+포함)은 **그 repo 자체의 notepad(`iac-reference-infra/.omc/notepad.md`)에 기록** — 이 repo의
+notepad는 아니다(소비 repo 작업을 여기 섞으면 두 repo 기록이 갈린다). 다음 세션에서 그 작업을
+이어가려면 그 repo에서 시작할 것.
+### 2026-08-24 00:49
+### 2026-08-24 — Notion 문서 확인, stop-slop 스킬 설치, terraform 스킬 스코프 정리
+
+1. 팀 공유 Notion 문서("AI를 활용한 IaC Asset 만들기") 정상 조회 확인, 로컬 전용 사본을 `.local/notion/ai-iac-asset-만들기.md`에 저장(`.gitignore`에 `.local/` 추가, push 제외 확인 완료).
+2. hardikpandya/stop-slop 스킬을 `npx skills add ... -g -y`로 글로벌 설치, dotfiles-claude에 push 완료.
+3. 사용하지 않던 terraform-engineer·terraform-module-library를 글로벌에서 제거, 실사용 중인 terraform-style-guide는 프로젝트 스코프로 이전(커밋 8e20117, **아직 push 안 함** — 다음 세션 시작 시 push 여부 확인).
+4. 그 과정에서 `npx skills remove -g`가 스코프를 어기고 프로젝트 스코프 설치본도 지우는 버그를 발견·재설치로 복구·검증 완료(project-memory skill-tooling에 상세 기록).
+5. /stop-slop으로 프로젝트 전체 문서(18개 파일, docs/06-conventions.md §8 대상) 검토 요청 받음 → 대상 파일은 확정했으나, stop-slop의 "no em-dash" 규칙이 이 저장소 기존 문서 규약과 충돌하는 걸 발견해 처리 방식을 사용자에게 확인하던 중 세션종료로 중단(project-memory open-items 참조, 다음 세션 여기서 이어갈 것).
 
 
 ## 2026-08-21 15:58

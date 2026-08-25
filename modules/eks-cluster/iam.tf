@@ -202,7 +202,7 @@ module "cluster_autoscaler_pod_identity" {
   cluster_autoscaler_cluster_names = [module.eks.cluster_name]
 
   # kube-system·cluster-autoscaler는 공식 요구사항이 아니라 관례다(Karpenter의 kube-system과
-  # 달리 APF FlowSchema 같은 근거가 없다) — docs/02-choose-your-path.md에 그대로 기록한다.
+  # 달리 APF FlowSchema 같은 근거가 없다) — docs/architectures/eks-gitops-hub-spoke/choose-your-path.md에 그대로 기록한다.
   associations = {
     this = {
       cluster_name    = module.eks.cluster_name

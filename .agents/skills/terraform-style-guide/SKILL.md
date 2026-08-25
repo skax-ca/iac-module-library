@@ -128,6 +128,27 @@ resource "aws_instance" "example" {
 }
 ```
 
+## Comments
+
+Write code so it is self-documenting; only comment when the **why** isn't obvious from
+the code itself (HashiCorp style guide: comment to clarify complexity, not to restate
+what the code does).
+
+**Keep:**
+- Incident history or a real failure mode (e.g. "실측: PoC에서 SG 쪽을 빠뜨려 실제로 겪은 사고다")
+- Non-obvious upstream/provider behavior a maintainer would otherwise rediscover the hard way
+- The reason behind a validation rule, a magic number, or a workaround
+- Cross-module contract notes (why two modules must stay in sync, what a boundary excludes)
+- A file-header block stating the module's role and the order its variables/outputs are grouped in
+
+**Cut:**
+- A comment that only restates the line below it (e.g. `# Cluster` above `resource "aws_iam_role" "cluster"`)
+- A comment duplicating what the resource/variable name and type already say
+
+**Section dividers** (`# ── 절 이름 ──`): keep only in files long enough that they aid
+navigation — as a rough bar, 100+ lines with 5+ resource/variable/output blocks. In a short
+file the blocks are already visually distinct; a divider there is decoration, not aid.
+
 ## Naming Conventions
 
 - Use **lowercase with underscores** for all names

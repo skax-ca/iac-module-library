@@ -1,19 +1,19 @@
 # AWS 리소스 네이밍 약어 카탈로그 (권위 참조)
 
 > 이 문서는 `Name` 태그 조합에 사용하는 **리소스 타입 표준 약어**의 단일 진실 공급원(SSOT)이다.
-> 네이밍 **포맷·어휘·강제 방식**은 [06-conventions.md](06-conventions.md)가 소유한다.
+> 네이밍 **포맷·어휘·강제 방식**은 [conventions.md](conventions.md)가 소유한다.
 
 ## 네이밍 포맷 (요약)
 
 ```
 (resourcetype)-(workloadcode)-(env)-(regioncode)-(purpose)-(serialnumber|suffix)
-     └ 이 문서가 정의        └─────────── 06-conventions.md 정의 ───────────┘
+     └ 이 문서가 정의        └─────────── conventions.md 정의 ───────────┘
 ```
 
 | 구성 요소 | 설명 | 예시 |
 |-----------|------|------|
 | resourcetype | 자원별 표준 약어 (이 문서) | `ec2`, `alb`, `sgr` |
-| workloadcode | 프로젝트/서비스 코드 — **소비 프로젝트가 정의**(이 repo는 고정하지 않음) | `demo`, `shop` |
+| workloadcode | 프로젝트/서비스 코드: **소비 프로젝트가 정의**(이 repo는 고정하지 않음) | `demo`, `shop` |
 | env | 운영 환경 코드 | `prd`, `stg`, `dev` |
 | regioncode | 리전 식별자 | `an2`, `ue1` |
 | purpose | 자원의 상세 용도 | `web`, `db`, `batch`, `admin` |
@@ -24,21 +24,21 @@
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
 
-새 약어는 아래 순서로 결정한다. 이 규칙은 **미래 추가**의 기준이다 — 기존 약어는 이 규칙이 정해지기
+새 약어는 아래 순서로 결정한다. 이 규칙은 **미래 추가**의 기준이다. 기존 약어는 이 규칙이 정해지기
 전의 결정이라 문서 끝 "기존 약어와 AWS 물리 접두사"에서 다룬다.
 
 1. **AWS 물리 ID 접두사가 있는지 본다.** EC2 계열 리소스는 고유 ID 접두사가 있다(`rtb-`·`igw-`·`fl-`·`vpce-`…).
    약어는 `name` 인자와 `Name` 태그 **양쪽**에 쓰이므로 `name` 인자 제약을 함께 만족해야 한다.
-   - 그 접두사를 리소스 `name` 인자에 그대로 쓸 수 있으면 그것을 약어로 쓴다 — `rtb`·`igw`·`fl`.
-   - ⚠️ **`name` 인자가 물리 ID 접두사를 금지하면 못 쓴다** — 보안 그룹 `GroupName`은 `sg-`로 시작할
+   - 그 접두사를 리소스 `name` 인자에 그대로 쓸 수 있으면 그것을 약어로 쓴다: `rtb`·`igw`·`fl`.
+   - ⚠️ **`name` 인자가 물리 ID 접두사를 금지하면 못 쓴다.** 보안 그룹 `GroupName`은 `sg-`로 시작할
      수 없다(그 값은 SG ID로 예약, [EC2 API](https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateSecurityGroup.html)).
      그래서 보안 그룹 약어는 `sg`가 아니라 `sgr`이다.
    - 접두사가 **없거나**(ALB·S3·Lambda 등 서비스 이름이 곧 자원 이름) `name` 인자 자체가 없으면
      서비스/기능 기반 약어로 만든다.
 2. **같은 서비스의 프리픽스 계열을 유지한다.** 기존 항목의 패턴을 따른다(`cw*`·`msk*`·`waf*`…).
-   분열된 가족은 **기존 다수 계열을 유지**한다(FSx `fx*` · API GW `agw*`/`ag*` · MemoryDB `mdb`/`md*`) —
-   통일하지 않는 이유는 [`08-decisions.md`](08-decisions.md).
-3. **중복·형식은 스크립트가 강제한다.** `scripts/validate-abbreviations.py` — 고유 · 소문자 · 카운트 정합.
+   분열된 가족은 **기존 다수 계열을 유지**한다(FSx `fx*` · API GW `agw*`/`ag*` · MemoryDB `mdb`/`md*`).
+   통일하지 않는 이유는 [`decisions.md`](decisions.md).
+3. **중복·형식은 스크립트가 강제한다.** `scripts/validate-abbreviations.py`: 고유 · 소문자 · 카운트 정합.
 4. **길이**: 2~5자 권장, L2 리소스 구분에 필요하면 6자까지, **7자 초과는 등재하지 않는다**
    (카탈로그 최대가 `iamoidc` 7자).
 5. **등재 시 3곳을 함께 고친다**: ① 섹션 헤더 ② 상단 총계 ③ 카운트 요약 표 (스크립트가 검증).
@@ -55,22 +55,21 @@
 | `aws_lb_listener` (ALB 리스너) | `<alb 이름>-listener` | `alb-demo-prd-an2-ext-01-listener` |
 | `aws_lb_listener_rule` (리스너 규칙) | `<alb 이름>-rule` | `alb-demo-prd-an2-ext-01-rule` |
 
-- **왜 상속인가**: 종속 객체는 부모 없이 존재할 수 없고 콘솔·API에서도 부모 하위에 표시된다 —
+- **왜 상속인가**: 종속 객체는 부모 없이 존재할 수 없고 콘솔·API에서도 부모 하위에 표시된다.
   IAM inline 정책, ALB 리스너·규칙(둘 다 `name` 인자가 없어 `Name` 태그로만 구분된다)이 그 예다.
   독립 약어를 주면 이름만으로 부모를 알 수 없어 오히려 추적성이 떨어진다.
-- ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다** — 여러 role에 붙고 자체 ARN을 갖는다.
+- ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다.** 여러 role에 붙고 자체 ARN을 갖는다.
 - ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라
-  리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급 —
-  [06-conventions.md](06-conventions.md)).
+  리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급: [conventions.md](conventions.md)).
 
 ### 개정 이력 (승계 이후 추가된 약어)
 
 | 날짜 | 약어 | 리소스 | 근거 |
 |------|------|--------|------|
-| 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다 — 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
+| 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다. 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
 | 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
 | 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요(레퍼런스 소비 repo의 GitHub Actions OIDC). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
-| 2026-08-19 | `ram` | RAM 리소스 공유 (`aws_ram_resource_share`) | 허브-스포크 크로스 계정 Transit Gateway 공유에 필요(`docs/02-choose-your-path.md` 「네트워크 경로」). AWS 물리 ID 접두사가 없는 서비스 이름 기반 약어(규칙 1의 ALB·S3·Lambda류 케이스) — 리소스 공유 자체가 서비스 이름과 동일하다. `aws_ram_resource_association`·`aws_ram_principal_association`은 `name` 인자가 없는 종속 객체라 별도 약어를 신설하지 않는다(위 "종속 객체" 규약) |
+| 2026-08-19 | `ram` | RAM 리소스 공유 (`aws_ram_resource_share`) | 허브-스포크 크로스 계정 Transit Gateway 공유에 필요(`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md` 「네트워크 경로」). AWS 물리 ID 접두사가 없는 서비스 이름 기반 약어(규칙 1의 ALB·S3·Lambda류 케이스). 리소스 공유 자체가 서비스 이름과 동일하다. `aws_ram_resource_association`·`aws_ram_principal_association`은 `name` 인자가 없는 종속 객체라 별도 약어를 신설하지 않는다(위 "종속 객체" 규약) |
 
 ---
 
@@ -196,7 +195,7 @@
 | Direct Connect | AWS 인터커넥트 | `dxic` | dxic-demo-prd-an2-partner-01 |
 | Direct Connect | Last Mile Interconnect | `dxlm` | dxlm-demo-prd-an2-site-a-01 |
 
-> ⚠️ DX 게이트웨이 연결(`aws_dx_gateway_association`)은 DX 전용 약어를 만들지 않는다 — 연결 대상이
+> ⚠️ DX 게이트웨이 연결(`aws_dx_gateway_association`)은 DX 전용 약어를 만들지 않는다. 연결 대상이
 > VPC 자원이므로 그 약어를 그대로 쓴다: 가상 프라이빗 GW `vgw`(VPN) · 전송 게이트웨이 `tgw`(Transit Gateway).
 > DX 절의 독립 자원 약어는 `dxgw`(Direct Connect Gateway)뿐이다.
 
@@ -445,7 +444,7 @@
 | A.8 | Developer Tools, Others | 31 |
 | | **합계** | **311** |
 
-> ⚠️ **총계는 세 곳에 있다** — 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
+> ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**
 > `scripts/validate-abbreviations.py`가 세 값의 일치를 강제한다.
 
@@ -456,12 +455,12 @@
 | 약어 | AWS 물리 ID | 비고 |
 |---|---|---|
 | `snet` | `subnet-` | 근거 미기록 |
-| `sgr` | `sg-` | 위 등재 규칙 1항 — 보안 그룹 `GroupName`이 `sg-`로 시작할 수 없다 |
+| `sgr` | `sg-` | 위 등재 규칙 1항: 보안 그룹 `GroupName`이 `sg-`로 시작할 수 없다 |
 | `ngw` | `nat-` | 근거 미기록 |
 | `nacl` | `acl-` | 근거 미기록 |
 | `kp` | `key-` | 근거 미기록 |
-| `dh` | `h-` | 물리 ID가 1자(`h-`)라 name 토큰으로 무의미 — 서비스 기반 |
+| `dh` | `h-` | 물리 ID가 1자(`h-`)라 name 토큰으로 무의미(서비스 기반) |
 
-이 약어들은 등재 규칙이 정해지기 **전**의 결정이고, 비고는 현재 사실만 적었다 — 기록에 없는 사유를
+이 약어들은 등재 규칙이 정해지기 **전**의 결정이고, 비고는 현재 사실만 적었다. 기록에 없는 사유를
 재구성하지 않는다. 마이그레이션은 하지 않는다(릴리스된 `modules/vpc`가 실사용 중, 기각 근거는
-[`08-decisions.md`](08-decisions.md)).
+[`decisions.md`](decisions.md)).

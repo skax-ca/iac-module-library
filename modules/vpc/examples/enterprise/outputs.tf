@@ -1,4 +1,4 @@
-# 출력 계약이 실제로 소비되는지 보이는 곳(examples/AGENTS.md).
+# 출력 계약이 실제로 소비되는지 보이는 곳.
 # 9그룹 구성에서 map 출력이 왜 고정 리스트보다 나은지가 여기서 드러난다 —
 # private_subnet_ids 같은 타입 고정 출력으로는 elb/pod/db/data/ep/tgw를 구분할 수 없다.
 

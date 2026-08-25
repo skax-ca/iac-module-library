@@ -9,7 +9,7 @@
 #    확인한다 — 그것이 facade가 흡수해야 할 비용이다.
 # ⚠️ upstream v21에는 `enable_pod_identity`가 없다. Pod Identity가 기본이라 토글이 사라졌다.
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 
 locals {
   enabled = var.cluster_enabled

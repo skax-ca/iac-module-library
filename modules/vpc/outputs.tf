@@ -7,7 +7,7 @@
 #    az_selection = ["a", "c", "b"]가 a·b·c로 뒤집힌다 — 순서가 필요한 출력은
 #    local.az_suffixes를 바깥 루프로 두고 조립한다.
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 
 output "vpc_id" {
   description = "VPC ID. vpc_enabled = false면 null이다."

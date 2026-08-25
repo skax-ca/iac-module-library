@@ -16,7 +16,7 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-index.md`](../../../../docs/module-index.md)(private 클러스터를 조작할 유일한 지점) |
+| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-catalog.md`](../../../../docs/module-catalog.md)(private 클러스터를 조작할 유일한 지점) |
 
 ### ⭐ EKS 접근 3층: 이 예제의 핵심 연결
 
@@ -67,7 +67,7 @@ data "aws_subnets" "pod" {
 ```
 
 ⛔ `terraform_remote_state`는 쓰지 않는다. state 전체 접근을 요구해 판정은 ❌였다.
-상세는 [`docs/module-index.md`](../../../../docs/module-index.md).
+상세는 [`docs/module-catalog.md`](../../../../docs/module-catalog.md).
 
 ⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
 에러가 아니라 **빈 결과**를 낸다. 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
@@ -85,7 +85,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 죽는다**. ⚠️ **이 README 자신이 두 번 그 함정에 걸렸다**. 경고문을 쓴 것만으로는
 갱신되지 않는다. 태그를 컷할 때 이 파일을 함께 고치는 것이 유일하게 작동하는 방법이다.
 릴리스 이력은 각 태그의 annotated 메시지(`git show <태그>`)와
-[`docs/module-index.md`](../../../../docs/module-index.md)에 있다.
+[`docs/module-catalog.md`](../../../../docs/module-catalog.md)에 있다.
 
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다. 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다

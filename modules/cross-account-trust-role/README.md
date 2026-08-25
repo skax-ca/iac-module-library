@@ -1,5 +1,21 @@
 # cross-account-trust-role
 
+크로스 계정 신뢰 Role 1개. 지정한 principal만 assume할 수 있다.
+
+## Usage
+
+```hcl
+module "spoke_trust_role" {
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/cross-account-trust-role?ref=cross-account-trust-role-vX.Y.Z"
+
+  naming                 = { workload = "spoke1", env = "prd", region_code = "an2" }
+  purpose                = "argocd-hub"
+  trusted_principal_arns = [module.eks.argocd_hub_iam_role_arn] # 허브 계정의 신뢰 principal
+}
+```
+
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'cross-account-trust-role-v*'`로 확인한다.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

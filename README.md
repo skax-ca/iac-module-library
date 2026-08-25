@@ -9,13 +9,15 @@ Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC
 
 ## 현황
 
-| 모듈 | 최신 태그 | 계약 테스트 | 설명 |
-|------|----------|------------|------|
-| `vpc` | `vpc-v0.3.0` | 13 | VPC · 서브넷 · NAT · Flow Logs |
-| `eks-cluster` | `eks-cluster-v0.7.0` | 24 | EKS 클러스터 · 노드그룹 · addon · IAM |
-| `workbench` | `workbench-v0.7.0` | 19 | private 클러스터 운영 지점 (SSM 전용, 인바운드 0) |
+| 모듈 | 설명 |
+|------|------|
+| [`vpc`](modules/vpc) | VPC · 서브넷 · NAT · Flow Logs |
+| [`eks-cluster`](modules/eks-cluster) | EKS 클러스터 · 노드그룹 · addon · IAM |
+| [`workbench`](modules/workbench) | private 클러스터 운영 지점 (SSM 전용, 인바운드 0) |
+| [`cross-account-trust-role`](modules/cross-account-trust-role) | 크로스 계정 IAM 신뢰 Role |
 
-모든 모듈이 개발 단계(`0.y.z`)다. 실계정 배포로 검증된 조합이 `eks-reference-infra`에 있다.
+모든 모듈이 개발 단계(`0.y.z`)다. 최신 태그는 `git tag -l`로 확인한다(여기 고정 표기하지 않는다.
+컷할 때마다 갱신을 잊으면 stale해진다). 실계정 배포로 검증된 조합이 `eks-reference-infra`에 있다.
 
 ---
 

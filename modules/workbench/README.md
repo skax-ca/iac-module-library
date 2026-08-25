@@ -1,5 +1,24 @@
 # workbench
 
+private 클러스터 운영 지점(SSM 전용, 인바운드 0).
+
+## Usage
+
+```hcl
+module "workbench" {
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-vX.Y.Z"
+
+  naming    = { workload = "demo", env = "dev", region_code = "an2" }
+  vpc_id    = module.vpc.vpc_id
+  subnet_id = module.vpc.subnet_ids_by_group["private"][0]
+  ami_id    = "ami-xxxxxxxxxxxxxxxxx" # 리전 종속, 조회법은 eks-cluster examples/enterprise "workbench AMI" 절 참조
+}
+```
+
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'workbench-v*'`로 확인한다. EKS 연동을
+포함한 실전 예시는 [`../eks-cluster/examples/enterprise/README.md`](../eks-cluster/examples/enterprise/README.md)를
+참조한다.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

@@ -1,5 +1,23 @@
 # eks-cluster
 
+EKS 클러스터 · 노드그룹 · addon · IAM. 커뮤니티 모듈(`terraform-aws-modules/eks`)을 감싼 facade다.
+
+## Usage
+
+```hcl
+module "eks" {
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-vX.Y.Z"
+
+  naming     = { workload = "demo", env = "dev", region_code = "an2" }
+  vpc_id     = module.vpc.vpc_id
+  subnet_ids = module.vpc.subnet_ids_by_group["node-uniq"]
+}
+```
+
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'eks-cluster-v*'`로 확인한다. custom
+networking·Karpenter·workbench 연동을 포함한 실전 예시는
+[`examples/enterprise/README.md`](examples/enterprise/README.md)를 참조한다.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

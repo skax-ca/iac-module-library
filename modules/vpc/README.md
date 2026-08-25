@@ -1,5 +1,26 @@
 # vpc
 
+VPC · 서브넷 · NAT · Flow Logs.
+
+## Usage
+
+```hcl
+module "vpc" {
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
+
+  naming     = { workload = "demo", env = "dev", region_code = "an2" }
+  cidr_block = "10.0.0.0/16"
+
+  subnet_groups = {
+    "pub-uniq"  = { type = "public", cidrs = ["10.0.0.0/24", "10.0.1.0/24"] }
+    "node-uniq" = { type = "private", cidrs = ["10.0.10.0/24", "10.0.11.0/24"] }
+  }
+}
+```
+
+`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다. 9그룹 전체 구성의
+실전 예시는 [`examples/enterprise/README.md`](examples/enterprise/README.md)를 참조한다.
+
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
 

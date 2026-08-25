@@ -33,8 +33,6 @@ LINE_LIMIT_EXCEPTIONS = {"docs/aws-naming-abbreviations.md"}
 # 신규 작성/이 목록 밖의 변경분에는 즉시 적용된다.
 LEGACY_EM_DASH_ALLOWLIST = {
     "docs/architectures/eks-gitops-hub-spoke/choose-your-path.md",
-    "modules/vpc/examples/enterprise/README.md",
-    "modules/eks-cluster/examples/enterprise/README.md",
 }
 
 # 이모지가 몰려 있는 유니코드 블록 두 개만 본다 — 주 이모지 블록(1F300-1FAFF)과

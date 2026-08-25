@@ -27,21 +27,8 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 | repo | 역할 |
 |------|------|
 | **이 repo (`iac-module-library`)** | 모듈·설계의 **현행 SSOT**. 모든 개발은 여기서 |
-| `terraform-enterprise-poc` | TFC 기반 **동결 스냅샷**(2026-07-28 졸업). TFE 제안서 레퍼런스 전용. **고치지 않는다** |
-| `silverte/eks-platform-gitops` | PoC GitOps 구현체(**동결**). 참조 자산으로만 쓴다 |
-| `<project>-infra` (향후 N개) | 프로젝트/고객별 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
-| **`eks-platform-gitops`** (2026-08-07 신설) | 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
-
-> ⚠️ **`.yaml` 매니페스트는 이 repo에 두지 않는다.** 여기는 모듈(`.tf`)과 설계(`docs/`)만 소유한다.
-> ArgoCD Application·AppProject·cluster Secret은 **`eks-platform-gitops`** 소관이다
-> (3계층 소유 모델, `docs/architectures/eks-gitops-hub-spoke/overview.md`).
-
-- 결정 근거: `terraform-enterprise-poc/docs/architecture/05-oss-asset-repo-decision.md`.
-  ⚠️ 그중 **엔진 축의 근거는 `docs/decisions.md`가 교체**했다.
-  결론(OpenTofu)은 같지만 **이유가 다르다**: PoC repo는 라이선스를, 여기는 조달 마찰·운영 비용을 든다.
-  PoC repo는 동결이라 그쪽에 개정 표시가 없으므로 **`08`을 함께 읽는다.**
-- ⛔ **PoC repo에서 모듈·설계를 수정하지 않는다.** 양쪽 개발은 곧 drift이고, 6개월 뒤 어느 쪽이
-  정답인지 판정 불가능해진다.
+| `eks-reference-infra` | 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
+| `eks-platform-gitops` | 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
 
 ### 소비 방식 (프로젝트 repo에서)
 

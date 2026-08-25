@@ -7,9 +7,11 @@ set -euo pipefail
 # 약어 카탈로그(데이터 SSOT)가 staged되면 SSOT 검사 — 문서 중 유일하게 코드 게이트가 있는 것.
 # CI(.github/workflows/verify.yml docs-ssot)와 같은 명령을 실행한다.
 changed=$(git diff --cached --name-only --diff-filter=ACMR)
-if printf '%s\n' "$changed" | grep -qx 'docs/aws-naming-abbreviations.md'; then
+catalogs=$(printf '%s\n' "$changed" | grep -E '^docs/naming/abbreviations/.*\.md$' || true)
+if [ -n "$catalogs" ]; then
   echo "[pre-commit] 약어 카탈로그 변경 — SSOT 검사"
-  python3 scripts/validate-abbreviations.py
+  # shellcheck disable=SC2086
+  python3 scripts/validate-abbreviations.py $catalogs
 fi
 
 # 문서 작성 규칙(docs/writing-style.md) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.

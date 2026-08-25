@@ -6,8 +6,8 @@
 #  1. 1절 규칙 6 — 문서 간 §N 인용 금지. "§" 문자 자체가 이 저장소 정리 이후 정당한 용례가
 #     없으므로(자기 절 번호도 "## 1." 형식이지 "§1"이 아니다), "§" 등장 자체를 위반으로 본다.
 #  2. 1절 규칙 3 — 이모지는 고정 7종(✅⏳❌⚠️⛔🔴🔑)만 허용. 그 밖의 이모지 범위 문자를 잡는다.
-#  3. 1절 규칙 4 — 문서 400줄 제한. `docs/aws-naming-abbreviations.md`(데이터 카탈로그)는 규칙이
-#     명시한 예외라 건너뛴다.
+#  3. 1절 규칙 4 — 문서 400줄 제한. `docs/naming/abbreviations/` 아래(약어 카탈로그, 데이터)는
+#     규칙이 명시한 예외라 건너뛴다.
 #  4. 2절 규칙 6 — em-dash("—") 금지. 전체 대상 파일에 예외 없이 적용한다.
 #
 #  적용 범위: writing-style.md가 스스로 선언한 범위와 같다 — docs/*.md · 저장소 전역 README.md ·
@@ -25,7 +25,7 @@ LINE_LIMIT = 400
 # modules/**/README.md(생성물, terraform-docs가 .tf의 description을 그대로 주입)는
 # 400줄 제한과 em-dash 검사 양쪽에서 예외다 — 팀원이 쓰는 프로즈가 아니다.
 GENERATED_README = re.compile(r"^modules/[^/]+/README\.md$")
-LINE_LIMIT_EXCEPTIONS = {"docs/aws-naming-abbreviations.md"}
+LINE_LIMIT_EXCEPTION_PREFIX = "docs/naming/abbreviations/"
 
 # 이모지가 몰려 있는 유니코드 블록 두 개만 본다 — 주 이모지 블록(1F300-1FAFF)과
 # misc symbols·dingbats(2600-27BF). "→"·"⇒"·"↔" 같은 화살표 블록(2190-21FF·2B00-2BFF)은
@@ -92,7 +92,11 @@ def check_file(path: str) -> list[str]:
 
     is_generated = bool(GENERATED_README.match(path))
 
-    if not is_generated and path not in LINE_LIMIT_EXCEPTIONS and len(lines) > LINE_LIMIT:
+    if (
+        not is_generated
+        and not path.startswith(LINE_LIMIT_EXCEPTION_PREFIX)
+        and len(lines) > LINE_LIMIT
+    ):
         errors.append(f"{path}: 규칙 4 위반 — {len(lines)}줄 (한도 {LINE_LIMIT}줄)")
 
     if not is_generated:

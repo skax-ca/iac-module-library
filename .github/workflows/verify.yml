@@ -171,7 +171,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: "게이트 — 약어 카탈로그 SSOT 일관성"
-        run: python3 scripts/validate-abbreviations.py
+        run: python3 scripts/validate-abbreviations.py docs/naming/abbreviations/*.md
 
   # 문서 작성 규칙(docs/conventions.md 문서 작성 규칙 절)의 기계 판정 가능한 3개(§N 인용·
   # 비표준 이모지·400줄 초과). 로컬 게이트는 .githooks/pre-commit(문서 staged 시만). 한쪽을

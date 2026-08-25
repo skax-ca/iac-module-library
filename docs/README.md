@@ -15,7 +15,7 @@
 
 | 파일 | 내용 |
 |------|------|
-| [aws-naming-abbreviations.md](aws-naming-abbreviations.md) | 리소스 타입 약어 SSOT. 없는 약어는 임의 생성하지 않고 등재 후 쓴다 |
+| [naming/abbreviations/aws.md](naming/abbreviations/aws.md) | 리소스 타입 약어 SSOT. 없는 약어는 임의 생성하지 않고 등재 후 쓴다 |
 
 ## 작성 규칙
 

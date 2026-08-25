@@ -6,6 +6,18 @@ SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenT
 ## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+### 2026-08-26 — Azure 기반 구조 PR1 (브랜치 `feat/azure-foundation`, Step 1·2)
+
+계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4, Architect·Critic 3회 검토 APPROVE)의 **Step 1·2만** 구현. Step 3(모듈 `modules/aws/` 이동)·4·5는 별도 PR이고 이번엔 손대지 않았다. 커밋 2개.
+
+**커밋 1 (Step 1)** — 죽은 파서 2곳이 실측으로 확인됐다. `validate-abbreviations.py` 84행(카테고리 요약표)은 정규식이 별표를 요구해 8개 중 **0개**를 잡고 있었고, 90행(상단 총계)은 별표가 숫자만 감싼다고 전제했는데 실제는 `총 **311개** 약어`라 **매치 0건**이었다. 그래서 106행·112행 검사도 함께 죽어 있었다. 카탈로그가 "①섹션 헤더 ②상단 총계 ③요약표를 스크립트가 강제한다"고 선언했지만 실제 강제되던 것은 **①뿐**이었다. 두 파서를 먼저 살린 뒤에야 109행 `len(section_rows) != 8`을 집합 비교로 교체할 수 있다(순서를 바꾸면 `summary_claim`이 비어 정상 카탈로그가 결정론적으로 rc=1). 그 밖에: `docs/aws-naming-abbreviations.md` → `docs/naming/abbreviations/aws.md`(git mv, 이력 15커밋 보존), 검증기 `sys.argv[1:]` 순회 + 검사 본문 함수화로 **파일별 상태 격리**(격리 안 하면 `azure.md`의 `vpc`가 거짓 중복 에러를 내며 "클라우드 간 재사용 허용" 결정을 코드가 뒤집는다), 400줄 예외를 파일명 집합에서 `docs/naming/abbreviations/` 접두사 판정으로, pre-commit 카탈로그 게이트를 정확 일치 → 접두사 매칭(`|| true` 필수, 없으면 `set -euo pipefail` 때문에 카탈로그 무관 커밋마다 훅이 죽는다).
+
+**커밋 2 (Step 2)** — `conventions.md` 태깅 절을 「공통 / AWS / Azure 강제 방식」 3층으로. **사전 조사 결과 3건이 공식 문서로 확정됐다**: (a) azurerm provider 블록에 `default_tags` 대응 인자가 **없다**(Argument Reference 29개 인자 전체에 "tag" 문자열 0건) → 거버넌스 태그를 배포 루트 한 곳에서 주입할 수 없고 모듈이 리소스마다 `tags`로 넘겨야 한다 (b) Azure 리소스는 리소스 그룹·구독 태그를 **상속하지 않는다**, 상속은 Azure Policy 내장 정책 `Inherit a tag from the resource group`(효과 `modify`)을 할당해야 얻는 플랫폼 기능 (c) 태그 한도는 리소스당 50쌍·이름 512자·값 256자. **확인 못 한 2건은 "규정하지 않는다"로 비워 뒀다**(계획 P4): Azure Policy `modify`와 OpenTofu 상태의 drift 상호작용, Azure 네이밍 제약 목록.
+
+**계획 밖에서 발견해 처리한 것**: 카탈로그가 두 단계 내려가며 내부 상대 링크 4곳이 깨져 `../../`로 정정. `choose-your-path.md:265`의 「강제 방식」 6번 인용이 절 재편으로 깨져 「AWS 강제 방식」 3번으로 갱신.
+
+⚠️ **미처리 (보고함, 스코프 밖)**: `.claude/rules/terraform.md`의 「강제 방식」 절(28~34행)도 `default_tags` 전제라 AWS 전용인데 provider 표시가 없다. `.tf` 열 때 자동 로드되는 규칙 파일이라 Azure 모듈 라운드 전에 중립화가 필요하다. 계획 Step 2 스코프가 `conventions.md`뿐이라 손대지 않았다. `modules/*/tests/plan.tftest.hcl`의 "CLAUDE.md 「강제 방식 5」" 주석 2건은 **원래부터 stale**(현 CLAUDE.md에 그 절이 없다) — Step 4 소관.
+
 ### 2026-08-21 15:58
 iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
 

@@ -262,7 +262,7 @@ blocks」)가 명시한다: **"CIDR 블록이 여러 개면, 실제로 라우팅
 | 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트(`aws_ec2_transit_gateway_route`)로 명시한다 |
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"`: RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
 | 5 | `allow_external_principals` | **`true`.** 조직 내부 공유(초대 없는 공유)는 조직 관리 계정 권한이 필요해 배포 계정(멤버 계정)에서는 쓸 수 없다. `true`로 두면 표준 계정 간 공유(초대)로 동작한다(이유 → [decisions.md](../../decisions.md) 「크로스 계정 네트워킹」). 스포크가 초대를 수락하는 단계가 하나 늘어난다(아래 「RAM 초대 수락」 절 참조, 리소스 표 4번) |
-| 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다**(이유 → [conventions.md](../../conventions.md)의 「강제 방식」 6번). spoke의 attachment는 RAM으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
+| 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다**(이유 → [conventions.md](../../conventions.md)의 「AWS 강제 방식」 3번). spoke의 attachment는 RAM으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서: RAM 공유 TGW에는 이 인자가 안 먹는다) hub가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
 | 7 | 값 전달 | **repo 변수 수동 복사가 아니라 `data` 소스로 발견한다**: 아래 「값 발견」 절 |
 
 TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가). 그리고 Peering은 애초에 못

@@ -36,18 +36,29 @@ sgr-demo-prd-an2-web-01
 | purpose | `web` · `db` · `main` · `worker` (소문자·하이픈) |
 | 일련번호 | `01` · `20260415` · `policy` (선택) |
 
-### 강제 방식
+### 공통 강제 방식
+
+클라우드와 무관하게 성립하는 규칙이다. 거버넌스 태그를 **어떤 수단으로** 주입하는지는
+provider마다 다르므로 아래 provider별 절이 소유한다.
+
+1. **`Name`은 모듈이 조합한다.** 소비자는 `naming` 객체만 넘긴다. 약어를 직접 쓰지 않는다.
+2. **약어가 없으면 만들지 말고 등재한다.** 거버넌스 리뷰 후 카탈로그에 추가하고 쓴다
+   (등재 기준은 카탈로그의 [신규 약어 등재 규칙](naming/abbreviations/aws.md)).
+   카탈로그는 클라우드마다 한 파일이고, 약어 고유성은 그 파일 안에서만 판정한다.
+3. **모든 리소스에 태그를 단다.** 자동 주입 수단이 닿지 않는 리소스도 예외가 아니다.
+   어디가 닿지 않는 자리인지는 provider별 절에 적는다.
+4. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
+5. **재사용 자산의 요건**: workload code · 계정/구독 ID · 리전을 **하드코딩하지 않는다.**
+   고객사 고유값이 모듈에 남으면 재사용이 아니다.
+
+### AWS 강제 방식
 
 1. **거버넌스 태그는 `default_tags`로.** 배포 루트의 provider에 설정한다. 개별 리소스에 반복하지 않는다.
-2. **`Name`은 모듈이 조합한다.** 소비자는 `naming` 객체만 넘긴다. 약어를 직접 쓰지 않는다.
-3. **약어가 없으면 만들지 말고 등재한다.** 거버넌스 리뷰 후 카탈로그에 추가하고 쓴다
-   (등재 기준은 카탈로그의 [신규 약어 등재 규칙](naming/abbreviations/aws.md)).
-4. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
-5. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
-6. **모든 리소스는 태그를 단다. `default_tags`가 닿지 않는 묵시적 리소스도 예외가 아니다.**
+2. **제약 리소스 주의**: S3(전역 고유 + DNS) · ALB/TG(32자 이하) · IAM/SG(이름이 곧 식별자).
+3. **`default_tags`가 닿지 않는 묵시적 리소스도 태그 대상이다.**
    `default_tags`는 provider가 **`resource` 블록으로 직접 만드는** 리소스에만 붙는다. AWS가
    다른 리소스의 부산물로 자동 생성하는 객체(TGW의 기본 연결 라우트테이블, VPC의 기본
-   라우트테이블·기본 보안그룹 등)는 Terraform이 그 생성 API 호출 자체를 하지 않으므로
+   라우트테이블·기본 보안그룹 등)는 그 생성 API 호출 자체를 하지 않으므로
    `default_tags`가 낄 자리가 없다. 우선순위는 셋이다:
    1. **끌 수 있으면 끄고 명시적 리소스로 대체한다.** 예: TGW의
       `default_route_table_association`/`_propagation`을 `disable`로 두고
@@ -60,9 +71,29 @@ sgr-demo-prd-an2-web-01
       `aws_ec2_tag`로 리소스 ID를 직접 타겟한다.** 마지막 수단이다. 거버넌스 태그 하나당
       `aws_ec2_tag` 하나이고, `default_tags`처럼 한 번에 묶여 적용되지 않는다.
 
-### 재사용 자산의 요건
+### Azure 강제 방식
 
-workload code · 계정 ID · 리전을 **하드코딩하지 않는다.** 고객사 고유값이 모듈에 남으면 재사용이 아니다.
+1. **거버넌스 태그를 provider 한 곳에서 주입할 수 없다. 모듈이 리소스마다 `tags`로 넘긴다.**
+   azurerm provider 블록에는 `default_tags`에 대응하는 인자가 없다
+   ([Argument Reference](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)의
+   인자 목록에 태그 항목이 없다). 따라서 AWS 1번과 같은 "배포 루트에 한 번" 경로가 Azure에는 없고,
+   공통 3번("모든 리소스에 태그를 단다")은 모듈의 명시적 배선으로만 달성된다.
+2. **리소스는 리소스 그룹·구독의 태그를 상속하지 않는다.**
+   Azure는 *"Resources don't inherit the tags you apply to a resource group or a subscription"* 이라고
+   명시한다([Use tags to organize your Azure
+   resources](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-resources)).
+   상속은 Azure Policy를 할당해야 얻는 별도 기능이며, 내장 정책 `Inherit a tag from the resource group`
+   (효과 `modify`)이 그 역할을 한다([Policy definitions for tagging
+   resources](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-policies)).
+   즉 태그 상속은 provider 기능이 아니라 플랫폼 구성이고, 이 저장소의 모듈이 제공하는 것이 아니다.
+3. **태그 자체의 한도**(위 「Use tags」 문서): 리소스당 최대 50쌍, 태그 이름 512자·값 256자
+   (스토리지 계정은 이름 128자). 일부 리소스(Automation · CDN · DNS 영역 등)는 15개까지만.
+   태그 이름에 `< > % & \ ? /` 를 쓸 수 없고, 태그를 아예 지원하지 않는 리소스 타입이 있다.
+4. ⚠️ **아래 두 가지는 규정하지 않는다. 첫 Azure 모듈 라운드에서 정한다.**
+   - Azure Policy가 `modify`로 태그를 덧붙이는 환경에서 OpenTofu 상태와 어떻게 상호작용하는지
+     (drift 발생 여부와 대응). 확인하지 않았으므로 값을 쓰지 않는다.
+   - Azure 네이밍 제약(리소스 그룹 스코프 · 전역 고유 이름 · 리소스 종류별 길이·문자 제약).
+     AWS 2번의 제약 리소스 목록에 대응하는 자리이고, 목록을 채우려면 실제 대상 리소스가 정해져야 한다.
 
 ---
 

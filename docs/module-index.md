@@ -279,6 +279,24 @@ module "workbench" {
 
 ---
 
+## 소비 repo 실행 기반
+
+이 repo는 모듈만 소유한다. 실행은 프로젝트 repo의 GitHub Actions가 담당하며, 다음을 반드시 지킨다.
+
+| 항목 | 규칙 |
+|------|------|
+| plan → apply | plan을 **artifact로 저장**해 승인 후 **그 파일을 apply**한다. 누락 시 "승인한 계획 ≠ 적용된 계획" 구멍 |
+| 승인 게이트 | Environment protection rules(required reviewers). prd는 항상 수동 승인 |
+| 동시 실행 | `concurrency: {group: <root>, cancel-in-progress: false}`. 누락 시 state 충돌 |
+| 자격증명 | GitHub OIDC → 입구 Role → 실행 Role(2단 체인). 정적 키 금지 |
+| state | S3 + `use_lockfile = true` (DynamoDB 불필요) |
+
+> ⚠️ **GitHub immutable sub claim**: 2026-07-15 이후 생성된 repo의 OIDC `sub`는 이름이 아니라
+> 숫자 org/repo ID를 쓴다: `repo:<org>@<org_id>/<repo>@<repo_id>:environment:dev`.
+> 신뢰 정책 작성 전 실제 토큰의 `sub`를 확인할 것.
+
+---
+
 ## 다음
 
 - 이 값들을 어떻게 정하나 → `eks-reference-infra`의 hub/spoke 세우기·걷어내기 절차 참조

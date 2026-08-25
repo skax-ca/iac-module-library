@@ -182,7 +182,7 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 | 1 | 배포 루트 | `<project>-infra`의 워크로드 환경이 허브를 겸한다 | `<project>-infra`에 `hub` 환경을 하나 추가한다. **저장소를 새로 만들지 않는다** |
 | 2 | cluster 등록(`eks-platform-gitops`) | `server: https://kubernetes.default.svc` | 스포크의 실제 EKS API 엔드포인트 + 크로스 계정 인증 config |
 | 3 | IAM 신뢰 | 불필요(같은 계정·같은 클러스터) | 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity만 신뢰한다. **Role은 스포크가 소유**: 제약받는 쪽이 그 제약을 소유한다는 원칙(`overview.md` 4절 판별 2)과 같다 |
-| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요: 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `module-index.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
+| 4 | EKS Access Entry | 불필요 | 스포크 계정마다 필요: 허브의 IAM 주체를 그 클러스터 접근 권한에 매핑(access policy 또는 RBAC, `module-catalog.md`의 `cross-account-trust-role` 모듈 섹션 참조) |
 | 5 | 장애 반경 | 허브 장애 = 그 계정 전체가 영향권 | 허브 장애 = pull만 멈춘다. desired state는 Git에 그대로 있고 워크로드 계정은 무관하다 |
 | 6 | 네트워크 경로 | 불필요(같은 VPC) | 필요. 아래 「네트워크 경로」 절 |
 | 7 | state·CI 분리 | 불필요(단일 state·단일 워크플로) | 필수. 계정마다 별도 state·별도 CI job. 하나로 합치지 않는 이유는 아래 「state를 계정 경계에서 나누는 이유」 절 |
@@ -190,7 +190,7 @@ release 이름이 아니라 Application 이름을 기준으로 붙으므로(Argo
 > `eks-platform-gitops`의 cluster Secret 계약(값이 어떻게 채워지는지)은 그 저장소 소관이다.
 > 이 표는 그 계약이 기대는 **IAM 경계**만 정의한다.
 
-이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`module-index.md`](../../module-index.md)의
+이 IAM 경계를 실제 모듈 변수·출력으로 구현하는 계약은 [`module-catalog.md`](../../module-catalog.md)의
 `eks-cluster` 크로스 계정 확장·`cross-account-trust-role` 모듈 섹션이 소유한다.
 
 ### state를 계정 경계에서 나누는 이유: 멀티 provider 단일 설정을 쓰지 않는다

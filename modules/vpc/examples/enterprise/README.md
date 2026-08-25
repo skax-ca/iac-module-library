@@ -68,7 +68,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다**: `git tag -l 'vpc-v*'`로 확인한다. 위 표의 태그가
 낡은 채 복사되면 그대로 굳는데, 실패 방식이 나쁘다: `vpc-v0.2.0`은 Flow Logs confused deputy
 방어(보안 수정)라 **그것이 빠진 채로도 `apply`는 성공한다.** 릴리스 이력은 각 태그의 annotated
-메시지(`git show vpc-v0.3.0`)와 [`docs/module-index.md`](../../../../docs/module-index.md)에 있다.
+메시지(`git show vpc-v0.3.0`)와 [`docs/module-catalog.md`](../../../../docs/module-catalog.md)에 있다.
 
 ⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../docs/conventions.md)).
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.

@@ -164,7 +164,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?re
 #
 # <이 파일에만 있는 비직관적 결정 1~3개, 각 한 줄>
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 ```
 
 **지우기 전에**: *"이 줄이 없으면 다음 사람이 무엇을 틀리나"* 에 답한다.

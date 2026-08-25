@@ -3,7 +3,7 @@
 # ⚠️ enabled = false면 전부 null이다. 소비 루트가 try() 없이 eks-cluster의 access_entries에
 #    그대로 넘겨도 깨지지 않아야 kill switch가 양쪽을 함께 비운다.
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 
 output "role_arn" {
   description = <<-EOT

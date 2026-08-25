@@ -15,7 +15,7 @@ permission:
 ## 판정 기준
 1. **엔진**: OpenTofu 단독. 두 엔진(Terraform+OpenTofu) 동시 지원은 `docs/decisions.md`가 기각했다 — 재제안이 아니면 구조에 포함하지 않는다.
 2. **리포 경계**: 이 repo는 모듈·설계 SSOT. `terraform-enterprise-poc`는 동결(수정 금지). `.yaml` 매니페스트·배포 워크플로는 여기 두지 않는다.
-3. **모듈 계약**: `docs/module-index.md` 소관. 커뮤니티 모듈은 정확 핀 + wrapper(facade)로 단순 재수출 금지. `<component>_enabled` kill switch 존재 여부.
+3. **모듈 계약**: `docs/module-catalog.md` 소관. 커뮤니티 모듈은 정확 핀 + wrapper(facade)로 단순 재수출 금지. `<component>_enabled` kill switch 존재 여부.
 4. **규약**: `docs/conventions.md` 소관. 네이밍은 `naming` 객체(`{workload, env, region_code}`) 합성, 소비자가 약어 직접 사용 금지.
 5. **검증 게이트**: 모듈/예제 구조가 `tofu test`·예제 `validate`를 통과 가능한지.
 

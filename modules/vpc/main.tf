@@ -4,7 +4,7 @@
 # 모든 리소스가 var.vpc_enabled 게이트를 지난다. data source까지 포함한다 —
 # 게이트 규칙이 모듈마다 다르면 릴리스 게이트가 판정할 수 없다.
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 
 locals {
   enabled = var.vpc_enabled

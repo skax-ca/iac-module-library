@@ -1,6 +1,6 @@
 # EKS 모듈 인터페이스
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 #
 # 관심사 순서
 # (정체성 → kill switch/보호 → 클러스터 → 환경 프로파일 → custom networking → 노드 → addon → IAM).

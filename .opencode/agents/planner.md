@@ -21,7 +21,7 @@ permission:
 
 ## 작업 절차
 1. 요청된 작업을 읽고, 어떤 모듈/문서가 영향을 받는지 파악한다 (repo 구조는 `README.md`·`docs/README.md`).
-2. 관련 설계 문서를 찾는다: 모듈 계약은 `docs/module-index.md`, 규약은 `docs/conventions.md`, 기각된 대안은 `docs/decisions.md`(재제안 전 필독). 네이밍 약어는 `docs/aws-naming-abbreviations.md`(SSOT)에서만.
+2. 관련 설계 문서를 찾는다: 모듈 계약은 `docs/module-catalog.md`, 규약은 `docs/conventions.md`, 기각된 대안은 `docs/decisions.md`(재제안 전 필독). 네이밍 약어는 `docs/aws-naming-abbreviations.md`(SSOT)에서만.
 3. 설계가 이미 있는지 확인한다. 없으면 설계 문서(또는 계획)를 작성 제안한다.
 4. 계획은 구현 단계가 바로 시작될 수 있도록: 변경 대상 파일, 모듈 계약 변화, 검증 게이트 명령(`tofu fmt`/`tflint`/`trivy`/`tofu test`)까지 명시한다.
 

@@ -2,7 +2,7 @@
 #
 # 모든 리소스가 var.workbench_enabled 게이트를 지난다. IAM은 iam.tf가 소유한다.
 #
-# 계약: docs/module-index.md
+# 계약: docs/module-catalog.md
 
 locals {
   enabled = var.workbench_enabled

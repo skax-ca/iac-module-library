@@ -35,6 +35,50 @@
 
 ---
 
+## Azure 네트워킹 (vnet)
+
+| 하지 말 것 | 이유 |
+|---|---|
+| 서브넷을 **인라인 `subnet` 블록**으로 | 기술적 불가. 인라인에 `nat_gateway_id`가 없고, 연결 경로인 association은 provider가 인라인과의 병용을 "will overwrite subnets"로 금지한다 |
+| 모듈이 **리소스 그룹 생성** | RG 삭제는 내부 리소스를 state 밖의 것까지 캐스케이드 삭제한다 |
+| **`location`을 RG 데이터 소스에서 파생** | read의 apply 연기는 "data 블록이 이번 plan에서 변경 예정인 관리 리소스에 직접 의존할 때" 성립하는 조건부 동작이다. 리터럴을 넘기면 plan에서 실패하므로 배포 성공이 소비자 배선에 좌우된다 |
+| **NSG를 기본 생성**(룰 0개) | 빈 NSG의 델타는 컨트롤 플레인 인바운드 차단과 서브넷 주입형 PaaS의 클라이언트 트래픽 차단 두 곳뿐이고 둘 다 파괴 방향이다. 확인된 사례가 Application Gateway이고(`GatewayManager` 컨트롤 플레인 65200-65535와 클라이언트 트래픽 룰 둘 다 필수) 보안 이득은 없다. 단 이 무이득 논거는 공용 Standard LB·공용 IP 경로에 한해서만 성립한다(그 경로만 NSG 없이도 "closed to inbound connections by default"). VNet 내부는 빈 NSG도 `AllowVNetInBound`로 허용한다 |
+| NSG·RT를 **둘 다 만들지 않기** | association이 `subnet_id`를 요구하는데 서브넷은 모듈 소유다. 소비자에게 떠넘기면 경계가 어긋난다 |
+| **AVM 커뮤니티 모듈 wrapper** | VNet·서브넷·NSG·NAT는 Azure에서 가장 안정된 계층이고 지식 밀도가 낮다 |
+| Flow Logs를 `0.1.0`에 **포함** | provider가 "storage lifecycle management rule을 덮어쓴다"는 결함(#6935)을 명시한다. 고객사 배송 계약이라 남의 스토리지 정책을 조용히 파괴하는 경로를 첫 모듈에 넣을 수 없다 |
+| NAT에 **`sku_name` 손잡이 없음** | `Standard`는 무존이거나 단일 존이다. 존 이중화는 `StandardV2`가 제공하므로 손잡이가 없으면 고를 수단이 없다 |
+| NAT `sku_name` 기본값을 **`StandardV2`로** | `StandardV2`는 preview다(SLA 대상 아님, 일부 리전 미지원). 배송 모듈이 기본값으로 preview 리소스를 고객사에 강제할 수 없다. 기본은 GA인 `Standard`를 유지한다 |
+| **NAT 수요 0개에 `precondition`** | `modules/aws/vpc`의 선례는 수요 0개를 조용히 스킵하고(`main.tf:70`), precondition은 `length(...) == 0`으로 그 케이스를 명시적으로 면제한다(`main.tf:149`). precondition을 걸면 모듈 기본값 조합에서 plan이 깨진다 |
+| `vpc`의 `az_count`·`az_selection`·`single_nat_gateway`·`eks_cluster_name` **이식** | Azure 서브넷은 존에 속하지 않고 태그도 지원하지 않는다 |
+
+> **결정**: 첫 Azure 모듈 `vnet`을 `modules/azure/vnet/`에 스크래치 얇은 모듈로 설계했다.
+> 서브넷은 `azurerm_subnet` 별도 리소스, 리소스 그룹과 `location`은 주입, NSG·라우팅 테이블은
+> 옵트인 앵커, Flow Logs는 `0.1.0` 제외, NAT는 `sku_name` 손잡이를 노출하고 수요와 결합한다.
+> 드라이버는 (1) 서브넷 부속 리소스 지원 가능 여부 (2) 파괴의 폭발 반경 (3) 게이트가 있는
+> 척하지 않을 것이다. 축 1은 provider 제약이 답을 강제했고, 나머지는 "모듈이 소유하는 것과
+> 배포 루트가 소유하는 것의 경계"로 갈렸다. 서브넷 스코프 자원은 모듈이, 구독·리소스 그룹
+> 스코프 자원은 배포 루트가 소유한다.
+>
+> **파급**: 출력 타입 비대칭이 3건이다(`module-catalog.md`가 표로 소유). Azure 서브넷은 태그를
+> 지원하지 않아 NSG·RT 태그가 그 자리를 대신한다. 조합한 이름은 `name` 인자에 들어가고 `Name`
+> 태그는 달지 않는다. 이에 맞춰 「공통 강제 방식」의 `Name` 전제를 provider 중립으로 고쳤다.
+> 배포 루트가 RG와 `vnet`을 한 apply에서 세울 수 있다. 대신 리전 불일치를 모듈이 막지 않는다.
+> `azurerm_virtual_network`에 `subnet`·`dns_servers`를 쓰지 않는다(빈 배열로도 쓰지 않는다).
+> Azure 예약 이름 서브넷(`AzureBastionSubnet`·`GatewaySubnet`·`AzureFirewallSubnet`, 확인한 것은
+> 이 셋이며 더 있을 수 있다)은 이 모듈이 만들지 않는다. 네이밍 계약이 정확한 예약 이름을 만들
+> 수 없기 때문이다. 배포 루트가 같은 vnet에 `azurerm_subnet`으로 직접 만든다. 이 병용은 문서
+> 문면상 안전하나 `apply`로 검증하지 않았다. Azure Policy가 서브넷 생성 시 NSG나 라우팅 테이블을
+> 강제하는 환경은 지원하지 않는다. NAT는 `nat_routed = true` 그룹이 0개면 조용히 만들지 않는다
+> (precondition을 걸지 않는다). NAT의 `sku_name`·`zones` 변경은 리소스 재생성을 강제해 아웃바운드
+> 공용 IP가 바뀐다. `nat_gateway_sku_name`의 `StandardV2`는 preview다(SLA 대상 아님, 일부 리전
+> 미지원). 기본값 `Standard`는 GA이고 이 상태를 밟지 않는다. GA 기준으로는 존 이중화 NAT 경로가
+> 없다. `default_outbound_access_enabled`를 노출한다(노출하지 않으면 소비자가 서브넷을 private로
+> 만들 수단이 없다). `deletion_protection`은 vnet에만 걸린다. Azure는 vnet 삭제가 서브넷을 함께
+> 지우므로 실질 보호 범위가 `vpc`와 다르다. 약어 6종이 고정된다(`snet`은 AWS에도 있으나 재사용은
+> 허용된다). 구현 라운드는 착수 게이트 4건을 같은 PR에서 처리해야 한다.
+
+---
+
 ## 모듈 구조 (provider 계층)
 
 | 하지 말 것 | 이유 |

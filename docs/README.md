@@ -15,7 +15,8 @@
 
 | 파일 | 내용 |
 |------|------|
-| [naming/abbreviations/aws.md](naming/abbreviations/aws.md) | 리소스 타입 약어 SSOT. 없는 약어는 임의 생성하지 않고 등재 후 쓴다 |
+| [naming/abbreviations/aws.md](naming/abbreviations/aws.md) | AWS 리소스 타입 약어 SSOT. 없는 약어는 임의 생성하지 않고 등재 후 쓴다 |
+| [naming/abbreviations/azure.md](naming/abbreviations/azure.md) | Azure 리소스 타입 약어 SSOT. 없는 약어는 임의 생성하지 않고 등재 후 쓴다 |
 
 ## 작성 규칙
 

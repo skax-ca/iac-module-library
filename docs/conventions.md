@@ -17,7 +17,7 @@ OpenTofu 고유 기능(`encryption` 블록 · `.tofu` 확장자 · `language {}`
 
 ## 2. 네이밍과 태깅
 
-### `Name` 태그 포맷
+### 리소스 이름 포맷
 
 ```
 (리소스약어)-(workload)-(env)-(리전코드)-(purpose)-(일련번호)
@@ -27,12 +27,16 @@ eks-demo-prd-an2-main-01
 sgr-demo-prd-an2-web-01
 ```
 
+**이 조합이 실리는 자리는 provider마다 다르다.** AWS는 `Name` 태그로, Azure는 `name` 인자로
+실린다(Azure 서브넷처럼 태그 자체를 지원하지 않는 리소스가 있어 태그로 통일할 수 없다).
+조합 방식과 구성 요소는 클라우드와 무관하게 같다.
+
 | 구성 요소 | 값 |
 |-----------|-----|
-| 리소스 약어 | [`naming/abbreviations/aws.md`](naming/abbreviations/aws.md)(**SSOT**) |
+| 리소스 약어 | [AWS](naming/abbreviations/aws.md) · [Azure](naming/abbreviations/azure.md)(**SSOT**, 클라우드마다 한 파일) |
 | workload | 프로젝트별 입력 변수. 이 저장소가 고정하지 않는다 |
 | env | `prd` / `stg` / `dev` |
-| 리전코드 | `an2`(ap-northeast-2) · `ue1`(us-east-1) |
+| 리전코드 | `an2`(ap-northeast-2) · `ue1`(us-east-1) · `krc`(koreacentral) |
 | purpose | `web` · `db` · `main` · `worker` (소문자·하이픈) |
 | 일련번호 | `01` · `20260415` · `policy` (선택) |
 
@@ -41,13 +45,14 @@ sgr-demo-prd-an2-web-01
 클라우드와 무관하게 성립하는 규칙이다. 거버넌스 태그를 **어떤 수단으로** 주입하는지는
 provider마다 다르므로 아래 provider별 절이 소유한다.
 
-1. **`Name`은 모듈이 조합한다.** 소비자는 `naming` 객체만 넘긴다. 약어를 직접 쓰지 않는다.
+1. **이름은 모듈이 조합한다.** 소비자는 `naming` 객체만 넘긴다. 약어를 직접 쓰지 않는다.
 2. **약어가 없으면 만들지 말고 등재한다.** 거버넌스 리뷰 후 카탈로그에 추가하고 쓴다
-   (등재 기준은 카탈로그의 [신규 약어 등재 규칙](naming/abbreviations/aws.md)).
+   (등재 기준은 카탈로그의 신규 약어 등재 규칙:
+   [AWS](naming/abbreviations/aws.md) · [Azure](naming/abbreviations/azure.md)).
    카탈로그는 클라우드마다 한 파일이고, 약어 고유성은 그 파일 안에서만 판정한다.
 3. **모든 리소스에 태그를 단다.** 자동 주입 수단이 닿지 않는 리소스도 예외가 아니다.
    어디가 닿지 않는 자리인지는 provider별 절에 적는다.
-4. **`Name` 태그 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
+4. **이름 assertion을 계약 테스트에 넣는다.** plan 단계에서 규약 위반을 잡는다.
 5. **재사용 자산의 요건**: workload code · 계정/구독 ID · 리전을 **하드코딩하지 않는다.**
    고객사 고유값이 모듈에 남으면 재사용이 아니다.
 
@@ -89,11 +94,22 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 3. **태그 자체의 한도**(위 「Use tags」 문서): 리소스당 최대 50쌍, 태그 이름 512자·값 256자
    (스토리지 계정은 이름 128자). 일부 리소스(Automation · CDN · DNS 영역 등)는 15개까지만.
    태그 이름에 `< > % & \ ? /` 를 쓸 수 없고, 태그를 아예 지원하지 않는 리소스 타입이 있다.
-4. ⚠️ **아래 두 가지는 규정하지 않는다. 첫 Azure 모듈 라운드에서 정한다.**
+4. **조합한 이름은 `name` 인자에 넣는다. `Name` 태그는 달지 않는다.**
+   거버넌스 태그는 별개이고 위 1번대로 리소스마다 `tags`로 여전히 배선한다. 이름이 실리는
+   자리(`name` 인자)와 거버넌스 태그(`tags`)는 서로 다른 관심사다.
+5. **제약 리소스**([Naming rules and restrictions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules)):
+
+   | 리소스 | 스코프 | 길이 |
+   |---|---|---|
+   | `virtualNetworks` | 리소스 그룹 | 2~64 |
+   | `virtualNetworks/subnets` | 부모 vnet | 1~80 |
+   | `networkSecurityGroups` · `routeTables` · `natGateways` · `publicIPAddresses` | 리소스 그룹 | 1~80 |
+
+   ⚠️ 전역 고유 이름 제약은 이 집합에 나타나지 않는다. 마주치는 지점은 스토리지 계정이나
+   Flow Logs를 여는 순간이다.
+6. ⚠️ **아래 한 가지는 규정하지 않는다. 실측 수단이 생기면 정한다.**
    - Azure Policy가 `modify`로 태그를 덧붙이는 환경에서 OpenTofu 상태와 어떻게 상호작용하는지
      (drift 발생 여부와 대응). 확인하지 않았으므로 값을 쓰지 않는다.
-   - Azure 네이밍 제약(리소스 그룹 스코프 · 전역 고유 이름 · 리소스 종류별 길이·문자 제약).
-     AWS 2번의 제약 리소스 목록에 대응하는 자리이고, 목록을 채우려면 실제 대상 리소스가 정해져야 한다.
 
 ---
 

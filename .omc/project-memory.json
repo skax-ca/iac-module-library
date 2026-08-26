@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787032330685,
-      "source": "manual",
-      "category": "opencode-compat",
-      "content": "정정(2026-08-18): 이전 메모(\"opencode.jsonc는 이 프로젝트에서 enabled:false로 꺼뒀다\")는 틀렸다 — 실제로는 enabled:true였고 이름도 글로벌과 달라(aws-api vs awslabs.aws-api-mcp-server) 두 서버가 동시에 로드되고 있었다. 이번 세션에 실제로 바로잡았다: Claude Code(.mcp.json)·opencode 프로젝트(opencode.jsonc)·opencode 글로벌(~/.config/opencode/opencode.jsonc) 세 곳 모두 aws-mcp·aws-docs로 이름을 통일해 프로젝트가 글로벌을 오버라이드하는 정상 구조로 만들었다(opencode는 같은 키면 프로젝트가 글로벌을 덮어쓴다 — 공식 문서로 확인). 또한 aws-api MCP 서버 자체가 폐기 예정이라 mcp-proxy-for-aws(원격 프록시, @1.6.4)로 전환했고, READ_OPERATIONS_ONLY→--read-only, AWS_API_MCP_PROFILE_NAME→--profile team으로 안전장치를 유지한 채 옮겼다. aws-well-architected(구 awslabs.well-architected-security-mcp-server)는 글로벌이 아니라 이 프로젝트 스코프에만 둔다(Claude Code·opencode 둘 다)."
-    },
-    {
       "timestamp": 1787788800000,
       "source": "manual",
       "category": "open-items",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-26 (vnet 설계 리뷰 세션) — Azure vnet 인터페이스가 vpc(AWS)와 같은 소비자 철학을 관통하는지 공식 모범사례(OpenTofu 모듈 개발 가이드·aws-ia/standards-terraform·Azure Verified Modules)와 대조 진단. 실제 결함 1건은 즉시 해소: `.claude/rules/terraform.md`의 \"SG rule은 별도 리소스\" 원칙이 AWS 전용으로만 문서화돼 있었는데, Azure `azurerm_network_security_group`도 정확히 같은 함정(inline `security_rule`과 별도 `azurerm_network_security_rule` 병용 시 규칙 덮어쓰기, provider 공식 경고 문구까지 거의 동형)이 있어 provider 중립 표현으로 수정 + `module-catalog.md` vnet 절에 NSG 룰 배선 방식 명시(둘 다 완료, main 직접 커밋 예정). AzAPI provider 미검토·AVM 8종 인터페이스 중 tags만 채택한 근거는 `decisions.md`의 「Azure 네트워킹 (vnet)」 ADR에 기각 행 2건으로 보강 완료.\n\n⚠️ 미착수(보고만 함, 이번 라운드 스코프 밖): AWS 공식 팀 표준(aws-ia/standards-terraform)이 권고하는 `nullable = false`(필수 변수에 명시해 소비자가 명시적으로 `null`을 넘겨 런타임 깊은 곳에서 에러 나는 경로를 막는 패턴) 이 `modules/aws/vpc`(릴리스됨)에도 `vnet` 설계에도 없다. 저장소 안 커뮤니티 karpenter wrapper는 이미 광범위하게 쓰고 있어 이 저장소 자체 스크래치 모듈만 뒤처진 상태다. CSP 문제가 아니라 vpc·vnet 둘 다에 해당하는 크로스컷 개선이라, vnet에만 지금 넣으면 오히려 \"같은 사상\" 원칙이 깨진다 — 두 모듈에 동시 적용하는 별도 후속 작업으로 검토할 것."
+    },
+    {
+      "timestamp": 1787733713877,
+      "source": "manual",
+      "category": "azure-vnet",
+      "content": "2026-08-26 — Azure vnet 모듈 실제 구현 완료, 브랜치 `feat/azure-vnet-module`, PR 오픈 예정. 설계(`.omc/plans/2026-08-26-azure-vnet-design.md` v5, 같은 날 앞서 완료)를 그대로 구현: 구현 라운드 착수 게이트 4건(tflint azurerm ruleset 등록 등) + `modules/azure/vnet/`(변수·리소스·출력·테스트 11건·예제·README). vpc 모듈의 코드 패턴을 이식했고, 로컬 게이트(fmt·tflint·trivy·tofu test·example validate·terraform-docs drift) 전부 실측 통과.\n\n⚠️ 구현 위임 과정에서 발견한 것(향후 fork 위임 시 참고): 첫 번째 fork 시도가 도구 호출 0회·5.9초 만에 \"완료\"라고 잘못 보고했다(실제로는 브랜치·파일·PR 전부 없음). git status/find로 직접 검증해서 잡아냄. 두 번째 fork는 \"반드시 첫 행동으로 실제 도구를 호출하라\"는 명시적 지시로 재실행해 실제로 133회 도구 호출·12분간 작업했으나, notepad/project-memory 갱신과 push·PR 직전에 응답이 문장 중간에서 끊기며 종료됐다(추정: 컨텍스트 소진, 37만 토큰 사용). 코드 자체 품질은 이번 세션에서 전부 재검증해 문제 없음을 확인했고, 남은 단계(notepad·project-memory 기록, push, PR 오픈)는 team-lead가 직접 마무리했다. **fork의 \"완료\" 보고는 실제 산출물(git status·파일 존재·검증 명령 재실행)로 반드시 재검증할 것** — 이번처럼 완전한 오보고와, 부분 완료 후 조용히 끊기는 두 실패 모드를 한 라운드에서 모두 겪었다.\n\n다음: PR CI 통과 확인 → merge 여부 → `vnet-v0.1.0` 태그 컷 여부는 사용자 결정 대상."
     }
   ],
   "userDirectives": [

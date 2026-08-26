@@ -9,7 +9,7 @@ Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC
 
 ## 현황
 
-모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 AWS 4개, Azure 0개다.
+모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 AWS 4개, Azure 1개다.
 
 | provider | 모듈 | 설명 |
 |----------|------|------|
@@ -17,6 +17,7 @@ Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC
 | aws | [`eks-cluster`](modules/aws/eks-cluster) | EKS 클러스터 · 노드그룹 · addon · IAM |
 | aws | [`workbench`](modules/aws/workbench) | private 클러스터 운영 지점 (SSM 전용, 인바운드 0) |
 | aws | [`cross-account-trust-role`](modules/aws/cross-account-trust-role) | 크로스 계정 IAM 신뢰 Role |
+| azure | [`vnet`](modules/azure/vnet) | VNet · 서브넷 · 옵트인 NSG · 옵트인 라우팅 테이블 · NAT Gateway |
 
 모든 모듈이 개발 단계(`0.y.z`)다. 최신 태그는 `git tag -l`로 확인한다(여기 고정 표기하지 않는다.
 컷할 때마다 갱신을 잊으면 stale해진다). 실계정 배포로 검증된 조합이 `eks-reference-infra`에 있다.

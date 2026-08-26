@@ -104,6 +104,12 @@
       "content": "2026-08-25 — docs/modules 재구성 관련 이전 open-items 4건(2026-08-24 기록, \"재구성 계획 수립\"·\"Critic 검증 REJECT/재작성\"·\"v21 실행 완료, 커밋 안 함, diff 검토 대기\")을 전부 대체한다: 그 작업은 완결됐다.\n\n브랜치 `docs-modules-restructure`에서 이어서 진행된 내용: em-dash grandfather(2026-08-24 채택 시점 위반 188건, 12개 파일) 전량 정리 후 LEGACY_EM_DASH_ALLOWLIST 메커니즘 자체 제거, `.tf` 주석 전수 감사(783줄, 삭제 후보 0건 — 판정 기준을 terraform-style-guide 스킬에 codify), CLAUDE.md 262→83줄 재구성(`.tf` 전용 규칙은 `.claude/rules/terraform.md`로 경로 스코프 분리, PoC repo 서술 삭제), README 10개 전체에 Usage 절 추가 + stale 버전 참조 제거, pre-commit에 `ref=<component>-vX.Y.Z` stale 태그 검사 신규 게이트 추가.\n\n이 repo 자신이 `.tf`·`.github/workflows/`를 포함해 브랜치·PR 규칙(CLAUDE.md)상 PR이 필요함을 확인 → push 전 CI 7개 게이트 전부 로컬 재검증(fmt·tflint·trivy·모듈 4개 tofu test 65/65 pass·예제 2개 validate·lock registry·terraform-docs drift) → PR #31 생성 → CI 3개 게이트 전부 pass → squash merge(사용자 확인 후, 최근 관례 #27·#30과 일치) → main 커밋 962e481 → 브랜치 로컬·원격 삭제 완료.\n\n`.omc/plans/2026-08-24-docs-modules-restructure.md`(v21, gitignore 대상)는 실행이 끝났으므로 더 이상 참조할 필요 없음 — 남아 있어도 과거 기록일 뿐이다. 이 항목 이후로 이 재구성 작업 관련 open-item은 없다."
     },
     {
+      "timestamp": 1787703846496,
+      "source": "manual",
+      "category": "azure-foundation",
+      "content": "2026-08-26 — Azure 기반 구조 작업(계획 `.omc/plans/2026-08-25-azure-foundation.md` v4) 전체 완료: PR #33(Step1·2, 약어 카탈로그 클라우드별 분리 + 태깅 절 provider 중립화) → PR #34(Step3·4, AWS 모듈 4개를 `modules/aws/`로 이동 + 게이트 5곳 동시 수정) → Step5(태그 재컷 + 마이그레이션 안내, main 직접 커밋 `7830f28`). 태그: `vpc-v0.4.0`·`eks-cluster-v0.10.0`·`workbench-v0.8.0`·`cross-account-trust-role-v0.3.0`(전부 `modules/aws/` 경로 반영, origin push 완료). 기존 태그는 구 경로를 그대로 가리켜 소급 파괴 없음 — 소비 repo(`eks-reference-infra`)의 승급 시점은 그쪽이 고른다. tflint azurerm 등록·모듈 버전 대장 추가(구 v1 Step4.6·4.7)는 이번 라운드에서 삭제 상태로 확정(Must NOT Have) — Follow-up으로 이관. 다음 착수는 Azure 모듈(vnet·aks-cluster 등) 자체 설계부터."
+    },
+    {
       "timestamp": 1787635217143,
       "source": "manual",
       "category": "docs-structure",

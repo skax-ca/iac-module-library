@@ -6,6 +6,16 @@ SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenT
 ## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+### 2026-08-26 — Azure 기반 구조 Step 5 (태그 재컷 + 마이그레이션 안내, main 직접 커밋) — Azure 기반 구조 전체 완료
+
+계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4)의 Step 5. open-questions 2번(소비 repo 승급 시점)은 사용자가 "이 repo 경계 밖" 판단으로 착수 승인, 이 repo 안내문 작성만으로 충분하다고 확정. PR #33(Step1·2)·#34(Step3·4)에 이어 Azure 기반 구조 작업 전체 완료.
+
+- `docs/decisions.md`에 「모듈 구조 (provider 계층)」 절 신설(ADR, 모듈 설계~네이밍 사이) — shim 유지·비대칭 트리·단일 카탈로그 등 6개 대안 기각 사유 + 결정/파급 정리.
+- `README.md`에 「마이그레이션 안내」 절 신설. 명령형으로 쓰고 구체 태그 번호는 없이 `git tag -l`로 확인하도록 안내. 두 문서 모두 main 직접 커밋(`7830f28`, 문서 전용 변경 규칙).
+- 태그 4개 재컷·push: `vpc-v0.4.0`·`eks-cluster-v0.10.0`·`workbench-v0.8.0`·`cross-account-trust-role-v0.3.0`(전부 `modules/aws/` 경로 반영). 기존 태그(`vpc-v0.3.0` 등)는 그대로 구 경로를 유지한다 — 소급 파괴 없음.
+- 인수 조건 4개 전부 실측 통과: 새 태그가 `modules/aws/` 아래 존재 확인 · 구 태그가 `modules/` 구 경로 유지 확인 · `tofu init`으로 신규 ref 실사용 검증(rc=0) · 안내문에 하드코딩 태그 0건(변경된 상태에서 pre-commit stale 태그 검사 통과).
+- `.githooks/pre-commit:45`의 stale 태그 컴포넌트 목록은 계획대로 손대지 않음(Azure 모듈 라운드에서 확장 예정).
+
 ### 2026-08-26 — Azure 기반 구조 PR2 (브랜치 `feat/azure-foundation-modules`, Step 3·4)
 
 계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4)의 **Step 3·4만**. Step 5(태그 재컷)는 착수 게이트가 따로 있어 손대지 않았다. tflint azurerm 등록은 사용자가 이번 라운드에서 빼기로 확정(Must NOT Have). 커밋 3개.

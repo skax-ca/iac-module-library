@@ -22,7 +22,7 @@ done
 echo "$changed" | grep -qE '^modules/.*\.tf$' || exit 0
 
 echo "[pre-push] modules/ 변경 감지 — tofu test 실행"
-for m in modules/*/; do
+for m in modules/*/*/; do
   [ -d "${m}tests" ] || continue
   [ -d "${m}.terraform" ] || tofu -chdir="$m" init -backend=false -input=false > /dev/null  # 이미 init된 모듈은 재실행하지 않는다
   echo "  test: $m"

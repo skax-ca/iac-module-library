@@ -15,7 +15,7 @@
 # ⚠️ cluster_security_group_additional_rules(EKS 접근 3층)도 그 한계에 걸린다.
 #    값이 upstream의 aws_security_group_rule로 흘러가므로 여기서 규칙 내용을 볼 수 없다.
 #    ⛔ 억지로 통과하는 assertion을 만들지 않는다 — workbench 모듈에서 세운 기준과 같다
-#       ("통과하는 가짜 테스트는 없는 것보다 나쁘다", modules/workbench/tests 참조).
+#       ("통과하는 가짜 테스트는 없는 것보다 나쁘다", modules/aws/workbench/tests 참조).
 #    ⇒ 이 변수의 회귀 방지는 workbench 통합 예제가 실제로 소비하고 CI 게이트 ⑤
 #      (예제 init + validate)가 도는 것이다. 변수명·타입이 깨지면 그 예제가 먼저 죽는다.
 #
@@ -33,7 +33,7 @@
 #   그건 우리 계약이 아니라 upstream 내부다.
 #   ⚠️ 잃는 것: NG 경로의 plan-time 회귀 가드. NG 이름 길이 결함(iam_role_name)은 이 파일 첫 실행이
 #      잡아 main.tf에서 고쳤으나, 그 수정을 **영구히 지키는 테스트는 여기 없다**.
-#      NG 형상 검증은 modules/eks-cluster/examples/enterprise 의 라이브 apply가 담당한다.
+#      NG 형상 검증은 modules/aws/eks-cluster/examples/enterprise 의 라이브 apply가 담당한다.
 
 mock_provider "aws" {
   # custom networking의 AZ 매핑을 검증하려면 서브넷의 availability_zone이 known이어야 한다.

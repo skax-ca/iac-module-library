@@ -6,7 +6,7 @@ EKS 클러스터 · 노드그룹 · addon · IAM. 커뮤니티 모듈(`terraform
 
 ```hcl
 module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/eks-cluster?ref=eks-cluster-vX.Y.Z"
 
   naming     = { workload = "demo", env = "dev", region_code = "an2" }
   vpc_id     = module.vpc.vpc_id

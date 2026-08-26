@@ -139,7 +139,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 ## 4. 모듈 소싱
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
 ```
 
 `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.

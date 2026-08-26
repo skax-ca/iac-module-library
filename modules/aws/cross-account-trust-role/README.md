@@ -6,7 +6,7 @@
 
 ```hcl
 module "spoke_trust_role" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/cross-account-trust-role?ref=cross-account-trust-role-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/cross-account-trust-role?ref=cross-account-trust-role-vX.Y.Z"
 
   naming                 = { workload = "spoke1", env = "prd", region_code = "an2" }
   purpose                = "argocd-hub"

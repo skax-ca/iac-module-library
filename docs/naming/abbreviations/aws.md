@@ -69,7 +69,7 @@
 
 | 날짜 | 약어 | 리소스 | 근거 |
 |------|------|--------|------|
-| 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다. 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
+| 2026-07-30 | `fl` | VPC 플로우 로그 (`aws_flow_log`) | `modules/aws/vpc` Task 10.3에서 필요. AWS 실제 리소스 ID 접두사(`fl-1a2b3c4d`)를 따랐다. 이 절의 지배적 관례(`rtb`·`igw`·`eigw`·`dopt`·`pl`·`pcx`가 모두 AWS ID 접두사)와 일치한다. ⚠️ `cwfm`(CloudWatch Network Flow Monitor)·`brfl`(Bedrock Flows)은 **다른 서비스**이므로 재사용하지 않았다 |
 | 2026-07-30 | `iamp` | IAM 관리형 정책 (`aws_iam_policy`) | 같은 작업에서 IAM 절에 `iamr`만 등재돼 있음을 확인. 관리형 정책은 독립 자원이라 약어가 필요하다. **inline 정책은 신설하지 않고** 위 "종속 객체" 규약으로 처리한다 |
 | 2026-07-30 | `iamoidc` | IAM OIDC 신뢰 공급자 (`aws_iam_openid_connect_provider`) | 레퍼런스 소비 repo의 GitHub Actions OIDC에 필요(레퍼런스 소비 repo의 GitHub Actions OIDC). IAM 계열 프리픽스(`iamr`·`iamp`)를 유지하고 OIDC를 명시해 향후 SAML(`iamsaml`)과 대칭 확장되게 했다. 카탈로그가 이미 6자(`ecrpri`·`fmsrs`·`abkpol`)를 허용하므로 **L2 리소스 구분을 약어 길이보다 우선**했다. 기각: `iamo`(`o`가 OIDC임을 알 수 없고 짝인 `iams`가 Secret·Server certificate로 오독됨) · `iamidp`(OIDC와 SAML이 같은 약어를 공유해 L2 구분이 사라짐). ⚠️ 이 리소스는 **식별자가 URL**이라 `name` 인자가 없다 → 이 이름은 `Name` **태그로만** 붙는다(inline 정책과 반대 경우) |
 | 2026-08-19 | `ram` | RAM 리소스 공유 (`aws_ram_resource_share`) | 허브-스포크 크로스 계정 Transit Gateway 공유에 필요(`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md` 「네트워크 경로」). AWS 물리 ID 접두사가 없는 서비스 이름 기반 약어(규칙 1의 ALB·S3·Lambda류 케이스). 리소스 공유 자체가 서비스 이름과 동일하다. `aws_ram_resource_association`·`aws_ram_principal_association`은 `name` 인자가 없는 종속 객체라 별도 약어를 신설하지 않는다(위 "종속 객체" 규약) |
@@ -465,5 +465,5 @@
 | `dh` | `h-` | 물리 ID가 1자(`h-`)라 name 토큰으로 무의미(서비스 기반) |
 
 이 약어들은 등재 규칙이 정해지기 **전**의 결정이고, 비고는 현재 사실만 적었다. 기록에 없는 사유를
-재구성하지 않는다. 마이그레이션은 하지 않는다(릴리스된 `modules/vpc`가 실사용 중, 기각 근거는
+재구성하지 않는다. 마이그레이션은 하지 않는다(릴리스된 `modules/aws/vpc`가 실사용 중, 기각 근거는
 [`decisions.md`](../../decisions.md)).

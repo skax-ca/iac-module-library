@@ -19,7 +19,7 @@
 misconfigurations:
   - id: AVD-AWS-0104
     paths:
-      - "modules/workbench/main.tf"
+      - "modules/aws/workbench/main.tf"
     statement: >-
       workbench 모듈의 egress 설계가 판정한 값이다.
       workbench 는 SSM 제어 평면 · AL2023 패키지 저장소 · dl.k8s.io/get.helm.sh 로 나가야 하는데

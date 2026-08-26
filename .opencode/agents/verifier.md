@@ -13,7 +13,7 @@ permission:
 1. `tofu fmt -recursive -check` — 포맷
 2. `tflint --recursive` — 정적 분석
 3. `trivy config .` — 취약점 스캔
-4. 변경 범위에 `modules/*.tf`가 있으면 `tofu -chdir=modules/<name> test` 실행 (pre-push 게이트와 동일)
+4. 변경 범위에 `modules/**/*.tf`가 있으면 `tofu -chdir=modules/<provider>/<name> test` 실행 (pre-push 게이트와 동일)
 
 ## 판정 규칙
 - 각 단계의 실제 출력(통과/실패, 에러 메시지)을 증거로 인용한다. "통과했을 것이다"·"구조상 문제없다" 같은 추측 판정은 금지.

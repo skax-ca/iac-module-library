@@ -1,11 +1,11 @@
-# modules/vpc/examples/enterprise: 엔터프라이즈 프리셋
+# modules/aws/vpc/examples/enterprise: 엔터프라이즈 프리셋
 
 서브넷 그룹 설계를 **그대로 옮긴 9그룹 구성**이다. 최소 예제가 계약의 형태를 보인다면,
 이 예제는 **고객사 착수 템플릿**이다: 온프레미스 연동, 용도별 대역 분리, EKS custom networking,
 TGW attachment 전용 서브넷까지 들어 있다.
 
 > ⚠️ **이 예제의 존재 이유는 검증이 아니라 착수 템플릿이다.** isolated 라우팅·secondary CIDR·
-> AZ 커버리지 precondition 검증은 `modules/vpc/tests/plan.tftest.hcl`이 담당한다. 이 예제는
+> AZ 커버리지 precondition 검증은 `modules/aws/vpc/tests/plan.tftest.hcl`이 담당한다. 이 예제는
 > 프로덕션 구성을 흉내 내는 것이 허용된 자리이고
 > ("최소로 유지" 원칙에 대한 **의도된 예외**다).
 
@@ -52,7 +52,7 @@ primary를 소형으로 최소화하고 워크로드는 secondary에 배치한�
 
 | | 이 예제 | 소비 프로젝트(`<project>-infra`) |
 |---|---|---|
-| 소싱 | 상대경로 `../../modules/vpc` | git tag `?ref=vpc-v0.3.0` (**현행 릴리스**) |
+| 소싱 | 상대경로 `../..` | git tag `?ref=vpc-vX.Y.Z` (착수 시점의 현행 릴리스) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 자격증명 | 없음(plan/apply 안 함) | GitHub OIDC → 입구 Role → 실행 Role |
 | 워크로드 코드 | 가상값 `demo` | 실제 프로젝트 코드 |
@@ -62,26 +62,26 @@ primary를 소형으로 최소화하고 워크로드는 secondary에 배치한�
 릴리스된 태그를 핀한다. 두 방식을 혼동하지 않는다.
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-v0.3.0"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
 ```
 
-⚠️ **핀은 착수 시점의 현행 릴리스로 건다**: `git tag -l 'vpc-v*'`로 확인한다. 위 표의 태그가
-낡은 채 복사되면 그대로 굳는데, 실패 방식이 나쁘다: `vpc-v0.2.0`은 Flow Logs confused deputy
+⚠️ **핀은 착수 시점의 현행 릴리스로 건다**: `git tag -l 'vpc-v*'`로 확인한다. 낡은 태그가
+복사된 채 그대로 굳으면 실패 방식이 나쁘다: `vpc-v0.2.0`은 Flow Logs confused deputy
 방어(보안 수정)라 **그것이 빠진 채로도 `apply`는 성공한다.** 릴리스 이력은 각 태그의 annotated
-메시지(`git show vpc-v0.3.0`)와 [`docs/module-catalog.md`](../../../../docs/module-catalog.md)에 있다.
+메시지(`git show <태그>`)와 [`docs/module-catalog.md`](../../../../../docs/module-catalog.md)에 있다.
 
-⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../docs/conventions.md)).
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../../docs/conventions.md)).
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 (2026-08-05 이전에 발행된 `vpc-v1.x` 태그는 같은 커밋의 `v0.x`로 재매핑됐고 **더 이상 존재하지 않는다**.)
 
 ## 실행
 
 ```bash
-tofu -chdir=modules/vpc/examples/enterprise init -backend=false
-tofu -chdir=modules/vpc/examples/enterprise validate
+tofu -chdir=modules/aws/vpc/examples/enterprise init -backend=false
+tofu -chdir=modules/aws/vpc/examples/enterprise validate
 ```
 
 > ⚠️ `validate`는 계약 위반을 잡지 못한다(`plan`에서만 평가된다). 계약 검증은
-> `tofu -chdir=modules/vpc test`가 담당한다.
+> `tofu -chdir=modules/aws/vpc test`가 담당한다.
 > 그리고 **CIDR 겹침과 primary/secondary 조합 제약은 apply 시 AWS API가 검출**하므로
 > 이 예제로도 검증되지 않는다. 실계정 apply까지 남은 미검증 리스크다.

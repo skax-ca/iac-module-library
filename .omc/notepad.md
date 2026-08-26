@@ -1,11 +1,25 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/decisions.md`(재제안 전 필독). 규약=`docs/conventions.md`, 네이밍=`docs/naming/abbreviations/aws.md`(클라우드마다 한 파일). `.tf` 전용 규칙은 `.claude/rules/terraform.md`(경로 스코프, paths: **/*.tf). 최신 태그·모듈 현황 SSOT는 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`, 전역 커맨드는 /session-start·/session-end 소관. 영구 사실·미결 항목은 project-memory.json, 지난 세션 전문은 이 notepad ## MANUAL(자동 로드 안 됨) 참조.
+SSOT=이 repo(`terraform-enterprise-poc`는 동결, 수정 금지). 엔진=OpenTofu 단독 — `docs/decisions.md`(재제안 전 필독). 규약=`docs/conventions.md`, 네이밍=`docs/naming/abbreviations/aws.md`(클라우드마다 한 파일). **모듈 경로는 `modules/<provider>/<name>/`** (2026-08-26 PR2로 이동, AWS 4개·Azure 0개). 게이트 글롭은 `modules/*/*/`로 깊이 고정이고 CI stray 검사가 이 모양을 강제한다 — 깊이를 넓히면 미탐이 생긴다. 태그는 평면(`vpc-vX.Y.Z`)이라 모듈명은 provider를 가로질러 고유해야 한다. `.tf` 전용 규칙은 `.claude/rules/terraform.md`(경로 스코프, paths: **/*.tf). 최신 태그·모듈 현황 SSOT는 `README.md`·`git tag -l`. opencode 구성은 `.opencode/`, 전역 커맨드는 /session-start·/session-end 소관. 영구 사실·미결 항목은 project-memory.json, 지난 세션 전문은 이 notepad ## MANUAL(자동 로드 안 됨) 참조.
 
 ## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+### 2026-08-26 — Azure 기반 구조 PR2 (브랜치 `feat/azure-foundation-modules`, Step 3·4)
+
+계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4)의 **Step 3·4만**. Step 5(태그 재컷)는 착수 게이트가 따로 있어 손대지 않았다. tflint azurerm 등록은 사용자가 이번 라운드에서 빼기로 확정(Must NOT Have). 커밋 3개.
+
+**커밋 1 `7c65076`(이동·게이트 층)** — AWS 모듈 4개를 한 커밋에서 `git mv`로 `modules/aws/` 하위로. 4개를 함께 옮겨야 하는 이유는 `examples/enterprise`가 형제 모듈을 상대경로로 소싱하기 때문(`../../../vpc`·`../../../workbench`·`../..`) — 부분 이동은 그 경로를 깨뜨린다. 함께 내려가면 상대 깊이가 보존되어 **`source` 인자 수정은 0건**이다. 게이트를 같은 커밋에서 고친 이유는 두 훅의 실패 방식이 **조용하기** 때문이다: `pre-commit`의 drift 검사는 정규식이 안 맞으면 아무 일도 안 하고 통과하고, `pre-push`는 루프 0회를 돌고도 "테스트 통과 ✓"를 출력한다. CI는 시끄럽게 죽지만 로컬 게이트는 조용히 사라진다. 고친 곳: `verify.yml` 게이트 4·5·7 글롭(`modules/*/*/`, 깊이 고정) · `pre-commit` 정규식+sed · `pre-push` 글롭 · `.trivyignore.yaml` 예외 경로(안 고치면 AVD-AWS-0104 재발화) · `validate-doc-conventions.py`의 `GENERATED_README`(안 고치면 생성 README 4개가 프로즈로 재분류돼 em-dash 38건이 터진다).
+
+⚠️ **게이트 4 앞에 stray 검사 신설** — `modules/` 아래는 반드시 `<provider>/<name>/` 형태여야 한다. 개수가 아니라 **모양**을 불변식으로 삼으면 글롭이 어긋날 여지가 구조적으로 사라진다. `find`는 **두 번 분리 호출**해야 한다: `-mindepth`/`-maxdepth`는 `-o` 절마다 재적용되지 않는 global option이라 한 번에 묶으면 depth 1의 stray(`modules/orphan.tf`)를 **놓친다**. 픽스처로 실제 재현 확인했다. 게이트 4·5의 기존 `found` 가드는 이미 존재 확인 역할이라 그대로 뒀다(기대 개수를 박으면 모듈이 늘 때마다 고쳐야 한다).
+
+**커밋 2 `d5db25a`(문서 참조 층)** — 경로 참조 46건/17파일 갱신. 층을 나눈 것은 revert 단위 보존. 모듈 README의 Usage 블록은 **terraform-docs inject 마커 바깥**이라 재생성으로 안 고쳐진다(직접 편집 필요). `vpc/examples/enterprise/README.md`의 `ref=vpc-v0.3.0` 하드코딩 2곳을 `vX.Y.Z` 자리표시자로 — 안 그러면 Step 5에서 안내문이 구 태그를 인용해야 하는데 `pre-commit:45`의 stale 태그 검사가 그 문장을 막는다(자리표시자는 훅 대상 아님).
+
+**계획 밖에서 발견해 처리**: (1) 예제 README 2개의 상대 링크 9곳이 이동으로 깨졌다 — `](../../../../docs/...)`가 깊이 한 단계 늘어 무효. `../../../../../docs/`로 정정하고 실물 존재 확인. 계획 9절이 Critic의 "상대링크 미검증" 지적을 "실행 중 걸리면 처리"로 남겨 뒀는데 실제로 걸렸다. (2) `.opencode/agents/verifier.md`·`commands/verify.md`가 `tofu -chdir=modules/<name> test`로 stale — 모듈명이 자리표시자라 C1 정규식에 안 걸리는 형태였다. (3) 예제 README의 "상대경로 `../../modules/<name>`" 서술은 **원래부터 코드와 달랐다**(실제 `source`는 `../..`). 실제 값으로 맞췄다.
+
+**인수 조건 전부 통과**: B1(이력 6커밋 보존) · B2(모듈 4개 **테스트 65개** 전부 pass) · B3 · B4 · B5 · B6 · B6b · B7(stray 음성 3종) · B8(source 3건 무손상) · C1·C2·C3 전부 0건. ⚠️ **B6는 계획 그대로 `git add modules/aws/vpc/main.tf`로 돌리면 위양성**이다 — 그 파일은 HEAD와 동일해 staged가 비고 drift 검사가 안 도는데 rc는 0이다. 실제 변경분이 있는 파일로 대체해야 검사가 실주행한다. **B6b는 rc·메시지로 판정 불가**, `test:` 줄 계수 4로만 구별된다.
+
 ### 2026-08-26 — Azure 기반 구조 PR1 (브랜치 `feat/azure-foundation`, Step 1·2)
 
 계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4, Architect·Critic 3회 검토 APPROVE)의 **Step 1·2만** 구현. Step 3(모듈 `modules/aws/` 이동)·4·5는 별도 PR이고 이번엔 손대지 않았다. 커밋 2개.

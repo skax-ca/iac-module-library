@@ -74,10 +74,10 @@ trivy config --quiet --exit-code 1 --severity MEDIUM,HIGH,CRITICAL \
 
 # terraform-docs version: v0.24.0
 # 모듈 .tf가 staged되면 README.md가 그 변경을 반영했는지 drift 검사.
-modules_tf_staged=$(printf '%s\n' "$staged" | grep -E '^modules/[^/]+/[^/]+\.tf$' || true)
+modules_tf_staged=$(printf '%s\n' "$staged" | grep -E '^modules/[^/]+/[^/]+/[^/]+\.tf$' || true)
 if [ -n "$modules_tf_staged" ]; then
   echo "  terraform-docs drift 검사"
-  for m in $(printf '%s\n' "$modules_tf_staged" | sed -E 's#^(modules/[^/]+)/.*#\1#' | sort -u); do
+  for m in $(printf '%s\n' "$modules_tf_staged" | sed -E 's#^(modules/[^/]+/[^/]+)/.*#\1#' | sort -u); do
     terraform-docs markdown table --output-mode inject --output-check --output-file README.md "$m/"
   done
 fi

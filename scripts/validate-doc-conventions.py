@@ -24,7 +24,7 @@ ALLOWED_EMOJI = {"✅", "⏳", "❌", "⚠️", "⛔", "🔴", "🔑"}
 LINE_LIMIT = 400
 # modules/**/README.md(생성물, terraform-docs가 .tf의 description을 그대로 주입)는
 # 400줄 제한과 em-dash 검사 양쪽에서 예외다 — 팀원이 쓰는 프로즈가 아니다.
-GENERATED_README = re.compile(r"^modules/[^/]+/README\.md$")
+GENERATED_README = re.compile(r"^modules/[^/]+/[^/]+/README\.md$")
 LINE_LIMIT_EXCEPTION_PREFIX = "docs/naming/abbreviations/"
 
 # 이모지가 몰려 있는 유니코드 블록 두 개만 본다 — 주 이모지 블록(1F300-1FAFF)과

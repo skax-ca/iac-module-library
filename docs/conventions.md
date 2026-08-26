@@ -137,7 +137,9 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 | OpenTofu (실행) | `1.12.5` | CI · 로컬 |
 | aws provider (모듈) | `>= 6.0`(**하한만**) | `versions.tf` |
 | aws provider (루트) | `~> 6.0`(상한은 루트가 통제) | `examples/` · 배포 루트 |
-| tflint | `v0.63.1` + aws ruleset `0.48.0` | `.tflint.hcl` |
+| azurerm provider (모듈) | `>= 5.0`(**하한만**) | `versions.tf` |
+| azurerm provider (루트) | `~> 5.0`(상한은 루트가 통제) | `examples/` · 배포 루트 |
+| tflint | `v0.63.1` + aws ruleset `0.48.0` + azurerm ruleset `0.32.0` | `.tflint.hcl` |
 | trivy | `v0.72.0` | CI · 훅 |
 | terraform-docs | `v0.24.0` | CI · 훅 |
 | 커뮤니티 모듈 | **정확 핀** | `main.tf` |

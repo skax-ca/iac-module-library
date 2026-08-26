@@ -120,6 +120,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-26 — Azure 기반 구조 작업(PR #33·#34·Step5, azure-foundation 항목 참조) 실행 중 발견된 후속 과제 1건, ADR Follow-ups에는 미등재(docs/decisions.md는 \"결정\" 기록 형식이라 할 일 목록과 안 맞아 여기 남긴다): `.claude/rules/terraform.md`의 「강제 방식」 절(28~34행)도 `default_tags`를 전제해 AWS 전용인데 provider 표시가 없다. `.tf` 파일을 열 때 자동 로드되는 규칙 파일이라 Azure 모듈(vnet·aks-cluster 등) 착수 전에 conventions.md처럼 공통/AWS/Azure 3층으로 중립화해야 한다. PR #33 Step2 스코프가 conventions.md뿐이라 그때 손대지 않았다."
+    },
+    {
+      "timestamp": 1787705654101,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-26 — 이전 open-items(azure-foundation 세션 중 발견, \".claude/rules/terraform.md의 「강제 방식」 절이 default_tags 전제라 AWS 전용, provider 표시 없음\")을 대체한다: 해소 완료. `.claude/rules/terraform.md`의 「리소스 네이밍 & 태깅 규칙」 절(구 11~38행, `Name` 태그 표 + 강제 방식 5개 항목)이 `docs/conventions.md` §2(PR #33 Step2가 이미 만든 공통/AWS/Azure 3층 강제 방식)와 문장 단위로 중복 서술하고 있었던 것이 근본 원인 — CLAUDE.md 재구성 세션(2026-08-25)에서 이미 겪은 \"SSOT 문서 내용을 다른 파일이 다시 베끼면 drift\" 패턴과 동일. 해법은 3층을 복제하는 대신 conventions.md §2로 링크 축소(30줄→6줄, 사용자 확인 후 선택). 문서 전용 변경이라 main 직접 커밋. 이 항목 이후로 이 open-item은 없음."
     }
   ],
   "userDirectives": [

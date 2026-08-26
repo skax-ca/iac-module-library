@@ -10,31 +10,13 @@ paths:
 
 ## 리소스 네이밍 & 태깅 규칙 (필수 준수)
 
-### `Name` 태그 포맷
-```
-(resourcetype)-(workloadcode)-(env)-(regioncode)-(purpose)-(serialnumber|suffix)
-예) vpc-demo-prd-an2-main   ·   eks-demo-prd-an2-main-01   ·   sgr-demo-prd-an2-web-01
-```
+네이밍·태깅 SSOT는 `docs/conventions.md` §2(`Name` 태그 포맷 + 공통/AWS/Azure 3층 강제 방식)다.
+여기서 중복 서술하지 않는다. `.tf` 작성 시 그 절을 그대로 따른다 — provider별 태그 주입 방식
+(AWS `default_tags` vs Azure 리소스별 `tags` 배선)이 다르므로, 새 provider 모듈을 쓸 때는
+공통 절뿐 아니라 해당 provider 절까지 확인한다.
 
-| 구성 요소 | 값 |
-|-----------|-----|
-| resourcetype | 리소스별 표준 약어 → `docs/naming/abbreviations/aws.md` (**SSOT, 임의 생성 금지**) |
-| workloadcode | **프로젝트별 입력 변수**(이 repo는 특정 값을 고정하지 않는다) |
-| env | `prd` / `stg` / `dev` (+ 역할 계정 토큰) |
-| regioncode | `an2`(ap-northeast-2) / `ue1`(us-east-1) 등 사용 리전만 등재 |
-| purpose | `web`/`db`/`main`/`worker` 등 (소문자·하이픈) |
-| serial/suffix | `01` / `20260415` / `policy` (선택) |
-
-### 강제 방식
-1. **거버넌스 태그는 `default_tags`로 자동화**: 프로젝트 repo의 provider에 설정. 개별 리소스에 반복 금지.
-2. **`Name`은 모듈이 약어를 조합**: 모듈은 `naming` 객체(`{workload, env, region_code}`)를 입력받아
-   리소스 타입별 약어로 `Name`을 합성한다. 소비자가 약어를 직접 쓰지 않게 한다.
-3. **리소스 타입 약어는 카탈로그에서만.** 없으면 임의 생성 말고 거버넌스 리뷰(약어 추가) 후 사용.
-4. **제약 리소스 주의**: S3(전역 고유+DNS), ALB/TG(≤32자), IAM/SG(이름=식별자).
-5. **`Name` 태그 assertion을 `*.tftest.hcl`에 포함**: plan 단계에서 네이밍 규약 위반을 잡는다.
-
-> ⚠️ **재사용 자산의 요건**: workload code·계정 ID·리전을 **하드코딩하지 않는다.** PoC에서 승계할 때
-> `workload = "poc"` 같은 고정값을 반드시 걷어낸다.
+> ⚠️ **재사용 자산의 요건**(같은 절 공통 5번이 소유): workload code·계정/구독 ID·리전을
+> **하드코딩하지 않는다.** PoC에서 승계할 때 `workload = "poc"` 같은 고정값을 반드시 걷어낸다.
 
 ---
 

@@ -2,6 +2,8 @@
 
 **읽는 사람**: 배포 루트에서 모듈을 호출하려는 사람.
 
+모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 등재된 것은 AWS 4개이고 Azure는 0개다.
+
 핵심 세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
 크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인과 독립적으로 존재하며
 `eks-cluster`의 `access_entries`에 출력을 연결한다.
@@ -35,7 +37,7 @@
 
 VPC · 서브넷 그룹 · NAT · 라우팅 · Flow Logs.
 
-전체 계약(입력·출력·리소스) → [`modules/vpc/README.md`](../modules/vpc/README.md)
+전체 계약(입력·출력·리소스) → [`modules/aws/vpc/README.md`](../modules/aws/vpc/README.md)
 
 ---
 
@@ -44,7 +46,7 @@ VPC · 서브넷 그룹 · NAT · 라우팅 · Flow Logs.
 EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 커뮤니티 모듈을 **wrapper로 감싼** 형태다. upstream 변수 rename을 내부에서 흡수한다.
 
-전체 계약(입력·출력·리소스) → [`modules/eks-cluster/README.md`](../modules/eks-cluster/README.md)
+전체 계약(입력·출력·리소스) → [`modules/aws/eks-cluster/README.md`](../modules/aws/eks-cluster/README.md)
 
 > Karpenter·IAM 관련 출력이 **계층 1과 계층 2를 잇는 선**이다.
 > 이 값들이 GitOps 저장소의 helm values로 들어간다.
@@ -69,7 +71,7 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 private 클러스터를 조작하는 운영 지점. **인바운드 규칙이 하나도 없다.**
 SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방향으로 흐른다.
 
-전체 계약(입력·출력·리소스·부여되는 IAM 권한·부팅 후 상태) → [`modules/workbench/README.md`](../modules/workbench/README.md)
+전체 계약(입력·출력·리소스·부여되는 IAM 권한·부팅 후 상태) → [`modules/aws/workbench/README.md`](../modules/aws/workbench/README.md)
 
 ### 클러스터 접근 3층: 누가 무엇을 소유하는가
 
@@ -95,7 +97,7 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 참조). `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
 ([choose-your-path.md](architectures/eks-gitops-hub-spoke/choose-your-path.md) 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
 
-전체 계약(입력·출력) → [`modules/cross-account-trust-role/README.md`](../modules/cross-account-trust-role/README.md)
+전체 계약(입력·출력) → [`modules/aws/cross-account-trust-role/README.md`](../modules/aws/cross-account-trust-role/README.md)
 
 > `role_arn`이 스포크의 `eks-cluster` 모듈 `access_entries`로 들어가는 연결선이다.
 > 모듈이 서로를 직접 참조하지 않는다. 배포 루트가 연결한다(다른 모듈과 같은 원칙).
@@ -122,7 +124,7 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
 
   naming           = local.naming
   cidr_block       = "10.50.0.0/24"
@@ -130,7 +132,7 @@ module "vpc" {
 }
 
 module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/eks-cluster?ref=eks-cluster-vX.Y.Z"
 
   naming     = local.naming
   vpc_id     = module.vpc.vpc_id
@@ -145,7 +147,7 @@ module "eks" {
 }
 
 module "workbench" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/workbench?ref=workbench-vX.Y.Z"
 
   naming           = local.naming
   vpc_id           = module.vpc.vpc_id

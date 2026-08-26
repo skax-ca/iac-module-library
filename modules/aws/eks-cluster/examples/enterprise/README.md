@@ -1,8 +1,8 @@
-# modules/eks-cluster/examples/enterprise: 고객사 착수 템플릿
+# modules/aws/eks-cluster/examples/enterprise: 고객사 착수 템플릿
 
-⚠️ **이 예제의 목적은 검증이 아니다.** 계약 검증은 `modules/eks-cluster/tests/`가 이미 커버한다.
+⚠️ **이 예제의 목적은 검증이 아니다.** 계약 검증은 `modules/aws/eks-cluster/tests/`가 이미 커버한다.
 여기는 **고객사가 복사해 착수하는 템플릿**이며, "예제는 최소로 유지" 원칙에
-대한 **의도된 예외**다(`modules/vpc/examples/enterprise`와 같은 위치).
+대한 **의도된 예외**다(`modules/aws/vpc/examples/enterprise`와 같은 위치).
 
 그래서 이 파일과 `main.tf`의 주석은 코드만큼 중요하다: **"왜 이 값인가"** 가 실제 산출물이다.
 
@@ -16,7 +16,7 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-catalog.md`](../../../../docs/module-catalog.md)(private 클러스터를 조작할 유일한 지점) |
+| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-catalog.md`](../../../../../docs/module-catalog.md)(private 클러스터를 조작할 유일한 지점) |
 
 ### ⭐ EKS 접근 3층: 이 예제의 핵심 연결
 
@@ -34,7 +34,7 @@
 >
 > ⚠️ **`local.cluster_arn`을 지우지 말 것.** workbench는 클러스터 ARN을 받고 eks는 workbench role ARN을
 > 받아 **양방향 참조**가 된다. ARN을 루트에서 합성해 끊는다:
-> [`docs/conventions.md`](../../../../docs/conventions.md)의 원칙(결정적 네이밍, 결합도 없음).
+> [`docs/conventions.md`](../../../../../docs/conventions.md)의 원칙(결정적 네이밍, 결합도 없음).
 > `module.eks.cluster_arn`으로 바꾸면 **순환으로 plan이 죽는다**.
 
 ## ⚠️ 구조부터 다르다: 실제로는 **VPC를 여기서 만들지 않는다**
@@ -43,7 +43,7 @@
 |---|---|---|
 | **VPC** | **같은 루트에서 함께 생성** | **별도 루트**(`live/dev/networking`)가 이미 apply. eks 루트는 **조회만** |
 | **Route53 zone** | **같은 루트에서 함께 생성**(`aws_route53_zone.internal`) | **만들지 않는다.** external-dns를 끄거나(기본), 기존 zone을 `data`로 **조회만**(아래 **"external-dns"** 절) |
-| 소싱 | 상대경로 `../../modules/eks-cluster` | git tag `?ref=eks-cluster-vX.Y.Z`(아래 "소싱 태그를 어떻게 고르나" 절 참조) |
+| 소싱 | 상대경로 `../..` | git tag `?ref=eks-cluster-vX.Y.Z`(아래 "소싱 태그를 어떻게 고르나" 절 참조) |
 | backend | 없음(`-backend=false`) | S3 + `use_lockfile = true` |
 | 워크로드 코드 | 가상값 `demo` | 실제 프로젝트 코드 |
 | `ignore_tags` | 비어 있음 | 랜딩존 자동 태거 키를 채운다 |
@@ -67,7 +67,7 @@ data "aws_subnets" "pod" {
 ```
 
 ⛔ `terraform_remote_state`는 쓰지 않는다. state 전체 접근을 요구해 판정은 ❌였다.
-상세는 [`docs/module-catalog.md`](../../../../docs/module-catalog.md).
+상세는 [`docs/module-catalog.md`](../../../../../docs/module-catalog.md).
 
 ⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
 에러가 아니라 **빈 결과**를 낸다. 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
@@ -75,8 +75,8 @@ data "aws_subnets" "pod" {
 ### 소싱 태그를 어떻게 고르나
 
 ```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/eks-cluster?ref=eks-cluster-vX.Y.Z"
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-vX.Y.Z"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/eks-cluster?ref=eks-cluster-vX.Y.Z"
+source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/workbench?ref=workbench-vX.Y.Z"
 ```
 
 ⚠️ **핀은 착수 시점의 현행 릴리스로 건다**: `git tag -l 'eks-cluster-v*'` · `git tag -l 'workbench-v*'`로
@@ -85,15 +85,15 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 죽는다**. ⚠️ **이 README 자신이 두 번 그 함정에 걸렸다**. 경고문을 쓴 것만으로는
 갱신되지 않는다. 태그를 컷할 때 이 파일을 함께 고치는 것이 유일하게 작동하는 방법이다.
 릴리스 이력은 각 태그의 annotated 메시지(`git show <태그>`)와
-[`docs/module-catalog.md`](../../../../docs/module-catalog.md)에 있다.
+[`docs/module-catalog.md`](../../../../../docs/module-catalog.md)에 있다.
 
 > 🔑 **두 모듈의 태그는 따로 움직인다.** `workbench`을 쓰지 않는 프로젝트는 `eks-cluster`만 올리면 되고
 > 그 반대도 성립한다. 컴포넌트별 cadence 분리가 `0.y.z` 정책의 요점이다
-> ([`docs/conventions.md`](../../../../docs/conventions.md)).
+> ([`docs/conventions.md`](../../../../../docs/conventions.md)).
 > ⚠️ 단 **3층 연결(위 표)을 쓰려면 `eks-cluster-v0.3.0` 이상**이 필요하다:
 > `cluster_security_group_additional_rules`가 그 릴리스에서 생겼다.
 
-⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../docs/conventions.md)).
+⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../../docs/conventions.md)).
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 
 ## ⚠️ 착수 전 반드시 바꿀 것
@@ -110,7 +110,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbe
 
 ## workbench AMI: 핀의 소유자는 소비 루트다
 
-`modules/workbench`의 `ami_id`에는 **기본값이 없다.** AMI ID는 리전 종속이라 재사용 자산의
+`modules/aws/workbench`의 `ami_id`에는 **기본값이 없다.** AMI ID는 리전 종속이라 재사용 자산의
 기본값이 될 수 없기 때문이다. `addon_version`과 같은 구조다.
 
 ```bash
@@ -174,7 +174,7 @@ enable_external_dns_iam = false   # zone ARN 없이 true 로 두면 plan 이 거
 
 되켤 때는 **zone을 먼저 확보한 뒤** 그 ARN을 넘긴다. zone은 별도 루트(또는 수동 생성)가 소유하고
 클러스터 루트는 `data.aws_route53_zone`으로 **조회만** 한다:
-[`docs/conventions.md`](../../../../docs/conventions.md)의 "이름이 아니라 조회로 느슨하게 결합"
+[`docs/conventions.md`](../../../../../docs/conventions.md)의 "이름이 아니라 조회로 느슨하게 결합"
 원칙이 여기에도 적용된다.
 
 ```hcl
@@ -271,6 +271,6 @@ CloudWatch 로그(컨트롤플레인 3종 + VPC Flow Logs)가 상시 과금된�
 ## 실행
 
 ```bash
-tofu -chdir=modules/eks-cluster/examples/enterprise init -backend=false
-tofu -chdir=modules/eks-cluster/examples/enterprise validate
+tofu -chdir=modules/aws/eks-cluster/examples/enterprise init -backend=false
+tofu -chdir=modules/aws/eks-cluster/examples/enterprise validate
 ```

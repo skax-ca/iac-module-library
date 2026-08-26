@@ -16,11 +16,11 @@
 ```
 AWS 계정
   |
-  +-- VPC · 서브넷 · NAT · Flow Logs            <- modules/vpc
+  +-- VPC · 서브넷 · NAT · Flow Logs            <- modules/aws/vpc
   |
-  +-- EKS 클러스터 · 노드그룹 · addon · IAM      <- modules/eks-cluster
+  +-- EKS 클러스터 · 노드그룹 · addon · IAM      <- modules/aws/eks-cluster
   |
-  +-- workbench (운영 지점, SSM 전용)            <- modules/workbench
+  +-- workbench (운영 지점, SSM 전용)            <- modules/aws/workbench
   |
   +-- ArgoCD                                    <- argocd-seed.sh (eks-reference-infra)
         |

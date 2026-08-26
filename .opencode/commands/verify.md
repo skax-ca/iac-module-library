@@ -10,6 +10,6 @@ subtask: true
 1. `tofu fmt -recursive -check`
 2. `tflint --recursive`
 3. `trivy config .`
-4. `modules/*.tf` 변경이 있으면 `tofu -chdir=modules/<name> test`
+4. `modules/**/*.tf` 변경이 있으면 `tofu -chdir=modules/<provider>/<name> test`
 
 추측 판정 금지. 실패는 그대로 보고하고 "수정 완료로 간주"하지 않는다. 위반 주석(TODO 잔존·test.skip)이 있으면 완료로 인정하지 않는다.

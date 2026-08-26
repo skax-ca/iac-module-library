@@ -6,7 +6,7 @@ VPC · 서브넷 · NAT · Flow Logs.
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/vpc?ref=vpc-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
 
   naming     = { workload = "demo", env = "dev", region_code = "an2" }
   cidr_block = "10.0.0.0/16"

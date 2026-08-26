@@ -6,7 +6,7 @@ private 클러스터 운영 지점(SSM 전용, 인바운드 0).
 
 ```hcl
 module "workbench" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/workbench?ref=workbench-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/workbench?ref=workbench-vX.Y.Z"
 
   naming    = { workload = "demo", env = "dev", region_code = "an2" }
   vpc_id    = module.vpc.vpc_id

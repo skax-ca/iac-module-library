@@ -62,7 +62,7 @@ locals {
   # 클러스터의 k8s·리전에 맞는 AWS 기본 버전**을 해석한다(upstream main.tf:759-778 실측).
   # 안전한 기본값이고, 위 두 축 어디에서도 깨지지 않는다.
   #
-  # 소비 루트에서 값을 얻는 법은 modules/eks-cluster/examples/enterprise/README.md 참조.
+  # 소비 루트에서 값을 얻는 법은 modules/aws/eks-cluster/examples/enterprise/README.md 참조.
 
   # vpc-cni는 **노드그룹 생성 전** 적용되어야 초기 노드부터 Pod가 pod 서브넷에 배치된다.
   before_compute_addons = ["vpc-cni"]

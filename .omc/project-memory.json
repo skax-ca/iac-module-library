@@ -114,6 +114,12 @@
       "source": "manual",
       "category": "docs-structure",
       "content": "2026-08-25 문서 리뷰 라운드로 docs/ 구조가 바뀌었다(이전 project-memory 기록 시점 이후). 변경된 소유권: (1) 문서 작성 규칙·문체 규칙은 conventions.md가 아니라 신규 docs/writing-style.md가 소유(적용범위: docs/*.md·전역 README.md·루트 CLAUDE.md). (2) 모듈 자체의 입력/출력 계약은 각 모듈의 README(terraform-docs 자동생성)가 소유, docs/module-catalog.md(구 module-index.md, 2026-08-25 PR #32로 개명)는 모듈 간 배선만 소유 — 신규 모듈 추가 시 이 파일엔 목록 한 줄 + 배선 설명만 필요. (3) 크로스 계정 TGW/RAM 설계의 \"왜 이렇게 됐는가\" 서술은 choose-your-path.md가 아니라 decisions.md의 「크로스 계정 네트워킹 (허브-스포크 TGW)」 카테고리가 소유(과거엔 choose-your-path.md에 사건 서술로 섞여 있었음). (4) addon을 계층 1/2/3 중 어디에 두는지 판정하는 실무 로직 전체(CR 스코프 판별 포함)는 choose-your-path.md 질문 C가 유일하게 소유 — overview.md는 \"왜 계층을 나누는가\"라는 원칙만 남기고 그리로 링크한다.\n다음에 이 저장소 docs를 다시 리뷰할 때: writing-style.md 규칙 1(\"첫 줄에 읽는 사람\")은 validate-doc-conventions.py가 기계 검증하지 않는 항목(문맥 판단 필요)이라 신규 파일 추가 시 누락되기 쉽다 — 사람이 별도로 확인해야 한다."
+    },
+    {
+      "timestamp": 1787704108657,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-26 — Azure 기반 구조 작업(PR #33·#34·Step5, azure-foundation 항목 참조) 실행 중 발견된 후속 과제 1건, ADR Follow-ups에는 미등재(docs/decisions.md는 \"결정\" 기록 형식이라 할 일 목록과 안 맞아 여기 남긴다): `.claude/rules/terraform.md`의 「강제 방식」 절(28~34행)도 `default_tags`를 전제해 AWS 전용인데 provider 표시가 없다. `.tf` 파일을 열 때 자동 로드되는 규칙 파일이라 Azure 모듈(vnet·aks-cluster 등) 착수 전에 conventions.md처럼 공통/AWS/Azure 3층으로 중립화해야 한다. PR #33 Step2 스코프가 conventions.md뿐이라 그때 손대지 않았다."
     }
   ],
   "userDirectives": [

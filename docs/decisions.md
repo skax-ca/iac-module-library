@@ -50,6 +50,8 @@
 | NAT `sku_name` 기본값을 **`StandardV2`로** | `StandardV2`는 preview다(SLA 대상 아님, 일부 리전 미지원). 배송 모듈이 기본값으로 preview 리소스를 고객사에 강제할 수 없다. 기본은 GA인 `Standard`를 유지한다 |
 | **NAT 수요 0개에 `precondition`** | `modules/aws/vpc`의 선례는 수요 0개를 조용히 스킵하고(`main.tf:70`), precondition은 `length(...) == 0`으로 그 케이스를 명시적으로 면제한다(`main.tf:149`). precondition을 걸면 모듈 기본값 조합에서 plan이 깨진다 |
 | `vpc`의 `az_count`·`az_selection`·`single_nat_gateway`·`eks_cluster_name` **이식** | Azure 서브넷은 존에 속하지 않고 태그도 지원하지 않는다 |
+| **AzAPI provider로 전환** | Azure Verified Modules(AVM) 공식 규격은 AzAPI를 요구하지만, 이 축에서 검토한 것은 "AVM 완성 모듈을 wrapper로 쓸지"(위 「AVM 커뮤니티 모듈 wrapper」 행)였지 provider 선택이 아니었다. azurerm은 AWS 쪽 `aws` provider와 대칭인 선택이고 문서·커뮤니티 친숙도가 높다. 전환은 근거가 쌓이면 별도로 재검토한다 |
+| **AVM 8종 인터페이스**(diagnostic_settings·role_assignments·lock·private_endpoints·managed_identities·customer_managed_key 등) **전부 채택** | 스크래치 얇은 모듈은 최소 계약만 갖고 나머지는 배포 루트가 배선한다는 이 저장소의 기존 경계(`module-catalog.md`의 "모듈이 서로를 직접 참조하지 않는다, 배포 루트가 연결한다")와 같은 원칙이다. 채택한 것은 `tags`뿐이다 |
 
 > **결정**: 첫 Azure 모듈 `vnet`을 `modules/azure/vnet/`에 스크래치 얇은 모듈로 설계했다.
 > 서브넷은 `azurerm_subnet` 별도 리소스, 리소스 그룹과 `location`은 주입, NSG·라우팅 테이블은

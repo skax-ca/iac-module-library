@@ -209,6 +209,9 @@ variable "nat_gateway_zones" {
   기본값 `Standard`는 GA다.
 - `nat_gateway_sku_name`·`nat_gateway_zones` 변경은 리소스 재생성을 강제해 아웃바운드 공용 IP가
   바뀐다. 고객사 방화벽 allowlist에 직결되므로 `description`과 README에 경고로 싣는다.
+- NSG 룰은 이 모듈이 만들지 않는다. 소비자는 `azurerm_network_security_rule` 별도 리소스로
+  얹는다. 이 모듈이 만든 NSG에 inline `security_rule` 블록을 함께 쓰면 규칙이 서로를 덮어쓴다
+  (`.claude/rules/terraform.md`의 네트워크 보안 규칙 원칙과 같은 함정, provider 공식 경고 대상).
 
 ### 출력
 

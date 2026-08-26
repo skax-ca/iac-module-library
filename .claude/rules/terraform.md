@@ -32,9 +32,13 @@ paths:
   aws `~> 6.0`(예제·프로젝트 루트)/`>= 6.0`(모듈),
   커뮤니티 모듈은 정확 핀. `.terraform.lock.hcl` 커밋 필수.
   ⚠️ registry 주소가 `registry.opentofu.org/...`인지 확인(PoC의 lock을 복사하면 안 된다).
-- **워크스페이스 간 데이터**: **결정적 네이밍 → `data.aws_*` 조회** 순으로 느슨하게 결합.
-  `terraform_remote_state`·원격 state 직접 참조는 지양한다.
-- **SG rule은 별도 리소스**(`aws_vpc_security_group_ingress_rule`), inline 금지·혼용 금지.
+- **워크스페이스 간 데이터**: **결정적 네이밍 → `data` 조회**(AWS `data.aws_*`, Azure `data.azurerm_*`)
+  순으로 느슨하게 결합. `terraform_remote_state`·원격 state 직접 참조는 지양한다.
+- **네트워크 보안 규칙은 별도 리소스로 만든다.** inline 블록과 혼용 금지. AWS는
+  `aws_vpc_security_group_ingress_rule`/`_egress_rule`(vs `aws_security_group`의 inline
+  `ingress`/`egress`), Azure는 `azurerm_network_security_rule`(vs `azurerm_network_security_group`의
+  inline `security_rule`). 두 provider 모두 inline과 별도 리소스 병용을 규칙 덮어쓰기 충돌로
+  공식 문서가 경고한다.
 
 ---
 

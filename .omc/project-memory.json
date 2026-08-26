@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787788800000,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-14 이관분 중 아직 미확인/미착수로 남은 항목만 유지(나머지는 아래 2026-08-21 실증 항목으로 대체됨, 상세 이력은 git log로 추적). (1) 실행 Role 권한 축소(구 iamr-ref-dev-an2-gha-exec-01=AdministratorAccess) — ⚠️ 이 리소스명은 workload=ref 시절 것, iac-reference-infra가 2026-08-13 ref→demo로 개명해 실제 이름이 바뀌었을 가능성 높음(재확인 필요). 착수 시점은 모듈 집합 안정 후. (2) VPC 열린 항목: TGW attachment·prefix list 소유권·IPAM 연계·Flow Logs 대상 확장(S3/Firehose)·private NAT 옵션·per-AZ NAT 개수 기준 — 전부 수요 발생 시 착수, 현재 차단 요인 아님, 미검증."
-    },
-    {
       "timestamp": 1787788800001,
       "source": "manual",
       "category": "open-items",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "azure-vnet",
       "content": "2026-08-26 — Azure vnet 모듈 실제 구현 완료, 브랜치 `feat/azure-vnet-module`, PR 오픈 예정. 설계(`.omc/plans/2026-08-26-azure-vnet-design.md` v5, 같은 날 앞서 완료)를 그대로 구현: 구현 라운드 착수 게이트 4건(tflint azurerm ruleset 등록 등) + `modules/azure/vnet/`(변수·리소스·출력·테스트 11건·예제·README). vpc 모듈의 코드 패턴을 이식했고, 로컬 게이트(fmt·tflint·trivy·tofu test·example validate·terraform-docs drift) 전부 실측 통과.\n\n⚠️ 구현 위임 과정에서 발견한 것(향후 fork 위임 시 참고): 첫 번째 fork 시도가 도구 호출 0회·5.9초 만에 \"완료\"라고 잘못 보고했다(실제로는 브랜치·파일·PR 전부 없음). git status/find로 직접 검증해서 잡아냄. 두 번째 fork는 \"반드시 첫 행동으로 실제 도구를 호출하라\"는 명시적 지시로 재실행해 실제로 133회 도구 호출·12분간 작업했으나, notepad/project-memory 갱신과 push·PR 직전에 응답이 문장 중간에서 끊기며 종료됐다(추정: 컨텍스트 소진, 37만 토큰 사용). 코드 자체 품질은 이번 세션에서 전부 재검증해 문제 없음을 확인했고, 남은 단계(notepad·project-memory 기록, push, PR 오픈)는 team-lead가 직접 마무리했다. **fork의 \"완료\" 보고는 실제 산출물(git status·파일 존재·검증 명령 재실행)로 반드시 재검증할 것** — 이번처럼 완전한 오보고와, 부분 완료 후 조용히 끊기는 두 실패 모드를 한 라운드에서 모두 겪었다.\n\n다음: PR CI 통과 확인 → merge 여부 → `vnet-v0.1.0` 태그 컷 여부는 사용자 결정 대상."
+    },
+    {
+      "timestamp": 1787781238021,
+      "source": "manual",
+      "category": "azure-vnet",
+      "content": "2026-08-26 — 위 azure-vnet 메모(구현 완료, PR 오픈 예정)를 잇는 최종 결말: PR #35 CI 전체 통과(공통 검증 게이트·문서 작성 규칙·약어 카탈로그 SSOT) 확인 후 사용자 승인받아 squash merge(`10d7d5a`) → `vnet-v0.1.0` 태그 컷·push. README.md 「현황」 표·`docs/module-catalog.md` 상단 모듈 개수 서술(\"Azure 0개\")이 stale해져 함께 갱신(`bfb0638`, 문서 전용 main 직접 커밋). 이 저장소는 이제 AWS 4개 + Azure 1개(vnet) 모듈을 보유. Azure vnet 설계→구현→릴리스 전체 라운드 종결.\n\n남은 것(다음 세션 후보, project-memory open-items 참조): (1) `nullable = false`(AWS 공식 팀 권고) — vpc·vnet 둘 다 미적용, 크로스컷 후속 과제 (2) `open-questions.md`의 stale 미결 항목(\"azurerm 태그 상속 메커니즘 확인\", 실제로는 conventions.md에 이미 해소됨) 정리 (3) 다음 Azure 모듈(예: aks-cluster) 설계 착수 여부는 사용자 판단."
     }
   ],
   "userDirectives": [

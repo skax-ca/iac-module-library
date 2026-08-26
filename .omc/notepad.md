@@ -1,7 +1,7 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(`decisions.md` 재제안 전 필독). 규약=`conventions.md`(이름 포맷: AWS=Name태그/Azure=name인자, provider중립화됨). 네이밍=`docs/naming/abbreviations/{aws,azure}.md`. 모듈경로=`modules/<provider>/<name>/`, 게이트글롭 `modules/*/*/`(CI stray검사 강제, 깊이 넓히면 미탐). 태그 평면이라 모듈명 provider가로질러 고유. `.tf`규칙=`.claude/rules/terraform.md`(conventions.md §2로 링크축소). **Azure 첫 모듈 vnet 설계 완료(main 커밋)**, `modules/azure/`는 미생성(문서만, .tf는 별도 브랜치). 구현게이트 4건=`.omc/plans/2026-08-26-azure-vnet-design.md`. 영구사실=project-memory.json.
+SSOT=이 repo. 엔진=OpenTofu(`decisions.md` 재제안 전 필독). 규약=`conventions.md`(이름 포맷: AWS=Name태그/Azure=name인자, provider중립화됨). 네이밍=`docs/naming/abbreviations/{aws,azure}.md`. 모듈경로=`modules/<provider>/<name>/`, 게이트글롭 `modules/*/*/`(CI stray검사 강제, 깊이 넓히면 미탐). 태그 평면이라 모듈명 provider가로질러 고유. `.tf`규칙=`.claude/rules/terraform.md`(SG rule 별도리소스 원칙 provider중립). **Azure 첫 모듈 `vnet` 릴리스 완료(`vnet-v0.1.0`)** — AWS 4개+Azure 1개. tflint azurerm ruleset 등록됨. 영구사실=project-memory.json.
 
 ## MANUAL(자동 로드 안 됨) 참조.
 

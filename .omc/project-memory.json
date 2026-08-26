@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1786695879043,
-      "source": "manual",
-      "category": "omc-tooling",
-      "content": "이 repo는 `.claude/skills/notepad-sync/SKILL.md`(프로젝트 스코프)를 갖고 있다 — 다시 만들지 말 것. 전역 session-start/end(dotfiles-claude)는 OMC를 전혀 모르고 \"notepad-sync라는 이름의 프로젝트 스킬이 있으면 호출, 없으면 건너뜀\"만 안다(2026-08-14 결정). notepad-sync 자체는 세션 종료 시 저장 판단을 손으로 재구현하지 않고 `oh-my-claudecode:remember`에 위임하며, Edit 직접 prepend 금지·Priority 500자·docs 사건서술 금지 같은 이 repo 고유 제약만 얹는다. 이 머신에서 OMC가 꺼져 있으면(`~/.claude/.omc-enabled` 없음) notepad-sync는 에러 없이 조용히 건너뛴다."
-    },
-    {
       "timestamp": 1787024623000,
       "source": "manual",
       "category": "opencode-compat",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "azure-vnet",
       "content": "2026-08-26 — Azure 첫 모듈 vnet 설계 완료(ralplan 4회 반복, 계획 `.omc/plans/2026-08-26-azure-vnet-design.md` v5). Planner→Architect→Critic 순차 검토를 4회 돌았고, 2·3회차 모두 Architect·Critic이 독립적으로 같은 CRITICAL 결함(2회차: \"빈 NSG=no-op\" 거짓 / 3회차: v2 정정 자체의 새 거짓 \"공용 LB 백엔드 끊김\"·Bastion이 만들 수 없는 예약이름 서브넷이라 근거 무효)에 도달 — 세 라운드 연속 \"검증 안 된 사실을 근거로 씀\" 패턴 재발. 4회차에서 사실관계는 전부 정확해지고 결함이 \"목록 완결성·인수조건 커버리지\"로 이동해 수확체감 신호로 라운드 종료(Architect 조건부승인, Critic ITERATE-인라인 둘 다 \"재설계 불필요\"). Planner가 주간 세션 한도로 마지막 병합을 못 해 team-lead가 직접 4회차 지적(Architect 5건+Critic MAJOR 5건)을 계획에 병합 후 v5로 확정.\n\n사용자가 G1(Flow Logs를 vnet-v0.1.0에서 제외)·G2(NSG 옵트인, 기본 false) 둘 다 계획 권고대로 확정, 즉시 Step1~5 실행 승인. 같은 세션에서 완주: `docs/naming/abbreviations/azure.md` 신설(약어 6종: vnet·snet·nsg·rt·ng·pip) · `docs/conventions.md` §2 리소스 이름 포맷 provider 중립화(AWS=Name태그/Azure=name인자) + Azure 강제방식에 제약리소스 표·krc 리전코드 추가 · `docs/module-catalog.md`에 vnet 배선절(예약이름 서브넷 AzureBastionSubnet·GatewaySubnet·AzureFirewallSubnet 3종은 이 모듈이 못 만든다는 한계 명시, 출력비대칭 3건) · `docs/decisions.md`에 ADR(기각안 10개) 신설. 각 Step 인수조건을 저장소에서 직접 실행 검증(예상대로 실패→작업후 통과 확인). 전부 main 직접 커밋 예정(문서 전용).\n\n실행 중 계획에 없던 함정 3건을 인수조건 실행이 즉시 잡음: (1) azure.md의 \"§2\" 절 인용이 writing-style.md 위반 → 링크로 정정 (2) 신규 작성 문장 2곳에 em-dash 혼입 → 마침표로 정정 (3) ADR을 decisions.md 기존 스타일(표 먼저, `> 결정:` 인용구 표 뒤)과 다르게 썼다가 재작성.\n\n⚠️ 다음 세션: (1) modules/azure/vnet/ 실제 .tf 구현은 이번 라운드 스코프 밖(문서만) — 착수하려면 별도 브랜치→PR(CLAUDE.md 브랜치 규칙) (2) 구현 착수 게이트 4건(tflint azurerm ruleset 등록 등, 계획 문서에 명세만 있고 미실행) 처리 필요 (3) `open-questions.md`의 \"azurerm provider 태그 상속 메커니즘 확인\" 미결 항목이 실제로는 conventions.md에 이미 해소돼 있는데 stale로 남아있음 발견 — 이번 라운드 스코프 밖이라 안 건드림, 정리 필요."
+    },
+    {
+      "timestamp": 1787731382716,
+      "source": "manual",
+      "category": "ralplan-ops",
+      "content": "2026-08-26 — ralplan 진행 중 Planner 에이전트가 세션/주간 한도에 반복 걸릴 때의 처리 패턴(azure-vnet 4회차에서 실측). Architect·Critic이 이미 독립적으로 \"재설계 불필요, 인라인 수정으로 충분\"이라 명시적으로 판정한 상태였고, 지적 사항이 전부 구체적 문안 교정(사실 문장 정정·인수조건 커버리지 보강) 수준이라 Planner를 기다리지 않고 team-lead(오케스트레이팅 세션)가 두 검토 결과를 직접 계획 파일에 병합했다(ralplan 스킬 6단계 \"개선사항 병합\"에 해당, Planner 전용으로 못박힌 단계가 아님). 판단 기준: ①두 검토자 모두 명시적으로 \"설계 재검토 불필요\" 선언 ②지적이 재설계가 아니라 문안 교정 수준 ③Planner가 장시간(세션 재개까지 몇 시간) 불가. 이 셋이 갖춰지지 않았다면(예: 축 판정 자체가 흔들리는 결함이 남았다면) Planner 복귀를 기다리거나 Planner 없이 진행하지 않는 편이 안전하다 — 이번 라운드는 마침 병합이 순수 기계적이라 위험이 낮았다.\n\n병합 후 실행(Step 1~5) 단계에서 계획 자체는 정확했지만 산출물이 실제 문서 게이트(validate-doc-conventions.py의 § 인용 금지·em-dash 금지)에 걸린 사례가 3건 나왔다 — 계획 문서(.omc/plans/)는 이 게이트 대상이 아니라 계획 안에서는 \"§2\" 같은 표기나 실수 em-dash가 안 걸렸는데, 실제 docs/ 산출물로 옮기는 순간 걸렸다. 다음에도 설계 계획 문서의 표기 관습(§ 인용 등)이 실제 산출물에 그대로 새어 들어가지 않는지, Step 실행마다 즉시 그 Step의 인수 조건을 돌려 확인할 것 — 이번처럼 즉시 잡히면 비용이 거의 없다."
     }
   ],
   "userDirectives": [

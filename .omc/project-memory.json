@@ -8,18 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787788800001,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-21 — 이전 open-items(2026-08-14~19 기록분, 크로스 계정 IAM 설계·GitOps hub 소유권·matchLabels 다중환경)을 iac-reference-infra·iac-platform-gitops 실물과 대조해 실증, 아래로 대체(구 항목들은 삭제):\n① iac-platform-gitops의 addons/baseline/{aws-load-balancer-controller,karpenter,kyverno}.yaml — matchLabels:{environment:dev} 하드코딩 문제 해소 확인. 현재 selector는 matchExpressions{key:environment,operator:Exists}로 environment 라벨이 있는 클러스터 전부(dev·hub·향후 spoke)를 매칭 — 다중환경 자동 팬아웃 이미 구현됨.\n② 크로스 계정 IAM(cross-account-trust-role·eks-cluster 확장)은 태그 v0.8.0/v0.1.0 이후 iac-reference-infra 실apply에서 sts:TagSession 누락 버그 발견 → 이 repo PR #29로 수정, eks-cluster-v0.9.0·cross-account-trust-role-v0.2.0으로 재태그(v0.8.0/v0.1.0은 구버전, 신규 소비는 v0.9.0/v0.2.0 사용). iac-reference-infra에서 7개 Application Synced/Healthy로 크로스 계정 ArgoCD 인증까지 실제 검증 완료.\n③ iac-reference-infra의 spoke(dev) 환경은 배포→크로스 계정 인증 검증→teardown 리허설까지 완주(teardown-verify.sh exit 0, 잔존물 없음). 그 과정에서 ArgoCD cluster-secret 통삭제 시 cascade delete가 안 되는 버그 발견·해결(라벨 먼저 제거 → Secret 삭제 2단계 순서), docs/04-spoke-lifecycle.md 10절에 반영 완료(commit 76a0e36·9fdec11). hub TGW 잔존 라우트 동작도 실측(13절, commit 797be6b) — attachment 삭제 시 자동 blackhole, 다음 hub apply로 자동 정리.\n현재 상태: spoke는 해체됨, 재배포 대기. 다음 착수는 iac-reference-infra 쪽(04-spoke-lifecycle.md 절차로 live/dev/{networking,eks} 재apply) — 그 repo 자체 project-memory/notepad가 SSOT이므로 여기서는 진행상황을 재중계하지 않는다(repo 경계 원칙)."
-    },
-    {
-      "timestamp": 1787290784887,
-      "source": "manual",
-      "category": "team-doc",
-      "content": "2026-08-21 — 팀 공유용 Notion 문서 \"AI를 활용한 IaC Asset 만들기\"를 3단계 구조로 작성 중(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12). 1단계(AI 코딩 에이전트: Claude Code MCP/OMC 플러그인/전용 스킬, 프로젝트 규칙, Conventions)와 2단계(IaC 도구와 설계: OpenTofu 배경·Terraform Enterprise 대비 도구선택, TFC/TFE에 없는 기능을 OSS로 직접 푼 설계 3사례 — Name태그 data source 조회·SG rule 개별 리소스화·TGW RAM 수락을 CI 단계로 이관) 완료. 3단계(EKS GitOps 패턴, 관심자 대상 세션)는 미착수. 다음 세션에서 이어서 작성 시 이 URL로 계속.\n⚠️ 이 문서를 Notion MCP로 편집할 때 한글을 \\uXXXX로 손계산해 넣지 말 것(글로벌 메모리 feedback_notion_hangul_manual_escape_bug 참조) — 여러 차례 다른 글자로 깨졌었다. 직접 타이핑하고 편집 후 notion-fetch로 재조회 대조할 것."
-    },
-    {
       "timestamp": 1787291216633,
       "source": "manual",
       "category": "team-doc",
@@ -126,6 +114,18 @@
       "source": "manual",
       "category": "azure-vnet",
       "content": "2026-08-26 — 위 azure-vnet 메모(구현 완료, PR 오픈 예정)를 잇는 최종 결말: PR #35 CI 전체 통과(공통 검증 게이트·문서 작성 규칙·약어 카탈로그 SSOT) 확인 후 사용자 승인받아 squash merge(`10d7d5a`) → `vnet-v0.1.0` 태그 컷·push. README.md 「현황」 표·`docs/module-catalog.md` 상단 모듈 개수 서술(\"Azure 0개\")이 stale해져 함께 갱신(`bfb0638`, 문서 전용 main 직접 커밋). 이 저장소는 이제 AWS 4개 + Azure 1개(vnet) 모듈을 보유. Azure vnet 설계→구현→릴리스 전체 라운드 종결.\n\n남은 것(다음 세션 후보, project-memory open-items 참조): (1) `nullable = false`(AWS 공식 팀 권고) — vpc·vnet 둘 다 미적용, 크로스컷 후속 과제 (2) `open-questions.md`의 stale 미결 항목(\"azurerm 태그 상속 메커니즘 확인\", 실제로는 conventions.md에 이미 해소됨) 정리 (3) 다음 Azure 모듈(예: aks-cluster) 설계 착수 여부는 사용자 판단."
+    },
+    {
+      "timestamp": 1787789619157,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-27 — 위 azure-vnet 메모(2026-08-26)가 남긴 후속 과제 (1)(\"nullable = false\" 크로스컷)을 해소한다. vpc·vnet 양쪽 변수 계약에 nullable = false 적용 완료: docs/decisions.md에 신규 ADR(\"변수 계약 (nullable)\") 신설, .claude/rules/terraform.md에 판정 기준(default가 null 자체인 변수는 제외) codify, 각 모듈에 실제 대체 동작을 증명하는 회귀 테스트 1건씩 추가. 근거는 실측: 양쪽 모듈 모두 merge(var.tags, {...})가 다수 있어 소비자가 tags = null을 명시하면 크래시했다. PR #36 CI 3게이트 전부 통과 후 squash merge(커밋 34a2e2d), 브랜치 정리 완료.\n\n⚠️ 미완료: 사용자가 \"merge만 지금, 태그는 나중에\"로 결정 — vpc-v0.5.0·vnet-v0.2.0 태그 컷은 아직 안 함. 다음 세션에서 태그 컷 여부/시점 확인할 것.\n\n같은 세션에서 azure-vnet 메모가 남긴 후속 과제 (2)(open-questions.md의 \"azurerm 태그 상속 메커니즘 확인\" stale 미결 항목)도 해소 — 실제로는 conventions.md에 이미 해소돼 있던 걸 확인하고 .omc/plans/open-questions.md에서 \"해소된 항목\"으로 이동(이 파일은 gitignore 대상이라 git 커밋과 무관).\n\n남은 것(azure-vnet 메모 원본 참조): 후속 과제 (3) 다음 Azure 모듈(예: aks-cluster) 설계 착수 여부는 여전히 사용자 판단 대상."
+    },
+    {
+      "timestamp": 1787790667557,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-27 (같은 세션, 이어서) — 위 nullable = false 크로스컷 메모(vpc·vnet, PR #36)에 스코프 갭이 있었다. 사용자가 \"나머지 리소스들은 상관없어?\"라고 지적해 확인한 결과, eks-cluster·workbench·cross-account-trust-role 세 모듈도 전부 merge(var.tags, ...) 패턴과 nullable 선언 0개라는 동일한 크래시 위험을 갖고 있었다 — docs/decisions.md의 ADR이 이미 일반 규칙(\"전 모듈\"이 아니라 그렇게 읽힐 수 있는 문구)으로 써놓고 구현은 2개 모듈에만 했던 것이 실수였다.\n\n해소: 세 모듈에 확장 적용(eks-cluster 27/27 전부·workbench 12/20·cross-account-trust-role 6/6 전부), docs/decisions.md ADR을 5개 모듈 전체 적용 범위로 갱신(문서-구현 불일치 해소), 각 모듈에 회귀 테스트 추가. PR #37로 오픈(CI 확인 중).\n\n⚠️ 프로세스 실수 1건 발견·수정: PR #36 merge 후 main으로 돌아온 채로 이 세 모듈 .tf를 **브랜치 없이 직접 수정**했다가 CLAUDE.md 브랜치 규칙 위반임을 뒤늦게 알아채 새 브랜치(feat/nullable-false-crosscut-remaining-modules)로 옮겨 커밋했다. 교훈: PR merge 직후 이어서 다른 .tf 작업을 할 때도 반드시 새 브랜치부터 만들 것 — \"방금 merge했으니 지금은 main\"이라는 상태를 놓치기 쉽다.\n\nvpc-v0.5.0·vnet-v0.2.0 태그 컷은 여전히 미결(이전 메모 참조). PR #37이 merge되면 eks-cluster·workbench·cross-account-trust-role의 태그 컷 여부도 같이 사용자에게 확인할 것 — 지금까지 결정한 건 \"5개 모듈 다 태그는 나중에 한 번에\" 정도이지 구체 시점은 아니다."
     }
   ],
   "userDirectives": [

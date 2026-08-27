@@ -24,7 +24,7 @@
 | purpose | 자원의 상세 용도 | `main`, `app`, `web` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **6개** 약어, 1개 카테고리.
+- 총 **9개** 약어, 4개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
@@ -60,6 +60,9 @@
 
 | 날짜 | 약어 | 리소스 | 근거 |
 |------|------|--------|------|
+| 2026-08-27 | `rg` | 리소스 그룹 (`azurerm_resource_group`, `Microsoft.Resources/resourceGroups`) | `aks-reference-infra`의 `bootstrap/`(자격증명 계층)이 실제 Azure 실행 검증 중 필요해 등재. CAF 표에 정확히 `rg`로 등재돼 있어 그대로 채택 |
+| 2026-08-27 | `st` | Storage Account (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`) | 위와 같은 세션, state 저장소 계층에 필요. CAF 표에 정확히 `st`로 등재돼 있어 그대로 채택. ⚠️ Storage Account 이름은 하이픈을 전혀 쓸 수 없는 Azure 물리 제약(3~24자, 소문자+숫자만)이 있어, A.3 표의 "Name 예시"는 토큰 순서만 보여주는 것이고 실제 이름은 하이픈 없이 이어붙인다 |
+| 2026-08-27 | `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | 위와 같은 세션, GitHub Actions OIDC 신원에 필요. **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 ARM 리소스가 아니라 Microsoft Graph 객체라 애초에 그 표의 대상이 아니다(실측 확인, 2026-08-27). 이 카탈로그의 첫 non-ARM 등재 사례다. 후보로 `app`(Azure Web App/`Microsoft.Web/sites`이 이미 CAF에서 이 약어를 쓰므로 향후 등재 시 충돌 예약, 기각), `aadapp`(레거시 이름 Azure AD 기반, 기각. Microsoft가 Entra ID로 명칭을 통일)을 검토했고, "Entra + Application"의 `entapp`(6자, 등재 규칙 4의 길이 한도 이내)을 채택했다. Service Principal은 `az ad sp create --id <appId>`로 App Registration의 displayName을 그대로 물려받아 별도 이름 인자가 없으므로, 위 "종속 객체" 규약과 같은 이유로 새 약어를 만들지 않는다 |
 
 ## A.1 Network (6)
 
@@ -76,12 +79,44 @@
 `purpose` 자리에 쓴다(예: `app`). `snet`은 AWS 카탈로그에도 있으나, 약어 고유성은 파일 안에서만
 판정하므로 클라우드 간 재사용은 허용된다.
 
+## A.2 Management and governance (1)
+
+| L0 | L2 리소스 | 약어 | Name 예시 |
+|----|-----------|------|-----------|
+| Resource Manager | 리소스 그룹 (`azurerm_resource_group`) | `rg` | rg-demo-prd-krc-workload-01 |
+
+## A.3 Storage (1)
+
+| L0 | L2 리소스 | 약어 | Name 예시 |
+|----|-----------|------|-----------|
+| Storage | Storage Account (`azurerm_storage_account`) | `st` | st-demo-prd-krc-main-01 |
+
+⚠️ Storage Account 이름은 3~24자, **소문자+숫자만, 하이픈 불가**한 Azure 물리 제약이 있다.
+위 "Name 예시"는 토큰 순서(`resourcetype`-`workload`-`env`-`region`-`purpose`-`serial`)만
+보여주는 것이고, 실제 이름은 `stdemoprdkrcmain01`처럼 하이픈 없이 이어붙인 뒤 24자 한도에
+맞춰 축약한다.
+
+## A.4 Identity (1)
+
+| L0 | L2 리소스 | 약어 | Name 예시 |
+|----|-----------|------|-----------|
+| Microsoft Entra ID | 앱 등록 (`azuread_application`) | `entapp` | entapp-demo-prd-krc-gha-01 |
+
+⚠️ 이 항목은 **CAF 리소스 약어표에 없다**(그 표는 ARM provider namespace가 있는 리소스만
+다루는데, 앱 등록은 Microsoft Graph 객체라 ARM 리소스가 아니다). 이 카탈로그에서 CAF 표를
+그대로 못 따른 첫 사례이며, 후보 검토와 채택 근거는 아래 개정 이력 표 참고. Service
+Principal은 App Registration의 `displayName`을 그대로 물려받는 종속 객체라 별도 약어가
+없다(위 "종속 객체" 규약).
+
 ## 카운트 요약
 
 | # | 카테고리 | 개수 |
 |---|---|---|
 | A.1 | Network | 6 |
-| | **합계** | **6** |
+| A.2 | Management and governance | 1 |
+| A.3 | Storage | 1 |
+| A.4 | Identity | 1 |
+| | **합계** | **9** |
 
 > ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

@@ -35,6 +35,32 @@
 
 ---
 
+## 변수 계약 (nullable)
+
+| 하지 말 것 | 이유 |
+|---|---|
+| **모든 변수**에 무차별 `nullable = false` | default가 `null` 자체인 변수(`az_selection`·`eks_cluster_name`·`flow_logs_kms_key_id`·`nat_gateway_zones`)는 그 `null`이 "값 없음"이 아니라 "이 옵션을 자연값/미지정 상태로 둔다"는 의도된 값이다. `nullable = false`는 호출자가 명시적 `null`을 넘겼을 때 default로 대체하는 기능인데, default 자체가 `null`이면 대체해도 결과가 다시 `null`이라 모순이거나 아무 효과가 없다 |
+| `validation` 블록으로 `null` 거부를 손으로 재구현 | 언어가 이미 `nullable` 인자로 제공하는 기능을 중복 구현하는 것이고, 기본 에러 메시지(*"value must not be null"*)보다 나을 게 없다 |
+| `subnet_groups` 내부 `optional()` 필드까지 이번 크로스컷 대상에 포함 | 이건 변수 블록의 `nullable`과 다른 메커니즘(object type의 `optional()` 속성 기본값)이다. 스코프를 top-level `variable` 블록에 한정한다 |
+
+> **결정**: default가 **null이 아닌** 변수와 **필수(default 없음)** 변수에 `nullable = false`를 추가한다.
+> `modules/aws/vpc`·`modules/azure/vnet` 양쪽에 적용했다(vpc 17개 중 14개, vnet 12개 중 9개).
+> 근거는 실측: 양쪽 모듈 모두 `merge(var.tags, {...})`가 다수 있어(vpc 7곳·vnet 2곳), 소비자가
+> `tags = null`을 명시하면 현재는 거기서 "argument must not be null"로 크래시한다.
+> `az_count`(`min()` 인자)·`deletion_protection`(`prevent_destroy` 메타 인자)도 같은 위험군이다.
+> `nullable = false`면 이런 경우 크래시 대신 default로 조용히 대체되거나(선택 변수), 변수
+> 선언부 이름을 가리키는 명확한 경계 에러가 된다(필수 변수). 근거 문서:
+> [OpenTofu Input Variables](https://opentofu.org/docs/language/values/variables/)·
+> [AWS 팀 Terraform 표준](https://aws-ia.github.io/standards-terraform/).
+>
+> **파급**: 순수하게 준수하는 소비자(명시적 `null`을 넘기지 않는 소비자)에게는 동작 변화가 없다.
+> 명시적으로 `null`을 넘기던 소비자만 영향받는다(크래시 → default 대체, 또는 더 명확한 에러
+> 메시지). 이 저장소의 버전 정책(`docs/conventions.md`)상 파괴 여부와 무관하게 마이너를 컷한다.
+> 판정 기준(default가 `null` 자체인지 여부)은 `.claude/rules/terraform.md`에 codify해 신규
+> 변수 작성 시에도 같은 기준이 적용되게 한다.
+
+---
+
 ## Azure 네트워킹 (vnet)
 
 | 하지 말 것 | 이유 |

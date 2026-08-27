@@ -17,12 +17,14 @@ variable "naming" {
     env         = string
     region_code = string
   })
+  nullable = false
 }
 
 variable "purpose" {
   description = "Name 태그의 purpose 토큰. VPC 자신과 IGW·Flow Logs 리소스에 쓰인다(서브넷은 그룹 키를 쓴다)."
   type        = string
   default     = "main"
+  nullable    = false
 }
 
 variable "tags" {
@@ -33,6 +35,7 @@ variable "tags" {
   EOT
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 variable "vpc_enabled" {
@@ -43,6 +46,7 @@ variable "vpc_enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "deletion_protection" {
@@ -56,6 +60,7 @@ variable "deletion_protection" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 
   validation {
     # 엔진도 prevent_destroy로 이 조합을 막지만, 그 메시지는 우리 변수 이름으로 해법을 알려주지 않는다.
@@ -70,6 +75,7 @@ variable "deletion_protection" {
 variable "cidr_block" {
   description = "VPC primary CIDR."
   type        = string
+  nullable    = false
 }
 
 variable "secondary_cidr_blocks" {
@@ -80,6 +86,7 @@ variable "secondary_cidr_blocks" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 }
 
 variable "az_count" {
@@ -89,6 +96,7 @@ variable "az_count" {
   EOT
   type        = number
   default     = 3
+  nullable    = false
 }
 
 variable "az_selection" {
@@ -124,6 +132,7 @@ variable "subnet_groups" {
     eks_role   = optional(string)
     extra_tags = optional(map(string), {})
   }))
+  nullable = false
 
   validation {
     condition = alltrue([
@@ -153,6 +162,7 @@ variable "enable_nat_gateway" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "single_nat_gateway" {
@@ -162,6 +172,7 @@ variable "single_nat_gateway" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "eks_cluster_name" {
@@ -179,6 +190,7 @@ variable "flow_logs_enabled" {
   description = "VPC Flow Logs 생성 여부. 대상은 CloudWatch Logs로 고정한다."
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "flow_logs_retention_days" {
@@ -188,6 +200,7 @@ variable "flow_logs_retention_days" {
   EOT
   type        = number
   default     = 30
+  nullable    = false
 
   validation {
     # aws provider가 허용하는 값 전체다 — 임의로 늘리거나 줄이지 않는다.
@@ -203,6 +216,7 @@ variable "flow_logs_traffic_type" {
   description = "Flow Logs가 수집할 트래픽 종류."
   type        = string
   default     = "ALL"
+  nullable    = false
 
   validation {
     condition     = contains(["ACCEPT", "REJECT", "ALL"], var.flow_logs_traffic_type)

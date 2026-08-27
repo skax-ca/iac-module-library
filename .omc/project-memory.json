@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787532580152,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-24 — /stop-slop으로 \"이 프로젝트에 작성된 모든 문서를 검토해줘\" 요청 중 세션 종료로 중단. 대상 범위 확정함: docs/06-conventions.md §8이 규정하는 문서 전체(docs/*.md 9개 + README.md 4곳[루트·docs·examples·modules] + AGENTS.md 4곳 + 루트 CLAUDE.md, 총 18개 파일).\n🔴 발견한 충돌: stop-slop 규칙(\"No em dashes\")이 이 저장소 자체의 기존 문서 규약(docs/06-conventions.md §8)과 정면 충돌 — 그 규약 자체가 em-dash(—)를 구조적 장치로 적극 사용 중(예: 06-conventions.md 153행). 사용자에게 3가지 처리 방식(① em-dash는 유지하고 나머지 규칙만 적용 ② stop-slop 그대로 적용하고 06-conventions.md도 함께 개정 ③ 검토만 하고 위반 목록만 보고, 수정은 안 함) 중 선택을 물었으나 답변 전에 세션종료로 중단됨 — 다음 세션 시작 시 이 질문부터 이어갈 것."
-    },
-    {
       "timestamp": 1787548456487,
       "source": "manual",
       "category": "open-items",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "docs-structure",
       "content": "2026-08-27 (이어서) — 사용자가 module-catalog.md의 \"연결 예시\" 절(AWS 3모듈 체인 손작성 HCL)도 지적: 모듈이 늘수록 계속 갱신해야 하는데 다 같은 패턴이라 정보 가치가 낮다는 지적. 확인 결과 예상보다 더 근본적인 문제였음 — 이 절이 담은 \"vX.Y.Z 자리표시자·ref=main 금지\" 캐비어트 문구가 README.md(단일 모듈 예시)·conventions.md(단일 모듈 예시)에도 각각 거의 그대로 존재해 3중 중복이었고, 그중 module-catalog.md의 3모듈 체인 버전만 CI 미검증 손작성 코드였다(vnet 인터페이스 초안과 같은 실패 모드).\n\n해소: `## 연결 예시`(HCL 43줄 + 캐비어트 blockquote) 삭제, `modules/aws/eks-cluster/examples/enterprise/`(CI가 매 커밋 tofu validate) 링크로 교체(커밋 1d7275b). module-catalog.md는 이제 265→160줄(오늘 세션 시작 대비).\n\n⚠️ 후속 후보(미착수): README.md·conventions.md의 단일 모듈 source 예시가 서로 캐비어트 문구를 중복 보유 — 이번엔 사용자가 지적한 module-catalog.md만 처리했다. 통합하려면 한쪽(README.md가 자연스러운 위치)만 남기고 conventions.md는 링크로 대체하는 방향이 유력.\n\n패턴 갱신: \"설계 시점 스냅샷이 구현 후 실물과 벌어진다\"는 위험은 단일 모듈 인터페이스뿐 아니라 다중 모듈 배선 예시에도 똑같이 적용된다 — 손으로 쓴 HCL이 CI 검증 대상(예제 디렉터리)과 겹치는 내용을 담고 있으면, 문서에는 코드를 복사하지 말고 그 예제로 링크하는 것이 기본값이어야 한다."
+    },
+    {
+      "timestamp": 1787794879042,
+      "source": "manual",
+      "category": "docs-structure",
+      "content": "2026-08-27 (이어서) — 사용자 지적: \"배선\"(모듈 output이 다른 모듈 input으로 들어가는 것을 가리키는 이 저장소의 기존 용어)이 한국 IT 문서에서 안 쓰는 직역이라는 지적. 확인해보니 module-catalog.md·conventions.md·decisions.md·CLAUDE.md·.claude/rules/terraform.md 5개 파일 9곳에 이미 퍼져 있던 기존 용어였다(내가 오늘 도입한 게 아니라 그 위에 같은 패턴으로 얹은 것). \"연동\"으로 전면 교체 완료(커밋 c6986ab).\n\n**향후 규칙**: 이 저장소에서 \"모듈 A의 output이 모듈 B의 input으로 들어간다\"는 개념을 가리킬 때는 \"연동\"을 쓴다. \"배선\"은 재도입하지 않는다. module-catalog.md의 정의 문구 자체(\"이 문서는 모듈 간 연동만 다룬다\")가 이 용어의 SSOT다."
     }
   ],
   "userDirectives": [

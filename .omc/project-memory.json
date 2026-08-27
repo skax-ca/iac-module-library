@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787532574772,
-      "source": "manual",
-      "category": "skill-tooling",
-      "content": "2026-08-24 — 글로벌 스킬 정리: terraform-engineer·terraform-module-library를 글로벌(~/.agents/skills, dotfiles-claude 동기화 대상)에서 제거(이 프로젝트 어디에도 참조 이력 없음 확인 후). terraform-style-guide는 CLAUDE.md:168이 .tf 작성 시 명시적으로 요구하므로 프로젝트 스코프로 이전(.claude/skills/terraform-style-guide 심볼릭 링크 + .agents/skills/terraform-style-guide 실물 + skills-lock.json, 커밋 8e20117). 같은 세션에 hardikpandya/stop-slop(prose에서 AI 문체 패턴 제거)도 글로벌로 신규 설치·dotfiles 반영 완료.\n⚠️ 작업 중 `npx skills remove <name> -g -y`가 스코프 격리를 어기고 같은 이름의 프로젝트 스코프 설치본까지 삭제하는 버그를 실측함(상세는 이 저장소 auto-memory feedback_npx_skills_remove_scope_leak 참조) — 재발생 시 재설치 후 파일 실물+심볼릭 링크 유효성(`find`, `test -e`)을 반드시 재검증할 것."
-    },
-    {
       "timestamp": 1787532580152,
       "source": "manual",
       "category": "open-items",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "docs-structure",
       "content": "2026-08-27 — 지난 azure-vnet-design ralplan(2026-08-26) 라운드가 남긴 docs/ 산출물(naming/abbreviations/azure.md 신설, conventions.md·decisions.md·module-catalog.md 변경)을 writing-style.md 규칙 및 다른 모듈 절과의 일관성 기준으로 사후 리뷰. 기계 검증(validate-doc-conventions.py·validate-abbreviations.py)은 전부 통과했지만 사람이 봐야 잡히는 4건 발견·수정(커밋 3cbd7af):\n\n1. module-catalog.md의 vnet 절이 이 파일 자신의 원칙(\"모듈 간 배선만 다룬다, 입력·출력은 README가 소유\")을 어기고 있었음 — 설계 단계 48줄 인터페이스 초안 HCL을 실물 구현 후에도 안 지웠고(이미 subnet_groups default 등에서 drift 시작), README 링크 자체가 없었음(다른 4개 모듈 절은 전부 링크만 있음). HCL·계약 상세·출력 목록 삭제, README 링크로 교체. 이 문제는 2026-08-25 module-index.md→module-catalog.md 개명 라운드가 이미 한 번 고친 \"README와 이중 관리\" 패턴의 재발이었다 — 새 모듈 카탈로그 절 작성 시 \"설계 단계 산출물을 구현 후에도 안 지웠는지\" 체크리스트 항목으로 남길 만하다.\n2. decisions.md vnet ADR \"파급\" 문단이 이미 끝난 일(\"구현 라운드는 착수 게이트 4건을 같은 PR에서 처리해야 한다\")을 미래형으로 방치 — writing-style.md 규칙 7 위반. 17줄 단일 산문 밀도도 형제 ADR과 대비돼 표로 재구성.\n3. naming/abbreviations/azure.md가 자신의 등재 규칙 6번이 가리키는 \"개정 이력\" 절 자체가 없었음(형제 파일 aws.md는 있음) — 같은 형식으로 신설.\n4. conventions.md 리소스 이름 포맷 예시가 \"provider 중립화\"라면서 AWS 예시만 셋이라 vnet 예시 추가.\n\n패턴: ralplan 산출물은 설계 시점 기준으로 최적화돼 있어 구현·릴리스가 끝난 뒤 한 번 더 \"이 문서가 지금도 유효한 상태를 기술하는가\"로 재검토할 필요가 있다. 특히 \"인터페이스 초안\"·\"착수 게이트\" 같은 설계 단계 전용 표현이 남아있는지가 신호다."
+    },
+    {
+      "timestamp": 1787793594978,
+      "source": "manual",
+      "category": "docs-structure",
+      "content": "2026-08-27 (이어서) — 사용자가 module-catalog.md의 \"연결 예시\" 절(AWS 3모듈 체인 손작성 HCL)도 지적: 모듈이 늘수록 계속 갱신해야 하는데 다 같은 패턴이라 정보 가치가 낮다는 지적. 확인 결과 예상보다 더 근본적인 문제였음 — 이 절이 담은 \"vX.Y.Z 자리표시자·ref=main 금지\" 캐비어트 문구가 README.md(단일 모듈 예시)·conventions.md(단일 모듈 예시)에도 각각 거의 그대로 존재해 3중 중복이었고, 그중 module-catalog.md의 3모듈 체인 버전만 CI 미검증 손작성 코드였다(vnet 인터페이스 초안과 같은 실패 모드).\n\n해소: `## 연결 예시`(HCL 43줄 + 캐비어트 blockquote) 삭제, `modules/aws/eks-cluster/examples/enterprise/`(CI가 매 커밋 tofu validate) 링크로 교체(커밋 1d7275b). module-catalog.md는 이제 265→160줄(오늘 세션 시작 대비).\n\n⚠️ 후속 후보(미착수): README.md·conventions.md의 단일 모듈 source 예시가 서로 캐비어트 문구를 중복 보유 — 이번엔 사용자가 지적한 module-catalog.md만 처리했다. 통합하려면 한쪽(README.md가 자연스러운 위치)만 남기고 conventions.md는 링크로 대체하는 방향이 유력.\n\n패턴 갱신: \"설계 시점 스냅샷이 구현 후 실물과 벌어진다\"는 위험은 단일 모듈 인터페이스뿐 아니라 다중 모듈 배선 예시에도 똑같이 적용된다 — 손으로 쓴 HCL이 CI 검증 대상(예제 디렉터리)과 겹치는 내용을 담고 있으면, 문서에는 코드를 복사하지 말고 그 예제로 링크하는 것이 기본값이어야 한다."
     }
   ],
   "userDirectives": [

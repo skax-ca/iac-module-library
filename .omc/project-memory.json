@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787549119775,
-      "source": "manual",
-      "category": "repo-topology",
-      "content": "2026-08-24 — sibling repo 개명 확정(사용자 통보, 이미 완료된 사실): `iac-reference-infra`→`eks-reference-infra`, `iac-platform-gitops`→`eks-platform-gitops`. 계기: 이 repo(`iac-module-library`)를 향후 AWS뿐 아니라 Azure도 수용하는 멀티클라우드 구조로 확장할 예정이라, 기존 EKS 전용 sibling repo 2곳의 이름에서 \"iac\"(범용) 대신 \"eks\"(패턴 한정)를 명시해 역할을 분명히 했다. 향후 `aks-reference-infra`·`aks-platform-gitops`도 신설 예정(Azure/AKS 패턴용). Azure 모듈은 별도 repo가 아니라 이 `iac-module-library`에 함께 추가할 계획 — repo 이름 자체는 클라우드 중립을 유지한다는 뜻.\n`.omc/plans/2026-08-24-docs-modules-restructure.md`(docs/modules 재구성 계획, v19)는 이 개명을 이미 반영(본문 레포명 전체 치환, 개정 이력 표만 과거 기록으로 보존). 이 계획의 목표 구조(`docs/architectures/eks-gitops-hub-spoke/`처럼 패턴명을 디렉토리로 격리)가 멀티 패턴·멀티 클라우드 확장에 이미 어느 정도 대비돼 있다 — 다음에 Azure/AKS 패턴을 추가할 때는 `docs/architectures/aks-gitops-.../` 형태로 나란히 추가하면 될 가능성이 높다(단, 실제 설계는 그 시점에 별도로 해야 한다 — 지금 이걸 근거로 미리 구조를 짜지 않는다, CLAUDE.md 설계 우선 원칙).\n⚠️ 미착수: `modules/` 도메인 트리(networking/compute/security)와 네이밍 약어 카탈로그(`docs/aws-naming-abbreviations.md`)는 현재 AWS 전용 — Azure 모듈 추가 시 카탈로그 파일명·구조 자체를 어떻게 클라우드 중립화할지(예: provider별 하위 디렉토리, 또는 `docs/naming-abbreviations/aws.md`+`azure.md` 분리) 아직 설계되지 않았다. 재구성 계획(v19) 실행 완료 후, Azure 착수 전에 별도 설계 문서가 필요하다."
-    },
-    {
       "timestamp": 1787549294068,
       "source": "manual",
       "category": "open-items",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-27 — v1.0.0 이전 버전 정책 리서치(SemVer 공식 스펙·HashiCorp 모듈 가이드·모노레포 컴포넌트별 버전 관리 패턴 대조) 완료. 결론: 핵심 정책(0.y.z 전부 마이너로 흡수, 컴포넌트별 접두사 태그, 버전 혼재 허용, ref=main 금지)은 전부 모범사례와 일치 — 개선 불필요. 부수 발견 1건은 즉시 해소: `docs/writing-style.md`가 \"이력은 CHANGELOG.md가 소유\"라 선언했는데 실제 그 파일이 없었음(실제 이력은 이미 각 모듈 annotated git 태그 메시지가 담당 중) → 문서를 실물에 맞게 정정(커밋 0135b2c, main 직접).\n\n**사용자 결정(다음 세션에서 트리거할 것)**: 각 모듈이 `1.0.0`을 컷하는 시점에 정식 `CHANGELOG.md` 파일 도입을 재검토하기로 함(리서치 당시 제안한 3안 중 지금은 보류한 안). 판단 근거는 그때 다시 채워야 함 — 지금은 \"annotated 태그 메시지로 충분, 소비자 수가 적어 GitHub Release/CHANGELOG.md 추가 관리 비용이 실익보다 크다\"는 판단이었지만, 1.0.0 시점엔 소비자 수·안정성 기대가 달라질 수 있어 재평가가 필요하다.\n\n미결(과거 메모 이월, 여전히 미해소): `conventions.md`의 \"릴리스된 태그를 옮기지 않는다, 예외는 소비자가 0일 때뿐\" 조항에 \"소비자가 0인지 판정하는 기준\"이 없음. 지금까지 이 예외가 실사용된 적 없어 문제가 드러나지 않았을 뿐. 다음에 이 예외를 근거로 태그 이동을 검토할 일이 생기면 먼저 판정 기준부터 정의할 것."
+    },
+    {
+      "timestamp": 1787805437008,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-27 — 위 두 메모(PR #36·#37, \"5개 모듈 태그 컷 미결\")를 종결한다. 사용자 지시로 태그 5개 전부 컷·push 완료: vpc-v0.5.0·vnet-v0.2.0·eks-cluster-v0.11.0·workbench-v0.9.0·cross-account-trust-role-v0.4.0(전부 현재 HEAD `d508ccc` 기준, nullable=false 크로스컷 merge 이후 해당 5개 모듈 경로에 추가 변경 없음을 git log로 먼저 확인). annotated 태그 메시지는 기존 컨벤션(vpc-v0.1.0~0.4.0 스타일)을 따라 \"PR 번호 + 변경 요지\" 형식으로 작성. push 후 vpc·cross-account-trust-role 두 곳에서 `git show <tag>:.../variables.tf`로 nullable = false가 실제로 그 커밋 스냅샷에 존재함을 실물 대조 확인(과거 azure-vnet 세션에서 fork가 태그 없이 완료 보고한 사고를 겪은 뒤 생긴 습관 — 태그 컷도 \"만들었다\"와 \"실제로 그 내용을 가리킨다\"를 항상 분리 검증).\n\nREADME.md의 \"현황\" 표는 이미 2026-08-25 라운드에서 버전 번호를 고정 표기하지 않도록 설계돼 있어(`git tag -l`로 확인하라고 안내) 이번 태그 컷으로 갱신할 stale 항목이 없었음 — 그 설계 결정이 정확히 이 상황(태그 컷마다 문서 갱신 의무가 생기는 것)을 막기 위한 것이었다는 게 실전에서 확인됨.\n\n이 항목 이후로 nullable=false 크로스컷·태그 컷 관련 open-item은 없음. 소비 repo(eks-reference-infra)가 이제 이 5개 신규 태그로 승급 가능한 상태 — 승급 여부·시점은 그쪽 repo의 판단 대상."
     }
   ],
   "userDirectives": [

@@ -17,6 +17,7 @@ variable "naming" {
     env         = string
     region_code = string
   })
+  nullable = false
 }
 
 variable "purpose" {
@@ -27,6 +28,7 @@ variable "purpose" {
     크로스 계정 신뢰 경계를 만드는 데 재사용되므로 소비자가 매번 명시한다(예: "argocd-hub").
   EOT
   type        = string
+  nullable    = false
 }
 
 variable "tags" {
@@ -37,6 +39,7 @@ variable "tags" {
   EOT
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 # ── kill switch ──────────────────────────────────────────────────────────────
@@ -48,6 +51,7 @@ variable "enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 # ── 신뢰 principal ───────────────────────────────────────────────────────────
@@ -60,6 +64,7 @@ variable "trusted_principal_arns" {
     이 신뢰 경계를 넘는지 ARN 단위로 못박는 것이 이 모듈의 존재 이유다(아래 validation).
   EOT
   type        = list(string)
+  nullable    = false
 
   validation {
     condition = alltrue([
@@ -84,4 +89,5 @@ variable "session_duration_seconds" {
   description = "assume-role 세션 최대 지속 시간(초). aws_iam_role의 max_session_duration으로 간다."
   type        = number
   default     = 3600
+  nullable    = false
 }

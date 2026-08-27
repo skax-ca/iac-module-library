@@ -147,6 +147,42 @@ run "hardening_contract" {
 #       (공인 IP는 추가로 서브넷의 map_public_ip_on_launch에도 달려 있어 모듈 단독 판정이 애초에 불가능하다.)
 
 # ── T-3 — kill switch ───────────────────────────────────────────────────────────
+# ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
+# tags는 merge(var.tags, {...})에 쓰이므로 null이면 "argument must not be null"로
+# 죽는 게 nullable 없는 상태의 실제 실패 모드였다(docs/decisions.md 「변수 계약 (nullable)」 참조).
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags              = null
+    purpose           = null
+    serial            = null
+    workbench_enabled = null
+    instance_type     = null
+    root_volume_size  = null
+  }
+
+  assert {
+    condition     = aws_instance.this[0].tags["Name"] == "ec2-demo-prd-an2-workbench-01"
+    error_message = "purpose/serial = null이 default(\"workbench\"·\"01\")로 대체되지 않았다: ${aws_instance.this[0].tags["Name"]}"
+  }
+
+  assert {
+    condition     = length([for k, v in aws_instance.this[0].tags : k if k != "Name"]) == 0
+    error_message = "tags = null이 default {}로 대체되지 않았다: ${jsonencode(aws_instance.this[0].tags)}"
+  }
+
+  assert {
+    condition     = aws_instance.this[0].instance_type == "t4g.small"
+    error_message = "instance_type = null이 default t4g.small로 대체되지 않았다."
+  }
+
+  assert {
+    condition     = length(aws_instance.this) == 1
+    error_message = "workbench_enabled = null이 default true로 대체되지 않았다."
+  }
+}
+
 run "kill_switch_disables_everything" {
   command = plan
 

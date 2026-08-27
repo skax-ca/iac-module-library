@@ -19,18 +19,21 @@ variable "naming" {
     env         = string
     region_code = string
   })
+  nullable = false
 }
 
 variable "purpose" {
   description = "클러스터 이름의 purpose 토큰."
   type        = string
   default     = "main"
+  nullable    = false
 }
 
 variable "serial" {
   description = "클러스터 이름의 일련번호 토큰."
   type        = string
   default     = "01"
+  nullable    = false
 }
 
 variable "tags" {
@@ -41,6 +44,7 @@ variable "tags" {
   EOT
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 # ── kill switch · 삭제 보호 ──────────────────────────────────────────────────
@@ -56,6 +60,7 @@ variable "cluster_enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "deletion_protection" {
@@ -73,6 +78,7 @@ variable "deletion_protection" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 
   validation {
     # AWS도 deletion_protection으로 이 조합을 막지만, 그 오류는 apply 시점에 API가 낸다.
@@ -97,11 +103,13 @@ variable "kubernetes_version" {
   EOT
   type        = string
   default     = "1.35"
+  nullable    = false
 }
 
 variable "vpc_id" {
   description = "클러스터를 배치할 VPC ID."
   type        = string
+  nullable    = false
 }
 
 variable "subnet_ids" {
@@ -113,6 +121,7 @@ variable "subnet_ids" {
     키 → ID 매핑은 소비자 루트의 책임이다.
   EOT
   type        = list(string)
+  nullable    = false
 }
 
 # ── 환경 프로파일 — 소비자가 조건 분기를 짜지 않게 한다 ──────────────────────
@@ -121,12 +130,14 @@ variable "endpoint_public_access" {
   description = "kube-apiserver public 엔드포인트 활성화 여부. GitOps(pull) 전제이므로 기본은 private이다."
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "endpoint_private_access" {
   description = "kube-apiserver private 엔드포인트 활성화 여부."
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "public_access_cidrs" {
@@ -140,6 +151,7 @@ variable "public_access_cidrs" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 }
 
 variable "enabled_log_types" {
@@ -152,6 +164,7 @@ variable "enabled_log_types" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 
   validation {
     condition = alltrue([
@@ -172,6 +185,7 @@ variable "enable_custom_networking" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "pod_subnet_ids" {
@@ -181,6 +195,7 @@ variable "pod_subnet_ids" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 
   validation {
     condition     = !(var.enable_custom_networking && var.cluster_enabled) || length(var.pod_subnet_ids) > 0
@@ -223,7 +238,8 @@ variable "managed_node_groups" {
       effect = string
     })), [])
   }))
-  default = {}
+  default  = {}
+  nullable = false
 
   validation {
     condition = alltrue([
@@ -293,7 +309,8 @@ variable "cluster_addons" {
       service_account = string
     }))
   }))
-  default = {}
+  default  = {}
+  nullable = false
 
   validation {
     condition = alltrue([
@@ -315,6 +332,7 @@ variable "access_entries" {
   EOT
   type        = any
   default     = {}
+  nullable    = false
 }
 
 variable "cluster_security_group_additional_rules" {
@@ -343,6 +361,7 @@ variable "cluster_security_group_additional_rules" {
   EOT
   type        = any
   default     = {}
+  nullable    = false
 }
 
 variable "enable_karpenter" {
@@ -355,6 +374,7 @@ variable "enable_karpenter" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "enable_cluster_autoscaler" {
@@ -374,6 +394,7 @@ variable "enable_cluster_autoscaler" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "enable_alb_controller_iam" {
@@ -384,6 +405,7 @@ variable "enable_alb_controller_iam" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "enable_external_dns_iam" {
@@ -393,6 +415,7 @@ variable "enable_external_dns_iam" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "external_dns_hosted_zone_arns" {
@@ -406,6 +429,7 @@ variable "external_dns_hosted_zone_arns" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 
   validation {
     # AWS는 apply 시점에 400을 내지만,
@@ -427,6 +451,7 @@ variable "enable_argocd_hub_pod_identity" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 }
 
 variable "argocd_namespace" {
@@ -437,6 +462,7 @@ variable "argocd_namespace" {
   EOT
   type        = string
   default     = "argocd"
+  nullable    = false
 }
 
 variable "argocd_hub_assumable_role_arns" {
@@ -450,6 +476,7 @@ variable "argocd_hub_assumable_role_arns" {
   EOT
   type        = list(string)
   default     = []
+  nullable    = false
 
   validation {
     # external_dns_hosted_zone_arns와 완전히 같은 이유 — plan 단계에서 미리 막는다.

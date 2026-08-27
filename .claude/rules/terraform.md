@@ -18,6 +18,16 @@ paths:
 > ⚠️ **재사용 자산의 요건**(같은 절 공통 5번이 소유): workload code·계정/구독 ID·리전을
 > **하드코딩하지 않는다.** PoC에서 승계할 때 `workload = "poc"` 같은 고정값을 반드시 걷어낸다.
 
+## 변수 계약: `nullable`
+
+새 `variable` 선언 시 판정 기준(근거·적용 이력은 `docs/decisions.md`의 「변수 계약 (nullable)」이 소유,
+여기서 중복 서술하지 않는다):
+
+- default가 없는 **필수** 변수, 또는 default가 **`null`이 아닌** 변수 → `nullable = false`를 추가한다.
+- default 자체가 **`null`**이고 그 `null`이 "값 없음"이 아니라 의도된 값(자연 기본 동작·옵션을
+  끈 상태)인 변수 → 적용하지 않는다. `nullable = false`는 명시적 `null`을 default로 대체하는
+  기능이라, default가 이미 `null`이면 대체해도 결과가 다시 `null`이라 모순이거나 무의미하다.
+
 ---
 
 ## 아키텍처 & 모듈 규칙

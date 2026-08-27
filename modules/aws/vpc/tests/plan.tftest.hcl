@@ -467,6 +467,35 @@ run "reject_nat_without_public_group" {
   expect_failures = [aws_vpc.this]
 }
 
+# nullable = false 계약: 명시적 null이 crash 대신 default로 조용히 대체돼야 한다.
+# tags는 merge(var.tags, {...})에 쓰이므로 null이면 "argument must not be null"로 죽는 게
+# nullable 없는 상태의 실제 실패 모드였다(docs/decisions.md 「변수 계약 (nullable)」 참조).
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags                = null
+    purpose             = null
+    vpc_enabled         = null
+    deletion_protection = null
+  }
+
+  assert {
+    condition     = aws_vpc.this[0].tags["Name"] == "vpc-demo-dev-an2-main"
+    error_message = "purpose = null이 default \"main\"으로 대체되지 않았다: ${aws_vpc.this[0].tags["Name"]}"
+  }
+
+  assert {
+    condition     = length([for k, v in aws_vpc.this[0].tags : k if k != "Name"]) == 0
+    error_message = "tags = null이 default {}로 대체되지 않아 Name 외 태그가 남아 있다."
+  }
+
+  assert {
+    condition     = length(aws_vpc.this) == 1
+    error_message = "vpc_enabled = null이 default true로 대체되지 않았다."
+  }
+}
+
 # per-AZ NAT에서 커버되지 않는 AZ가 생기면 그 AZ의 private 서브넷에 기본 경로가 없다.
 run "reject_per_az_nat_without_coverage" {
   command = plan

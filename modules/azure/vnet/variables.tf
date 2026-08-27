@@ -17,12 +17,14 @@ variable "naming" {
     env         = string
     region_code = string
   })
+  nullable = false
 }
 
 variable "purpose" {
   description = "name 인자의 purpose 토큰. VNet 자신과 NAT Gateway·공용 IP에 쓰인다(서브넷·NSG·라우팅 테이블은 그룹 키를 쓴다)."
   type        = string
   default     = "main"
+  nullable    = false
 }
 
 variable "tags" {
@@ -33,6 +35,7 @@ variable "tags" {
   EOT
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 variable "vnet_enabled" {
@@ -42,6 +45,7 @@ variable "vnet_enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "deletion_protection" {
@@ -58,6 +62,7 @@ variable "deletion_protection" {
   EOT
   type        = bool
   default     = false
+  nullable    = false
 
   validation {
     condition     = !(var.deletion_protection && !var.vnet_enabled)
@@ -74,6 +79,7 @@ variable "resource_group_name" {
     한정하기 위해서다.
   EOT
   type        = string
+  nullable    = false
 }
 
 variable "location" {
@@ -84,6 +90,7 @@ variable "location" {
     apply에서 세울 수 있다 — 이 모듈이 RG를 읽지 않기 때문이다.
   EOT
   type        = string
+  nullable    = false
 }
 
 # ── 주소 공간 ────────────────────────────────────────────────────────────────
@@ -91,6 +98,7 @@ variable "location" {
 variable "address_space" {
   description = "VNet 주소 공간(CIDR 목록)."
   type        = list(string)
+  nullable    = false
 }
 
 # ── 서브넷 그룹 ──────────────────────────────────────────────────────────────
@@ -130,7 +138,8 @@ variable "subnet_groups" {
     })), [])
     extra_tags = optional(map(string), {})
   }))
-  default = {}
+  default  = {}
+  nullable = false
 }
 
 # ── 아웃바운드(NAT) — 소비자가 조건 분기를 짜지 않게 한다 ──────────────────────
@@ -142,6 +151,7 @@ variable "nat_gateway_enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 variable "nat_gateway_sku_name" {
@@ -155,6 +165,7 @@ variable "nat_gateway_sku_name" {
   EOT
   type        = string
   default     = "Standard"
+  nullable    = false
 
   validation {
     condition     = contains(["Standard", "StandardV2"], var.nat_gateway_sku_name)

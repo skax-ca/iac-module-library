@@ -249,6 +249,39 @@ run "standard_sku_accepts_zone" {
   }
 }
 
+# ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
+# tags는 merge(var.tags, ...)에 쓰이므로 null이면 "argument must not be null"로 죽는 게
+# nullable 없는 상태의 실제 실패 모드였다(docs/decisions.md 「변수 계약 (nullable)」 참조).
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags         = null
+    purpose      = null
+    vnet_enabled = null
+    subnet_groups = {
+      "app" = {
+        address_prefixes = ["10.60.0.0/26"]
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_virtual_network.this[0].name == "vnet-demo-dev-krc-main"
+    error_message = "purpose = null이 default \"main\"으로 대체되지 않았다: ${azurerm_virtual_network.this[0].name}"
+  }
+
+  assert {
+    condition     = length(azurerm_virtual_network.this[0].tags) == 0
+    error_message = "tags = null이 default {}로 대체되지 않았다: ${jsonencode(azurerm_virtual_network.this[0].tags)}"
+  }
+
+  assert {
+    condition     = length(azurerm_virtual_network.this) == 1
+    error_message = "vnet_enabled = null이 default true로 대체되지 않았다."
+  }
+}
+
 # ── kill switch ─────────────────────────────────────────────────────────────────
 # ⚠️ deletion_protection 기본값 false에 의존한다. true면 삭제 보호 validation이 먼저 차단한다.
 run "kill_switch_disables_everything" {

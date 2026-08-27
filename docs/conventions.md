@@ -83,7 +83,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
    azurerm provider 블록에는 `default_tags`에 대응하는 인자가 없다
    ([Argument Reference](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs)의
    인자 목록에 태그 항목이 없다). 따라서 AWS 1번과 같은 "배포 루트에 한 번" 경로가 Azure에는 없고,
-   공통 3번("모든 리소스에 태그를 단다")은 모듈의 명시적 배선으로만 달성된다.
+   공통 3번("모든 리소스에 태그를 단다")은 모듈의 명시적 연동으로만 달성된다.
 2. **리소스는 리소스 그룹·구독의 태그를 상속하지 않는다.**
    Azure는 *"Resources don't inherit the tags you apply to a resource group or a subscription"* 이라고
    명시한다([Use tags to organize your Azure
@@ -96,7 +96,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
    (스토리지 계정은 이름 128자). 일부 리소스(Automation · CDN · DNS 영역 등)는 15개까지만.
    태그 이름에 `< > % & \ ? /` 를 쓸 수 없고, 태그를 아예 지원하지 않는 리소스 타입이 있다.
 4. **조합한 이름은 `name` 인자에 넣는다. `Name` 태그는 달지 않는다.**
-   거버넌스 태그는 별개이고 위 1번대로 리소스마다 `tags`로 여전히 배선한다. 이름이 실리는
+   거버넌스 태그는 별개이고 위 1번대로 리소스마다 `tags`로 여전히 연동한다. 이름이 실리는
    자리(`name` 인자)와 거버넌스 태그(`tags`)는 서로 다른 관심사다.
 5. **제약 리소스**([Naming rules and restrictions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules)):
 

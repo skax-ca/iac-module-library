@@ -12,7 +12,7 @@ paths:
 
 네이밍·태깅 SSOT는 `docs/conventions.md` §2(`Name` 태그 포맷 + 공통/AWS/Azure 3층 강제 방식)다.
 여기서 중복 서술하지 않는다. `.tf` 작성 시 그 절을 그대로 따른다 — provider별 태그 주입 방식
-(AWS `default_tags` vs Azure 리소스별 `tags` 배선)이 다르므로, 새 provider 모듈을 쓸 때는
+(AWS `default_tags` vs Azure 리소스별 `tags` 연동)이 다르므로, 새 provider 모듈을 쓸 때는
 공통 절뿐 아니라 해당 provider 절까지 확인한다.
 
 > ⚠️ **재사용 자산의 요건**(같은 절 공통 5번이 소유): workload code·계정/구독 ID·리전을

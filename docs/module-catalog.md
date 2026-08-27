@@ -9,7 +9,7 @@
 `eks-cluster`의 `access_entries`에 출력을 연결한다.
 
 각 모듈의 입력·출력·리소스 전체 목록은 그 모듈의 README(terraform-docs 자동 생성, CI가 drift를
-검사한다)가 소유한다. 이 문서는 **모듈 간 배선**만 다룬다: 어느 모듈이 무엇을 만들고, 어느
+검사한다)가 소유한다. 이 문서는 **모듈 간 연동**만 다룬다: 어느 모듈이 무엇을 만들고, 어느
 출력이 어느 모듈의 입력으로 들어가는지.
 
 ---
@@ -147,9 +147,9 @@ Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나�
 
 ---
 
-## 배선 예시
+## 연동 예시
 
-`vpc` -> `eks-cluster` -> `workbench` 체인의 실제 output -> input 배선(태그 문법·소싱 방식
+`vpc` -> `eks-cluster` -> `workbench` 체인의 실제 output -> input 연동(태그 문법·소싱 방식
 포함)은 CI가 매 커밋 `tofu validate`로 검증하는 예제가 SSOT다. 이 문서에 손으로 사본을
 유지하지 않는다. 모듈이 늘 때마다 여기도 고쳐야 하는데다, 손으로 쓴 코드는 CI가 걸러주지
 않아 조용히 실물과 벌어질 수 있다.

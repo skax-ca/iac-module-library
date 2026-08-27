@@ -69,7 +69,7 @@
 |---|---|
 | 서브넷을 **인라인 `subnet` 블록**으로 | 기술적 불가. 인라인에 `nat_gateway_id`가 없고, 연결 경로인 association은 provider가 인라인과의 병용을 "will overwrite subnets"로 금지한다 |
 | 모듈이 **리소스 그룹 생성** | RG 삭제는 내부 리소스를 state 밖의 것까지 캐스케이드 삭제한다 |
-| **`location`을 RG 데이터 소스에서 파생** | read의 apply 연기는 "data 블록이 이번 plan에서 변경 예정인 관리 리소스에 직접 의존할 때" 성립하는 조건부 동작이다. 리터럴을 넘기면 plan에서 실패하므로 배포 성공이 소비자 배선에 좌우된다 |
+| **`location`을 RG 데이터 소스에서 파생** | read의 apply 연기는 "data 블록이 이번 plan에서 변경 예정인 관리 리소스에 직접 의존할 때" 성립하는 조건부 동작이다. 리터럴을 넘기면 plan에서 실패하므로 배포 성공이 소비자 연동에 좌우된다 |
 | **NSG를 기본 생성**(룰 0개) | 빈 NSG의 델타는 컨트롤 플레인 인바운드 차단과 서브넷 주입형 PaaS의 클라이언트 트래픽 차단 두 곳뿐이고 둘 다 파괴 방향이다. 확인된 사례가 Application Gateway이고(`GatewayManager` 컨트롤 플레인 65200-65535와 클라이언트 트래픽 룰 둘 다 필수) 보안 이득은 없다. 단 이 무이득 논거는 공용 Standard LB·공용 IP 경로에 한해서만 성립한다(그 경로만 NSG 없이도 "closed to inbound connections by default"). VNet 내부는 빈 NSG도 `AllowVNetInBound`로 허용한다 |
 | NSG·RT를 **둘 다 만들지 않기** | association이 `subnet_id`를 요구하는데 서브넷은 모듈 소유다. 소비자에게 떠넘기면 경계가 어긋난다 |
 | **AVM 커뮤니티 모듈 wrapper** | VNet·서브넷·NSG·NAT는 Azure에서 가장 안정된 계층이고 지식 밀도가 낮다 |
@@ -79,7 +79,7 @@
 | **NAT 수요 0개에 `precondition`** | `modules/aws/vpc`의 선례는 수요 0개를 조용히 스킵하고(`main.tf:70`), precondition은 `length(...) == 0`으로 그 케이스를 명시적으로 면제한다(`main.tf:149`). precondition을 걸면 모듈 기본값 조합에서 plan이 깨진다 |
 | `vpc`의 `az_count`·`az_selection`·`single_nat_gateway`·`eks_cluster_name` **이식** | Azure 서브넷은 존에 속하지 않고 태그도 지원하지 않는다 |
 | **AzAPI provider로 전환** | Azure Verified Modules(AVM) 공식 규격은 AzAPI를 요구하지만, 이 축에서 검토한 것은 "AVM 완성 모듈을 wrapper로 쓸지"(위 「AVM 커뮤니티 모듈 wrapper」 행)였지 provider 선택이 아니었다. azurerm은 AWS 쪽 `aws` provider와 대칭인 선택이고 문서·커뮤니티 친숙도가 높다. 전환은 근거가 쌓이면 별도로 재검토한다 |
-| **AVM 8종 인터페이스**(diagnostic_settings·role_assignments·lock·private_endpoints·managed_identities·customer_managed_key 등) **전부 채택** | 스크래치 얇은 모듈은 최소 계약만 갖고 나머지는 배포 루트가 배선한다는 이 저장소의 기존 경계(`module-catalog.md`의 "모듈이 서로를 직접 참조하지 않는다, 배포 루트가 연결한다")와 같은 원칙이다. 채택한 것은 `tags`뿐이다 |
+| **AVM 8종 인터페이스**(diagnostic_settings·role_assignments·lock·private_endpoints·managed_identities·customer_managed_key 등) **전부 채택** | 스크래치 얇은 모듈은 최소 계약만 갖고 나머지는 배포 루트가 연동한다는 이 저장소의 기존 경계(`module-catalog.md`의 "모듈이 서로를 직접 참조하지 않는다, 배포 루트가 연결한다")와 같은 원칙이다. 채택한 것은 `tags`뿐이다 |
 
 > **결정**: 첫 Azure 모듈 `vnet`을 `modules/azure/vnet/`에 스크래치 얇은 모듈로 설계했다.
 > 서브넷은 `azurerm_subnet` 별도 리소스, 리소스 그룹과 `location`은 주입, NSG·라우팅 테이블은

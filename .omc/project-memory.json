@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787548456487,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-24 — docs/·modules/·examples/·scripts/ 전면 재구성 계획을 ralplan 방식(사용자 요청, /oh-my-claudecode:plan --consensus)으로 수립했다. 계획 파일: `.omc/plans/2026-08-24-docs-modules-restructure.md`(gitignore 대상, git 미추적 — .omc/plans/*는 의도적 운영 아티팩트라 커밋 안 됨. 다음 세션에서 경로 재확인 필요).\n\n핵심 결정(사용자 피드백 반영): docs/를 foundations(team-access·module-index·conventions·decisions·aws-naming) + architectures/eks-gitops-hub-spoke/(overview·choose-your-path만 유지)로 분리. hub-lifecycle·spoke-lifecycle·runbooks.md와 scripts/argocd-seed.sh·teardown-verify.sh는 `iac-reference-infra`(EKS GitOps 패턴 레퍼런스 레포로 역할 명확화 예정)로 이관 후 이 repo에서 제거 — repo 경계 원칙(SSOT=모듈+설계, 배포 루트=<project>-infra)을 문서 배치에도 적용. modules/는 networking·compute·security·(data 미생성)로 도메인화, top-level examples/는 폐지하고 각 예제를 \"주인공 모듈\"의 examples/로 흡수. 모듈 문서는 terraform-docs 자동 생성으로 전환(CI 게이트 6→7). stop-slop 8개 규칙(em-dash 금지 포함) 규칙 자체는 전면 채택하되 기존 위반 493건 정리는 별도 후속 작업(Phase 6, allowlist 방식)으로 분리.\n\n검증 상태: Architect·Critic 순차 검증을 18회 반복해 실제 CI/훅/grep 파손 결함을 계속 실측으로 찾아냄(vendoring SSOT 관계 누락, CI 게이트 4 glob 파손, pre-push 무음무력화, validate-doc-conventions.py 비재귀 glob, trivyignore.yaml 경로 파손, --exclude-dir=.omc 무력화, grep 파이프 필터가 ./접두사 가정 오류로 no-op, decisions.md 자기모순, 게이트 개수 표기 누락, docs/README·AGENTS.md 상대링크가 모든 grep 회피, catch-all이 정당한 서술까지 오검출). v17·v18에서 Architect APPROVE(사소한 anchoring 버그 1건만, 즉시 수정 완료). **Critic 최종 확인은 Anthropic API 서버 과부하(529 Overloaded)로 4회 연속 실패 — 계획 결함이 아니라 인프라 문제.** 다음 세션에서: (1) 계획 파일 존재 확인 (2) Critic 최종 확인 재시도 또는 사용자 명시 승인으로 바로 실행(team/ralph) 착수 여부 결정."
-    },
-    {
       "timestamp": 1787549119775,
       "source": "manual",
       "category": "repo-topology",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "docs-structure",
       "content": "2026-08-27 (이어서) — 사용자 지적: \"배선\"(모듈 output이 다른 모듈 input으로 들어가는 것을 가리키는 이 저장소의 기존 용어)이 한국 IT 문서에서 안 쓰는 직역이라는 지적. 확인해보니 module-catalog.md·conventions.md·decisions.md·CLAUDE.md·.claude/rules/terraform.md 5개 파일 9곳에 이미 퍼져 있던 기존 용어였다(내가 오늘 도입한 게 아니라 그 위에 같은 패턴으로 얹은 것). \"연동\"으로 전면 교체 완료(커밋 c6986ab).\n\n**향후 규칙**: 이 저장소에서 \"모듈 A의 output이 모듈 B의 input으로 들어간다\"는 개념을 가리킬 때는 \"연동\"을 쓴다. \"배선\"은 재도입하지 않는다. module-catalog.md의 정의 문구 자체(\"이 문서는 모듈 간 연동만 다룬다\")가 이 용어의 SSOT다."
+    },
+    {
+      "timestamp": 1787805319298,
+      "source": "manual",
+      "category": "open-items",
+      "content": "2026-08-27 — v1.0.0 이전 버전 정책 리서치(SemVer 공식 스펙·HashiCorp 모듈 가이드·모노레포 컴포넌트별 버전 관리 패턴 대조) 완료. 결론: 핵심 정책(0.y.z 전부 마이너로 흡수, 컴포넌트별 접두사 태그, 버전 혼재 허용, ref=main 금지)은 전부 모범사례와 일치 — 개선 불필요. 부수 발견 1건은 즉시 해소: `docs/writing-style.md`가 \"이력은 CHANGELOG.md가 소유\"라 선언했는데 실제 그 파일이 없었음(실제 이력은 이미 각 모듈 annotated git 태그 메시지가 담당 중) → 문서를 실물에 맞게 정정(커밋 0135b2c, main 직접).\n\n**사용자 결정(다음 세션에서 트리거할 것)**: 각 모듈이 `1.0.0`을 컷하는 시점에 정식 `CHANGELOG.md` 파일 도입을 재검토하기로 함(리서치 당시 제안한 3안 중 지금은 보류한 안). 판단 근거는 그때 다시 채워야 함 — 지금은 \"annotated 태그 메시지로 충분, 소비자 수가 적어 GitHub Release/CHANGELOG.md 추가 관리 비용이 실익보다 크다\"는 판단이었지만, 1.0.0 시점엔 소비자 수·안정성 기대가 달라질 수 있어 재평가가 필요하다.\n\n미결(과거 메모 이월, 여전히 미해소): `conventions.md`의 \"릴리스된 태그를 옮기지 않는다, 예외는 소비자가 0일 때뿐\" 조항에 \"소비자가 0인지 판정하는 기준\"이 없음. 지금까지 이 예외가 실사용된 적 없어 문제가 드러나지 않았을 뿐. 다음에 이 예외를 근거로 태그 이동을 검토할 일이 생기면 먼저 판정 기준부터 정의할 것."
     }
   ],
   "userDirectives": [

@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787293286240,
-      "source": "manual",
-      "category": "team-doc",
-      "content": "이전 team-doc 메모(3단계 \"허브-스포크 크로스 계정 아키텍처 + ApplicationSet 팬아웃\" 2소재 버전)는 폐기 — 사용자가 전면 재작성을 요청해 대체됐다. 현재 Notion 문서(https://app.notion.com/p/3c3a141ff7d880f3b91cdb47b7627e12) 3단계 구조: ①아키텍처 다이어그램(iac-reference-infra 실제 배포 기준 — team계정=허브/vpc-demo-hub-an2-main/eks-demo-hub-an2-main-01, asset계정=스포크dev/vpc-demo-dev-an2-main/eks-demo-dev-an2-main-01, 3개 repo 관계, TGW·cross-account-trust-role 경로 포함 mermaid) ②Terraform·GitOps(플랫폼)·GitOps(앱) 3계층 표 및 이유 ③클러스터마다 GitOps 두면 생기는 문제 ④ArgoCD 정의+4대 기능(cluster 등록·ApplicationSet·self-heal·AppProject) ⑤프로젝트 적용 사례. 섹션 번호는 사용자가 직접 정리함(AI가 붙인 0/1 번호와 기존 무번호 소제목이 안 맞았던 것). 세션 종료 시점 상태: 사용자가 \"전체를 다시 리뷰해보고 얘기할게\"라고 함 — 다음 세션은 사용자의 리뷰 피드백을 먼저 확인할 것, 이 시점의 Notion 내용이 최종 승인된 것은 아니다."
-    },
-    {
       "timestamp": 1787532574772,
       "source": "manual",
       "category": "skill-tooling",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "open-items",
       "content": "2026-08-27 — PR #37(eks-cluster·workbench·cross-account-trust-role nullable = false 확장) squash merge 완료(커밋 806a119). 이로써 nullable = false 크로스컷은 이 저장소 전 5개 모듈(vpc·vnet·eks-cluster·workbench·cross-account-trust-role)에 완전히 적용됨 — 위 두 메모(PR #36·#37)를 이 항목으로 종결한다.\n\n남은 유일한 미결: 5개 모듈 전부 태그 컷을 아직 안 함(vpc-v0.5.0·vnet-v0.2.0·eks-cluster-v0.11.0·workbench-v0.9.0·cross-account-trust-role-v0.4.0). 사용자가 두 PR 모두 \"merge만 지금, 태그는 나중에\"로 명시적으로 미뤘다. 다음 세션에서 태그 컷 여부·시점을 확인할 것 — 태그 없이는 소비 repo(eks-reference-infra)가 이 변경을 참조할 수 없는 상태다."
+    },
+    {
+      "timestamp": 1787793217811,
+      "source": "manual",
+      "category": "docs-structure",
+      "content": "2026-08-27 — 지난 azure-vnet-design ralplan(2026-08-26) 라운드가 남긴 docs/ 산출물(naming/abbreviations/azure.md 신설, conventions.md·decisions.md·module-catalog.md 변경)을 writing-style.md 규칙 및 다른 모듈 절과의 일관성 기준으로 사후 리뷰. 기계 검증(validate-doc-conventions.py·validate-abbreviations.py)은 전부 통과했지만 사람이 봐야 잡히는 4건 발견·수정(커밋 3cbd7af):\n\n1. module-catalog.md의 vnet 절이 이 파일 자신의 원칙(\"모듈 간 배선만 다룬다, 입력·출력은 README가 소유\")을 어기고 있었음 — 설계 단계 48줄 인터페이스 초안 HCL을 실물 구현 후에도 안 지웠고(이미 subnet_groups default 등에서 drift 시작), README 링크 자체가 없었음(다른 4개 모듈 절은 전부 링크만 있음). HCL·계약 상세·출력 목록 삭제, README 링크로 교체. 이 문제는 2026-08-25 module-index.md→module-catalog.md 개명 라운드가 이미 한 번 고친 \"README와 이중 관리\" 패턴의 재발이었다 — 새 모듈 카탈로그 절 작성 시 \"설계 단계 산출물을 구현 후에도 안 지웠는지\" 체크리스트 항목으로 남길 만하다.\n2. decisions.md vnet ADR \"파급\" 문단이 이미 끝난 일(\"구현 라운드는 착수 게이트 4건을 같은 PR에서 처리해야 한다\")을 미래형으로 방치 — writing-style.md 규칙 7 위반. 17줄 단일 산문 밀도도 형제 ADR과 대비돼 표로 재구성.\n3. naming/abbreviations/azure.md가 자신의 등재 규칙 6번이 가리키는 \"개정 이력\" 절 자체가 없었음(형제 파일 aws.md는 있음) — 같은 형식으로 신설.\n4. conventions.md 리소스 이름 포맷 예시가 \"provider 중립화\"라면서 AWS 예시만 셋이라 vnet 예시 추가.\n\n패턴: ralplan 산출물은 설계 시점 기준으로 최적화돼 있어 구현·릴리스가 끝난 뒤 한 번 더 \"이 문서가 지금도 유효한 상태를 기술하는가\"로 재검토할 필요가 있다. 특히 \"인터페이스 초안\"·\"착수 게이트\" 같은 설계 단계 전용 표현이 남아있는지가 신호다."
     }
   ],
   "userDirectives": [

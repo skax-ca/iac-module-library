@@ -22,9 +22,10 @@ OpenTofu 고유 기능(`encryption` 블록 · `.tofu` 확장자 · `language {}`
 ```
 (리소스약어)-(workload)-(env)-(리전코드)-(purpose)-(일련번호)
 
-vpc-demo-prd-an2-main
+vpc-demo-prd-an2-main       # AWS: Name 태그에 실린다
 eks-demo-prd-an2-main-01
 sgr-demo-prd-an2-web-01
+vnet-demo-prd-krc-main      # Azure: name 인자에 실린다
 ```
 
 **이 조합이 실리는 자리는 provider마다 다르다.** AWS는 `Name` 태그로, Azure는 `name` 인자로

@@ -125,7 +125,7 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 Azure 가상 네트워크 · 서브넷 그룹 · NAT · 옵트인 NSG · 옵트인 라우팅 테이블.
 `modules/azure/vnet/`에 스크래치 얇은 모듈로 둔다. 리소스 그룹과 리전은 배포 루트가 주입한다.
 
-**만드는 것**: VNet · 서브넷(그룹당 1개) · NAT Gateway + 공용 IP · 옵트인 NSG · 옵트인 라우팅 테이블.
+전체 계약(입력·출력·리소스) → [`modules/azure/vnet/README.md`](../modules/azure/vnet/README.md)
 
 **만들지 않는 것**: 리소스 그룹(주입) · NSG 룰(소비자가 얹는다) · Flow Logs(`0.1.0` 미포함) ·
 예약 이름 서브넷.
@@ -144,79 +144,6 @@ Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나�
 | `subnet_ids_by_group` | `map(list(string))` | `map(string)` | 서브넷에 존 축이 없다 |
 | `route_table_ids_by_group` | `map(list(string))` | `map(string)` | 〃 |
 | NAT | `nat_gateway_ids` `list(string)` | `nat_gateway_id` `string` | vnet당 1개 |
-
-### 인터페이스 초안
-
-```hcl
-# ── 공통 규약 ──
-variable "naming" {
-  type = object({
-    workload    = string
-    env         = string
-    region_code = string
-  })
-}
-variable "purpose"             { type = string }        # 기본 "main"
-variable "tags"                { type = map(string) }
-variable "vnet_enabled"        { type = bool }
-variable "deletion_protection" { type = bool }
-
-# ── 배치 ──
-variable "resource_group_name" { type = string }        # 필수 주입
-variable "location"            { type = string }        # 필수 입력
-
-# ── 주소 공간 ──
-variable "address_space" { type = list(string) }
-# dns_servers 는 노출하지 않는다 — 인라인/별도 서브넷 병용 시 [] 로 삭제되는 함정이 있다.
-
-# ── 서브넷 그룹 (키가 곧 이름 토큰) ──
-variable "subnet_groups" {
-  type = map(object({
-    address_prefixes                = list(string)          # AZ 리스트가 아니다
-    nat_routed                      = optional(bool, false)
-    nsg_enabled                     = optional(bool, false)
-    route_table_enabled             = optional(bool, false)
-    default_outbound_access_enabled = optional(bool, true)
-    service_endpoints                = optional(list(string), [])
-    delegations = optional(list(object({
-      name    = string
-      actions = list(string)
-    })), [])
-    extra_tags = optional(map(string), {})                  # NSG·RT 에만 적용
-  }))
-}
-
-# ── 아웃바운드 ──
-variable "nat_gateway_enabled"  { type = bool }              # 기본 true
-variable "nat_gateway_sku_name" { type = string }             # 기본 "Standard"
-variable "nat_gateway_zones" {
-  type    = list(string)
-  default = null
-}
-```
-
-**명시해야 할 계약**:
-
-- `extra_tags`는 서브넷에 적용되지 않는다(Azure 서브넷은 `tags` 인자 자체를 지원하지 않는다).
-  NSG·라우팅 테이블 태그에만 쓰인다.
-- `purpose`와 그룹 키의 역할 분담: `purpose`는 VNet · NAT Gateway · 공용 IP의 이름 토큰,
-  서브넷 · NSG · 라우팅 테이블은 그룹 키를 토큰으로 쓴다(`vpc`와 같은 분담).
-- NAT는 수요와 결합한다. `nat_routed = true`인 그룹이 0개면 NAT를 만들지 않는다(조용한 스킵).
-  `precondition`을 걸지 않는다. `modules/aws/vpc`의 `local.nat_enabled`가 같은 형태이고,
-  그 선례의 `precondition`(`main.tf:149`)은 수요 0개를 `length(...) == 0`으로 명시 면제한다.
-- `nat_gateway_sku_name = "StandardV2"`이면 `nat_gateway_zones`가 비어 있어야 한다
-  (`== null || length(...) == 0`). `StandardV2`는 preview다(SLA 대상 아님, 일부 리전 미지원).
-  기본값 `Standard`는 GA다.
-- `nat_gateway_sku_name`·`nat_gateway_zones` 변경은 리소스 재생성을 강제해 아웃바운드 공용 IP가
-  바뀐다. 고객사 방화벽 allowlist에 직결되므로 `description`과 README에 경고로 싣는다.
-- NSG 룰은 이 모듈이 만들지 않는다. 소비자는 `azurerm_network_security_rule` 별도 리소스로
-  얹는다. 이 모듈이 만든 NSG에 inline `security_rule` 블록을 함께 쓰면 규칙이 서로를 덮어쓴다
-  (`.claude/rules/terraform.md`의 네트워크 보안 규칙 원칙과 같은 함정, provider 공식 경고 대상).
-
-### 출력
-
-`vnet_id` · `vnet_name` · `address_space` · `subnet_ids_by_group` · `nsg_ids_by_group` ·
-`route_table_ids_by_group` · `nat_gateway_id` · `nat_public_ip_address`. null-safe 규약은 `vpc`와 동일.
 
 ---
 

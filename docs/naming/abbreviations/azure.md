@@ -54,6 +54,13 @@
 | `azurerm_subnet_network_security_group_association` | 별도 이름 없음(서브넷·NSG 이름으로 식별) | 해당 없음 |
 | `azurerm_subnet_route_table_association` | 별도 이름 없음(서브넷·라우팅 테이블 이름으로 식별) | 해당 없음 |
 
+### 개정 이력 (초판 등재 이후 추가된 약어)
+
+`aws.md`와 같은 형식이다. 초판 6종 이후 추가분이 생기면 이 표에 행을 더한다.
+
+| 날짜 | 약어 | 리소스 | 근거 |
+|------|------|--------|------|
+
 ## A.1 Network (6)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |

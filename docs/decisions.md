@@ -89,23 +89,23 @@
 > 배포 루트가 소유하는 것의 경계"로 갈렸다. 서브넷 스코프 자원은 모듈이, 구독·리소스 그룹
 > 스코프 자원은 배포 루트가 소유한다.
 >
-> **파급**: 출력 타입 비대칭이 3건이다(`module-catalog.md`가 표로 소유). Azure 서브넷은 태그를
-> 지원하지 않아 NSG·RT 태그가 그 자리를 대신한다. 조합한 이름은 `name` 인자에 들어가고 `Name`
-> 태그는 달지 않는다. 이에 맞춰 「공통 강제 방식」의 `Name` 전제를 provider 중립으로 고쳤다.
-> 배포 루트가 RG와 `vnet`을 한 apply에서 세울 수 있다. 대신 리전 불일치를 모듈이 막지 않는다.
-> `azurerm_virtual_network`에 `subnet`·`dns_servers`를 쓰지 않는다(빈 배열로도 쓰지 않는다).
-> Azure 예약 이름 서브넷(`AzureBastionSubnet`·`GatewaySubnet`·`AzureFirewallSubnet`, 확인한 것은
-> 이 셋이며 더 있을 수 있다)은 이 모듈이 만들지 않는다. 네이밍 계약이 정확한 예약 이름을 만들
-> 수 없기 때문이다. 배포 루트가 같은 vnet에 `azurerm_subnet`으로 직접 만든다. 이 병용은 문서
-> 문면상 안전하나 `apply`로 검증하지 않았다. Azure Policy가 서브넷 생성 시 NSG나 라우팅 테이블을
-> 강제하는 환경은 지원하지 않는다. NAT는 `nat_routed = true` 그룹이 0개면 조용히 만들지 않는다
-> (precondition을 걸지 않는다). NAT의 `sku_name`·`zones` 변경은 리소스 재생성을 강제해 아웃바운드
-> 공용 IP가 바뀐다. `nat_gateway_sku_name`의 `StandardV2`는 preview다(SLA 대상 아님, 일부 리전
-> 미지원). 기본값 `Standard`는 GA이고 이 상태를 밟지 않는다. GA 기준으로는 존 이중화 NAT 경로가
-> 없다. `default_outbound_access_enabled`를 노출한다(노출하지 않으면 소비자가 서브넷을 private로
-> 만들 수단이 없다). `deletion_protection`은 vnet에만 걸린다. Azure는 vnet 삭제가 서브넷을 함께
-> 지우므로 실질 보호 범위가 `vpc`와 다르다. 약어 6종이 고정된다(`snet`은 AWS에도 있으나 재사용은
-> 허용된다). 구현 라운드는 착수 게이트 4건을 같은 PR에서 처리해야 한다.
+> **파급**: 이름 표기는 `Name` 태그 대신 `name` 인자를 쓴다. 이에 맞춰 「공통 강제 방식」의
+> `Name` 전제를 provider 중립으로 고쳤다. 나머지 파급은 아래 표를 본다.
+
+| 항목 | 내용 |
+|---|---|
+| 출력 타입 비대칭 | 3건. `module-catalog.md`가 표로 소유한다 |
+| RG·리전 주입 | 배포 루트가 RG와 `vnet`을 한 apply에서 세울 수 있다. 리전 불일치는 모듈이 막지 않는다 |
+| `subnet` · `dns_servers` | `azurerm_virtual_network`에서 쓰지 않는다(빈 배열로도 쓰지 않는다) |
+| 예약 이름 서브넷 | `AzureBastionSubnet` · `GatewaySubnet` · `AzureFirewallSubnet`(확인한 것은 이 셋이며 더 있을 수 있다)은 네이밍 계약과 충돌해 이 모듈이 만들지 않는다. 배포 루트가 같은 vnet에 `azurerm_subnet`으로 직접 만든다(문서 문면상 안전하나 `apply`로 검증하지 않았다) |
+| Azure Policy 강제 환경 | 서브넷 생성 시 NSG·라우팅 테이블을 강제하는 환경은 지원하지 않는다 |
+| NAT 수요 0개 | `nat_routed = true` 그룹이 0개면 조용히 스킵한다(precondition을 걸지 않는다) |
+| NAT `sku_name` · `zones` 변경 | 리소스 재생성을 강제해 아웃바운드 공용 IP가 바뀐다 |
+| `StandardV2` | preview다(SLA 대상 아님, 일부 리전 미지원). 기본값은 GA인 `Standard`이고, GA 기준으로는 존 이중화 NAT 경로가 없다 |
+| `default_outbound_access_enabled` | 노출한다. 없으면 소비자가 서브넷을 private로 만들 수단이 없다 |
+| `deletion_protection` | vnet에만 걸린다. Azure는 vnet 삭제가 서브넷을 함께 지우므로 실질 보호 범위가 `vpc`와 다르다 |
+| 약어 | 6종 고정(`snet`은 AWS에도 있으나 재사용은 허용된다) |
+| 구현 착수 게이트 | 4건은 PR #35에서 함께 처리했다 |
 
 ---
 

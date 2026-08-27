@@ -147,46 +147,14 @@ Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나�
 
 ---
 
-## 연결 예시
+## 배선 예시
 
-```hcl
-module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
+`vpc` -> `eks-cluster` -> `workbench` 체인의 실제 output -> input 배선(태그 문법·소싱 방식
+포함)은 CI가 매 커밋 `tofu validate`로 검증하는 예제가 SSOT다. 이 문서에 손으로 사본을
+유지하지 않는다. 모듈이 늘 때마다 여기도 고쳐야 하는데다, 손으로 쓴 코드는 CI가 걸러주지
+않아 조용히 실물과 벌어질 수 있다.
 
-  naming           = local.naming
-  cidr_block       = "10.50.0.0/24"
-  eks_cluster_name = local.cluster_name    # 서브넷 태그용
-}
+→ [`modules/aws/eks-cluster/examples/enterprise/`](../modules/aws/eks-cluster/examples/enterprise/)
 
-module "eks" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/eks-cluster?ref=eks-cluster-vX.Y.Z"
-
-  naming     = local.naming
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.subnet_ids_by_group["private"]
-
-  access_entries = {
-    workbench = { principal_arn = module.workbench.workbench_iam_role_arn, ... }
-  }
-  cluster_security_group_additional_rules = {
-    workbench = { source_security_group_id = module.workbench.workbench_security_group_id, ... }
-  }
-}
-
-module "workbench" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/workbench?ref=workbench-vX.Y.Z"
-
-  naming           = local.naming
-  vpc_id           = module.vpc.vpc_id
-  subnet_id        = module.vpc.subnet_ids_by_group["private"][0]
-  eks_cluster_name = module.eks.cluster_name
-  eks_cluster_arn  = module.eks.cluster_arn
-  kubectl_version  = "1.34.1"    # nullable 핀 — 지정해야 설치된다
-}
-```
-
-> `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l '<component>-v*'`로 확인한다.
-> `ref=main`을 쓰지 않는다. 태그로 고정한다.
->
-> 배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은 이 저장소가 아니라
-> [overview.md](architectures/eks-gitops-hub-spoke/overview.md)의 「실행 기반」 절이 소유한다.
+배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은 이 저장소가 아니라
+[overview.md](architectures/eks-gitops-hub-spoke/overview.md)의 「실행 기반」 절이 소유한다.

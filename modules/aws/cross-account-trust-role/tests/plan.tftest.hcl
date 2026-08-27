@@ -77,6 +77,34 @@ run "kill_switch_disables_everything" {
   }
 }
 
+# ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
+# tags는 merge(var.tags, {...})에 쓰이므로 null이면 "argument must not be null"로
+# 죽는 게 nullable 없는 상태의 실제 실패 모드였다(docs/decisions.md 「변수 계약 (nullable)」 참조).
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags                     = null
+    enabled                  = null
+    session_duration_seconds = null
+  }
+
+  assert {
+    condition     = length([for k, v in aws_iam_role.this[0].tags : k if k != "Name"]) == 0
+    error_message = "tags = null이 default {}로 대체되지 않아 Name 외 태그가 남아 있다."
+  }
+
+  assert {
+    condition     = aws_iam_role.this[0].max_session_duration == 3600
+    error_message = "session_duration_seconds = null이 default 3600으로 대체되지 않았다."
+  }
+
+  assert {
+    condition     = length(aws_iam_role.this) == 1
+    error_message = "enabled = null이 default true로 대체되지 않았다."
+  }
+}
+
 # ── reject_root_arn — 계정 root 위임 금지 ────────────────────────────────────
 run "reject_root_arn" {
   command = plan

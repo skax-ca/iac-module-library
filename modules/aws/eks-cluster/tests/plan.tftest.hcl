@@ -307,6 +307,34 @@ run "storage_csi_addons_opt_in_creates_roles" {
   }
 }
 
+# ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
+# iam.tf의 aws_iam_role.ebs_csi/efs_csi는 tags = merge(var.tags, {...})를 쓴다 — 이 모듈이
+# 직접 선언한 리소스 중 tags merge를 관측할 수 있는 유일한 지점이다(파일 상단 주석의
+# 관측 한계 ① 참조). null이면 "argument must not be null"로 죽는 게 nullable 없는
+# 상태의 실제 실패 모드였다(docs/decisions.md 「변수 계약 (nullable)」 참조).
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags    = null
+    purpose = null
+    serial  = null
+    cluster_addons = {
+      "aws-ebs-csi-driver" = { enabled = true }
+    }
+  }
+
+  assert {
+    condition     = output.cluster_name == "eks-demo-prd-an2-main-01"
+    error_message = "purpose/serial = null이 default(\"main\"·\"01\")로 대체되지 않았다: ${output.cluster_name}"
+  }
+
+  assert {
+    condition     = length([for k, v in aws_iam_role.ebs_csi[0].tags : k if k != "Name"]) == 0
+    error_message = "tags = null이 default {}로 대체되지 않았다: ${jsonencode(aws_iam_role.ebs_csi[0].tags)}"
+  }
+}
+
 # ── AC5: core addon 보호  ────────────────────────────────────────────
 
 run "core_addon_cannot_be_disabled" {

@@ -44,9 +44,11 @@
 | `subnet_groups` 내부 `optional()` 필드까지 이번 크로스컷 대상에 포함 | 이건 변수 블록의 `nullable`과 다른 메커니즘(object type의 `optional()` 속성 기본값)이다. 스코프를 top-level `variable` 블록에 한정한다 |
 
 > **결정**: default가 **null이 아닌** 변수와 **필수(default 없음)** 변수에 `nullable = false`를 추가한다.
-> `modules/aws/vpc`·`modules/azure/vnet` 양쪽에 적용했다(vpc 17개 중 14개, vnet 12개 중 9개).
-> 근거는 실측: 양쪽 모듈 모두 `merge(var.tags, {...})`가 다수 있어(vpc 7곳·vnet 2곳), 소비자가
-> `tags = null`을 명시하면 현재는 거기서 "argument must not be null"로 크래시한다.
+> `modules/aws/*`·`modules/azure/*` **전 모듈**에 적용했다. vpc 17개 중 14개, vnet 12개 중 9개,
+> eks-cluster 27개 중 27개(전부), workbench 20개 중 12개, cross-account-trust-role 6개 중 6개(전부).
+> 근거는 실측: 5개 모듈 전부 `merge(var.tags, {...})`를 쓴다(vpc 7곳·vnet 2곳·eks-cluster 2곳·
+> workbench 4곳·cross-account-trust-role 1곳). 소비자가 `tags = null`을 명시하면 현재는 거기서
+> "argument must not be null"로 크래시한다.
 > `az_count`(`min()` 인자)·`deletion_protection`(`prevent_destroy` 메타 인자)도 같은 위험군이다.
 > `nullable = false`면 이런 경우 크래시 대신 default로 조용히 대체되거나(선택 변수), 변수
 > 선언부 이름을 가리키는 명확한 경계 에러가 된다(필수 변수). 근거 문서:

@@ -17,18 +17,21 @@ variable "naming" {
     env         = string
     region_code = string
   })
+  nullable = false
 }
 
 variable "purpose" {
   description = "Name 태그의 purpose 토큰."
   type        = string
   default     = "workbench"
+  nullable    = false
 }
 
 variable "serial" {
   description = "Name 태그의 일련번호 토큰."
   type        = string
   default     = "01"
+  nullable    = false
 }
 
 variable "tags" {
@@ -39,6 +42,7 @@ variable "tags" {
   EOT
   type        = map(string)
   default     = {}
+  nullable    = false
 }
 
 # ── kill switch ──────────────────────────────────────────────────────────────
@@ -53,6 +57,7 @@ variable "workbench_enabled" {
   EOT
   type        = bool
   default     = true
+  nullable    = false
 }
 
 # ── 배치 ─────────────────────────────────────────────────────────────────────
@@ -60,6 +65,7 @@ variable "workbench_enabled" {
 variable "vpc_id" {
   description = "workbench SG를 만들 VPC."
   type        = string
+  nullable    = false
 }
 
 variable "subnet_id" {
@@ -72,6 +78,7 @@ variable "subnet_id" {
     닫힌 검증은 값이 늘 때마다 부채가 되기 때문이다.
   EOT
   type        = string
+  nullable    = false
 }
 
 # ── 인스턴스 ─────────────────────────────────────────────────────────────────
@@ -87,6 +94,7 @@ variable "ami_id" {
     소비 루트다 — addon 버전 핀과 같은 구조다. 값 조회법은 예제 README 참조.
   EOT
   type        = string
+  nullable    = false
 }
 
 variable "instance_type" {
@@ -105,6 +113,7 @@ variable "instance_type" {
   EOT
   type        = string
   default     = "t4g.small"
+  nullable    = false
 }
 
 variable "root_volume_size" {
@@ -114,6 +123,7 @@ variable "root_volume_size" {
   EOT
   type        = number
   default     = 10
+  nullable    = false
 }
 
 variable "root_volume_kms_key_id" {
@@ -208,6 +218,7 @@ variable "krew_plugins" {
   EOT
   type        = list(string)
   default     = ["ctx", "ns", "neat", "rbac-tool", "view-secret", "whoami"]
+  nullable    = false
 }
 
 # ── EKS 연동 — 3층 중 1층만 ──────────────────────────────────────────────────
@@ -260,6 +271,7 @@ variable "egress_cidr_blocks" {
   EOT
   type        = list(string)
   default     = ["0.0.0.0/0"]
+  nullable    = false
 
   validation {
     condition     = length(var.egress_cidr_blocks) > 0

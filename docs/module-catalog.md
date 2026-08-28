@@ -2,7 +2,7 @@
 
 **읽는 사람**: 배포 루트에서 모듈을 호출하려는 사람.
 
-모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 등재된 것은 AWS 4개이고 Azure는 1개다.
+모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 등재된 것은 AWS 4개이고 Azure는 2개다.
 
 핵심 세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
 크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인과 독립적으로 존재하며
@@ -149,10 +149,10 @@ Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나�
 
 ## `aks-cluster`
 
-Azure Kubernetes 클러스터(AKS). **설계 확정 · 구현 미착수**(`modules/azure/aks-cluster/`
-디렉터리와 코드는 아직 없다). 이 절은 승인된 설계(`docs/decisions.md`「Azure 컨테이너
-(aks-cluster)」ADR)의 확정 사항을 옮긴 것이고, 구현 후에는 아래 서브섹션을 모듈 README로
-대체한다.
+Azure Kubernetes 클러스터(AKS). 시스템 노드 풀(필수) · 추가 노드 풀(옵트인) · Karpenter(Node
+Auto Provisioning, 옵트인 기본 활성화). `modules/azure/aks-cluster/`에 둔다.
+
+전체 계약(입력·출력·리소스) → [`modules/azure/aks-cluster/README.md`](../modules/azure/aks-cluster/README.md)
 
 ### `vnet`과의 연동
 
@@ -183,20 +183,6 @@ Azure Kubernetes 클러스터(AKS). **설계 확정 · 구현 미착수**(`modul
 
 **만들지 않는 것**: 리소스 그룹 · VNet · 모든 서브넷(Pod 서브넷 포함) · user-assigned
 identity · role assignment · private DNS zone · 애드온 · 크로스 구독 신뢰.
-
-### 인터페이스 초안
-
-⚠️ **이 절은 모듈 README가 생기면 삭제한다**(두 곳에 같은 계약을 두지 않는다).
-
-| 구분 | 값 |
-|---|---|
-| 필수 입력 | `naming` · `resource_group_name` · `location` · `identity_id` · `node_subnet_id` · `pod_subnet_id` |
-| 선택 입력 | `purpose` · `serial` · `tags` · `cluster_enabled`(기본 `true`) · `deletion_protection`(기본 `false`) · `kubernetes_version` · `sku_tier` · `node_pools`(맵) · `entra_admin_group_object_ids` · `local_account_disabled`(기본 `false`) · `private_cluster_enabled` · `authorized_ip_ranges` · `service_cidr` · `dns_service_ip` · `workload_identity_enabled` |
-| 출력 | `cluster_id` · `cluster_name` · `oidc_issuer_url` · `kubelet_identity_object_id` · `node_resource_group` · `fqdn`/`private_fqdn`(전부 null-safe) |
-
-⚠️ `pod_subnet_id`는 노드 풀별 인자이지만, 첫 버전은 전 노드 풀이 이 값 하나를 공유한다.
-풀별 오버라이드는 이후 버전 후보로 미뤘다(서브넷 교체는 순환을 부르므로 나중에 여는 것도
-비파괴 변경이다).
 
 ### `eks-cluster`와의 비대칭
 

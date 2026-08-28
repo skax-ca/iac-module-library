@@ -28,3 +28,16 @@ misconfigurations:
       (c) 소비자가 egress_cidr_blocks 로 좁힐 수 있다.
       백로그: 40-workbench.md §10-2 — SSM VPCE 3종(ssm·ssmmessages·ec2messages)을 신설하면
       VPC CIDR 로 좁힐 수 있다. NAT 가 이미 있는 VPC 에서는 중복 지출이라 지금은 채택하지 않았다.
+  - id: AVD-AZU-0040
+    paths:
+      - "modules/azure/aks-cluster/main.tf"
+    statement: >-
+      aks-cluster 설계(ralplan v4, 축7)가 이미 판정한 값이다 — 0.1.0은 애드온 블록을
+      하나도 열지 않는다("요구가 생기면 그때 연다" 패턴, docs/decisions.md「Azure 컨테이너
+      (aks-cluster)」ADR 「eks-cluster의 addon baseline 패턴 이식」 기각 행 참조). OMS Agent
+      (Azure Monitor Container Insights)는 축7이 열지 않기로 한 개별 addon 블록 중 하나이고,
+      log_analytics_workspace_id를 요구해 소비자가 미리 Log Analytics 워크스페이스를 만들어야
+      하는 추가 선행 의존성을 진다.
+      백로그: 실수요(로그 수집 요구)가 확인되면 oms_agent 블록을 옵트인 변수로 여는
+      후속 마이너를 낸다 — 0.1.0에 지금 여는 것은 검증하지 않은 요구를 배송 계약에 넣는
+      것이다(P5).

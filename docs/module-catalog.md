@@ -175,6 +175,12 @@ Azure Kubernetes 클러스터(AKS). **설계 확정 · 구현 미착수**(`modul
 ②를 건너뛰면 ③은 성공하고 노드만 조용히 실패한다. role assignment가 모듈 밖에 있어 plan
 시점에 이 실패를 잡을 수 없다.
 
+ℹ️ `identity_id`가 받는 권한은 이 `Network Contributor`(소비자가 명시적으로 부여) 외에
+하나 더 있다(노드 리소스 그룹 `Contributor`, ingress Load Balancer·CSI 드라이버 등 관리
+용도). 이 권한은 클러스터 생성 시 Azure가 자동으로 부여해 별도 조치가 필요 없다. 두 권한의 스코프·
+용도 비교는 [`modules/azure/aks-cluster/README.md`](../modules/azure/aks-cluster/README.md)
+「`identity_id`가 받는 권한은 두 종류다」 절을 본다.
+
 **만들지 않는 것**: 리소스 그룹 · VNet · 모든 서브넷(Pod 서브넷 포함) · user-assigned
 identity · role assignment · private DNS zone · 애드온 · 크로스 구독 신뢰.
 

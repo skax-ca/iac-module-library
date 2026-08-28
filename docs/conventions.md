@@ -30,7 +30,9 @@ vnet-demo-prd-krc-main      # Azure: name 인자에 실린다
 
 **이 조합이 실리는 자리는 provider마다 다르다.** AWS는 `Name` 태그로, Azure는 `name` 인자로
 실린다(Azure 서브넷처럼 태그 자체를 지원하지 않는 리소스가 있어 태그로 통일할 수 없다).
-조합 방식과 구성 요소는 클라우드와 무관하게 같다.
+리소스 그룹·구독에 스코프된 리소스에서는 조합 방식과 구성 요소가 클라우드와 무관하게 같다.
+**부모 리소스에 스코프된 자식 리소스는 예외이며 아래 provider별 절이 소유한다**(Azure 강제
+방식 6번).
 
 | 구성 요소 | 값 |
 |-----------|-----|
@@ -108,7 +110,21 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 
    ⚠️ 전역 고유 이름 제약은 이 집합에 나타나지 않는다. 마주치는 지점은 스토리지 계정이나
    Flow Logs를 여는 순간이다.
-6. ⚠️ **아래 한 가지는 규정하지 않는다. 실측 수단이 생기면 정한다.**
+6. **하위 스코프 리소스는 부모가 이미 나르는 토큰을 반복하지 않는다.** 위 공통 강제 방식
+   1번("이름은 모듈이 조합한다")의 예외다. AKS 노드 풀
+   (`azurerm_kubernetes_cluster_node_pool`, 스코프가 클러스터 리소스 그룹이 아니라
+   **managed cluster**)이 첫 사례다. 클러스터 이름에 이미 `workload`·`env`·`리전코드`
+   토큰이 들어 있어, 노드 풀 이름에서 그 토큰들은 정보를 나르지 않는다.
+
+   | 항목 | 내용 |
+   |---|---|
+   | 이름 형태 | 시스템 노드 풀 `npsystem` 고정, 사용자 노드 풀 `np<그룹키>`. 하이픈 없음 |
+   | 물리 제약 | 1~12자(Linux) · 소문자+숫자만 · 숫자로 시작 불가([Naming rules and restrictions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules)의 `managedClusters/agentPools` 행) |
+   | 길이 예산 | 그룹 키는 **8자 이하**(`np` + 8 = 10자). `temporary_name_for_rotation`(속성 변경 시 순환에 쓰는 임시 노드 풀 이름)이 같은 12자 한도를 쓰므로, 그 이름이 들어갈 자리를 남겨 둔다 |
+   | 출처 | Microsoft CAF 권장 약어 `npsystem`·`np`. ⚠️ 약어 카탈로그(`azure.md`)에는 등재하지 않는다(하이픈 금지·길이 초과가 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사를 동시에 위반한다) |
+   | Windows | ⛔ Windows 노드 풀은 이름 한도가 6자라 위 규칙이 성립하지 않는다. `0.1.0` 지원 범위 밖이다 |
+
+7. ⚠️ **아래 한 가지는 규정하지 않는다. 실측 수단이 생기면 정한다.**
    - Azure Policy가 `modify`로 태그를 덧붙이는 환경에서 OpenTofu 상태와 어떻게 상호작용하는지
      (drift 발생 여부와 대응). 확인하지 않았으므로 값을 쓰지 않는다.
 

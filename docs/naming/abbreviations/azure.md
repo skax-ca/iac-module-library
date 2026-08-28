@@ -24,7 +24,7 @@
 | purpose | 자원의 상세 용도 | `main`, `app`, `web` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **9개** 약어, 4개 카테고리.
+- 총 **11개** 약어, 5개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
@@ -63,6 +63,8 @@
 | 2026-08-27 | `rg` | 리소스 그룹 (`azurerm_resource_group`, `Microsoft.Resources/resourceGroups`) | `aks-reference-infra`의 `bootstrap/`(자격증명 계층)이 실제 Azure 실행 검증 중 필요해 등재. CAF 표에 정확히 `rg`로 등재돼 있어 그대로 채택 |
 | 2026-08-27 | `st` | Storage Account (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`) | 위와 같은 세션, state 저장소 계층에 필요. CAF 표에 정확히 `st`로 등재돼 있어 그대로 채택. ⚠️ Storage Account 이름은 하이픈을 전혀 쓸 수 없는 Azure 물리 제약(3~24자, 소문자+숫자만)이 있어, A.3 표의 "Name 예시"는 토큰 순서만 보여주는 것이고 실제 이름은 하이픈 없이 이어붙인다 |
 | 2026-08-27 | `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | 위와 같은 세션, GitHub Actions OIDC 신원에 필요. **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 ARM 리소스가 아니라 Microsoft Graph 객체라 애초에 그 표의 대상이 아니다(실측 확인, 2026-08-27). 이 카탈로그의 첫 non-ARM 등재 사례다. 후보로 `app`(Azure Web App/`Microsoft.Web/sites`이 이미 CAF에서 이 약어를 쓰므로 향후 등재 시 충돌 예약, 기각), `aadapp`(레거시 이름 Azure AD 기반, 기각. Microsoft가 Entra ID로 명칭을 통일)을 검토했고, "Entra + Application"의 `entapp`(6자, 등재 규칙 4의 길이 한도 이내)을 채택했다. Service Principal은 `az ad sp create --id <appId>`로 App Registration의 displayName을 그대로 물려받아 별도 이름 인자가 없으므로, 위 "종속 객체" 규약과 같은 이유로 새 약어를 만들지 않는다 |
+| 2026-08-28 | `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | 두 번째 Azure 모듈 `aks-cluster` 설계 확정(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR). CAF 표에 정확히 `aks`로 등재돼 있어 그대로 채택. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가 하이픈 금지 + 길이 초과로 이 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
+| 2026-08-28 | `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | `aks-cluster` 모듈은 컨트롤 플레인 신원을 만들지 않고 입력으로만 받기로 확정(축3, 모듈이 identity·role assignment를 만들면 소비 repo의 CI 신원 권한 경계가 무너진다). 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. 등재 근거는 `rg`·`st`·`entapp`과 같은 선례(소비 repo가 이름 지어 만들 리소스) |
 
 ## A.1 Network (6)
 
@@ -96,17 +98,34 @@
 보여주는 것이고, 실제 이름은 `stdemoprdkrcmain01`처럼 하이픈 없이 이어붙인 뒤 24자 한도에
 맞춰 축약한다.
 
-## A.4 Identity (1)
+## A.4 Identity (2)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
 | Microsoft Entra ID | 앱 등록 (`azuread_application`) | `entapp` | entapp-demo-prd-krc-gha-01 |
+| Managed Identity | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`) | `id` | id-demo-prd-krc-aks-01 |
 
-⚠️ 이 항목은 **CAF 리소스 약어표에 없다**(그 표는 ARM provider namespace가 있는 리소스만
+⚠️ `entapp`은 **CAF 리소스 약어표에 없다**(그 표는 ARM provider namespace가 있는 리소스만
 다루는데, 앱 등록은 Microsoft Graph 객체라 ARM 리소스가 아니다). 이 카탈로그에서 CAF 표를
 그대로 못 따른 첫 사례이며, 후보 검토와 채택 근거는 아래 개정 이력 표 참고. Service
 Principal은 App Registration의 `displayName`을 그대로 물려받는 종속 객체라 별도 약어가
 없다(위 "종속 객체" 규약).
+
+⚠️ `id`는 이 저장소의 모듈이 만들지 않는다. `aks-cluster` 모듈은 identity도 role
+assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/decisions.md`「Azure 컨테이너
+(aks-cluster)」ADR). 소비 repo의 bootstrap 계층이 이름 지어 만든다.
+
+## A.5 Containers (1)
+
+| L0 | L2 리소스 | 약어 | Name 예시 |
+|----|-----------|------|-----------|
+| Containers | AKS 클러스터 (`azurerm_kubernetes_cluster`) | `aks` | aks-demo-prd-krc-main-01 |
+
+⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 이 카탈로그에
+등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가
+이 저장소의 등재 규칙 4(7자 초과 금지)와 예시 형식 검사(예시는 `<약어>-`로 시작)를 동시에
+위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약(형태·
+길이 예산)은 `docs/conventions.md`의 「Azure 강제 방식」이 소유한다.
 
 ## 카운트 요약
 
@@ -115,8 +134,9 @@ Principal은 App Registration의 `displayName`을 그대로 물려받는 종속 
 | A.1 | Network | 6 |
 | A.2 | Management and governance | 1 |
 | A.3 | Storage | 1 |
-| A.4 | Identity | 1 |
-| | **합계** | **9** |
+| A.4 | Identity | 2 |
+| A.5 | Containers | 1 |
+| | **합계** | **11** |
 
 > ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

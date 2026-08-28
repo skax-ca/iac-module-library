@@ -147,6 +147,69 @@ Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나�
 
 ---
 
+## `aks-cluster`
+
+Azure Kubernetes 클러스터(AKS). **설계 확정 · 구현 미착수**(`modules/azure/aks-cluster/`
+디렉터리와 코드는 아직 없다). 이 절은 승인된 설계(`docs/decisions.md`「Azure 컨테이너
+(aks-cluster)」ADR)의 확정 사항을 옮긴 것이고, 구현 후에는 아래 서브섹션을 모듈 README로
+대체한다.
+
+### `vnet`과의 연동
+
+| 항목 | 내용 |
+|---|---|
+| 노드 서브넷 | `vnet`의 `subnet_ids_by_group["aks-node"]` → `node_subnet_id` |
+| Pod 서브넷 | `vnet`의 `subnet_ids_by_group["aks-pod"]` → `pod_subnet_id`. 소비자가 `vnet`의 `subnet_groups`에 이 그룹을 먼저 추가한다. Pod 대역은 VNet의 secondary `address_space`에서 뗀다 |
+| 아웃바운드 | `vnet`의 `nat_gateway_enabled` + `nat_routed = true` ↔ `outbound_type = "userAssignedNATGateway"`. ⚠️ 완전한 요구사항과 Pod 서브넷에도 `nat_routed`가 필요한지는 규정하지 않는다(구현 라운드에서 실측) |
+| 라우팅 테이블 | 불필요하다. UDR 요구는 kubenet 전용이고 Azure CNI에는 적용되지 않는다. `vnet`의 `route_table_enabled`는 AKS 때문이 아니라 운영 라우트(UDR 오버라이드)가 별도로 필요할 때만 켠다 |
+| 서브넷 위임 | ⛔ AKS 노드 풀 서브넷은 위임된 서브넷일 수 없다. `vnet`의 `subnet_groups`에서 그 그룹에 `delegations`를 쓰지 않는다 |
+| NSG | `vnet`의 `nsg_enabled`로 만드는 빈 NSG는 안전하다. AKS는 서브넷 NSG를 만들지도 수정하지도 않으며, 규칙을 얹을 때 노드 CIDR 내부 트래픽 허용을 보장하는 것은 소비자 책임이다 |
+| 예약 CIDR | pod/service/VNet 대역에 `169.254.0.0/16` · `192.0.2.0/24` · `172.30.0.0/16` · `172.31.0.0/16`를 쓸 수 없다 |
+| 신원 | bootstrap 계층이 user-assigned identity를 만들고 서브넷의 `Network Contributor` 등 필요한 role assignment를 부여한 뒤, 그 리소스 ID를 `identity_id`(필수)로 넘긴다. **이 모듈은 identity도 role assignment도 만들지 않는다** |
+
+⚠️ 「신원」 행에서 role assignment를 이 모듈이 만들지 않는 이유: 재사용 모듈이 만드는
+리소스는 소비자의 CI 신원이 그것을 만들 권한을 갖는다는 뜻이고, `roleAssignments/write`는
+그 신원이 자기 자신에게 상위 역할을 부여할 수 있게 만든다.
+
+⚠️ 순서 의존이 있다: identity 생성 → 서브넷에 `Network Contributor` 부여 → 클러스터 생성.
+②를 건너뛰면 ③은 성공하고 노드만 조용히 실패한다. role assignment가 모듈 밖에 있어 plan
+시점에 이 실패를 잡을 수 없다.
+
+**만들지 않는 것**: 리소스 그룹 · VNet · 모든 서브넷(Pod 서브넷 포함) · user-assigned
+identity · role assignment · private DNS zone · 애드온 · 크로스 구독 신뢰.
+
+### 인터페이스 초안
+
+⚠️ **이 절은 모듈 README가 생기면 삭제한다**(두 곳에 같은 계약을 두지 않는다).
+
+| 구분 | 값 |
+|---|---|
+| 필수 입력 | `naming` · `resource_group_name` · `location` · `identity_id` · `node_subnet_id` · `pod_subnet_id` |
+| 선택 입력 | `purpose` · `serial` · `tags` · `cluster_enabled`(기본 `true`) · `deletion_protection`(기본 `false`) · `kubernetes_version` · `sku_tier` · `node_pools`(맵) · `entra_admin_group_object_ids` · `local_account_disabled`(기본 `false`) · `private_cluster_enabled` · `authorized_ip_ranges` · `service_cidr` · `dns_service_ip` · `workload_identity_enabled` |
+| 출력 | `cluster_id` · `cluster_name` · `oidc_issuer_url` · `kubelet_identity_object_id` · `node_resource_group` · `fqdn`/`private_fqdn`(전부 null-safe) |
+
+⚠️ `pod_subnet_id`는 노드 풀별 인자이지만, 첫 버전은 전 노드 풀이 이 값 하나를 공유한다.
+풀별 오버라이드는 이후 버전 후보로 미뤘다(서브넷 교체는 순환을 부르므로 나중에 여는 것도
+비파괴 변경이다).
+
+### `eks-cluster`와의 비대칭
+
+| 축 | `modules/aws/eks-cluster` | `aks-cluster` | 사유 |
+|---|---|---|---|
+| 노드 풀 이름 | `eksn-<workload>-<env>-<리전>-<키>` | `np<키>` | Azure는 하이픈 불가 · 12자 한도 |
+| 시스템 노드 풀 | 선택(비워 둘 수 있다) | 필수 | `default_node_pool`이 클러스터 리소스의 필수 구성요소다 |
+| 애드온 | baseline 맵 + merge + 버전 핀 | 없음 | AKS는 애드온이 맵이 아니라 개별 블록이라 대응 문제 자체가 없다 |
+| 삭제 보호 | AWS 네이티브 | `prevent_destroy` | AKS에는 네이티브 삭제 보호 인자가 없다 |
+| API 엔드포인트 | public·private 독립 토글 | `private_cluster_enabled` 하나(변경 시 재생성) | AKS는 공개·비공개를 값 하나로 토글한다 |
+| 크로스 계정/구독 | 있음 | 없음(스코프 밖) | 본질적으로 role assignment라 이 모듈이 만들 수 없다 |
+| IAM/role 리소스 | 실제로 만든다(role·attachment·pod-identity) | 하나도 만들지 않는다 | 위 「신원」 행과 같은 이유(권한 봉투) |
+| Pod 네트워킹 | `pod_subnet_ids` 입력(custom networking) | `pod_subnet_id` 입력(Azure CNI Pod Subnet 고정) | Overlay는 노출하지 않는다 |
+| 노드 그룹 키 문자집합 | 제약 없음 | 소문자+숫자만, 8자 이하, 숫자로 시작 불가 | 노드 풀 이름 물리 제약 |
+| Windows 노드 | 지원 | `0.1.0` 스코프 밖 | 이름 한도 6자 |
+| 서브넷 교체 | 노드그룹 롤링 교체 | cordon/drain 없는 풀 순환 | AKS 노드 풀 순환의 동작 |
+
+---
+
 ## 연동 예시
 
 `vpc` -> `eks-cluster` -> `workbench` 체인의 실제 output -> input 연동(태그 문법·소싱 방식

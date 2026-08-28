@@ -1,7 +1,7 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 11개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2(vnet 릴리스·aks-cluster docs+`.tf`구현 완료). aks-cluster: 브랜치 feat/azure-aks-cluster-module 커밋4개(구현+Karpenter기본켬+default_node_pools=None+LB/신원문서화), **push/PR 미완료**(다음 세션 첫 액션). 영구사실=project-memory.json.
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리, vwan·vhub 추가). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2(vnet 릴리스·aks-cluster docs+`.tf`구현 완료). aks-cluster: PR #38 오픈·CI 3게이트 전부 통과, merge 여부 다음 세션 확인. 영구사실=project-memory.json.
 
 ## MANUAL(자동 로드 안 됨) 참조.
 
@@ -299,6 +299,17 @@ CNI 대안 2·노드 풀 검증 대안 3·기타 11) + 결정/드라이버/근�
 
 **남은 미결(이전 세션부터 이월)**: (1) 스포크 신규 구독 GitOps 접근 방식 리서치(azure-gitops-comparison 메모 참조) (2) Azure 허브-스포크 아키텍처 문서 신설 여부 (3) NAP+flat Pod Subnet 실제 호환성 미검증(azure-aks-cluster-karpenter-research 메모 참조, live 클러스터 실측 전까지 미해결).
 
+### 2026-08-28 (세션 4) — aks-cluster PR #38 오픈·GitOps 크로스 구독 리서치·vwan/vhub 약어 등재
+
+세션 시작 시 `feat/azure-aks-cluster-module`가 이미 push된 상태 확인 → PR #38 오픈(main ← feat/azure-aks-cluster-module), CI 3게이트(공통 검증·문서 작성 규칙·약어 카탈로그 SSOT) 전부 통과. merge 여부는 다음 세션 확인 대상.
+
+이어서 project-memory의 azure-gitops-comparison 미결 질문("스포크 AKS에 GitOps로 접근하는 Azure 네이티브 모범사례")을 공식 문서 3건으로 리서치 — 결론은 `Workload Identity Federation` + `Azure RBAC for Kubernetes Authorization` 조합이 AWS STS role-chaining의 대응물이지만, 그 role assignment 단계가 `aks-reference-infra`의 "CI 신원은 roleAssignments/write를 절대 안 가진다" 불변식과 충돌해 자동화가 아니라 hub bootstrap과 같은 1회성 수동 작업이 돼야 함(project-memory open-items에 상세 기록).
+
+사용자가 `aks-reference-infra`에서 진행 중인 vwan 설계(`.omc/plans/live-hub-vwan-dev-networking.md`)의 네이밍 약어 선행 등재를 요청 → CAF 공식 문서로 `vwan`·`vhub` 확인 후 `docs/naming/abbreviations/azure.md`에 등재(A.1 Network 6→8, 총계 11→13), main 직접 커밋(`5b30155`)·push 완료.
+
+이어서 사용자가 dev Pod CIDR 결정(계획 4-4절 Option A 100.65.0.0/16 vs Option B 100.64.0.0/16 공유)에 대해 "Azure 엔터프라이즈 모범사례부터 리서치"를 요청 → CAF·최신 IP 설계 가이드로 Option A가 Microsoft 권고안과 정확히 일치함을 확인(project-memory azure-vwan 항목에 근거 상세 기록). 사용자가 최종 승인은 `aks-reference-infra` 세션에서 하기로 결정 — 이 리서치는 참고용으로만 여기 남김, 실제 적용은 그쪽 세션 몫.
+
+⚠️ **세션 종료 작업 중 발견한 실수**: 이 세션에서 `mcp__t__notepad_write_working`을 두 차례 호출했는데, 매번 disk의 최신 상태가 아니라 세션이 들고 있던 stale 캐시를 기준으로 파일을 재구성해 이미 존재하던 "세션3, 이어서(Karpenter)" 블록 전체를 복제했다(`mcp__t__project_memory_add_note`에서 먼저 겪은 것과 같은 계열의 버그, [[feedback_mcp_project_memory_stale_overwrite]] 참고 — 이번엔 덮어쓰기가 아니라 중복 삽입이었다). 매번 `git checkout <branch> -- .omc/notepad.md`로 커밋된 정본으로 되돌린 뒤 이 항목은 Edit 툴로 직접 삽입해 해결. **교훈**: 이번 세션 동안은 `mcp__t__notepad_write_*`/`mcp__t__project_memory_*` 계열 쓰기 툴을 신뢰하지 말고, 호출 후 반드시 `wc -l`+핵심 문구 `grep -c`로 중복·손실 여부를 확인할 것 — 애매하면 Edit으로 직접 쓰는 편이 더 안전하다.
 
 ## 2026-08-26 — Azure 기반 구조 Step 5 (태그 재컷 + 마이그레이션 안내, main 직접 커밋) — Azure 기반 구조 전체 완료
 

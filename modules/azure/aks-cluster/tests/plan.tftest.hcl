@@ -1,0 +1,395 @@
+# aks-cluster 모듈 계약 검증
+#
+# ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 validate가 아니라 plan
+#    시점에 평가되므로, examples를 validate까지만 도는 규약으로는 계약 위반이 잡히지 않는다.
+#
+# mock_provider로 azurerm 전체를 모킹한다 — 이 repo는 배포하지 않아 CI에 Azure 자격증명이
+# 없다. 모킹에서는 computed 속성(id·oidc_issuer_url 등)이 plan 시점에 unknown이다. 따라서
+# assertion은 설정값(tags·name·vm_size 등)과 인스턴스 개수·키 집합만 본다
+# (modules/azure/vnet/tests/plan.tftest.hcl과 같은 제약).
+
+mock_provider "azurerm" {
+  mock_resource "azurerm_kubernetes_cluster" {
+    defaults = {
+      id                  = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ContainerService/managedClusters/example-aks"
+      node_resource_group = "MC_example-resource-group_example-aks_koreacentral"
+    }
+  }
+
+  mock_resource "azurerm_kubernetes_cluster_node_pool" {
+    defaults = {
+      id = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/example-resource-group/providers/Microsoft.ContainerService/managedClusters/example-aks/agentPools/example-pool"
+    }
+  }
+}
+
+variables {
+  naming = {
+    workload    = "demo"
+    env         = "prd"
+    region_code = "krc"
+  }
+  resource_group_name = "rg-demo-prd-krc-main"
+  location            = "koreacentral"
+  identity_id         = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-demo-prd-krc-main/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-demo-prd-krc-aks-01"
+  node_subnet_id      = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-demo-prd-krc-main/providers/Microsoft.Network/virtualNetworks/vnet-demo-prd-krc-main/subnets/snet-demo-prd-krc-aks-node"
+  pod_subnet_id       = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-demo-prd-krc-main/providers/Microsoft.Network/virtualNetworks/vnet-demo-prd-krc-main/subnets/snet-demo-prd-krc-aks-pod"
+
+  system_node_pool = {
+    vm_size    = "Standard_D2s_v5"
+    node_count = 2
+  }
+}
+
+# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
+run "naming_contract" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].name == "aks-demo-prd-krc-main-01"
+    error_message = "클러스터 이름이 aks-<mid>-<purpose>-<serial> 포맷이 아니다: ${azurerm_kubernetes_cluster.this[0].name}"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].dns_prefix == "aks-demo-prd-krc-main-01"
+    error_message = "dns_prefix가 클러스터 이름과 다르다: ${azurerm_kubernetes_cluster.this[0].dns_prefix}"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].default_node_pool[0].name == "npsystem"
+    error_message = "시스템 노드 풀 이름이 npsystem이 아니다: ${azurerm_kubernetes_cluster.this[0].default_node_pool[0].name}"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].default_node_pool[0].temporary_name_for_rotation == "npsystemt"
+    error_message = "시스템 노드 풀의 temporary_name_for_rotation이 npsystemt가 아니다."
+  }
+}
+
+# ── 시스템 노드 풀 — 필수, 서브넷·태그가 배선된다 ───────────────────────────────
+run "system_node_pool_required_and_wired" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].vm_size == "Standard_D2s_v5",
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].node_count == 2,
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == var.pod_subnet_id,
+    ])
+    error_message = "시스템 노드 풀 설정이 var.system_node_pool·node_subnet_id·pod_subnet_id와 어긋난다."
+  }
+}
+
+# ── 신원 — identity_id를 입력으로만 받는다, identity·role assignment를 만들지 않는다 ──
+run "identity_input_only_no_creation" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].identity[0].type == "UserAssigned",
+      azurerm_kubernetes_cluster.this[0].identity[0].identity_ids == toset([var.identity_id]),
+    ])
+    error_message = "identity 블록이 UserAssigned + var.identity_id 하나로 구성되지 않았다."
+  }
+
+  # 이 모듈이 azurerm_user_assigned_identity·azurerm_role_assignment를 만들지 않는다는 것은
+  # main.tf에 그 리소스 타입 자체가 없다는 사실로 보장된다(음성 조건은 플랜 그래프가 아니라
+  # 코드 리뷰·grep으로 검증한다 — tftest는 존재하는 리소스만 assert할 수 있다).
+}
+
+# ── 네트워킹 — Azure CNI Pod Subnet 고정, NAT는 만들지 않는다 ───────────────────
+run "network_profile_flat_cni_fixed" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin == "azure",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].outbound_type == "userAssignedNATGateway",
+    ])
+    error_message = "network_profile이 Azure CNI Pod Subnet(flat) 고정 계약과 다르다."
+  }
+}
+
+# ── node_provisioning_profile — 항상 존재, mode = Manual 고정 ───────────────────
+run "node_provisioning_profile_always_manual" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Manual"
+    error_message = "node_provisioning_profile.mode가 Manual로 고정되지 않았다."
+  }
+}
+
+# ── Entra RBAC — 옵트인, 기본은 블록 자체가 없다(G2 확정) ───────────────────────
+run "entra_rbac_optin_default_off" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control) == 0
+    error_message = "entra_admin_group_object_ids가 빈 기본값인데 AAD RBAC 블록이 만들어졌다."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].local_account_disabled == false
+    error_message = "local_account_disabled 기본값이 false가 아니다."
+  }
+}
+
+run "entra_rbac_enabled_when_admin_groups_given" {
+  command = plan
+
+  variables {
+    entra_admin_group_object_ids = ["00000000-0000-0000-0000-000000000001"]
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control) == 1,
+      azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control[0].admin_group_object_ids == tolist(["00000000-0000-0000-0000-000000000001"]),
+      azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true,
+    ])
+    error_message = "entra_admin_group_object_ids를 넘겼는데 AAD RBAC 블록이 그 값대로 만들어지지 않았다."
+  }
+}
+
+# ── local_account_disabled 잠금 위험 — plan에서 차단된다(0-8) ───────────────────
+run "reject_local_account_disabled_without_admin_group" {
+  command = plan
+
+  variables {
+    local_account_disabled = true
+  }
+
+  expect_failures = [var.local_account_disabled]
+}
+
+run "local_account_disabled_allowed_with_admin_group" {
+  command = plan
+
+  variables {
+    local_account_disabled       = true
+    entra_admin_group_object_ids = ["00000000-0000-0000-0000-000000000001"]
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].local_account_disabled == true
+    error_message = "entra_admin_group_object_ids를 함께 줬는데 local_account_disabled = true가 반영되지 않았다."
+  }
+}
+
+# ── API 서버 접근 제한 — 옵트인 ──────────────────────────────────────────────────
+run "api_server_access_profile_optin" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].api_server_access_profile) == 0
+    error_message = "authorized_ip_ranges가 빈 기본값인데 api_server_access_profile 블록이 만들어졌다."
+  }
+}
+
+run "api_server_access_profile_set_when_ranges_given" {
+  command = plan
+
+  variables {
+    authorized_ip_ranges = ["203.0.113.0/24"]
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].api_server_access_profile[0].authorized_ip_ranges == toset(["203.0.113.0/24"])
+    error_message = "authorized_ip_ranges가 api_server_access_profile에 반영되지 않았다."
+  }
+}
+
+# ── service_cidr · dns_service_ip는 함께 지정하거나 함께 비운다 ─────────────────
+run "reject_service_cidr_without_dns_service_ip" {
+  command = plan
+
+  variables {
+    service_cidr = "10.100.0.0/16"
+  }
+
+  expect_failures = [var.service_cidr]
+}
+
+run "service_cidr_and_dns_service_ip_together_ok" {
+  command = plan
+
+  variables {
+    service_cidr   = "10.100.0.0/16"
+    dns_service_ip = "10.100.0.10"
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].network_profile[0].service_cidr == "10.100.0.0/16",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].dns_service_ip == "10.100.0.10",
+    ])
+    error_message = "service_cidr·dns_service_ip가 network_profile에 반영되지 않았다."
+  }
+}
+
+# ── 추가 노드 풀 — for_each, np<키> 이름, 순환 예산 ─────────────────────────────
+run "additional_node_pools_named_and_wired" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "app" = {
+        vm_size     = "Standard_D4s_v5"
+        node_count  = 3
+        node_labels = { workload = "app" }
+        node_taints = ["dedicated=app:NoSchedule"]
+      }
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.this["app"].name == "npapp"
+    error_message = "추가 노드 풀 이름이 np<키> 포맷이 아니다: ${azurerm_kubernetes_cluster_node_pool.this["app"].name}"
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster_node_pool.this["app"].temporary_name_for_rotation == "npappt"
+    error_message = "추가 노드 풀의 temporary_name_for_rotation이 <이름>t 포맷이 아니다."
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster_node_pool.this["app"].mode == "User",
+      azurerm_kubernetes_cluster_node_pool.this["app"].vnet_subnet_id == var.node_subnet_id,
+      azurerm_kubernetes_cluster_node_pool.this["app"].pod_subnet_id == var.pod_subnet_id,
+      azurerm_kubernetes_cluster_node_pool.this["app"].node_labels == tomap({ workload = "app" }),
+    ])
+    error_message = "추가 노드 풀의 mode·서브넷·라벨이 계약과 다르다."
+  }
+}
+
+# ── node_pools 키 제약 — 8자 초과·대문자·숫자 시작은 plan에서 차단된다 ──────────
+run "reject_node_pool_key_too_long" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "toolongkey" = { vm_size = "Standard_D4s_v5" }
+    }
+  }
+
+  expect_failures = [var.node_pools]
+}
+
+run "reject_node_pool_key_starting_with_digit" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "1app" = { vm_size = "Standard_D4s_v5" }
+    }
+  }
+
+  expect_failures = [var.node_pools]
+}
+
+# ── 오토스케일링 교차변수 validation ────────────────────────────────────────────
+run "reject_autoscaling_without_min_max" {
+  command = plan
+
+  variables {
+    system_node_pool = {
+      vm_size              = "Standard_D2s_v5"
+      auto_scaling_enabled = true
+    }
+  }
+
+  expect_failures = [var.system_node_pool]
+}
+
+run "reject_node_pool_autoscaling_without_min_max" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "app" = {
+        vm_size              = "Standard_D4s_v5"
+        auto_scaling_enabled = true
+      }
+    }
+  }
+
+  expect_failures = [var.node_pools]
+}
+
+# ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
+run "nullable_false_falls_back_to_default" {
+  command = plan
+
+  variables {
+    tags            = null
+    purpose         = null
+    serial          = null
+    cluster_enabled = null
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].name == "aks-demo-prd-krc-main-01"
+    error_message = "purpose·serial = null이 default로 대체되지 않았다: ${azurerm_kubernetes_cluster.this[0].name}"
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].tags) == 0
+    error_message = "tags = null이 default {}로 대체되지 않았다."
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this) == 1
+    error_message = "cluster_enabled = null이 default true로 대체되지 않았다."
+  }
+}
+
+# ── kill switch ─────────────────────────────────────────────────────────────────
+# ⚠️ deletion_protection 기본값 false에 의존한다. true면 삭제 보호 validation이 먼저 차단한다.
+run "kill_switch_disables_everything" {
+  command = plan
+
+  variables {
+    cluster_enabled = false
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_kubernetes_cluster.this) == 0,
+      length(azurerm_kubernetes_cluster_node_pool.this) == 0,
+    ])
+    error_message = "cluster_enabled = false인데 리소스가 남아 있다."
+  }
+
+  assert {
+    condition = alltrue([
+      output.cluster_id == null,
+      output.cluster_name == null,
+      output.oidc_issuer_url == null,
+      output.kubelet_identity_object_id == null,
+      output.node_resource_group == null,
+      output.fqdn == null,
+      output.private_fqdn == null,
+    ])
+    error_message = "비활성 시 스칼라 출력이 null이 아니다."
+  }
+
+  assert {
+    condition     = length(output.node_pool_ids_by_key) == 0
+    error_message = "비활성 시 node_pool_ids_by_key가 빈 값이 아니다."
+  }
+}
+
+# ── 계약 위반은 plan에서 차단된다 ───────────────────────────────────────────────
+run "reject_teardown_while_protected" {
+  command = plan
+
+  variables {
+    cluster_enabled     = false
+    deletion_protection = true
+  }
+
+  expect_failures = [var.deletion_protection]
+}

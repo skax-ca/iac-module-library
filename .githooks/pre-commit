@@ -44,7 +44,7 @@ if [ -n "$md_staged" ]; then
         echo "    의도적 역사 서술이 아니면 태그를 갱신하거나 vX.Y.Z 자리표시자로 바꾼다."
         stale_found=1
       fi
-    done < <(grep -noE 'ref=(vpc|eks-cluster|workbench|cross-account-trust-role|vnet)-v[0-9]+\.[0-9]+\.[0-9]+' "$f")
+    done < <(grep -noE 'ref=(vpc|eks-cluster|workbench|cross-account-trust-role|vnet|aks-cluster)-v[0-9]+\.[0-9]+\.[0-9]+' "$f")
   done <<< "$md_staged"
   if [ "$stale_found" -eq 1 ]; then
     echo "[pre-commit] stale 태그 참조 발견 — 의도적이면 git commit --no-verify로 우회(사유를 커밋 메시지에 명시)"

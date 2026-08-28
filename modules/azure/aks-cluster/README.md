@@ -64,6 +64,44 @@ module "aks_cluster" {
 서고 **노드가 서브넷에 붙지 못한다.** role assignment가 이 모듈 밖에 있어 plan에서 잡을 수
 없는 죽은 경로다 — `depends_on`으로 순서를 강제한다(위 Usage 예시 참조).
 
+## `identity_id`가 받는 권한은 두 종류다 — 하나는 우리가 주고, 하나는 Azure가 자동으로 준다
+
+혼동하기 쉬운 지점이라 명시한다. `identity_id`로 넘긴 신원은 서로 다른 두 스코프에서
+권한을 받는다.
+
+| 권한 | 스코프 | 누가 부여하는가 | 용도 |
+|---|---|---|---|
+| `Network Contributor` | `node_subnet_id`·`pod_subnet_id`가 속한 VNet(또는 서브넷) | **소비자(bootstrap 계층)가 명시적으로 부여**(위 「순서 의존」 절) | 노드를 BYO 서브넷에 join |
+| `Contributor` | 노드 리소스 그룹(`MC_*`, `node_resource_group` 출력) | **Azure가 클러스터 생성 시 자동 부여**(ARM·CLI·Terraform 무관, BYO user-assigned identity에도 동일 적용) | ingress Load Balancer·AKS 관리 공용 IP·Cluster Autoscaler·Azure Disk/File/Blob CSI 드라이버 관리 |
+
+⚠️ **두 번째 권한은 이 모듈도, 소비자도 별도로 만들 필요가 없다** — 노드 리소스 그룹 자체가
+클러스터 생성 시점에 Azure 리소스 프로바이더가 자동으로 만드는 것이라, 그 위의
+`Contributor` 부여도 클러스터 생성에 내장된 자동 동작이다(Microsoft 공식 문서
+`managed-identity-overview` 확인). 이 권한 덕분에 `type: LoadBalancer` Service를
+`kubectl apply`만 해도 Azure가 Standard Load Balancer를 노드 리소스 그룹에 자동으로
+만든다 — EKS의 AWS Load Balancer Controller처럼 별도 컨트롤러를 설치할 필요가 없다
+(`cloud-controller-manager`가 Azure 관리형 컨트롤 플레인의 일부로 이미 떠 있다). 이
+자동 생성은 Terraform state 밖에서 일어나므로 이 모듈에도, 소비 repo에도 관련 리소스가
+없다 — 있으면 안 된다.
+
+## Helm으로 설치하는 컨트롤러(ArgoCD·Kyverno 등)에 Azure 신원이 필요한가
+
+**쿠버네티스 API만 건드리는 컨트롤러는 필요 없다.** ArgoCD·Kyverno는 표준 K8s RBAC
+(ClusterRole/RoleBinding)만으로 동작한다 — Azure 관리 ID·역할 부여가 없어도 된다.
+
+**Azure ARM API를 실제로 호출하는 컨트롤러**(external-dns, cert-manager+Azure DNS,
+self-hosted 형태의 cluster-autoscaler 등)는 다르다 — Microsoft Entra Workload ID(공식
+문서의 "Workload identity" 신원 종류, Bring your own identity: **Required**)를 쓴다.
+이 모듈이 내보내는 `oidc_issuer_url`·`workload_identity_enabled`가 그 원시 재료이고,
+실제 관리 ID 생성·federated identity credential·역할 부여는 전부 이 모듈 밖(bootstrap/
+GitOps 계층)이다 — `identity_id`(신원 순서 의존 절)와 같은 경계 원칙이다.
+
+AKS의 managed addon(`azure_policy_enabled`·`oms_agent`·`ingress_application_gateway`
+등, 이 모듈은 0.1.0에서 열지 않는다)은 또 다르다 — Azure가 addon 전용 관리 ID를 내부에서
+직접 만들고 굴린다(Bring your own identity: **Unsupported**인 것이 그 증거). eks-cluster의
+`aws_eks_addon` + 직접 만드는 IAM role 패턴과 달리, 이 addon들은 Terraform으로 IAM을
+관리할 필요 자체가 없다.
+
 ## 네트워킹 — Azure CNI Pod Subnet(flat) 고정
 
 Overlay는 노출하지 않는다. Pod 트래픽이 노드 IP로 SNAT돼 NSG 플로우 로그·Network Watcher에서

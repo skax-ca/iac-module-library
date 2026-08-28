@@ -8,36 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787704108657,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-26 — Azure 기반 구조 작업(PR #33·#34·Step5, azure-foundation 항목 참조) 실행 중 발견된 후속 과제 1건, ADR Follow-ups에는 미등재(docs/decisions.md는 \"결정\" 기록 형식이라 할 일 목록과 안 맞아 여기 남긴다): `.claude/rules/terraform.md`의 「강제 방식」 절(28~34행)도 `default_tags`를 전제해 AWS 전용인데 provider 표시가 없다. `.tf` 파일을 열 때 자동 로드되는 규칙 파일이라 Azure 모듈(vnet·aks-cluster 등) 착수 전에 conventions.md처럼 공통/AWS/Azure 3층으로 중립화해야 한다. PR #33 Step2 스코프가 conventions.md뿐이라 그때 손대지 않았다."
-    },
-    {
-      "timestamp": 1787705654101,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-26 — 이전 open-items(azure-foundation 세션 중 발견, \".claude/rules/terraform.md의 「강제 방식」 절이 default_tags 전제라 AWS 전용, provider 표시 없음\")을 대체한다: 해소 완료. `.claude/rules/terraform.md`의 「리소스 네이밍 & 태깅 규칙」 절(구 11~38행, `Name` 태그 표 + 강제 방식 5개 항목)이 `docs/conventions.md` §2(PR #33 Step2가 이미 만든 공통/AWS/Azure 3층 강제 방식)와 문장 단위로 중복 서술하고 있었던 것이 근본 원인 — CLAUDE.md 재구성 세션(2026-08-25)에서 이미 겪은 \"SSOT 문서 내용을 다른 파일이 다시 베끼면 drift\" 패턴과 동일. 해법은 3층을 복제하는 대신 conventions.md §2로 링크 축소(30줄→6줄, 사용자 확인 후 선택). 문서 전용 변경이라 main 직접 커밋. 이 항목 이후로 이 open-item은 없음."
-    },
-    {
-      "timestamp": 1787731242204,
-      "source": "manual",
-      "category": "azure-vnet",
-      "content": "2026-08-26 — Azure 첫 모듈 vnet 설계 완료(ralplan 4회 반복, 계획 `.omc/plans/2026-08-26-azure-vnet-design.md` v5). Planner→Architect→Critic 순차 검토를 4회 돌았고, 2·3회차 모두 Architect·Critic이 독립적으로 같은 CRITICAL 결함(2회차: \"빈 NSG=no-op\" 거짓 / 3회차: v2 정정 자체의 새 거짓 \"공용 LB 백엔드 끊김\"·Bastion이 만들 수 없는 예약이름 서브넷이라 근거 무효)에 도달 — 세 라운드 연속 \"검증 안 된 사실을 근거로 씀\" 패턴 재발. 4회차에서 사실관계는 전부 정확해지고 결함이 \"목록 완결성·인수조건 커버리지\"로 이동해 수확체감 신호로 라운드 종료(Architect 조건부승인, Critic ITERATE-인라인 둘 다 \"재설계 불필요\"). Planner가 주간 세션 한도로 마지막 병합을 못 해 team-lead가 직접 4회차 지적(Architect 5건+Critic MAJOR 5건)을 계획에 병합 후 v5로 확정.\n\n사용자가 G1(Flow Logs를 vnet-v0.1.0에서 제외)·G2(NSG 옵트인, 기본 false) 둘 다 계획 권고대로 확정, 즉시 Step1~5 실행 승인. 같은 세션에서 완주: `docs/naming/abbreviations/azure.md` 신설(약어 6종: vnet·snet·nsg·rt·ng·pip) · `docs/conventions.md` §2 리소스 이름 포맷 provider 중립화(AWS=Name태그/Azure=name인자) + Azure 강제방식에 제약리소스 표·krc 리전코드 추가 · `docs/module-catalog.md`에 vnet 배선절(예약이름 서브넷 AzureBastionSubnet·GatewaySubnet·AzureFirewallSubnet 3종은 이 모듈이 못 만든다는 한계 명시, 출력비대칭 3건) · `docs/decisions.md`에 ADR(기각안 10개) 신설. 각 Step 인수조건을 저장소에서 직접 실행 검증(예상대로 실패→작업후 통과 확인). 전부 main 직접 커밋 예정(문서 전용).\n\n실행 중 계획에 없던 함정 3건을 인수조건 실행이 즉시 잡음: (1) azure.md의 \"§2\" 절 인용이 writing-style.md 위반 → 링크로 정정 (2) 신규 작성 문장 2곳에 em-dash 혼입 → 마침표로 정정 (3) ADR을 decisions.md 기존 스타일(표 먼저, `> 결정:` 인용구 표 뒤)과 다르게 썼다가 재작성.\n\n⚠️ 다음 세션: (1) modules/azure/vnet/ 실제 .tf 구현은 이번 라운드 스코프 밖(문서만) — 착수하려면 별도 브랜치→PR(CLAUDE.md 브랜치 규칙) (2) 구현 착수 게이트 4건(tflint azurerm ruleset 등록 등, 계획 문서에 명세만 있고 미실행) 처리 필요 (3) `open-questions.md`의 \"azurerm provider 태그 상속 메커니즘 확인\" 미결 항목이 실제로는 conventions.md에 이미 해소돼 있는데 stale로 남아있음 발견 — 이번 라운드 스코프 밖이라 안 건드림, 정리 필요."
-    },
-    {
-      "timestamp": 1787731382716,
-      "source": "manual",
-      "category": "ralplan-ops",
-      "content": "2026-08-26 — ralplan 진행 중 Planner 에이전트가 세션/주간 한도에 반복 걸릴 때의 처리 패턴(azure-vnet 4회차에서 실측). Architect·Critic이 이미 독립적으로 \"재설계 불필요, 인라인 수정으로 충분\"이라 명시적으로 판정한 상태였고, 지적 사항이 전부 구체적 문안 교정(사실 문장 정정·인수조건 커버리지 보강) 수준이라 Planner를 기다리지 않고 team-lead(오케스트레이팅 세션)가 두 검토 결과를 직접 계획 파일에 병합했다(ralplan 스킬 6단계 \"개선사항 병합\"에 해당, Planner 전용으로 못박힌 단계가 아님). 판단 기준: ①두 검토자 모두 명시적으로 \"설계 재검토 불필요\" 선언 ②지적이 재설계가 아니라 문안 교정 수준 ③Planner가 장시간(세션 재개까지 몇 시간) 불가. 이 셋이 갖춰지지 않았다면(예: 축 판정 자체가 흔들리는 결함이 남았다면) Planner 복귀를 기다리거나 Planner 없이 진행하지 않는 편이 안전하다 — 이번 라운드는 마침 병합이 순수 기계적이라 위험이 낮았다.\n\n병합 후 실행(Step 1~5) 단계에서 계획 자체는 정확했지만 산출물이 실제 문서 게이트(validate-doc-conventions.py의 § 인용 금지·em-dash 금지)에 걸린 사례가 3건 나왔다 — 계획 문서(.omc/plans/)는 이 게이트 대상이 아니라 계획 안에서는 \"§2\" 같은 표기나 실수 em-dash가 안 걸렸는데, 실제 docs/ 산출물로 옮기는 순간 걸렸다. 다음에도 설계 계획 문서의 표기 관습(§ 인용 등)이 실제 산출물에 그대로 새어 들어가지 않는지, Step 실행마다 즉시 그 Step의 인수 조건을 돌려 확인할 것 — 이번처럼 즉시 잡히면 비용이 거의 없다."
-    },
-    {
-      "timestamp": 1787732432283,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-26 (vnet 설계 리뷰 세션) — Azure vnet 인터페이스가 vpc(AWS)와 같은 소비자 철학을 관통하는지 공식 모범사례(OpenTofu 모듈 개발 가이드·aws-ia/standards-terraform·Azure Verified Modules)와 대조 진단. 실제 결함 1건은 즉시 해소: `.claude/rules/terraform.md`의 \"SG rule은 별도 리소스\" 원칙이 AWS 전용으로만 문서화돼 있었는데, Azure `azurerm_network_security_group`도 정확히 같은 함정(inline `security_rule`과 별도 `azurerm_network_security_rule` 병용 시 규칙 덮어쓰기, provider 공식 경고 문구까지 거의 동형)이 있어 provider 중립 표현으로 수정 + `module-catalog.md` vnet 절에 NSG 룰 배선 방식 명시(둘 다 완료, main 직접 커밋 예정). AzAPI provider 미검토·AVM 8종 인터페이스 중 tags만 채택한 근거는 `decisions.md`의 「Azure 네트워킹 (vnet)」 ADR에 기각 행 2건으로 보강 완료.\n\n⚠️ 미착수(보고만 함, 이번 라운드 스코프 밖): AWS 공식 팀 표준(aws-ia/standards-terraform)이 권고하는 `nullable = false`(필수 변수에 명시해 소비자가 명시적으로 `null`을 넘겨 런타임 깊은 곳에서 에러 나는 경로를 막는 패턴) 이 `modules/aws/vpc`(릴리스됨)에도 `vnet` 설계에도 없다. 저장소 안 커뮤니티 karpenter wrapper는 이미 광범위하게 쓰고 있어 이 저장소 자체 스크래치 모듈만 뒤처진 상태다. CSP 문제가 아니라 vpc·vnet 둘 다에 해당하는 크로스컷 개선이라, vnet에만 지금 넣으면 오히려 \"같은 사상\" 원칙이 깨진다 — 두 모듈에 동시 적용하는 별도 후속 작업으로 검토할 것."
-    },
-    {
       "timestamp": 1787733713877,
       "source": "manual",
       "category": "azure-vnet",
@@ -150,6 +120,12 @@
       "source": "manual",
       "category": "azure-vwan",
       "content": "2026-08-28 (이어서, 같은 세션) — 위 azure-vwan 메모(vwan·vhub 약어 등재)에 이어, 사용자가 dev Pod CIDR 결정(계획 4-4절 Option A vs B)에 대해 \"Azure 엔터프라이즈 모범사례가 뭔지 먼저 리서치해서 제안하라\"고 요청 — 공식 문서 3건(WebFetch 원문 확인)으로 답함.\n\n**핵심 근거**: Microsoft의 최신 IP 설계 가이드(`azure/networking/design-guide/ip-planning`, 2026-06-22 갱신)와 CAF `plan-for-ip-addressing`가 공통으로 \"피어링되는 환경마다 고유·비중복 CIDR\"을 원칙으로 명시(\"Use contiguous CIDR blocks for each environment\"·\"Prevent address overlap... traffic might reach the wrong destination or be silently dropped\" — 이 마지막 문장이 정확히 Option B가 Phase 2에서 만들 증상). 대역 재사용이 허용되는 유일한 예외는 \"네트워크가 절대 피어링 안 할 때\"뿐인데, vWAN 허브-스포크는 정의상 피어링되므로 이 예외가 우리 케이스에 적용되지 않는다. RFC 6598(`100.64.0.0/10`)은 Azure가 공식 지원하는 사설 대역이라(CGNAT 용도로 설계, \"when RFC 1918 space is exhausted\") Option A가 그 안에서 스포크마다 `/16`씩 고유하게 떼는 것도 정통 패턴.\n\n**결론**: Option A(dev=`100.65.0.0/16`)가 Microsoft 자체 엔터프라이즈 가이드와 정확히 일치, Option B는 그 가이드가 명시적으로 경고하는 실패 패턴. 사용자에게 이 근거로 승인을 구했으나 **아직 확정 승인 안 받음** — 사용자가 \"실제 작업은 aks-reference-infra 세션에서 진행한다\"고 결정, 이 리서치는 그쪽 세션에서 재확인 후 최종 결정할 것. 멀티클라우드 관점 참고사항: 나중에 Azure↔AWS를 실제로 연결할 일이 생기면, `iac-reference-infra`(AWS) 쪽 여러 계정이 쓰는 `cidr_dup`류 대역과도 이 Azure 스포크 대역이 겹치지 않는지 그 시점에 별도 확인 필요.\n\n출처: https://learn.microsoft.com/en-us/azure/networking/design-guide/ip-planning · https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/plan-for-ip-addressing · https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/connectivity-to-other-providers"
+    },
+    {
+      "timestamp": 1787906628689,
+      "source": "manual",
+      "category": "azure-aks-cluster",
+      "content": "2026-08-28 (세션 5) — 위 aks-cluster 메모(PR #38 오픈 세션)를 잇는 최종 결말: 세션 시작 시 PR #38이 CONFLICTING 상태로 바뀌어 있음을 실측 발견(main이 브랜치 분기 후 문서 전용 커밋 2건(vwan/vhub 등재 5b30155, PR#38 상태 기록 defb24d)을 직접 받아 갈라짐). git merge-tree로 원인 진단 — 실제 충돌은 .omc/project-memory.json 한 지점(양쪽이 독립적으로 다른 customNotes 항목을 추가한 전형적 배열 삽입 충돌)뿐, .tf·notepad·module-catalog·azure.md는 자동 병합 가능함을 먼저 확인. 사용자 승인받아 main을 브랜치에 merge → 충돌 1건 union으로 해소(a897c64) → push → CI 3게이트 재통과 확인(공통 검증·문서 작성 규칙·약어 카탈로그 SSOT) → 사용자 승인받아 squash merge(4fc6a48) → aks-cluster-v0.1.0 태그 컷·push, git show로 실제 코드(enable_karpenter·private_cluster_enabled)를 태그 스냅샷에서 대조 검증 완료.\n\nmerge 직후 README.md·module-catalog.md의 \"Azure 1개\" 현황 문구가 stale해진 것을 발견(vnet 릴리스 때와 동일 패턴) — Azure 2개로 갱신, README 모듈 표에 aks-cluster 행 추가. module-catalog.md의 aks-cluster 절도 \"설계 확정·구현 미착수\"·\"인터페이스 초안\"(모듈 README가 생기면 삭제하기로 미리 명시해뒀던 섹션)을 vnet 절과 동일 패턴(README 링크로 대체)으로 정리, 문서 전용이라 main 직접 커밋(5b727f3)·push.\n\n이 저장소는 이제 AWS 4개 + Azure 2개(vnet-v0.2.0·aks-cluster-v0.1.0) 전 6모듈 릴리스 완료. azure-aks-cluster 스레드(설계→구현→PR→merge→릴리스) 전체 종결.\n\n패턴 재확인(vnet에서 한 번 겪은 뒤 aks-cluster에서 재발, 2번째): \"설계 단계 placeholder 문구(구현 미착수·인터페이스 초안)를 구현·merge 후에도 안 지우는\" 실수. module-catalog.md에 새 모듈 절을 쓸 때 이미 \"README 생기면 삭제\" 같은 셀프 리마인더를 남겨뒀는데도 merge 시점에 자동으로 안 걸렸다(기계 검증 대상이 아니라서). 다음 신규 모듈부터는 PR merge 후 체크리스트에 \"module-catalog.md 절 placeholder 정리\"를 명시적 단계로 넣는 것을 고려할 만하다."
     }
   ],
   "userDirectives": [

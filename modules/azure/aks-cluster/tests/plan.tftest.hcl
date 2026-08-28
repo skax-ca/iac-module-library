@@ -111,13 +111,31 @@ run "network_profile_flat_cni_fixed" {
   }
 }
 
-# ── node_provisioning_profile — 항상 존재, mode = Manual 고정 ───────────────────
-run "node_provisioning_profile_always_manual" {
+# ── node_provisioning_profile — 항상 존재, enable_karpenter 기본값(true)이면 Auto ──
+run "node_provisioning_profile_defaults_to_auto" {
   command = plan
 
   assert {
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
+    error_message = "enable_karpenter 기본값(true)인데 node_provisioning_profile.mode가 Auto가 아니다."
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].default_node_pool) == 1
+    error_message = "mode = Auto(NAP)에서도 default_node_pool(시스템 노드 풀)이 필수인데 사라졌다."
+  }
+}
+
+run "node_provisioning_profile_manual_when_karpenter_disabled" {
+  command = plan
+
+  variables {
+    enable_karpenter = false
+  }
+
+  assert {
     condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Manual"
-    error_message = "node_provisioning_profile.mode가 Manual로 고정되지 않았다."
+    error_message = "enable_karpenter = false인데 node_provisioning_profile.mode가 Manual로 전환되지 않았다."
   }
 }
 
@@ -324,10 +342,11 @@ run "nullable_false_falls_back_to_default" {
   command = plan
 
   variables {
-    tags            = null
-    purpose         = null
-    serial          = null
-    cluster_enabled = null
+    tags             = null
+    purpose          = null
+    serial           = null
+    cluster_enabled  = null
+    enable_karpenter = null
   }
 
   assert {
@@ -343,6 +362,11 @@ run "nullable_false_falls_back_to_default" {
   assert {
     condition     = length(azurerm_kubernetes_cluster.this) == 1
     error_message = "cluster_enabled = null이 default true로 대체되지 않았다."
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
+    error_message = "enable_karpenter = null이 default true(Auto)로 대체되지 않았다."
   }
 }
 

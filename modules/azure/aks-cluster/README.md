@@ -77,6 +77,24 @@ ID만 입력받는다.
 방식」6번 — Azure 노드 풀 이름 물리 제약, `temporary_name_for_rotation`이 쓰는 자리를
 함께 남긴다).
 
+## Karpenter — Node Auto Provisioning(NAP), 기본 켜짐
+
+`enable_karpenter`(기본 `true`)가 `node_provisioning_profile.mode = "Auto"`를 켠다. AKS의
+Node Auto Provisioning(NAP)은 오픈소스 Karpenter + [AKS Karpenter
+provider](https://github.com/Azure/karpenter-provider-azure) 기반이다 — `eks-cluster`의
+`enable_karpenter`와 개념이 대응하지만 구현 위치가 다르다. AWS는 별도 IAM 리소스 뭉치
+(컨트롤러 role·노드 role·instance profile·중단 SQS)가 필요하지만, Azure는 이 필드 하나로
+끝난다. `default_node_pool`(시스템 노드 풀)은 Auto에서도 여전히 필수다. Karpenter의
+`NodePool`·`AKSNodeClass` CRD 설치와 실제 프로비저닝 정책은 이 모듈 밖(GitOps 소관) —
+`eks-cluster`가 "helm 설치와 NodePool/NodeClass는 GitOps 소관"이라고 긋는 경계와 같다.
+
+⚠️ **네트워킹 조합은 검증되지 않았다.** 공식 문서·`karpenter-provider-azure` README의
+모든 예제는 Azure CNI Overlay + Cilium 데이터플레인 조합만 쓴다("성능 최적화" 권고이지
+강제 문구는 아니다). 그 README의 "Known limitations"는 Windows·Kubenet·Calico·IPv6·
+Service Principal·클러스터 stop·생성 후 `outbound_type` 변경 6개만 나열하고 Pod Subnet
+모드는 없다 — 이 모듈이 고정한 flat Pod Subnet과의 조합이 명시적으로 배제되지는 않았지만,
+실제 검증 사례도 없다. `false`로 끄면 `mode = "Manual"`이 된다.
+
 ## `eks-cluster`와의 비대칭
 
 전체 표는 [`docs/module-catalog.md`](../../../docs/module-catalog.md#eks-cluster와의-비대칭)를
@@ -116,6 +134,7 @@ No modules.
 | <a name="input_cluster_enabled"></a> [cluster\_enabled](#input\_cluster\_enabled) | kill switch(파괴 방향). false면 이 모듈의 전 리소스(클러스터·추가 노드 풀)를 파기한다.<br/>false일 때 스칼라 출력은 null, map 출력은 빈 값이 된다. | `bool` | `true` | no |
 | <a name="input_deletion_protection"></a> [deletion\_protection](#input\_deletion\_protection) | 삭제 보호(보호 방향). true면 azurerm\_kubernetes\_cluster에 prevent\_destroy가 걸려 파괴<br/>계획 자체가 차단된다. AKS에는 네이티브 삭제 보호 인자가 없다 — lifecycle 블록이 유일한<br/>수단이다(modules/azure/vnet과 같은 형태).<br/><br/>보호를 켠 상태의 파기는 2단계다 — deletion\_protection = false로 apply한 뒤<br/>cluster\_enabled = false. | `bool` | `false` | no |
 | <a name="input_dns_service_ip"></a> [dns\_service\_ip](#input\_dns\_service\_ip) | kube-dns가 쓸, service\_cidr 범위 내 IP. 변경 시 클러스터가 재생성된다. | `string` | `null` | no |
+| <a name="input_enable_karpenter"></a> [enable\_karpenter](#input\_enable\_karpenter) | Node Auto Provisioning(NAP) 활성화 여부. NAP은 오픈소스 Karpenter + AKS Karpenter<br/>provider(github.com/Azure/karpenter-provider-azure) 기반이다 — eks-cluster의<br/>enable\_karpenter와 개념이 대응한다. 구현 위치는 다르다: AWS는 별도 IAM 리소스 뭉치<br/>(컨트롤러 role·노드 role·instance profile·중단 SQS)가 필요하지만, Azure는 이 클러스터<br/>리소스의 필드 하나(node\_provisioning\_profile.mode)로 끝난다 — 추가 리소스가 없다.<br/><br/>true면 node\_provisioning\_profile.mode = "Auto"로 설정한다. default\_node\_pool(시스템<br/>노드 풀)은 Auto에서도 여전히 필수다(공식 문서 확인 — NAP이 대체하는 것은 추가 노드 풀<br/>수요이지 시스템 풀이 아니다). Karpenter NodePool·AKSNodeClass CRD 설치와 실제 노드<br/>프로비저닝 정책은 이 모듈 밖(GitOps 소관)이다 — eks-cluster가 "helm 설치와<br/>NodePool/NodeClass는 GitOps 소관"이라고 선을 긋는 것과 같은 경계다.<br/><br/>⚠️ 네트워킹 조합 확인(2026-08-28): 공식 문서·github.com/Azure/karpenter-provider-azure<br/>README의 예제는 전부 Azure CNI **Overlay** + **Cilium**만 쓰지만("성능 최적화" 권고일<br/>뿐 강제 문구 아님), 그 README의 "Known limitations"(원문 실측 확인)는 Windows·Kubenet·<br/>Calico·IPv6·Service Principal·클러스터 stop·생성 후 outbound\_type 변경 6개만 나열하고<br/>**Pod Subnet 모드는 없다**. 이 모듈이 고정한 **flat Pod Subnet**과의 조합이 명시적으로<br/>배제되지는 않았으나, 실제 예제·검증 사례도 없다(사용자 확인 후 채택, 2026-08-28). 이<br/>저장소는 배포하지 않으므로(`.claude/rules/terraform.md`) live Azure로 실제 노드<br/>프로비저닝까지는 확인할 수 없다 — 스키마 수준(mode 값·default\_node\_pool 존재)만 보장한다. | `bool` | `true` | no |
 | <a name="input_entra_admin_group_object_ids"></a> [entra\_admin\_group\_object\_ids](#input\_entra\_admin\_group\_object\_ids) | Entra ID(Azure AD) RBAC를 켤 Admin 그룹의 Object ID 목록. 비어 있으면 Entra 통합<br/>블록 자체를 만들지 않는다 — 잠금이 기본 동작이 아니다(옵트인, G2 확정). | `list(string)` | `[]` | no |
 | <a name="input_identity_id"></a> [identity\_id](#input\_identity\_id) | 클러스터 컨트롤 플레인이 쓸 user-assigned managed identity의 리소스 ID(필수).<br/><br/>이 모듈은 identity도 role assignment도 만들지 않는다 — 만들면 소비자의 CI 신원이 그<br/>리소스를 만들 권한(Microsoft.Authorization/roleAssignments/write 포함)을 가져야 하고,<br/>그 권한은 CI 신원이 자기 자신에게 상위 역할을 부여할 수 있게 만든다(축3,<br/>docs/decisions.md「Azure 컨테이너 (aks-cluster)」ADR 참조).<br/><br/>⚠️ 순서 의존: ① identity 생성 → ② node\_subnet\_id·pod\_subnet\_id가 속한 서브넷에 이<br/>identity의 Network Contributor 역할 부여 → ③ 이 모듈 apply. ②를 건너뛰면 ③은 성공하고<br/>노드만 조용히 실패한다 — role assignment가 이 모듈 밖에 있어 plan에서 잡을 수 없는<br/>죽은 경로다. bootstrap 계층이 ①·②를 처리한다. | `string` | n/a | yes |
 | <a name="input_kubernetes_version"></a> [kubernetes\_version](#input\_kubernetes\_version) | Kubernetes 버전. 생략하면 provider가 최신 권장 버전을 쓴다(자동 업그레이드는 하지 않는다). | `string` | `null` | no |

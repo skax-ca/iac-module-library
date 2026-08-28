@@ -110,10 +110,23 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   # provider 문서는 이 블록을 (Optional)이라 적지만 실측(tofu validate, azurerm 5.3.0)
   # 결과는 다르다 — 블록 자체가 Required이고, 그 안에서 mode 또는 default_node_pools 중
-  # 하나가 Required다. Node Auto Provisioning(Karpenter 대응, mode = "Auto")은 0.1.0
-  # 스코프 밖이라 "Manual"을 고정한다.
+  # 하나가 Required다.
+  #
+  # Node Auto Provisioning(NAP)은 오픈소스 Karpenter + AKS Karpenter provider 기반이다
+  # (eks-cluster의 enable_karpenter와 개념 대응 — AWS는 별도 IAM 리소스 뭉치, Azure는
+  # 이 필드 하나). default_node_pool은 Auto에서도 여전히 필수이고(공식 문서 확인),
+  # NodePool/AKSNodeClass CRD 설치는 이 모듈 밖(GitOps 소관, eks-cluster와 같은 경계).
+  #
+  # ⚠️ 네트워킹 조합 확인(2026-08-28): 공식 문서·github.com/Azure/karpenter-provider-azure
+  # README의 예제는 전부 Azure CNI Overlay + Cilium만 쓰지만("성능 최적화" 권고일 뿐 강제
+  # 문구 아님), 그 README의 "Known limitations"(원문 인용 대상, 실측 확인)는 Windows·
+  # Kubenet·Calico·IPv6·Service Principal·클러스터 stop·생성 후 outbound_type 변경 6개만
+  # 나열하고 **Pod Subnet 모드는 없다**. flat Pod Subnet과의 조합이 명시적으로 배제되지는
+  # 않았으나, 실제 예제·문서 검증 사례도 없다(사용자 확인 후 채택) — 이 저장소는 배포하지
+  # 않아 live Azure로 실제 노드 프로비저닝까지는 확인 못 하고, 스키마 수준(mode 값·
+  # default_node_pool 존재)만 tofu test로 검증한다.
   node_provisioning_profile {
-    mode = "Manual"
+    mode = var.enable_karpenter ? "Auto" : "Manual"
   }
 
   tags = var.tags

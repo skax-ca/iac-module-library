@@ -274,6 +274,36 @@ variable "node_pools" {
   }
 }
 
+# ── Node Auto Provisioning(Karpenter) ───────────────────────────────────────
+
+variable "enable_karpenter" {
+  description = <<-EOT
+    Node Auto Provisioning(NAP) 활성화 여부. NAP은 오픈소스 Karpenter + AKS Karpenter
+    provider(github.com/Azure/karpenter-provider-azure) 기반이다 — eks-cluster의
+    enable_karpenter와 개념이 대응한다. 구현 위치는 다르다: AWS는 별도 IAM 리소스 뭉치
+    (컨트롤러 role·노드 role·instance profile·중단 SQS)가 필요하지만, Azure는 이 클러스터
+    리소스의 필드 하나(node_provisioning_profile.mode)로 끝난다 — 추가 리소스가 없다.
+
+    true면 node_provisioning_profile.mode = "Auto"로 설정한다. default_node_pool(시스템
+    노드 풀)은 Auto에서도 여전히 필수다(공식 문서 확인 — NAP이 대체하는 것은 추가 노드 풀
+    수요이지 시스템 풀이 아니다). Karpenter NodePool·AKSNodeClass CRD 설치와 실제 노드
+    프로비저닝 정책은 이 모듈 밖(GitOps 소관)이다 — eks-cluster가 "helm 설치와
+    NodePool/NodeClass는 GitOps 소관"이라고 선을 긋는 것과 같은 경계다.
+
+    ⚠️ 네트워킹 조합 확인(2026-08-28): 공식 문서·github.com/Azure/karpenter-provider-azure
+    README의 예제는 전부 Azure CNI **Overlay** + **Cilium**만 쓰지만("성능 최적화" 권고일
+    뿐 강제 문구 아님), 그 README의 "Known limitations"(원문 실측 확인)는 Windows·Kubenet·
+    Calico·IPv6·Service Principal·클러스터 stop·생성 후 outbound_type 변경 6개만 나열하고
+    **Pod Subnet 모드는 없다**. 이 모듈이 고정한 **flat Pod Subnet**과의 조합이 명시적으로
+    배제되지는 않았으나, 실제 예제·검증 사례도 없다(사용자 확인 후 채택, 2026-08-28). 이
+    저장소는 배포하지 않으므로(`.claude/rules/terraform.md`) live Azure로 실제 노드
+    프로비저닝까지는 확인할 수 없다 — 스키마 수준(mode 값·default_node_pool 존재)만 보장한다.
+  EOT
+  type        = bool
+  default     = true
+  nullable    = false
+}
+
 # ── 버전 · SKU ───────────────────────────────────────────────────────────────
 
 variable "kubernetes_version" {

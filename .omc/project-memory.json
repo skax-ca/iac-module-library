@@ -150,6 +150,18 @@
       "source": "manual",
       "category": "azure-vwan",
       "content": "2026-08-28 (이어서, PR #38 세션) — 소비 repo `aks-reference-infra`가 `live/hub/vwan` + `live/dev/networking` 설계(`.omc/plans/live-hub-vwan-dev-networking.md`, RALPLAN-DR)를 진행 중이라며 네이밍 약어 선행 등재를 요청. 그 계획의 4-2절이 이미 \"네이밍 약어 등재는 선행 과제다\"로 명시해뒀던 것.\n\n`docs/naming/abbreviations/azure.md`에 `vwan`(Virtual WAN, `azurerm_virtual_wan`)·`vhub`(Virtual WAN Hub, `azurerm_virtual_hub`) 2종 등재. CAF 공식 문서(resource-abbreviations, WebFetch 원문 확인)에 정확히 `vwan`·`vhub`로 등재돼 있어 그대로 채택. A.1 Network 카테고리에 추가(6→8), 총계 11→13개로 갱신. hub에 붙는 연결(`azurerm_virtual_hub_connection`)·정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 이 카탈로그의 \"종속 객체\" 규약대로 별도 약어를 만들지 않음(CAF 표에도 이 둘의 독립 항목이 없어 정합 확인).\n\n`validate-abbreviations.py`·`validate-doc-conventions.py` 둘 다 통과(em-dash 1건 수정 후). 문서 전용 변경이라 main 직접 커밋 예정(브랜치 규칙, CLAUDE.md).\n\n⚠️ 이 작업 시점에 `feat/azure-aks-cluster-module` 브랜치에서 작업 중이었는데, docs 전용 변경을 그 브랜치에 실으면 안 되므로(PR #38과 무관한 별개 변경) `git stash` → `git checkout main` → `git stash pop`으로 옮겼다. 이 과정에서 `.omc/project-memory.json`에 merge conflict가 발생 — main과 feat 브랜치가 각자 독립적으로 이 파일에 다른 항목을 추가해온 전형적인 분기 충돌(두 쪽 다 서로 없는 고유 항목이라 실제 중복은 아니었음, union으로 해결). **교훈**: 브랜치 작업 중 docs 전용 변경이 끼어들면, 커밋 전에 반드시 어느 브랜치에 실을지 먼저 판단하고 옮길 것 — project-memory.json처럼 여러 세션이 계속 append하는 파일은 브랜치 분기가 길수록 충돌 가능성이 커진다.\n\n다음: `aks-reference-infra`가 이 등재를 바탕으로 `live/hub/vwan` 구현 착수(사용자가 그쪽 세션에서 진행)."
+    },
+    {
+      "timestamp": 1787900991703,
+      "source": "manual",
+      "category": "azure-aks-cluster",
+      "content": "2026-08-28 (이어서, 세션 4) — 위 aks-cluster 구현 메모(브랜치 push/PR 미완료)를 잇는다. `.tf` 구현 브랜치를 main에 stash 없이 그대로 push(이미 push돼 있던 상태 확인), PR #38 오픈(`feat/azure-aks-cluster-module` → main). CI 3게이트(공통 검증·문서 작성 규칙·약어 카탈로그 SSOT) 전부 통과. merge 여부·`aks-cluster-v0.1.0` 태그 컷 시점은 다음 세션에서 사용자 확인 필요 — 이번 세션엔 결정하지 않음."
+    },
+    {
+      "timestamp": 1787901003595,
+      "source": "manual",
+      "category": "azure-vwan",
+      "content": "2026-08-28 (이어서, 같은 세션) — 위 azure-vwan 메모(vwan·vhub 약어 등재)에 이어, 사용자가 dev Pod CIDR 결정(계획 4-4절 Option A vs B)에 대해 \"Azure 엔터프라이즈 모범사례가 뭔지 먼저 리서치해서 제안하라\"고 요청 — 공식 문서 3건(WebFetch 원문 확인)으로 답함.\n\n**핵심 근거**: Microsoft의 최신 IP 설계 가이드(`azure/networking/design-guide/ip-planning`, 2026-06-22 갱신)와 CAF `plan-for-ip-addressing`가 공통으로 \"피어링되는 환경마다 고유·비중복 CIDR\"을 원칙으로 명시(\"Use contiguous CIDR blocks for each environment\"·\"Prevent address overlap... traffic might reach the wrong destination or be silently dropped\" — 이 마지막 문장이 정확히 Option B가 Phase 2에서 만들 증상). 대역 재사용이 허용되는 유일한 예외는 \"네트워크가 절대 피어링 안 할 때\"뿐인데, vWAN 허브-스포크는 정의상 피어링되므로 이 예외가 우리 케이스에 적용되지 않는다. RFC 6598(`100.64.0.0/10`)은 Azure가 공식 지원하는 사설 대역이라(CGNAT 용도로 설계, \"when RFC 1918 space is exhausted\") Option A가 그 안에서 스포크마다 `/16`씩 고유하게 떼는 것도 정통 패턴.\n\n**결론**: Option A(dev=`100.65.0.0/16`)가 Microsoft 자체 엔터프라이즈 가이드와 정확히 일치, Option B는 그 가이드가 명시적으로 경고하는 실패 패턴. 사용자에게 이 근거로 승인을 구했으나 **아직 확정 승인 안 받음** — 사용자가 \"실제 작업은 aks-reference-infra 세션에서 진행한다\"고 결정, 이 리서치는 그쪽 세션에서 재확인 후 최종 결정할 것. 멀티클라우드 관점 참고사항: 나중에 Azure↔AWS를 실제로 연결할 일이 생기면, `iac-reference-infra`(AWS) 쪽 여러 계정이 쓰는 `cidr_dup`류 대역과도 이 Azure 스포크 대역이 겹치지 않는지 그 시점에 별도 확인 필요.\n\n출처: https://learn.microsoft.com/en-us/azure/networking/design-guide/ip-planning · https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/plan-for-ip-addressing · https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/connectivity-to-other-providers"
     }
   ],
   "userDirectives": [

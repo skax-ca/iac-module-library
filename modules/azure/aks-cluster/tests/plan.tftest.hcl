@@ -121,6 +121,11 @@ run "node_provisioning_profile_defaults_to_auto" {
   }
 
   assert {
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].default_node_pools == "None"
+    error_message = "default_node_pools가 None으로 고정되지 않았다 — GitOps가 NodePool을 전량 소유하지 못한다."
+  }
+
+  assert {
     condition     = length(azurerm_kubernetes_cluster.this[0].default_node_pool) == 1
     error_message = "mode = Auto(NAP)에서도 default_node_pool(시스템 노드 풀)이 필수인데 사라졌다."
   }

@@ -125,8 +125,15 @@ resource "azurerm_kubernetes_cluster" "this" {
   # 않았으나, 실제 예제·문서 검증 사례도 없다(사용자 확인 후 채택) — 이 저장소는 배포하지
   # 않아 live Azure로 실제 노드 프로비저닝까지는 확인 못 하고, 스키마 수준(mode 값·
   # default_node_pool 존재)만 tofu test로 검증한다.
+  #
+  # default_node_pools = "None" 고정(하드코딩, 변수 아님) — 기본값("Auto")이면 Azure가
+  # Karpenter NodePool을 "default"·"system-surge" 2개 자동 생성한다. GitOps가
+  # NodePool/AKSNodeClass를 전량 소유하게 하려면(ArgoCD self-heal/prune과 "정의 안 된
+  # 리소스" 충돌을 막으려면) 이 자동 생성을 꺼야 한다 — tofu validate로 mode 양쪽(Auto·
+  # Manual) 모두와 공존 가능함을 확인했다(2026-08-28).
   node_provisioning_profile {
-    mode = var.enable_karpenter ? "Auto" : "Manual"
+    mode               = var.enable_karpenter ? "Auto" : "Manual"
+    default_node_pools = "None"
   }
 
   tags = var.tags

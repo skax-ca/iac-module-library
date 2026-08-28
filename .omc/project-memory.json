@@ -8,12 +8,6 @@
   "projectRoot": "/Users/a07326/born2k/ai/iac-module-library",
   "customNotes": [
     {
-      "timestamp": 1787623228510,
-      "source": "manual",
-      "category": "open-items",
-      "content": "2026-08-25 — docs/modules 재구성 관련 이전 open-items 4건(2026-08-24 기록, \"재구성 계획 수립\"·\"Critic 검증 REJECT/재작성\"·\"v21 실행 완료, 커밋 안 함, diff 검토 대기\")을 전부 대체한다: 그 작업은 완결됐다.\n\n브랜치 `docs-modules-restructure`에서 이어서 진행된 내용: em-dash grandfather(2026-08-24 채택 시점 위반 188건, 12개 파일) 전량 정리 후 LEGACY_EM_DASH_ALLOWLIST 메커니즘 자체 제거, `.tf` 주석 전수 감사(783줄, 삭제 후보 0건 — 판정 기준을 terraform-style-guide 스킬에 codify), CLAUDE.md 262→83줄 재구성(`.tf` 전용 규칙은 `.claude/rules/terraform.md`로 경로 스코프 분리, PoC repo 서술 삭제), README 10개 전체에 Usage 절 추가 + stale 버전 참조 제거, pre-commit에 `ref=<component>-vX.Y.Z` stale 태그 검사 신규 게이트 추가.\n\n이 repo 자신이 `.tf`·`.github/workflows/`를 포함해 브랜치·PR 규칙(CLAUDE.md)상 PR이 필요함을 확인 → push 전 CI 7개 게이트 전부 로컬 재검증(fmt·tflint·trivy·모듈 4개 tofu test 65/65 pass·예제 2개 validate·lock registry·terraform-docs drift) → PR #31 생성 → CI 3개 게이트 전부 pass → squash merge(사용자 확인 후, 최근 관례 #27·#30과 일치) → main 커밋 962e481 → 브랜치 로컬·원격 삭제 완료.\n\n`.omc/plans/2026-08-24-docs-modules-restructure.md`(v21, gitignore 대상)는 실행이 끝났으므로 더 이상 참조할 필요 없음 — 남아 있어도 과거 기록일 뿐이다. 이 항목 이후로 이 재구성 작업 관련 open-item은 없다."
-    },
-    {
       "timestamp": 1787703846496,
       "source": "manual",
       "category": "azure-foundation",
@@ -126,6 +120,12 @@
       "source": "manual",
       "category": "ralplan-ops",
       "content": "2026-08-28 — \"Planner 세션 한도 도달 시 team-lead가 Architect/Critic의 이미 작성된 정확한 교체 문장으로 직접 병합\" 패턴이 두 번째로 실측됨(1차는 2026-08-26 azure-vnet-design 라운드). 이번엔 판단 기준 3가지(①양쪽 검토자 모두 \"재설계 불필요\" 명시 ②지적이 재설계가 아니라 문안 수준 ③Planner가 장시간 불가)가 전부 성립했고, Critic이 스스로 \"국소 편집이며 새 조사를 요구하지 않으므로 반영 후 재검토 없이 진행해도 무방하다, 재차 Critic을 태울 가치는 없다\"고 명시해 재검토 없이 마무리했다.\n\n두 사례 모두 안전했던 공통 이유: 남은 지적이 이미 조사·근거가 끝난 상태에서 리뷰어가 정확한 교체 문장까지 제시했기 때문 — 판정 자체(축·옵션·결론)는 이미 검증됐고 산출물 문안 동기화만 남은 상태였다. 만약 남은 지적이 새 조사가 필요한 결함(예: 사실관계 미확인, 설계 축 자체의 재검토)이었다면 이 처리는 위험했을 것 — 다음에도 이 셋을 그때그때 확인하고, 하나라도 안 갖춰지면 Planner 복귀를 기다릴 것."
+    },
+    {
+      "timestamp": 1787890578883,
+      "source": "manual",
+      "category": "azure-gitops-comparison",
+      "content": "2026-08-28 (aks-cluster 설계 완료 세션, 이어서) — 사용자 요청으로 EKS GitOps 패턴(hub-spoke)과 aks-cluster 설계를 비교 정리. 근거는 실측(modules/aws/eks-cluster/iam.tf·modules/aws/cross-account-trust-role/main.tf 직접 읽음, 추정 아님).\n\n핵심 발견: eks-cluster는 IAM 리소스 6종(aws_iam_role 2 + policy_attachment 2 + Pod Identity 모듈 4: alb-controller·external-dns·argocd-hub·cluster-autoscaler)을 모듈이 직접 만든다. 그중 argocd_hub_pod_identity가 GitOps 크로스 계정 접근의 실제 엔진 — ArgoCD의 argocd-application-controller SA에 Pod Identity를 붙이고, sts:AssumeRole+sts:TagSession으로 스포크의 cross-account-trust-role(스포크가 소유하는 신뢰 Role 1개, AWS 권한은 assume뿐)을 체이닝 assume한다. 이게 안전한 이유는 AWS 실행 Role이 이미 AdministratorAccess라 모듈이 IAM을 더 만들어도 권한 봉투가 안 넓어지기 때문(입구 Role 권한은 sts:AssumeRole 하나뿐).\n\nAzure는 이 완충층(STS role-chaining 대응 개념)이 없다 — CI 신원이 권한을 직접 보유한다. 그래서 aks-cluster는 identity·role assignment를 아예 안 만들기로 확정했고(축3, decisions.md「Azure 컨테이너 (aks-cluster)」ADR), EKS의 GitOps 패턴(모듈이 Pod Identity를 직접 만들어 크로스 계정 체이닝)을 그대로 이식할 수 없다. 원시 재료(oidc_issuer_url·workload_identity_enabled)만 출력하고 실제 신원 배선은 bootstrap 계층으로 넘겼다.\n\n**미결 질문(사용자가 다음에 직접 고민하고 싶어함, 이번 라운드 스코프 밖)**: hub/dev가 이미 별도 Azure 구독으로 분리된 상태에서, 스포크(신규 구독)의 AKS에 GitOps로 접근하는 Azure 네이티브 모범사례가 무엇인가. 후보로 떠오르는 것(⚠️ 전부 미검증, 공식 문서로 확인 안 함 — 다음에 이 주제를 다시 꺼내면 여기서부터 조사 시작): Workload Identity Federation(federated identity credential을 구독/테넌트 간에 어떻게 신뢰시킬지), Azure Lighthouse(크로스 테넌트·구독 위임 관리), PIM(Privileged Identity Management) eligible role assignment, ABAC role-assignment condition(축3 재검토가 열리는 조건으로 이미 design doc 0-26-b 근처에 명시됨 — roleAssignments/write를 특정 역할·스코프로만 좁힐 수 있는지). `docs/architectures/`에 Azure용 허브-스포크 아키텍처 문서가 아직 없다는 것도 이 조사의 전제 갭이다(open-questions.md Follow-up \"Azure 허브-스포크 GitOps 아키텍처 문서 신설 여부\" 참조).\n\n사용자 피드백(같은 세션): Azure 설계를 설명할 때 \"Azure가 물리적으로 강제한 것\"과 \"여러 옵션 중 선택한 것\"을 구분해서 설명해달라고 명시적으로 요청 — 사용자는 AWS 경험자, Azure는 상대적으로 낯설어 그 구분이 없으면 판단이 어렵다고 밝힘. Claude auto-memory에 별도 기록(azure-design-explain-constraint-vs-choice)."
     }
   ],
   "userDirectives": [

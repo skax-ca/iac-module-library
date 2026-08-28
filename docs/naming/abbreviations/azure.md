@@ -24,7 +24,7 @@
 | purpose | 자원의 상세 용도 | `main`, `app`, `web` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **11개** 약어, 5개 카테고리.
+- 총 **13개** 약어, 5개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
@@ -65,8 +65,10 @@
 | 2026-08-27 | `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | 위와 같은 세션, GitHub Actions OIDC 신원에 필요. **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 ARM 리소스가 아니라 Microsoft Graph 객체라 애초에 그 표의 대상이 아니다(실측 확인, 2026-08-27). 이 카탈로그의 첫 non-ARM 등재 사례다. 후보로 `app`(Azure Web App/`Microsoft.Web/sites`이 이미 CAF에서 이 약어를 쓰므로 향후 등재 시 충돌 예약, 기각), `aadapp`(레거시 이름 Azure AD 기반, 기각. Microsoft가 Entra ID로 명칭을 통일)을 검토했고, "Entra + Application"의 `entapp`(6자, 등재 규칙 4의 길이 한도 이내)을 채택했다. Service Principal은 `az ad sp create --id <appId>`로 App Registration의 displayName을 그대로 물려받아 별도 이름 인자가 없으므로, 위 "종속 객체" 규약과 같은 이유로 새 약어를 만들지 않는다 |
 | 2026-08-28 | `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | 두 번째 Azure 모듈 `aks-cluster` 설계 확정(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR). CAF 표에 정확히 `aks`로 등재돼 있어 그대로 채택. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가 하이픈 금지 + 길이 초과로 이 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
 | 2026-08-28 | `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | `aks-cluster` 모듈은 컨트롤 플레인 신원을 만들지 않고 입력으로만 받기로 확정(축3, 모듈이 identity·role assignment를 만들면 소비 repo의 CI 신원 권한 경계가 무너진다). 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. 등재 근거는 `rg`·`st`·`entapp`과 같은 선례(소비 repo가 이름 지어 만들 리소스) |
+| 2026-08-28 | `vwan` | Virtual WAN (`azurerm_virtual_wan`, `Microsoft.Network/virtualWans`) | 소비 repo `aks-reference-infra`가 hub-spoke 네트워킹의 TGW 대응으로 vWAN을 설계 중(`live/hub/vwan`, raw 리소스 소비. 이 저장소는 vwan 모듈을 만들지 않는다). CAF 표에 정확히 `vwan`으로 등재돼 있어 그대로 채택 |
+| 2026-08-28 | `vhub` | Virtual WAN Hub (`azurerm_virtual_hub`, `Microsoft.Network/virtualHubs`) | 위와 같은 세션, 같은 소비 repo가 필요. CAF 표에 정확히 `vhub`로 등재돼 있어 그대로 채택. ⚠️ hub에 붙는 연결(`azurerm_virtual_hub_connection`)과 정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 별도 약어를 등재하지 않는다(위 "종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다" 규약, CAF 표에도 이 둘의 독립 항목이 없어 정합) |
 
-## A.1 Network (6)
+## A.1 Network (8)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
@@ -76,10 +78,12 @@
 | Routing | 라우팅 테이블 (`azurerm_route_table`) | `rt` | rt-demo-prd-krc-app |
 | Outbound | NAT 게이트웨이 (`azurerm_nat_gateway`) | `ng` | ng-demo-prd-krc-main |
 | Outbound | 공용 IP (`azurerm_public_ip`) | `pip` | pip-demo-prd-krc-main |
+| Virtual WAN | Virtual WAN (`azurerm_virtual_wan`) | `vwan` | vwan-demo-prd-krc-main |
+| Virtual WAN | Virtual WAN Hub (`azurerm_virtual_hub`) | `vhub` | vhub-demo-prd-krc-main |
 
-⚠️ `pip`·`ng`·`vnet`은 `purpose` 토큰(예: `main`)을 쓴다. `snet`·`nsg`·`rt`는 서브넷 그룹 키를
-`purpose` 자리에 쓴다(예: `app`). `snet`은 AWS 카탈로그에도 있으나, 약어 고유성은 파일 안에서만
-판정하므로 클라우드 간 재사용은 허용된다.
+⚠️ `pip`·`ng`·`vnet`·`vwan`·`vhub`는 `purpose` 토큰(예: `main`)을 쓴다. `snet`·`nsg`·`rt`는
+서브넷 그룹 키를 `purpose` 자리에 쓴다(예: `app`). `snet`은 AWS 카탈로그에도 있으나, 약어
+고유성은 파일 안에서만 판정하므로 클라우드 간 재사용은 허용된다.
 
 ## A.2 Management and governance (1)
 
@@ -131,12 +135,12 @@ assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/d
 
 | # | 카테고리 | 개수 |
 |---|---|---|
-| A.1 | Network | 6 |
+| A.1 | Network | 8 |
 | A.2 | Management and governance | 1 |
 | A.3 | Storage | 1 |
 | A.4 | Identity | 2 |
 | A.5 | Containers | 1 |
-| | **합계** | **11** |
+| | **합계** | **13** |
 
 > ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

@@ -8,6 +8,14 @@ SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conven
 ## MANUAL`(자동 로드 안 됨) 참조.
 
 ## Working Memory
+### 2026-08-30 — 세션 요약: dotfiles OMC 플러그인 disabled 해결 + project-memory 도구 부수효과 버그 발견·복구
+
+세션 시작 시 dotfiles `sync.sh pull`이 "oh-my-claudecode@omc(user scope)가 플러그인 등록부에서 disabled" 경고를 출력. `claude plugin list --json`으로 실측 확인 후 `claude plugin enable oh-my-claudecode@omc` 실행으로 해결. 이번 세션은 이미 로드된 상태를 쓰고 있어 무영향이었지만, 재시작 시 OMC 스킬·MCP 도구가 전부 안 보일 뻔했다. `~/dotfiles-claude/claude/CLAUDE.md`의 "머신별 OMC 활성화" 절에 이 별개 레이어(dotfiles opt-in 플래그 vs Claude Code 자체 플러그인 등록부) 관련 증상·확인법·해결법을 하위 항목으로 추가(커밋 `3ac1be2`, sync.sh의 auto-commit/push로 이미 원격 반영됨).
+
+세션종료 절차 중 `git status`로 `.omc/project-memory.json`이 수정된 것을 발견 — 이번 세션에서 `mcp__t__project_memory_read`를 호출한 것 외엔 손댄 적이 없는데도, techStack/build/conventions/structure 4개 필드가 유효한 서술형 문자열에서 빈 자동스캔 스키마로 통째로 대체돼 있었다(customNotes 20개·userDirectives는 손실 없음). git show HEAD로 4개 필드를 복원. 이어서 `project_memory_add_directive`/`add_note`로 이 발견을 기록하려다 **두 번째 버그**를 발견: `add_note`가 20개 고정 상한 FIFO로 동작해, 새 노트 추가 시 가장 오래된 노트(azure-vnet 최초 구현 완료 기록, 다음 노트가 직접 참조하던 항목)를 경고 없이 삭제했다. git show HEAD로 삭제된 노트를 timestamp 순서에 맞춰 재삽입해 복구(21개로 정정). 이어서 이 항목 자체를 `notepad_write_working`으로 기록하려다 **세 번째 버그**를 재현: 2026-08-28 세션4와 동일하게 stale 캐시 기반 전체 재작성으로 다수 헤더가 3배 중복 삽입됨(322줄 증가, 헤더 다수 3중복 실측) — 즉시 `git checkout -- .omc/notepad.md`로 원복 후 이 항목은 Edit으로 직접 삽입.
+
+**교훈**: 이 프로젝트에서 `mcp__t__project_memory_*`/`notepad_*` 계열 도구는 읽기·쓰기 가리지 않고 부수효과(재스캔에 의한 필드 손실, 20개 상한 FIFO 삭제, stale 캐시 기반 전체 재작성에 의한 3중복)를 낸다 — 이번 세션 한 세션 안에서만 3가지 서로 다른 유형을 실측했다. 매 호출 후 반드시 `git diff`/개수 대조로 검증하고, 손상 시 `git show HEAD` 또는 `git checkout --`로 즉시 복구할 것. 이 시점부터는 이 두 파일에 한해 MCP 쓰기 도구보다 Edit 직접 사용을 기본값으로 삼는 편이 안전하다. 상세는 `.omc/project-memory.json`의 `mcp-tooling-bug` 카테고리 노트 2건, critical directive 1건 참조.
+
 ### 2026-08-26 — Azure 기반 구조 Step 5 (태그 재컷 + 마이그레이션 안내, main 직접 커밋) — Azure 기반 구조 전체 완료
 
 계획 `.omc/plans/2026-08-25-azure-foundation.md`(v4)의 Step 5. open-questions 2번(소비 repo 승급 시점)은 사용자가 "이 repo 경계 밖" 판단으로 착수 승인, 이 repo 안내문 작성만으로 충분하다고 확정. PR #33(Step1·2)·#34(Step3·4)에 이어 Azure 기반 구조 작업 전체 완료.

@@ -194,6 +194,12 @@
   },
   "hotPaths": [
     {
+      "path": ".local/iac-asset-presentation-draft.md",
+      "accessCount": 18,
+      "lastAccessed": 1788098014586,
+      "type": "file"
+    },
+    {
       "path": ".opencode/plugins/notepad.ts",
       "accessCount": 7,
       "lastAccessed": 1788074661316,
@@ -251,6 +257,24 @@
       "path": "docs/architectures/eks-gitops-hub-spoke/choose-your-path.md",
       "accessCount": 1,
       "lastAccessed": 1788087221568,
+      "type": "file"
+    },
+    {
+      "path": ".local/ai-iac-asset-notion.md",
+      "accessCount": 1,
+      "lastAccessed": 1788094861741,
+      "type": "file"
+    },
+    {
+      "path": "docs/README.md",
+      "accessCount": 1,
+      "lastAccessed": 1788098257084,
+      "type": "file"
+    },
+    {
+      "path": "docs/writing-style.md",
+      "accessCount": 1,
+      "lastAccessed": 1788098257408,
       "type": "file"
     }
   ],

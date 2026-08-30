@@ -4,6 +4,31 @@
 SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json.
 
 ## Working Memory
+### 2026-08-30 (세션4) — 문서 중복 정리 + Azure 저장소 관계 반영 + aks-reference-infra 실사 + 아키텍처 문서 작성 시점 평가
+
+두 건의 docs 정리를 main에 직접 커밋: (1) README.md·conventions.md의 모듈 소싱 예시 중복 제거,
+conventions.md는 README.md를 SSOT로 가리키는 링크로 대체(`4e9ad3d`) (2) README.md·CLAUDE.md에
+Azure 배포 체인(`aks-reference-infra`·`aks-platform-gitops`, 후자는 아직 미생성) 반영 — README의
+"세 저장소의 관계"는 저장소가 5개로 늘어 "저장소 관계" 표로 재구성(`1ff6c7b`). 둘 다
+`validate-doc-conventions.py`·`validate-abbreviations.py` 통과 확인 후 커밋.
+
+이어서 사용자 요청으로 `gh repo clone skax-ca/aks-reference-infra`를 스크래치패드에 실행해 실물
+확인 — project-memory의 기존 인식(리서치만 완료)보다 훨씬 진행돼 있었음(hub networking·vwan
+실배포 완료, dev bootstrap 완료, dev networking 코드 완성했으나 Azure 권한 전파 지연으로 CI
+블록). 특히 aks-cluster-v0.1.0 릴리스로 그쪽 repo의 Phase 2(AKS) 착수 조건이 이미 충족됐다는
+연결점을 발견. 상세는 `.omc/project-memory.json`의 `azure-architecture-doc-readiness` 카테고리
+(timestamp 1788088000000) 참조.
+
+그 조사를 근거로 `docs/architectures/aks-gitops-hub-spoke/` 작성 가능 여부를 평가 — **아직 이르다고
+결론**. `eks-gitops-hub-spoke/`가 전부 실전 검증 사실만 담는 문서인 반면, Azure 쪽은 핵심 메커니즘
+(AKS 배포·ArgoCD 대응물·크로스 구독 GitOps 인가)이 전부 미실현 상태. 작성 트리거 3가지와 트리거
+도달 시 작성 순서를 정의해 project-memory에 기록, `docs/architectures/README.md`에는 빈 스텁을
+추가하지 않기로 함(vnet·aks-cluster에서 두 번 겪은 "설계 단계 placeholder 미제거" 패턴 재발 방지).
+
+`aks-reference-infra`의 CLAUDE.md가 stale하다는 것과 그쪽 notepad.md에도 같은 stale-cache 중복
+버그가 있다는 것도 발견했으나, 사용자 지시로 그 repo 수정은 그쪽 세션 몫으로 남기고 이 세션에서는
+손대지 않음.
+
 ### 2026-08-30 (세션3) — PreToolUse 훅 라이브 검증 완료
 
 세션2가 미검증으로 남긴 항목(MCP 쓰기 툴 6개 차단 훅이 실제로 발동하는지)을 확인. `notepad_write_priority`를

@@ -52,6 +52,28 @@ if [ -n "$md_staged" ]; then
   fi
 fi
 
+# notepad.md 비대화 방지 — Working Memory 섹션 내 동일 헤더 중복 시 커밋 차단.
+# 2026-08-30 사고: notepad_write_working이 기존 Working Memory 전체를 다시 써 넣는 방식으로
+# 동작해(근본 원인은 OMC 툴 쪽, 여기선 방어선만 침), 같은 헤더가 세션마다 한 겹씩 쌓여
+# 797KB까지 비대화됐다(8회 중복). 이 검사는 그 증상을 "두 번째 중복"에서 즉시 잡는다.
+notepad_staged=$(printf '%s\n' "$changed" | grep -E '^\.omc/notepad\.md$' || true)
+if [ -n "$notepad_staged" ]; then
+  echo "[pre-commit] notepad.md 변경 감지 — 중복 헤더·크기 검사"
+  dupes=$(awk '/^## Working Memory$/{w=1;next} /^## MANUAL/{w=0} w && /^## /' .omc/notepad.md | sort | uniq -d)
+  if [ -n "$dupes" ]; then
+    echo "[pre-commit] ⚠️  Working Memory에 동일 헤더가 중복됐다:"
+    echo "$dupes" | sed 's/^/    /'
+    echo "    (2026-08-30 사고 재발 패턴 — 기존 내용이 다시 덧붙여졌을 가능성)"
+    echo "    중복 블록을 정리한 뒤 다시 커밋할 것. 의도적이면 --no-verify로 우회(사유를 커밋 메시지에 명시)."
+    exit 1
+  fi
+  size=$(wc -c < .omc/notepad.md)
+  limit=$((150 * 1024))
+  if [ "$size" -gt "$limit" ]; then
+    echo "[pre-commit] ⚠️  notepad.md가 $((size / 1024))KB — 150KB 상한 초과. 비대화 여부 확인 권장(커밋은 차단하지 않음)."
+  fi
+fi
+
 # Terraform 관련 파일이 staged된 경우에만 실행 (문서 커밋엔 비용 0)
 staged=$(printf '%s\n' "$changed" | grep -E '\.(tf|tfvars)$|\.terraform\.lock\.hcl$|^\.tflint\.hcl$|^\.trivyignore(\.yaml)?$' || true)
 [ -z "$staged" ] && exit 0

@@ -50,15 +50,26 @@ Claude Code 세션에서 한다** — 그 세션 안에서는 이 절 전체가 
 1. **`oh-my-claudecode:remember` 스킬을 호출**해 이번 세션의 발견 사항을 분류·저장시킨다
    (project memory / notepad priority / notepad working / docs 중 어디로 갈지는 그 스킬이 판단한다).
 2. `remember`가 모르는, 이 repo만의 제약을 그 판단에 추가로 적용한다:
-   - ⛔ Working/Priority에 쓸 때는 반드시 `mcp__t__notepad_write_working`/`notepad_write_priority`를
-     통해서만 쓴다. `Edit`로 `.omc/notepad.md` 상단에 직접 prepend하지 않는다 — 이 repo에서
-     2026-08-14 Priority Context 200KB 비대화의 직접 원인이 됐던 패턴이다.
-   - Priority Context는 `notepad_write_priority`로 **전체 교체**한다(append 아님), 500자 이내 유지.
-   - **MANUAL은 다르다(2026-08-30 분리 이후)**: `mcp__t__notepad_write_manual`은 `notepad.md`
-     안의 포인터 한 줄만 건드릴 뿐 `.omc/notepad-manual.md`의 실제 아카이브는 모른다 — 이 MCP
-     툴로 MANUAL을 쓰지 않는다. 아카이브에 추가할 내용은 **Edit 도구로
-     `.omc/notepad-manual.md`를 직접 편집**한다(자주 안 쓰이는 파일인 데다, 아래 MCP 쓰기 도구의
-     반복된 부수효과 버그를 감안하면 Edit 직접 사용이 오히려 더 안전하다).
+   - ⛔⛔ **2026-08-30, `.claude/settings.json`의 PreToolUse 훅이 아래 MCP 쓰기 툴 6개를
+     기계적으로 차단한다**(`notepad_write_working`·`notepad_write_priority`·`notepad_write_manual`·
+     `project_memory_add_note`·`project_memory_add_directive`·`project_memory_write`). 이 절이
+     예전엔 "Edit 대신 이 툴들을 쓰라"고 했지만, stale-cache 재작성(2026-08-26·08-28·08-30
+     세 차례 실측 duplication)·FIFO 20개 상한 삭제(2026-08-30 실측)·읽기만 해도 필드가 빈
+     스키마로 리셋되는 부수효과(2026-08-30 실측)까지 겹쳐 신뢰할 수 없다고 결론 내고 **정반대로
+     뒤집었다**. 이 툴들을 호출하면 이제 훅이 permission denied로 막고 대체 방법(Edit)을
+     안내한다 — 막히는 게 정상이다, 우회하려 하지 말 것.
+   - **`.omc/notepad.md`(Priority·Working)·`.omc/notepad-manual.md`(MANUAL)·
+     `.omc/project-memory.json` 세 파일 전부 `Edit` 도구로 직접 편집이 유일한 쓰기 경로다.**
+     Priority Context는 500자 이내 유지(전체 교체 방식 유지, append 아님). Working Memory는
+     최신 항목을 `## Working Memory` 바로 아래(상단)에 추가. 쓴 뒤에는 반드시 `git diff`로
+     의도한 변경만 있는지, 이 스킬 4번의 중복 검사(`awk` 정규화 검사)로 헤더 중복이 없는지
+     확인한다 — 훅이 MCP 툴 자체를 막아도 Edit 오사용(예: 실수로 기존 블록 복제)까지 막아주진
+     않는다.
+   - 읽기 툴(`notepad_read`/`project_memory_read`)은 막지 않는다(세션 시작 시 필요) — 하지만
+     읽기만 해도 `project-memory.json`의 techStack/build/conventions/structure가 손상된 전례가
+     있으므로, 호출 직후 `git diff .omc/project-memory.json`으로 즉시 확인하는 습관을 유지한다.
+   - **MANUAL은 별도 파일(2026-08-30 분리)**: `.omc/notepad-manual.md`에 직접 Edit. `notepad.md`
+     안의 `## MANUAL`은 그 파일을 가리키는 포인터 한 줄만 유지하고 건드리지 않는다.
    - `docs/*.md`에는 날짜·사건 서술을 쓰지 않는다(`docs/writing-style.md` — 이 repo의
      docs는 설계·규약만 소유) — `remember`가 "docs"를 저장 후보로 제안해도 서술형 내용이면
      notepad로 돌린다.

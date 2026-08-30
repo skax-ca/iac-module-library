@@ -78,6 +78,29 @@ rebuild가 옛 아카이브 내용을 notepad.md로 새어들게 하지 않는�
 없다는 사실 — 다음에 이 플러그인을 또 고칠 일이 있으면 스크래치패드 임시검증 대신 정식 테스트
 파일을 만드는 걸 고려할 것.
 
+**(진짜 마지막)** 사용자가 "세션종료 시 중복 작성을 원천적으로 방지하고 싶다"고 요청 — "이번엔
+조심하겠다"류의 기억 의존 대책이 아니라 구조적 차단을 요구한 것으로 판단. `update-config` 스킬로
+`.claude/settings.json`(신규, 커밋 대상) PreToolUse 훅 신설: OMC MCP 쓰기 툴 6개
+(`notepad_write_working`·`notepad_write_priority`·`notepad_write_manual`·`project_memory_add_note`·
+`project_memory_add_directive`·`project_memory_write`)를 이 저장소 세션 전체에서 `permissionDecision:
+deny`로 기계적으로 차단, 대체 경로(Edit 직접 편집)를 거부 사유 메시지에 안내. 이 세 파일
+(`notepad.md`·`notepad-manual.md`·`project-memory.json`)에 대해 이제까지 "Edit이 더 안전하다"는
+스킬 문서상의 **권고**였던 것을 **강제**로 뒤집었다 — 이 세션이 잊거나 규율을 어겨도 도구 자체가
+막는다.
+
+⚠️ 라이브 테스트는 의도적으로 생략: 이 세션은 `.claude/settings.json`이 없는 상태로 시작해 설정
+watcher가 이 파일 생성을 못 감지했을 가능성이 높다(update-config 스킬의 알려진 캐비어트). 실제로
+`notepad_write_working`을 호출해 "막히는지" 확인하는 건, 훅이 아직 안 걸렸을 경우 **바로 지금
+막으려는 그 중복 버그를 직접 유발**하는 위험한 시도라 하지 않았다. 대신 `jq -e`로 스키마·구문
+검증, 파이프 테스트로 훅 command가 올바른 deny JSON을 뱉는지만 확인했다. **다음 세션(재시작 또는
+`/hooks` 이후)에서 이 훅이 실제로 발동하는지 첫 notepad 관련 작업 때 확인할 것** — 발동 안 하면
+`/hooks`를 한 번 열어 설정을 리로드해야 한다(사용자 조작 필요, Claude가 대신 할 수 없음).
+
+`notepad-sync` 스킬 문서도 갱신: 세션종료 2번 절의 "MCP 쓰기 툴을 통해서만 쓴다" 지시를 정반대로
+뒤집어 "Edit이 유일한 쓰기 경로, MCP 쓰기 툴은 훅이 막는다"로 재작성. 읽기 툴(`notepad_read`/
+`project_memory_read`)은 훅 대상에서 제외(세션 시작에 필요하고, 손상 시 즉시 git diff로 잡을 수
+있어 상대적으로 안전) — 다만 읽기도 과거 부수효과가 있었으니 호출 후 git diff 습관은 유지.
+
 ### 2026-08-30 — 세션 요약: dotfiles OMC 플러그인 disabled 해결 + project-memory 도구 부수효과 버그 발견·복구
 
 세션 시작 시 dotfiles `sync.sh pull`이 "oh-my-claudecode@omc(user scope)가 플러그인 등록부에서 disabled" 경고를 출력. `claude plugin list --json`으로 실측 확인 후 `claude plugin enable oh-my-claudecode@omc` 실행으로 해결. 이번 세션은 이미 로드된 상태를 쓰고 있어 무영향이었지만, 재시작 시 OMC 스킬·MCP 도구가 전부 안 보일 뻔했다. `~/dotfiles-claude/claude/CLAUDE.md`의 "머신별 OMC 활성화" 절에 이 별개 레이어(dotfiles opt-in 플래그 vs Claude Code 자체 플러그인 등록부) 관련 증상·확인법·해결법을 하위 항목으로 추가(커밋 `3ac1be2`, sync.sh의 auto-commit/push로 이미 원격 반영됨).

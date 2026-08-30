@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__plugin_oh-my-claudecode_t__notepad_write_working|mcp__plugin_oh-my-claudecode_t__notepad_write_manual|mcp__plugin_oh-my-claudecode_t__notepad_write_priority|mcp__plugin_oh-my-claudecode_t__project_memory_add_note|mcp__plugin_oh-my-claudecode_t__project_memory_add_directive|mcp__plugin_oh-my-claudecode_t__project_memory_write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"deny\",\"permissionDecisionReason\":\"이 저장소는 OMC notepad/project-memory MCP 쓰기 도구의 stale-cache 재작성·FIFO삭제·필드손실 버그(2026-08 다수 실측)로 전면 차단한다. .omc/notepad.md·notepad-manual.md·project-memory.json은 Edit 도구로 직접 편집할 것. 상세: .claude/skills/notepad-sync/SKILL.md\"}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

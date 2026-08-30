@@ -183,8 +183,20 @@
     },
     {
       "path": ".claude/skills/notepad-sync/SKILL.md",
-      "accessCount": 5,
-      "lastAccessed": 1788074493767,
+      "accessCount": 6,
+      "lastAccessed": 1788075109590,
+      "type": "file"
+    },
+    {
+      "path": ".claude/settings.local.json",
+      "accessCount": 1,
+      "lastAccessed": 1788075030511,
+      "type": "file"
+    },
+    {
+      "path": ".claude/settings.json",
+      "accessCount": 1,
+      "lastAccessed": 1788075076622,
       "type": "file"
     }
   ],

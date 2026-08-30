@@ -53,7 +53,16 @@ Claude Code 세션에서 한다** — 그 세션 안에서는 이 절 전체가 
      notepad로 돌린다.
    - `project-memory.json`은 `.gitignore` 화이트리스트로 git 커밋 대상이다(notepad.md와 함께
      크로스 머신 SSOT) — 이 머신에만 유효한 임시 정보는 넣지 않는다.
+   - ⛔ **fork/서브에이전트(team 모드 포함)는 notepad에 직접 쓰지 않는다.** 결과를 텍스트로
+     보고만 하고, notepad 기록은 **team-lead(메인 세션)가 세션당 한 번만** 통합해서 쓴다 —
+     2026-08-26~28 세션들에서 fork가 각자(또는 컨텍스트 소진 후 team-lead가 재수습하며) notepad를
+     따로 써서 Working Memory 헤더가 8회 중복·797KB까지 비대화된 실제 사고가 있었다
+     (`.omc/notepad.md` 커밋 `7a2ea22` 정리, 원인 진단은 그 커밋 메시지 참조).
 3. 이 단계가 끝난 뒤에만 session-end 3번(커밋)으로 넘어간다 — 위 변경분이 그 커밋에 함께 실려야 한다.
+4. `.githooks/pre-commit`이 notepad.md staged 시 Working Memory 내 동일 헤더 중복을 자동 차단하고
+   150KB 초과를 경고한다(커밋 `a329c26`, 위 사고 재발방지). 이 훅에 막히면 "왜 막혔는지 원인부터
+   진단"하지 말고 — 위 fork 규율 위반 여부부터 의심할 것. `--no-verify` 우회는 정말 의도적인
+   중복(드묾)일 때만, 사유를 커밋 메시지에 남기고 쓴다.
 
 ## opencode 세션
 

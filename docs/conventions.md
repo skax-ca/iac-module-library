@@ -173,12 +173,8 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 
 ## 4. 모듈 소싱
 
-```hcl
-source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
-```
-
-`vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
-**`ref=main`을 쓰지 않는다**(움직이는 참조다). 태그로 고정한다.
+호출 예시와 태그 고정 규칙(`ref=main` 금지 포함)은 [`README.md`](../README.md)의
+"쓰는 법" 절이 소유한다. 이 절은 그 내용을 반복하지 않는다.
 
 ---
 

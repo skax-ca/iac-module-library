@@ -206,9 +206,21 @@
       "type": "file"
     },
     {
+      "path": "docs/conventions.md",
+      "accessCount": 2,
+      "lastAccessed": 1788086193329,
+      "type": "file"
+    },
+    {
       "path": ".claude/settings.local.json",
       "accessCount": 1,
       "lastAccessed": 1788075030511,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 1,
+      "lastAccessed": 1788086160839,
       "type": "file"
     }
   ],

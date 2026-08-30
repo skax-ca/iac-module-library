@@ -174,7 +174,14 @@
       ]
     }
   },
-  "hotPaths": [],
+  "hotPaths": [
+    {
+      "path": ".claude/skills/notepad-sync/SKILL.md",
+      "accessCount": 5,
+      "lastAccessed": 1788074493767,
+      "type": "file"
+    }
+  ],
   "userDirectives": [
     {
       "timestamp": 1786692751925,

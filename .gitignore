@@ -48,9 +48,12 @@ __pycache__/
 **/.omc/
 !/.omc/
 /.omc/*
-# 크로스머신(집↔회사 Mac) 핸드오프용 SSOT 2개
+# 크로스머신(집↔회사 Mac) 핸드오프용 SSOT
 # — notepad.md(세션 로그·Priority는 500자 이내 포인터만) + project-memory.json(구조화 사실)
+# — notepad-manual.md(2026-08-30 분리된 MANUAL 아카이브, 자동 로드 안 됨 — notepad.md가
+#   150KB 경고에 계속 걸리는 걸 막기 위해 별도 파일로 뺐다)
 !/.omc/notepad.md
+!/.omc/notepad-manual.md
 !/.omc/project-memory.json
 # 프로젝트 스코프 스킬 (OMC 규약상 커밋 대상)
 !/.omc/skills/

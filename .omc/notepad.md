@@ -38,6 +38,20 @@ dotfiles push(`eea8feb`)로 반영.
 정규식이 실제 데이터 형태(H2 vs H3)와 맞는지 반드시 백업본으로 역검증할 것 — 이번처럼 "훅이
 있으니 안전하다"는 가정 자체가 거짓일 수 있다.
 
+**(이어서)** 사용자 요청으로 "150KB 넘는 오래된 세션을 MANUAL로 이관"까지 진행. 점검 중 헤더
+레벨만 다른 중복(`## 2026-08-21 15:58` vs `### 2026-08-21 15:58`, 커밋 히스토리상 서로 다른 시점에
+독립적으로 삽입된 것)을 추가 발견 — `uniq -d`는 문자열 완전 일치만 잡아서 훅이 놓치는 사각지대였다.
+orphan(`##` 버전)을 삭제하고, 훅 정규식에 `gsub(/^#+ /,"")`로 헤더 텍스트 정규화를 추가해 이 클래스도
+잡히게 함(백업본 역검증으로 확인). 이관 자체는 Working Memory(6~48줄, 2026-08-30 두 항목만 남김)의
+과거 완료 스레드(2026-08-14~08-28, Azure 기반구조·vnet·aks-cluster·iac-platform-gitops 리뷰 등
+전부 완료·미결 없음)를 `## MANUAL` 최상단(기존 아카이브보다 최신이라 그 위)에 이관. ⚠️ **중요한 한계**:
+이 이동은 파일 총 바이트를 줄이지 않는다(MANUAL도 같은 파일 안이라 pre-commit의 150KB 총량 경고는
+그대로 유지) — MANUAL 자체가 이미 옛 아카이브(2026-07-29~08-14, ~270KB)로 커서 그게 총량의
+대부분을 차지한다. 실질 효과는 **세션 시작마다 notepad-sync가 읽는 Working Memory 크기**를
+65KB→6KB로 줄인 것(MANUAL은 자동 로드 안 됨, 필요 시에만 조회). 150KB 총량 경고 자체를 없애려면
+MANUAL 자체를 별도 파일로 분리하거나 더 오래된 부분을 쳐내는 별도 작업이 필요 — 오늘은 미착수,
+다음에 필요성 판단.
+
 ### 2026-08-30 — 세션 요약: dotfiles OMC 플러그인 disabled 해결 + project-memory 도구 부수효과 버그 발견·복구
 
 세션 시작 시 dotfiles `sync.sh pull`이 "oh-my-claudecode@omc(user scope)가 플러그인 등록부에서 disabled" 경고를 출력. `claude plugin list --json`으로 실측 확인 후 `claude plugin enable oh-my-claudecode@omc` 실행으로 해결. 이번 세션은 이미 로드된 상태를 쓰고 있어 무영향이었지만, 재시작 시 OMC 스킬·MCP 도구가 전부 안 보일 뻔했다. `~/dotfiles-claude/claude/CLAUDE.md`의 "머신별 OMC 활성화" 절에 이 별개 레이어(dotfiles opt-in 플래그 vs Claude Code 자체 플러그인 등록부) 관련 증상·확인법·해결법을 하위 항목으로 추가(커밋 `3ac1be2`, sync.sh의 auto-commit/push로 이미 원격 반영됨).
@@ -45,6 +59,11 @@ dotfiles push(`eea8feb`)로 반영.
 세션종료 절차 중 `git status`로 `.omc/project-memory.json`이 수정된 것을 발견 — 이번 세션에서 `mcp__t__project_memory_read`를 호출한 것 외엔 손댄 적이 없는데도, techStack/build/conventions/structure 4개 필드가 유효한 서술형 문자열에서 빈 자동스캔 스키마로 통째로 대체돼 있었다(customNotes 20개·userDirectives는 손실 없음). git show HEAD로 4개 필드를 복원. 이어서 `project_memory_add_directive`/`add_note`로 이 발견을 기록하려다 **두 번째 버그**를 발견: `add_note`가 20개 고정 상한 FIFO로 동작해, 새 노트 추가 시 가장 오래된 노트(azure-vnet 최초 구현 완료 기록, 다음 노트가 직접 참조하던 항목)를 경고 없이 삭제했다. git show HEAD로 삭제된 노트를 timestamp 순서에 맞춰 재삽입해 복구(21개로 정정). 이어서 이 항목 자체를 `notepad_write_working`으로 기록하려다 **세 번째 버그**를 재현: 2026-08-28 세션4와 동일하게 stale 캐시 기반 전체 재작성으로 다수 헤더가 3배 중복 삽입됨(322줄 증가, 헤더 다수 3중복 실측) — 즉시 `git checkout -- .omc/notepad.md`로 원복 후 이 항목은 Edit으로 직접 삽입.
 
 **교훈**: 이 프로젝트에서 `mcp__t__project_memory_*`/`notepad_*` 계열 도구는 읽기·쓰기 가리지 않고 부수효과(재스캔에 의한 필드 손실, 20개 상한 FIFO 삭제, stale 캐시 기반 전체 재작성에 의한 3중복)를 낸다 — 이번 세션 한 세션 안에서만 3가지 서로 다른 유형을 실측했다. 매 호출 후 반드시 `git diff`/개수 대조로 검증하고, 손상 시 `git show HEAD` 또는 `git checkout --`로 즉시 복구할 것. 이 시점부터는 이 두 파일에 한해 MCP 쓰기 도구보다 Edit 직접 사용을 기본값으로 삼는 편이 안전하다. 상세는 `.omc/project-memory.json`의 `mcp-tooling-bug` 카테고리 노트 2건, critical directive 1건 참조.
+
+
+## MANUAL
+
+### [2026-08-14~2026-08-28 세션 아카이브 — Working Memory에서 이관, 2026-08-30]
 
 ### 2026-08-26 — Azure 기반 구조 Step 5 (태그 재컷 + 마이그레이션 안내, main 직접 커밋) — Azure 기반 구조 전체 완료
 
@@ -359,10 +378,6 @@ aks-cluster-v0.1.0 태그 컷(사용자 확인 후)·push, git show로 실제 �
 
 **이 저장소는 이제 AWS 4개 + Azure 2개(vnet-v0.2.0·aks-cluster-v0.1.0) 전 6모듈 릴리스 완료.** 다음 Azure 모듈 착수 여부는 사용자 판단 대상 — 미결 항목 없음.
 
-## 2026-08-21 15:58
-iac-module-library notepad-sync 스킬 동기화 완료. iac-reference-infra 버전과 비교 후 2건 수정: (1) 200KB 비대화 사건 귀속 오류 — "iac-reference-infra에서" → "이 repo에서"로 정정 (2) `docs/deployment-facts.md` 참조 제거 — 이 repo에 없는 파일이라 `docs/06-conventions.md` §8 일반 참조로 변경. opencode.jsonc 변경분도 함께 staged.
-
-## MANUAL
 
 > 2026-08-14 재구성 — Priority Context가 200KB까지 비대해져(권장 500자의 400배) 세션 시작마다
 > 전량 로드되는 문제를 발견, OMC 3단 구조(Priority/Working/Manual)를 처음으로 실제 적용했다.

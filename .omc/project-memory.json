@@ -176,6 +176,12 @@
   },
   "hotPaths": [
     {
+      "path": ".opencode/plugins/notepad.ts",
+      "accessCount": 7,
+      "lastAccessed": 1788074661316,
+      "type": "file"
+    },
+    {
       "path": ".claude/skills/notepad-sync/SKILL.md",
       "accessCount": 5,
       "lastAccessed": 1788074493767,

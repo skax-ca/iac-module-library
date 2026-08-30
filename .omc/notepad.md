@@ -63,6 +63,21 @@ MANUAL 자체를 별도 파일로 분리하거나 더 오래된 부분을 쳐내
 (4) `.opencode/plugins/notepad.ts`가 이 분리를 아는지는 미확인 — 다음에 opencode 세션에서
 MANUAL을 다룰 때 먼저 소스 확인 필요.
 
+**(마지막)** 사용자가 이어서 "opencode 플러그인도 분리 반영해줘"를 요청 — `.opencode/plugins/notepad.ts`
+수정. `notepad_read(section=manual)`/`notepad_write_manual`이 이제 `.omc/notepad-manual.md`를
+직접 읽고 쓰도록 분리(각각 새 `manualPath()`/`DEFAULT_MANUAL` 사용), `notepad_write_priority`/
+`notepad_write_working`은 그대로 `notepad.md`의 `splitSections`/`rebuild`를 쓰되 MANUAL 섹션은
+건드리지 않아 포인터가 보존됨. 직접편집 차단 게이트(`tool.execute.before`)에 `notepad-manual.md`
+경로도 추가. bun이 이 머신에 없어 기존 단위 테스트(2026-08-18 세션이 언급한 10건)를 못 돌렸고,
+저장소에 그 테스트 파일 자체가 없다는 것도 이번에 확인(당시 세션 한정 산출물이었던 듯) — 대신
+핵심 함수(`splitSections`/`rebuild`/`loadFile`/`saveFile`)를 그대로 복제한 순수 node 스크립트를
+스크래치패드에서 실제 파일 **사본**에 대해 실행해 13개 항목 검증: priority/working/manual 읽기가
+각각 올바른 파일에서 올바른 내용을 반환하는지, write_manual이 notepad.md를 전혀 안 건드리는지,
+rebuild가 옛 아카이브 내용을 notepad.md로 새어들게 하지 않는지, 게이트가 두 파일 경로를 모두
+인식하는지. 실제 repo 파일은 무손상(git status로 확인). ⚠️ 미해결: bun 단위 테스트 자체가
+없다는 사실 — 다음에 이 플러그인을 또 고칠 일이 있으면 스크래치패드 임시검증 대신 정식 테스트
+파일을 만드는 걸 고려할 것.
+
 ### 2026-08-30 — 세션 요약: dotfiles OMC 플러그인 disabled 해결 + project-memory 도구 부수효과 버그 발견·복구
 
 세션 시작 시 dotfiles `sync.sh pull`이 "oh-my-claudecode@omc(user scope)가 플러그인 등록부에서 disabled" 경고를 출력. `claude plugin list --json`으로 실측 확인 후 `claude plugin enable oh-my-claudecode@omc` 실행으로 해결. 이번 세션은 이미 로드된 상태를 쓰고 있어 무영향이었지만, 재시작 시 OMC 스킬·MCP 도구가 전부 안 보일 뻔했다. `~/dotfiles-claude/claude/CLAUDE.md`의 "머신별 OMC 활성화" 절에 이 별개 레이어(dotfiles opt-in 플래그 vs Claude Code 자체 플러그인 등록부) 관련 증상·확인법·해결법을 하위 항목으로 추가(커밋 `3ac1be2`, sync.sh의 auto-commit/push로 이미 원격 반영됨).

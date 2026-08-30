@@ -4,6 +4,16 @@
 SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json.
 
 ## Working Memory
+### 2026-08-30 (세션3) — PreToolUse 훅 라이브 검증 완료
+
+세션2가 미검증으로 남긴 항목(MCP 쓰기 툴 6개 차단 훅이 실제로 발동하는지)을 확인. `notepad_write_priority`를
+현재 Priority Context와 바이트 단위로 동일한 내용으로 호출해 라이브 테스트 — 설정한 deny 메시지가 그대로
+반환되고 `git status`로 notepad.md 무변경 확인. `.claude/settings.json`이 세션 시작 시점에 이미 존재해
+watcher가 정상 감지한 것으로 보임(`/hooks` 리로드 불필요). 부수 확인: 이번 세션 `project_memory_read` 호출로도
+techStack/build/conventions/structure 손상은 재현되지 않음(hotPaths 접근 카운트만 갱신) — 표본 1건이라
+이 읽기-부수효과 버그가 사라졌다고 단정하지는 않음, 앞으로도 read 직후 git diff 확인 습관 유지. 상세는
+`.omc/project-memory.json`의 `open-items` 카테고리(timestamp 1788077000000) 참조.
+
 ### 2026-08-30 (세션2) — 글로벌 CLAUDE.md 트리밍 + notepad.md 2차 중복 발견·제거 + pre-commit 훅 레벨 버그 수정
 
 사용자 요청으로 `~/.claude/CLAUDE.md`의 "OMC 플러그인 disabled" 트러블슈팅 절(위 세션1이 그날 작성)을

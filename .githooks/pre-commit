@@ -56,10 +56,16 @@ fi
 # 2026-08-30 사고: notepad_write_working이 기존 Working Memory 전체를 다시 써 넣는 방식으로
 # 동작해(근본 원인은 OMC 툴 쪽, 여기선 방어선만 침), 같은 헤더가 세션마다 한 겹씩 쌓여
 # 797KB까지 비대화됐다(8회 중복). 이 검사는 그 증상을 "두 번째 중복"에서 즉시 잡는다.
+# ⚠️ 2026-08-30(2차) 실측: 실제 세션 항목 헤더는 `### `(H3)인데 이 검사가 `## `(H2)만 봐서
+# 구조적으로 못 잡는 상태였다(H2는 "## Working Memory"/"## MANUAL" 섹션 경계뿐이라 정상 상태에선
+# 애초에 중복될 일이 없는 레벨을 보고 있었다). PR #38 squash-merge 직후 세션이 stale 캐시로
+# 106줄짜리 블록을 통째로 재삽입했는데도(2026-08-28, 커밋 8297c8ba) 이 검사가 존재하지조차
+# 않던 시점이라 안 잡혔고, 사후 발견(2026-08-30) 전까지 hook이 있었어도 레벨 버그 때문에
+# 못 잡았을 것이다. `#{2,3}`로 확장해 H2·H3 헤더 중복을 모두 검사한다.
 notepad_staged=$(printf '%s\n' "$changed" | grep -E '^\.omc/notepad\.md$' || true)
 if [ -n "$notepad_staged" ]; then
   echo "[pre-commit] notepad.md 변경 감지 — 중복 헤더·크기 검사"
-  dupes=$(awk '/^## Working Memory$/{w=1;next} /^## MANUAL/{w=0} w && /^## /' .omc/notepad.md | sort | uniq -d)
+  dupes=$(awk '/^## Working Memory$/{w=1;next} /^## MANUAL/{w=0} w && /^#{2,3} /' .omc/notepad.md | sort | uniq -d)
   if [ -n "$dupes" ]; then
     echo "[pre-commit] ⚠️  Working Memory에 동일 헤더가 중복됐다:"
     echo "$dupes" | sed 's/^/    /'

@@ -200,6 +200,18 @@
       "type": "file"
     },
     {
+      "path": "CLAUDE.md",
+      "accessCount": 4,
+      "lastAccessed": 1788086762295,
+      "type": "file"
+    },
+    {
+      "path": "README.md",
+      "accessCount": 4,
+      "lastAccessed": 1788086796770,
+      "type": "file"
+    },
+    {
       "path": ".claude/settings.json",
       "accessCount": 2,
       "lastAccessed": 1788075551389,
@@ -215,12 +227,6 @@
       "path": ".claude/settings.local.json",
       "accessCount": 1,
       "lastAccessed": 1788075030511,
-      "type": "file"
-    },
-    {
-      "path": "README.md",
-      "accessCount": 1,
-      "lastAccessed": 1788086160839,
       "type": "file"
     }
   ],

@@ -21,29 +21,26 @@ Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC
 | azure | [`aks-cluster`](modules/azure/aks-cluster) | AKS 클러스터 · 시스템/추가 노드 풀 · Karpenter(NAP) |
 
 모든 모듈이 개발 단계(`0.y.z`)다. 최신 태그는 `git tag -l`로 확인한다(여기 고정 표기하지 않는다.
-컷할 때마다 갱신을 잊으면 stale해진다). 실계정 배포로 검증된 조합이 `eks-reference-infra`에 있다.
+컷할 때마다 갱신을 잊으면 stale해진다). 실계정 배포로 검증된 조합은 `eks-reference-infra`(AWS)·
+`aks-reference-infra`(Azure)에 있다.
 
 태그 이름에는 provider 층이 들어가지 않는다(`vpc-vX.Y.Z`). 따라서 모듈 디렉터리명은
 provider를 가로질러 고유해야 한다.
 
 ---
 
-## 세 저장소의 관계
+## 저장소 관계
 
-```
-iac-module-library          이 저장소. 모듈(.tf)과 설계 문서를 소유한다
-        |
-        |  git tag 소싱 (vpc-v0.3.0 ...)
-        v
-eks-reference-infra          배포 루트. 어떤 값으로 어떻게 부르는지의 실증
-        |
-        |  EKS 클러스터를 만들고 ArgoCD를 세운다
-        v
-eks-platform-gitops          플랫폼 매니페스트. ArgoCD가 pull로 reconcile한다
-```
+이 저장소(`iac-module-library`)는 모듈(.tf)과 설계 문서를 소유하는 SSOT다. AWS·Azure 두 provider가
+이 SSOT를 각자의 체인으로 소비한다. 이후 단계부터 provider가 갈린다:
 
-새 고객사 프로젝트는 `eks-reference-infra`를 본떠 `<project>-infra`를 만들고,
-이 저장소의 모듈을 **태그로 고정해** 소싱한다.
+| 단계 | AWS | Azure | 무엇을 하는지 |
+|------|-----|-------|----------------|
+| 배포 루트 | `eks-reference-infra` | `aks-reference-infra` | 이 저장소의 모듈을 git tag로 소싱해 클러스터를 만들고 ArgoCD를 세운다 |
+| 플랫폼 GitOps | `eks-platform-gitops` | `aks-platform-gitops`(예정) | ArgoCD가 pull로 reconcile하는 플랫폼 매니페스트 |
+
+새 고객사 프로젝트는 AWS면 `eks-reference-infra`, Azure면 `aks-reference-infra`를 본떠
+`<project>-infra`를 만들고, 이 저장소의 모듈을 **태그로 고정해** 소싱한다.
 
 ---
 

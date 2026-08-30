@@ -27,8 +27,10 @@ Cloud Architect 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 
 | repo | 역할 |
 |------|------|
 | **이 repo (`iac-module-library`)** | 모듈·설계의 **현행 SSOT**. 모든 개발은 여기서 |
-| `eks-reference-infra` | 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
-| `eks-platform-gitops` | 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
+| `eks-reference-infra` | AWS 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
+| `eks-platform-gitops` | AWS 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
+| `aks-reference-infra` | Azure 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
+| `aks-platform-gitops` | Azure 플랫폼 GitOps 매니페스트(**계층 2**, 생성 예정). ArgoCD가 pull로 reconcile 예정 |
 
 ### 소비 방식 (프로젝트 repo에서)
 

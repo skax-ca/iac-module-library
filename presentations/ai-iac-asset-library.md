@@ -1,19 +1,17 @@
-# iac-module-library, 팀의 IaC 자산
+# iac-module-library, 팀의 IaC Asset
 
-초안 v3. 핵심 메시지는 하나다. Terraform 모듈을 GitHub org 레벨에서 자산으로 관리하고, 계속
-추가·갱신한다. Claude Code는 이걸 실행하는 도구다.
-
----
-
-## 1. 왜 자산 라이브러리인가
-
-프로젝트마다 VPC·EKS·IAM을 새로 짜면 재사용이 안 되고, 보안 수준도 프로젝트마다 갈린다.
-고객사는 구독 라이선스 없이 바로 착수해야 한다. 그래서 모듈과 아키텍처 패턴을 GitHub org
-차원의 자산으로 관리하고, 계속 늘려간다.
+Terraform 모듈과 아키텍처 패턴을 GitHub org 차원의 자산으로 관리한다. Claude Code는 이 자산을 쌓는 도구로 썼다.
 
 ---
 
-## 2. 자산: iac-module-library
+## 1. 매번 다시 만들던 것들
+
+새 프로젝트를 수행할 때마다 VPC·EKS·IAM을 처음부터 다시 만든다. 재사용할 수 없고,
+보안 수준도 프로젝트마다 다르다. Terraform Cloud 같은 상용 솔루션을 쓰면 풀리는 문제지만, 그러려면 비용 문제가 발생한다. 그래서 모듈과 아키텍처 패턴을 오픈소스 스택으로 만들고, 계속 늘려가는 쪽을 택했다.
+
+---
+
+## 2. 코드와 패턴
 
 이 repo가 SSOT다. 나머지 repo는 여기서 모듈을 가져다 쓴다.
 
@@ -34,7 +32,7 @@ flowchart LR
   달라지면 안 된다.
 
 **패턴**
-코드만 자산이 아니다. 반복되는 설계 판단과 합의도 문서화해서 넣는다.
+반복되는 설계 판단과 합의도 문서화해서 자산에 넣는다.
 - output 공유 대신 Name 태그로 리소스를 찾는다. 워크스페이스를 분리해도 값을 주고받을 수 있다.
 - Security Group rule은 개별 리소스로 뗀다. 콘솔에서 rule을 추가해도 drift로 안 잡힌다.
 - 계정 간 순환 의존성은 Terraform 밖으로 뺀다. TGW RAM 공유 수락을 CI 단계로 옮긴 사례가 그렇다.
@@ -43,7 +41,7 @@ flowchart LR
 
 ---
 
-## 3. 적용 사례: EKS/AKS GitOps 패턴
+## 3. 구조와 사례
 
 `iac-module-library`의 모듈로 무엇을 지을 수 있는지 보여주는 예시다. 이 4개 repo는 자산을
 소비한 결과물이다.
@@ -55,7 +53,7 @@ flowchart LR
 | `aks-reference-infra` | Azure 배포 루트. 이 repo의 모듈을 태그로 소싱 |
 | `aks-platform-gitops` | Azure 플랫폼 GitOps 매니페스트 (예정) |
 
-구조는 3계층이다. 인프라(Terraform), 플랫폼 GitOps(ArgoCD), 앱 GitOps. ArgoCD는 허브
+인프라(Terraform), 플랫폼 GitOps(ArgoCD), 앱 GitOps, 이렇게 3계층으로 나눈다. ArgoCD는 허브
 하나에만 두고 스포크 클러스터는 원격으로 등록만 한다. 클러스터가 늘어도 addon 배포·운영
 부담은 곱으로 늘지 않는다.
 
@@ -88,7 +86,7 @@ cluster 등록, ApplicationSet(cluster generator), self-heal, AppProject 네 기
 | aks-cluster | Azure | v0.1.0 |
 
 최근 나흘 사이 PR 4건을 병합해 Azure 모듈 2개를 새로 냈고, 기존 모듈 계약도 보강했다.
-`eks-reference-infra`와 `aks-reference-infra`가 이 태그들을 실제로 소싱해서 배포 중이다.
+`eks-reference-infra`와 `aks-reference-infra`가 이 태그들을 소싱해서 배포 중이다.
 `aks-reference-infra`는 hub networking과 vWAN을 이미 실배포했다.
 
 ---
@@ -112,5 +110,3 @@ cluster 등록, ApplicationSet(cluster generator), self-heal, AppProject 네 기
 - 각 모듈이 `1.0.0`을 찍을 때 CHANGELOG.md 도입을 다시 검토한다.
 - `docs/architectures/aks-gitops-hub-spoke`는 AKS 실배포와 크로스 구독 GitOps 인가를
   실측한 뒤 쓴다.
-
-계속 추가하고 갱신하는 게 이 자산의 존재 이유다.

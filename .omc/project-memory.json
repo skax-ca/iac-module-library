@@ -150,6 +150,12 @@
       "source": "manual",
       "category": "azure-architecture-doc-readiness",
       "content": "2026-08-30 (세션4) — README.md·conventions.md 예시 중복 정리 후, 사용자 요청으로 README.md·CLAUDE.md에 Azure 배포 체인(`aks-reference-infra`·`aks-platform-gitops`) 반영(커밋 1ff6c7b) 완료. 이어서 사용자가 `aks-reference-infra`를 스크래치패드에 실제로 clone해 내용 확인을 요청 — gh repo list로 skax-ca 조직에 `aks-reference-infra`(2026-08-28 생성)가 실재함과 `aks-platform-gitops`는 아직 없음(사용자 말대로 예정)을 확인.\n\n**clone 실측 결과(project-memory의 기존 인식보다 진행이 앞서 있었음)**: bootstrap/은 hub·dev 양쪽 다 실제 Azure 검증 완료. `live/hub/networking` 실배포 완료(vnet-v0.2.0 소비, 10.60.0.0/16 + 서브넷 5개). `live/hub/vwan` 실배포 완료(vHub 10.62.0.0/22, Standard SKU, 스포크 연결 0건). dev 구독 확보·bootstrap 완료. `live/dev/networking` 코드 작성·push 완료(10.61.0.0/16 + secondary 100.65.0.0/16)했으나 CI 배포가 Azure 측 role assignment 전파 지연(AuthorizationPermissionMismatch)으로 막혀 있음(코드 결함 아님, 순수 Azure eventual consistency로 그쪽 세션이 이미 확인). Phase 2(AKS)는 미착수.\n\n**중요 연결점**: `aks-reference-infra`의 CLAUDE.md는 \"Phase 2는 iac-module-library에 aks 모듈이 올라올 때까지 보류\"라고 명시해뒀는데, 이 저장소는 이미 `aks-cluster-v0.1.0`을 릴리스했다 — 그쪽 repo 기준 Phase 2 착수 조건은 이미 충족된 상태. `aks-reference-infra`의 CLAUDE.md 「0. 현재 상태」 절이 실제 커밋(vwan·dev/networking 이미 존재)보다 stale한 것도 발견했으나, 사용자 지시로 그쪽 repo 수정은 그쪽 세션에 맡기고 이 세션에서는 손대지 않았다.\n\n**평가 요청에 대한 결론 — `docs/architectures/aks-gitops-hub-spoke/` 작성은 아직 이르다.** `docs/architectures/eks-gitops-hub-spoke/`(overview.md·choose-your-path.md)를 대조 정독한 결과, 그 문서는 전부 실전 검증된 사실(공식 문서 원문·실제 발생 사고·기존 모듈 계약)만 적는 문서다 — TGW 값 발견 8단계, RAM 초대 수락이 CI 단계여야 하는 이유, DNS-1123 63자 충돌 실사고까지 전부 실측 기반. Azure 쪽은 핵심 메커니즘 셋(AKS 클러스터 자체, ArgoCD 대응물 존재 여부, 크로스 구독 GitOps 인가)이 전부 미실현·미검증 상태(크로스 구독 인가는 azure-gitops-comparison 메모의 Workload Identity Federation + Azure RBAC for K8s Authorization 리서치가 유일한 근거이고, 그 메모 자체가 \"미검증\"으로 명시). 지금 쓰면 이 저장소가 이미 두 번(vnet·aks-cluster) 겪은 \"설계 단계 산출물이 구현 후에도 안 지워지는\" 패턴을 아키텍처 문서 레벨에서 반복하는 셈 — 이번엔 구현 자체가 없는 채로 검증된 것처럼 쓰는 더 나쁜 버전이 된다.\n\n**작성 트리거(전부 충족 시 착수)**: (1) `aks-reference-infra`에서 hub AKS 클러스터 실배포 (2) AKS에 ArgoCD 또는 그 대응물 실제 부트스트랩(이 과정에서 \"AKS에 관리형 ArgoCD 대응물이 있는가\" 질문이 자연히 답해짐 — choose-your-path.md의 질문 B는 AWS 대칭 가정 없이 처음부터 재조사 필요) (3) 크로스 구독 GitOps 접근(Workload Identity Federation + Azure RBAC)이 dev 스포크 최소 1건에 실측 검증. 트리거 도달 시 overview.md의 3계층 모델·전체 그림 절은 provider 중립이라 이식 가능하지만, choose-your-path.md의 질문 B·D는 AWS에 없는 Azure 구조적 차이(STS role-chaining 대응 완충층 부재, decisions.md 「Azure 컨테이너 (aks-cluster)」 ADR 참고)때문에 find&replace 포팅이 아니라 새로 조사·작성해야 한다.\n\n**지금 결정**: `docs/architectures/README.md` 표에 Azure 행(빈 스텁)을 추가하지 않는다 — 빈 스텁이 정확히 위에서 말한 재발 패턴이므로, 트리거 충족 전까지는 이 project-memory 항목만이 유일한 추적 지점이다."
+    },
+    {
+      "timestamp": 1788102000000,
+      "source": "manual",
+      "category": "presentations",
+      "content": "2026-08-30 (세션5) — 팀 발표자료(\"AI를 활용한 IaC Asset 만들기\") 핵심 메시지 전면 재구성. 원래는 Claude Code 활용기가 중심이었으나, 사용자 요청으로 뒤집음: \"iac-module-library가 팀의 Terraform 모듈·아키텍처 패턴 자산이고 계속 추가·갱신한다\"가 주메시지, Claude Code는 그 실행을 도운 부연. `eks/aks-reference-infra`·`eks/aks-platform-gitops` 4개 repo는 자산이 아니라 자산을 소비한 예시(GitOps 패턴 사례)라는 구분을 명확히 했다.\n\n여러 라운드에 걸쳐 다듬음: stop-slop 스킬로 em dash·이분법 대비 구조·행위자 누락 등 AI 문체 패턴 제거, 한국 IT에서 안 쓰는 번역투 제거(\"트랙 레코드\"→\"실적\", \"자산 본체\" 삭제 등), 제목 6개를 콜론·질문형에서 통일된 명사구로 재작성(최종: 매번 다시 만들던 것들 / 코드와 패턴 / 구조와 사례 / 지금까지 만든 것 / 일관성을 지키는 장치 / 다음 할 일).\n\n**실측으로 잡은 것 2건**: (1) 트랙 레코드 초안 \"최근 한 달\"을 `git log --tags`로 실측하니 실제로는 나흘 이내라 정정. (2) 사용자가 직접 편집하는 과정에서 1부에 \"라이선스 문제\" 표현이 잠깐 들어갔는데, `CLAUDE.md` 16행(\"채택 근거는 라이선스가 아니라 조달 마찰·리워크 제거\")과 정면으로 모순되는 오해라 근거를 인용해 지적 — 사용자가 \"비용 문제\"로 정정.\n\n**최종 위치**: `presentations/ai-iac-asset-library.md`(신규 최상위 디렉토리). `docs/README.md`가 `docs/`를 \"설계·규약 문서\"로 명시적으로 범위 한정해서(발표자료는 이 범주 아님), `docs/` 대신 별도 최상위 디렉토리로 분리하기로 결정 — 이 저장소의 새 구조적 선례(다음에 비슷한 비설계 문서가 생기면 이 디렉토리를 먼저 고려할 것). 문서 전용 변경이라 브랜치 없이 main 직접 커밋(`3f9bf6c`). 세션 종료 시점 기준 사용자가 IDE에서 직접 계속 다듬는 중이라 완성 상태는 아니다.\n\n**교훈**: opus5 서브에이전트에 도입부·1부 톤 다듬기를 위임했더니 \"이 팀은 ~한다\"는 3인칭 관찰자 시점으로 다시 써서 사용자가 반려(\"발표자 본인이 팀원들에게 말하는 자리인데 남 얘기하듯 들린다\"). 1인칭 화자가 자기 팀에게 말하는 발표 대본류 문서는 톤이 사용자 취향에 민감해서, 서브에이전트 위임보다 여러 라운드에 걸친 직접 수정이 더 잘 맞았다. 비슷한 발표·커뮤니케이션 문서 톤 작업은 다음에도 위임보다 직접 처리를 우선 고려할 것."
     }
   ],
   "directoryMap": {
@@ -193,6 +199,12 @@
     }
   },
   "hotPaths": [
+    {
+      "path": "presentations/ai-iac-asset-library.md",
+      "accessCount": 21,
+      "lastAccessed": 1788100313158,
+      "type": "file"
+    },
     {
       "path": ".local/iac-asset-presentation-draft.md",
       "accessCount": 18,
@@ -275,6 +287,12 @@
       "path": "docs/writing-style.md",
       "accessCount": 1,
       "lastAccessed": 1788098257408,
+      "type": "file"
+    },
+    {
+      "path": "docs/decisions.md",
+      "accessCount": 1,
+      "lastAccessed": 1788098989585,
       "type": "file"
     }
   ],

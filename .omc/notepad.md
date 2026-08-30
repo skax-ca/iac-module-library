@@ -1,9 +1,39 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json.
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. 발표자료=presentations/ai-iac-asset-library.md(진행중).
 
 ## Working Memory
+### 2026-08-30 (세션5) — 팀 발표자료 전면 재구성 + presentations/ 디렉토리 신설
+
+사용자가 노션에 있던 발표자료("AI를 활용한 IaC Asset 만들기")를 팀 발표용으로 다시 쓰고 싶다고
+요청. 처음엔 원문을 그대로 스크래치패드(`.local/`)에 옮겨 평가했는데, 사용자가 핵심 메시지를
+완전히 뒤집기로 결정: 원래는 Claude Code 활용기가 중심이었으나, "iac-module-library가 팀의
+Terraform 모듈·아키텍처 패턴 자산이고 계속 추가·갱신한다"가 주메시지, Claude Code는 그 실행을
+도운 부연이라는 구도로 전환. `eks/aks-reference-infra`·`eks/aks-platform-gitops` 4개 repo는
+자산이 아니라 자산을 소비한 예시(GitOps 패턴 사례)라는 구분도 명확히 함.
+
+여러 라운드에 걸쳐 다듬음: stop-slop 스킬로 em dash·이분법 대비·행위자 누락 등 AI 문체 패턴
+제거, 한국 IT에서 안 쓰는 번역투 제거("트랙 레코드"→"실적", "자산 본체"→삭제 등), 제목 6개를
+콜론·질문형에서 통일된 명사구로 재작성(최종: 매번 다시 만들던 것들 / 코드와 패턴 / 구조와 사례 /
+지금까지 만든 것 / 일관성을 지키는 장치 / 다음 할 일).
+
+**실측으로 잡은 것 2건**: (1) 트랙 레코드 초안에 "최근 한 달"이라고 썼는데 `git log --tags`로
+확인하니 실제로는 나흘 이내라 정정. (2) 사용자가 직접 편집하는 과정에서 1부에 "라이선스 문제"라는
+표현이 잠깐 들어갔는데, `CLAUDE.md` 16행("채택 근거는 라이선스가 아니라 조달 마찰·리워크 제거")과
+정면으로 모순되는 오해라 근거를 인용해 지적 — 사용자가 "비용 문제"로 정정.
+
+**최종 위치**: `presentations/ai-iac-asset-library.md`(신규 최상위 디렉토리). `docs/README.md`가
+`docs/`를 "설계·규약 문서"로 명시적으로 범위 한정해서(발표자료는 이 범주 아님), `docs/` 대신
+별도 최상위 디렉토리로 분리 — 이 저장소의 새 구조적 선례. 문서 전용 변경이라 브랜치 없이 main
+직접 커밋(`3f9bf6c`). 세션 종료 시점 기준 사용자가 IDE에서 직접 계속 다듬는 중, 아직 미완성.
+
+**교훈**: opus5 서브에이전트에 도입부·1부 톤 다듬기를 위임했더니 "이 팀은 ~한다"는 3인칭
+관찰자 시점으로 다시 써서 사용자가 반려("발표자 본인이 팀원들에게 말하는 자리인데 남 얘기하듯
+들린다"). 1인칭 화자가 자기 팀에게 말하는 발표 대본류 문서는 톤이 사용자 취향에 민감해서,
+서브에이전트 위임보다 여러 라운드에 걸친 직접 수정이 더 잘 맞았다. 비슷한 발표/커뮤니케이션
+문서 톤 작업은 다음에도 위임보다 직접 처리를 우선 고려할 것.
+
 ### 2026-08-30 (세션4) — 문서 중복 정리 + Azure 저장소 관계 반영 + aks-reference-infra 실사 + 아키텍처 문서 작성 시점 평가
 
 두 건의 docs 정리를 main에 직접 커밋: (1) README.md·conventions.md의 모듈 소싱 예시 중복 제거,

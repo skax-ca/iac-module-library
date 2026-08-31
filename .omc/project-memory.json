@@ -156,6 +156,12 @@
       "source": "manual",
       "category": "presentations",
       "content": "2026-08-30 (세션5) — 팀 발표자료(\"AI를 활용한 IaC Asset 만들기\") 핵심 메시지 전면 재구성. 원래는 Claude Code 활용기가 중심이었으나, 사용자 요청으로 뒤집음: \"iac-module-library가 팀의 Terraform 모듈·아키텍처 패턴 자산이고 계속 추가·갱신한다\"가 주메시지, Claude Code는 그 실행을 도운 부연. `eks/aks-reference-infra`·`eks/aks-platform-gitops` 4개 repo는 자산이 아니라 자산을 소비한 예시(GitOps 패턴 사례)라는 구분을 명확히 했다.\n\n여러 라운드에 걸쳐 다듬음: stop-slop 스킬로 em dash·이분법 대비 구조·행위자 누락 등 AI 문체 패턴 제거, 한국 IT에서 안 쓰는 번역투 제거(\"트랙 레코드\"→\"실적\", \"자산 본체\" 삭제 등), 제목 6개를 콜론·질문형에서 통일된 명사구로 재작성(최종: 매번 다시 만들던 것들 / 코드와 패턴 / 구조와 사례 / 지금까지 만든 것 / 일관성을 지키는 장치 / 다음 할 일).\n\n**실측으로 잡은 것 2건**: (1) 트랙 레코드 초안 \"최근 한 달\"을 `git log --tags`로 실측하니 실제로는 나흘 이내라 정정. (2) 사용자가 직접 편집하는 과정에서 1부에 \"라이선스 문제\" 표현이 잠깐 들어갔는데, `CLAUDE.md` 16행(\"채택 근거는 라이선스가 아니라 조달 마찰·리워크 제거\")과 정면으로 모순되는 오해라 근거를 인용해 지적 — 사용자가 \"비용 문제\"로 정정.\n\n**최종 위치**: `presentations/ai-iac-asset-library.md`(신규 최상위 디렉토리). `docs/README.md`가 `docs/`를 \"설계·규약 문서\"로 명시적으로 범위 한정해서(발표자료는 이 범주 아님), `docs/` 대신 별도 최상위 디렉토리로 분리하기로 결정 — 이 저장소의 새 구조적 선례(다음에 비슷한 비설계 문서가 생기면 이 디렉토리를 먼저 고려할 것). 문서 전용 변경이라 브랜치 없이 main 직접 커밋(`3f9bf6c`). 세션 종료 시점 기준 사용자가 IDE에서 직접 계속 다듬는 중이라 완성 상태는 아니다.\n\n**교훈**: opus5 서브에이전트에 도입부·1부 톤 다듬기를 위임했더니 \"이 팀은 ~한다\"는 3인칭 관찰자 시점으로 다시 써서 사용자가 반려(\"발표자 본인이 팀원들에게 말하는 자리인데 남 얘기하듯 들린다\"). 1인칭 화자가 자기 팀에게 말하는 발표 대본류 문서는 톤이 사용자 취향에 민감해서, 서브에이전트 위임보다 여러 라운드에 걸친 직접 수정이 더 잘 맞았다. 비슷한 발표·커뮤니케이션 문서 톤 작업은 다음에도 위임보다 직접 처리를 우선 고려할 것."
+    },
+    {
+      "timestamp": 1788150000000,
+      "source": "manual",
+      "category": "presentations",
+      "content": "2026-08-31 — 위 presentations 메모(세션5, 발표자료 전면 재구성)를 잇는다. `presentations/ai-iac-asset-library.md` 기반으로 팀 발표용 슬라이드 덱(19장, visual-explainer:generate-slides, Swiss Clean 프리셋 + IBM Plex Sans KR/Mono)을 만들어 `~/.agent/diagrams/iac-module-library-team-share.html`에 저장.\n\n**mermaid 슬라이드 렌더링 버그 2건 발견·수정**: (1) SVG를 `width:100% !important`로 강제 확대하면 mermaid 자체의 상자-라벨 폭 계산 오차(자연 크기에선 1px 미만이라 안 보이던 것)가 스케일 배율만큼 증폭돼 텍스트가 잘림 — 노드 라벨 CSS font-size를 레이아웃 기준보다 낮게(18→15px) 잡아 여유를 만들어 해결. (2) 세로로 긴 subgraph 다이어그램(허브-스포크)이 `graph TD`일 때 슬라이드 100dvh를 넘어 위쪽이 잘림 — `graph LR` + subgraph 내부만 `direction TB`로 바꿔 해결. themeVariables.fontSize를 바꿔도 실제 렌더 크기엔 영향이 없었다(최종 렌더는 CSS !important가 결정) — 이 계열 버그를 만나면 getBoundingClientRect()로 실제 렌더된 rect·label 폭을 직접 찍어봐야 원인이 잡힌다.\n\n**Notion 반영**: 'AI' 디렉토리 하위에 새 페이지 'iac-module-library, 팀의 IaC Asset'(id `3cda141f-f7d8-8133-943f-d354b73d204c`) 생성 — 원문 텍스트(6개 섹션 전부 네이티브 Notion 블록·mermaid·테이블로 변환) + 슬라이드 HTML을 `<embed>` 첨부로 한 페이지에 통합(처음엔 페이지 2개로 나눴다가 사용자 요청으로 병합). 기존 'AI를 활용한 IaC Asset 만들기'(id `3c3a141f...`, Claude Code 활용기 중심 구버전)는 손대지 않고 남겨둠.\n\n⚠️ **Notion embed 실측**: `<embed src=\"file-upload://...\">`로 HTML을 붙이면 페이지 안에서 바로 스크롤로 열람 가능하지만, 임베드 블록이 기본 ~640×460px 고정 크기라 슬라이드 전체가 작게 보인다(다이어그램만의 문제 아님) — 사용자가 블록 모서리를 드래그해 수동으로 키워야 한다. 파일을 고칠 때마다 `notion-create-file-upload`(서명 URL 발급) → `curl -F file=@...` 업로드 → `update-page`로 임베드 `src`를 새 `file-upload://<id>`로 교체하는 과정을 반복해야 한다(기존 첨부는 URL 갱신 불가, `notion-create-attachment`의 inline content 방식은 이 세션에서 403 Cloudflare 차단으로 안 먹혀 file-upload 방식으로 우회).\n\n**wording 여러 라운드**: 원문·슬라이드·Notion 세 곳 동시 반영 — \"GitHub org 차원의\"→\"GitHub Organization\"(영문 정식 표기), \"Azure 진출 때\"→\"Azure를 추가할 때\", \"비용 문제가 발생한다\"→\"비용이 문제다\"(stop-slop), 허브/스포크→hub/spoke(영문), \"다음 할 일\" 슬라이드가 원문보다 과장돼 있던 것(\"아직 확정되지 않은 것 3가지\", \"다음 세션에서 판단할 것\" — 실제로 3개 중 1개만 열린 결정, 나머지 둘은 조건부 예정 작업)을 원문 톤으로 되돌림."
     }
   ],
   "directoryMap": {
@@ -201,8 +207,8 @@
   "hotPaths": [
     {
       "path": "presentations/ai-iac-asset-library.md",
-      "accessCount": 21,
-      "lastAccessed": 1788100313158,
+      "accessCount": 32,
+      "lastAccessed": 1788155232478,
       "type": "file"
     },
     {

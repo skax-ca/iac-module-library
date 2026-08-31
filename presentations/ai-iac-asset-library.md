@@ -1,13 +1,13 @@
 # iac-module-library, 팀의 IaC Asset
 
-Terraform 모듈과 아키텍처 패턴을 GitHub org 차원의 자산으로 관리한다. Claude Code는 이 자산을 쌓는 도구로 썼다.
+Terraform 모듈과 아키텍처 패턴을 GitHub Organization 자산으로 관리한다. Claude Code는 이 자산을 쌓는 도구로 썼다.
 
 ---
 
 ## 1. 매번 다시 만들던 것들
 
 새 프로젝트를 수행할 때마다 VPC·EKS·IAM을 처음부터 다시 만든다. 재사용할 수 없고,
-보안 수준도 프로젝트마다 다르다. Terraform Cloud 같은 상용 솔루션을 쓰면 풀리는 문제지만, 그러려면 비용 문제가 발생한다. 그래서 모듈과 아키텍처 패턴을 오픈소스 스택으로 만들고, 계속 늘려가는 쪽을 택했다.
+보안 수준도 프로젝트마다 다르다. Terraform Cloud 같은 상용 솔루션을 쓰면 풀리는 문제지만, 비용이 문제다. 그래서 모듈과 아키텍처 패턴을 오픈소스 스택으로 만들고, 계속 늘려가는 쪽을 택했다.
 
 ---
 
@@ -36,7 +36,7 @@ flowchart LR
 - output 공유 대신 Name 태그로 리소스를 찾는다. 워크스페이스를 분리해도 값을 주고받을 수 있다.
 - Security Group rule은 개별 리소스로 뗀다. 콘솔에서 rule을 추가해도 drift로 안 잡힌다.
 - 계정 간 순환 의존성은 Terraform 밖으로 뺀다. TGW RAM 공유 수락을 CI 단계로 옮긴 사례가 그렇다.
-- provider가 늘 때마다 네이밍 컨벤션과 약어 카탈로그도 함께 정의한다. Azure 진출 때 약어
+- provider가 늘 때마다 네이밍 컨벤션과 약어 카탈로그도 함께 정의한다. Azure를 추가할 때 약어
   13개를 새로 등재했다.
 
 ---
@@ -53,24 +53,24 @@ flowchart LR
 | `aks-reference-infra` | Azure 배포 루트. 이 repo의 모듈을 태그로 소싱 |
 | `aks-platform-gitops` | Azure 플랫폼 GitOps 매니페스트 (예정) |
 
-인프라(Terraform), 플랫폼 GitOps(ArgoCD), 앱 GitOps, 이렇게 3계층으로 나눈다. ArgoCD는 허브
-하나에만 두고 스포크 클러스터는 원격으로 등록만 한다. 클러스터가 늘어도 addon 배포·운영
+인프라(Terraform), 플랫폼 GitOps(ArgoCD), 앱 GitOps, 이렇게 3계층으로 나눈다. ArgoCD는 hub
+하나에만 두고 spoke 클러스터는 원격으로 등록만 한다. 클러스터가 늘어도 addon 배포·운영
 부담은 곱으로 늘지 않는다.
 
 ```mermaid
 flowchart TB
-    subgraph HUB["허브 계정"]
+    subgraph HUB["hub 계정"]
         HEKS["EKS/AKS"] --> ARGOCD["ArgoCD (self-managed)"]
     end
-    subgraph SPOKE["스포크 계정"]
+    subgraph SPOKE["spoke 계정"]
         SEKS["EKS/AKS"]
     end
     ARGOCD -- "cluster 등록 + ApplicationSet" --> SEKS
     ARGOCD -- "pull" --> GITOPS["platform-gitops repo"]
 ```
 
-cluster 등록, ApplicationSet(cluster generator), self-heal, AppProject 네 기능이 addon
-반복 배포·drift·경계 문제를 푼다. 자세한 내용은 별도 세션에서 다룬다.
+cluster 등록, ApplicationSet(cluster generator), self-heal, AppProject, 이 네 가지로 addon
+반복 배포·drift·경계 문제를 해결한다. 자세한 내용은 별도 세션에서 다룬다.
 
 ---
 
@@ -84,10 +84,6 @@ cluster 등록, ApplicationSet(cluster generator), self-heal, AppProject 네 기
 | cross-account-trust-role | AWS | v0.4.0 |
 | vnet | Azure | v0.2.0 |
 | aks-cluster | Azure | v0.1.0 |
-
-최근 나흘 사이 PR 4건을 병합해 Azure 모듈 2개를 새로 냈고, 기존 모듈 계약도 보강했다.
-`eks-reference-infra`와 `aks-reference-infra`가 이 태그들을 소싱해서 배포 중이다.
-`aks-reference-infra`는 hub networking과 vWAN을 이미 실배포했다.
 
 ---
 

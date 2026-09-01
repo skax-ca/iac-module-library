@@ -1,9 +1,38 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. 발표자료=presentations/ai-iac-asset-library.md(진행중).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(2026-09-01, Read/Edit만 사용).
 
 ## Working Memory
+### 2026-09-01 — 발표자료 마무리 + notepad/project-memory MCP 도구 사용 전면 중단
+
+`presentations/ai-iac-asset-library.md`는 사용자가 "이걸로 마무리"라고 확정 — 더 이상 진행 중 상태 아님.
+
+세션 시작 시 `project_memory_read` 호출로 `techStack`/`build`/`conventions`/`structure`/`hotPaths`가
+또다시 빈 자동스캔 스키마로 손상된 것을 발견(2026-08-30과 완전히 동일한 재발) — `git show HEAD`
+기준으로 즉시 복원. 이를 계기로 사용자가 "근본원인을 제거하고 핸드오프만 잘 되게 개선하라"고 요청,
+Claude Code 공식 문서(`memory.md`·`hooks.md`·`permissions.md`)와 OMC 저장소를 리서치해 근본원인과
+개선안을 도출·적용:
+
+- **원인**: `mcp__t__notepad_*`/`project_memory_*`는 "읽기"조차 내부적으로 프로젝트를 재스캔해
+  서술형 필드를 덮어쓰는 부수효과를 가짐 — 표준 Read/Write 도구엔 없는 숨은 로직. 쓰기 6종만
+  막았던 기존 PreToolUse 훅으로는 읽기 쪽 재발을 못 막았다.
+- **검토했다가 기각한 안**: Claude Code 네이티브 auto memory(`~/.claude/projects/.../memory/`)로
+  전면 이전 — 공식 문서에 "절대경로 또는 `~/`만 허용, 머신 간 공유 안 됨"이라 명시돼 있고, 이
+  저장소 자체가 과거에 머신별 홈 경로가 다름을 겪은 전례가 있어(a07326→born2k) git 포터블
+  요구사항을 충족 못 함.
+- **적용한 안**: `.claude/settings.json`을 `permissions.deny`(`mcp__plugin_oh-my-claudecode_t__notepad_*`·
+  `..._project_memory_*`)로 교체 — 호출을 막는 게 아니라 도구 자체를 Claude의 도구 목록에서
+  제거(공식 문서: "a bare tool name... removes the tool from Claude's context entirely"). 기존
+  PreToolUse 훅(쓰기 6종만) 대비 더 근본적이고 훅 타임아웃 리스크도 없음. `notepad-sync` 스킬
+  문서도 세션 시작/종료 절차를 MCP 호출 대신 `Read`/`Edit` 직접 사용으로 재작성.
+- **적용 직후 실측 확인**: 설정 반영과 동시에 해당 10개 도구가 세션에서 즉시 연결 해제됨을 확인
+  (재시작 불필요).
+- 이 결정은 이 저장소 한정 — `eks-reference-infra`·`aks-reference-infra`는 아직 같은 MCP 도구를
+  그대로 씀. 전파 여부는 다음에 그쪽 세션에서 판단.
+
+상세 리서치 근거(공식 문서 인용 포함)는 `.omc/project-memory.json`의 `mcp-tooling-fix` 카테고리 참조.
+
 ### 2026-08-30 (세션5) — 팀 발표자료 전면 재구성 + presentations/ 디렉토리 신설
 
 사용자가 노션에 있던 발표자료("AI를 활용한 IaC Asset 만들기")를 팀 발표용으로 다시 쓰고 싶다고

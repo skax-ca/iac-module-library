@@ -22,27 +22,37 @@ MANUAL에는 그대로 적용하지 말 것. Priority·Working은 여전히 동�
 
 ## 0. 가드 — OMC가 이 머신에서 꺼져 있으면 전부 건너뛴다
 
-`~/.claude/.omc-enabled` 파일이 없으면 (또는 `oh-my-claudecode:remember`/`mcp__t__*` 툴이 안 보이면)
+`~/.claude/.omc-enabled` 파일이 없으면 (또는 `oh-my-claudecode:remember` 스킬이 안 보이면)
 아래 1~2 절 전부 건너뛰고 다음 한 줄만 안내한다: "이 머신은 OMC 비활성화 상태라 프로젝트 컨텍스트
 확인/저장을 생략합니다(`touch ~/.claude/.omc-enabled`로 활성화 가능)." 에러로 취급하지 않는다 —
 이 프로젝트가 OMC를 쓰기로 한 것과, 지금 이 머신에서 OMC를 켰는지는 별개다.
 
-## ⚠️ `mcp__t__notepad_*`/`mcp__t__project_memory_*`는 "이 repo가 세션 프로젝트 루트일 때만" 동작한다
+## ⛔ 2026-09-01, `mcp__t__notepad_*`/`mcp__t__project_memory_*` 도구 사용을 전면 중단
 
-OMC 소스(`dist/lib/worktree-paths.js` `validateWorkingDirectory`) 실측 확인: 이 툴들이 실제로
-쓰는 대상은 `workingDirectory` 인자가 아니라 **세션이 시작된 시점의 git worktree**로 고정된다
-(의도된 worktree 격리 — 버그 아님). 그래서 **eks-reference-infra를 프로젝트 루트로 연 세션
-안에서는 이 repo를 대상으로 이 툴을 쓸 수 없다** — 다른 프로젝트를 세션 중간에 대상으로
-지정해도 조용히 eks-reference-infra에 쓴다(2026-08-14/19 두 차례 실제 오사고 발생, 둘 다
-`git checkout`으로 복구). **이 repo 작업은 iac-module-library를 프로젝트 루트로 하는 별도
-Claude Code 세션에서 한다** — 그 세션 안에서는 이 절 전체가 eks-reference-infra와 완전히
-동일하게 동작한다.
+원인: 이 도구들은 "읽기"조차 내부적으로 프로젝트를 재스캔해 서술형 필드를 빈 스키마로 덮어쓰거나
+(2026-08-30·2026-09-01 두 차례 재현), `add_note`가 20개 FIFO로 경고 없이 오래된 항목을 삭제하거나,
+git merge/pull 직후 stale 캐시 기반으로 파일을 3중복 재작성하는 등 표준 Read/Edit 도구엔 없는
+부수효과를 갖고 있다(전부 실측, 상세는 `.omc/project-memory.json`의 `mcp-tooling-bug` 카테고리
+참조). 쓰기 6종만 막았던 이전 방어(PreToolUse 훅)로는 오늘 재발한 읽기 쪽 사고를 못 막았다.
+
+대응: `.claude/settings.json`에 `permissions.deny`로 이 두 도구군(`notepad_*`·`project_memory_*`,
+읽기·쓰기 전부)을 등록해 **Claude의 도구 목록에서 아예 제거**했다(호출을 막는 게 아니라 존재
+자체를 안 보이게 하는 방식 — 훅보다 근본적이고, 훅 타임아웃으로 새는 경우도 없다). 그래서 이제
+`.omc/notepad.md`·`.omc/notepad-manual.md`·`.omc/project-memory.json` 세 파일은 **읽기·쓰기 전부
+Read/Edit 도구로 직접** 다룬다 — `CLAUDE.md`를 다루는 것과 완전히 같은 방식이다. 과거에 있던
+"이 도구는 세션이 시작된 worktree에 고정된다"는 worktree 격리 캐비어트도, 도구 자체를 안 쓰니
+더 이상 해당 없음.
+
+이 결정은 이 저장소 한정이다 — `eks-reference-infra`·`aks-reference-infra`는 아직 같은 MCP
+도구를 그대로 쓴다. 그쪽도 반영할지는 별도 판단(그쪽 세션에서 검토).
 
 ## 세션 시작 시 (session-start 3번에서 호출됨, 가드 통과 후)
 
-1. `mcp__t__notepad_read(section="priority")`로 포인터를 읽어 사용자에게 보여준다.
-2. `mcp__t__project_memory_read(section="notes")`의 `open-items` 카테고리로 미결 항목을 확인한다.
-3. `mcp__t__notepad_read(section="working")`로 최근 7일 내 세션 서술이 있으면 함께 보여준다.
+1. `Read`로 `.omc/notepad.md`를 열어 `## Priority Context` 섹션을 사용자에게 보여준다.
+2. `Read`로 `.omc/project-memory.json`을 열어 `customNotes`의 `open-items` 카테고리 중 최신
+   항목들로 미결 사항을 확인한다.
+3. 같은 `.omc/notepad.md`의 `## Working Memory` 섹션에 최근 7일 내 세션 서술이 있으면 함께
+   보여준다.
 4. Priority Context가 눈대중으로 500자를 넘어 보이면 — 정리하지 말고 사용자에게 먼저 알린다.
 
 ## 세션 종료 시 (session-end 2번에서, 커밋 전에 호출됨, 가드 통과 후)
@@ -50,24 +60,14 @@ Claude Code 세션에서 한다** — 그 세션 안에서는 이 절 전체가 
 1. **`oh-my-claudecode:remember` 스킬을 호출**해 이번 세션의 발견 사항을 분류·저장시킨다
    (project memory / notepad priority / notepad working / docs 중 어디로 갈지는 그 스킬이 판단한다).
 2. `remember`가 모르는, 이 repo만의 제약을 그 판단에 추가로 적용한다:
-   - ⛔⛔ **2026-08-30, `.claude/settings.json`의 PreToolUse 훅이 아래 MCP 쓰기 툴 6개를
-     기계적으로 차단한다**(`notepad_write_working`·`notepad_write_priority`·`notepad_write_manual`·
-     `project_memory_add_note`·`project_memory_add_directive`·`project_memory_write`). 이 절이
-     예전엔 "Edit 대신 이 툴들을 쓰라"고 했지만, stale-cache 재작성(2026-08-26·08-28·08-30
-     세 차례 실측 duplication)·FIFO 20개 상한 삭제(2026-08-30 실측)·읽기만 해도 필드가 빈
-     스키마로 리셋되는 부수효과(2026-08-30 실측)까지 겹쳐 신뢰할 수 없다고 결론 내고 **정반대로
-     뒤집었다**. 이 툴들을 호출하면 이제 훅이 permission denied로 막고 대체 방법(Edit)을
-     안내한다 — 막히는 게 정상이다, 우회하려 하지 말 것.
    - **`.omc/notepad.md`(Priority·Working)·`.omc/notepad-manual.md`(MANUAL)·
-     `.omc/project-memory.json` 세 파일 전부 `Edit` 도구로 직접 편집이 유일한 쓰기 경로다.**
+     `.omc/project-memory.json` 세 파일 전부 `Edit`/`Read` 도구로 직접 다루는 것이 유일한
+     경로다**(2026-09-01부터 MCP 도구는 `permissions.deny`로 아예 제거됨, 위 절 참조).
      Priority Context는 500자 이내 유지(전체 교체 방식 유지, append 아님). Working Memory는
      최신 항목을 `## Working Memory` 바로 아래(상단)에 추가. 쓴 뒤에는 반드시 `git diff`로
      의도한 변경만 있는지, 이 스킬 4번의 중복 검사(`awk` 정규화 검사)로 헤더 중복이 없는지
-     확인한다 — 훅이 MCP 툴 자체를 막아도 Edit 오사용(예: 실수로 기존 블록 복제)까지 막아주진
-     않는다.
-   - 읽기 툴(`notepad_read`/`project_memory_read`)은 막지 않는다(세션 시작 시 필요) — 하지만
-     읽기만 해도 `project-memory.json`의 techStack/build/conventions/structure가 손상된 전례가
-     있으므로, 호출 직후 `git diff .omc/project-memory.json`으로 즉시 확인하는 습관을 유지한다.
+     확인한다 — 도구가 사라져 그 계열 버그는 구조적으로 불가능해졌지만, Edit 오사용(예: 실수로
+     기존 블록 복제)은 여전히 사람이 낼 수 있는 실수라 이 확인은 유지한다.
    - **MANUAL은 별도 파일(2026-08-30 분리)**: `.omc/notepad-manual.md`에 직접 Edit. `notepad.md`
      안의 `## MANUAL`은 그 파일을 가리키는 포인터 한 줄만 유지하고 건드리지 않는다.
    - `docs/*.md`에는 날짜·사건 서술을 쓰지 않는다(`docs/writing-style.md` — 이 repo의

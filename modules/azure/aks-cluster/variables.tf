@@ -108,12 +108,65 @@ variable "identity_id" {
   nullable    = false
 }
 
-# ── 네트워킹 — Azure CNI Pod Subnet(flat) 고정, Overlay 미노출 ──────────────────
+# ── 네트워킹 — CNI 모드 선택형(0.2.0부터), 세 모드 전부 이 모듈이 지원한다 ──────
+
+variable "cni_mode" {
+  description = <<-EOT
+    Pod가 IP를 받는 방식. 세 값 중 하나(모두 network_plugin = "azure" 기반 — kubenet·none은
+    노출하지 않는다, 축5 원 결정 유지):
+
+      "pod_subnet"  (기본) — Azure CNI Pod Subnet(flat). Pod가 node_subnet_id와 분리된
+                     전용 서브넷(pod_subnet_id, 필수)에서 VNet IP를 받는다. SNAT 없이 NSG
+                     플로우 로그·Network Watcher에서 Pod 단위 관측성이 유지된다(축5 원
+                     결정 그대로). ⛔ NAP(enable_karpenter = true)와 호환되지 않는다 —
+                     Dynamic·Static Block 두 방식 모두 karpenter-provider-azure가 지원하지
+                     않는다고 메인테이너가 명시했다
+                     (github.com/Azure/karpenter-provider-azure#1352, 2026-01-15 오픈,
+                     미해결). enable_karpenter의 교차변수 validation이 이 조합을 막는다.
+
+      "node_subnet" — Azure CNI(Legacy/Node Subnet). Pod가 node_subnet_id와 **같은**
+                     서브넷에서 VNet IP를 받는다(pod_subnet_id는 반드시 비워야 한다).
+                     SNAT 없어 관측성은 "pod_subnet"과 동일하게 유지되면서 NAP도 쓸 수
+                     있는 유일한 조합이다(공식 문서 확인,
+                     learn.microsoft.com/en-us/azure/aks/node-auto-provisioning-networking
+                     의 Supported networking configurations 3가지 중 하나). 대가: 서브넷
+                     하나가 노드+Pod IP를 함께 소모한다 — 사이징을 다시 해야 한다(공식
+                     계산식: (노드수+서지)+(노드수+서지)×max_pods,
+                     learn.microsoft.com/en-us/azure/aks/concepts-network-ip-address-planning).
+
+      "overlay"     — Azure CNI Overlay + Cilium 데이터플레인(network_data_plane =
+                     "cilium"로 고정, Microsoft가 NAP에 권장하는 조합). Pod가 VNet 밖
+                     별도 CIDR(pod_cidr, 필수)에서 IP를 받고 클러스터 밖으로 나갈 때
+                     노드 IP로 SNAT된다 — NSG 플로우 로그·Network Watcher에서 Pod 단위
+                     관측성이 사라진다(축5 원 결정이 기각했던 바로 그 트레이드오프,
+                     이제는 명시적 옵트인으로만 허용한다). 서브넷 IP 소모가 가장 적다
+                     (노드당 오버레이 /24, VNet IP는 노드만 쓴다 — 기본 max-pods도
+                     250으로 가장 높다). pod_subnet_id는 반드시 비워야 한다.
+
+    ⚠️ `network_profile` 블록 전체가 provider에 의해 ForceNew다(azurerm_kubernetes_cluster
+    문서 확인 완료) — "overlay"로 오가는 전환은 클러스터가 재생성된다. "pod_subnet" ↔
+    "node_subnet"만은 예외다: pod_subnet_id는 network_profile이 아니라 default_node_pool에
+    있어 temporary_name_for_rotation을 통한 노드 풀 순환으로 처리된다(클러스터 전체
+    재생성이 아니다).
+  EOT
+  type        = string
+  default     = "pod_subnet"
+  nullable    = false
+
+  validation {
+    condition     = contains(["pod_subnet", "node_subnet", "overlay"], var.cni_mode)
+    error_message = "cni_mode는 \"pod_subnet\", \"node_subnet\", \"overlay\" 중 하나여야 한다."
+  }
+}
 
 variable "node_subnet_id" {
   description = <<-EOT
-    노드가 속할 서브넷 ID(필수). vnet 모듈의 subnet_ids_by_group["aks-node"] 등을 넘긴다.
-    이 서브넷은 위임된 서브넷일 수 없다(delegations를 쓰지 않는다) — AKS 공식 제약이다.
+    노드가 속할 서브넷 ID(필수, 모든 cni_mode 공통). vnet 모듈의
+    subnet_ids_by_group["aks-node"] 등을 넘긴다. 이 서브넷은 위임된 서브넷일 수 없다
+    (delegations를 쓰지 않는다) — AKS 공식 제약이다.
+
+    ⚠️ cni_mode = "node_subnet"일 때는 이 서브넷이 Pod IP도 함께 감당한다 — cni_mode
+    변수 설명의 사이징 공식을 참고해 충분히 큰 서브넷을 넘긴다.
   EOT
   type        = string
   nullable    = false
@@ -121,21 +174,37 @@ variable "node_subnet_id" {
 
 variable "pod_subnet_id" {
   description = <<-EOT
-    Pod가 속할 서브넷 ID(필수). vnet 모듈의 subnet_ids_by_group["aks-pod"] 등을 넘긴다 —
-    이 모듈은 Pod 서브넷을 만들지 않는다(소유하지 않은 VNet에 서브넷을 만드는 경계 위반이자,
-    "CIDR 계산은 소비자 루트가 소유한다"는 규약 위반이기 때문).
+    Pod가 속할 서브넷 ID. cni_mode = "pod_subnet"일 때만 지정한다(그 외 모드에서는 반드시
+    비워야 한다 — 아래 validation). vnet 모듈의 subnet_ids_by_group["aks-pod"] 등을
+    넘긴다 — 이 모듈은 Pod 서브넷을 만들지 않는다(소유하지 않은 VNet에 서브넷을 만드는
+    경계 위반이자, "CIDR 계산은 소비자 루트가 소유한다"는 규약 위반이기 때문).
 
-    0.1.0은 전 노드 풀(시스템 풀 + var.node_pools 전부)이 이 값 하나를 공유한다. 풀별
-    오버라이드는 v0.2.0 이월이다 — 서브넷 교체는 노드 풀 순환을 부르므로 나중에 여는 것도
+    0.2.0도 전 노드 풀(시스템 풀 + var.node_pools 전부)이 이 값 하나를 공유한다. 풀별
+    오버라이드는 이월이다 — 서브넷 교체는 노드 풀 순환을 부르므로 나중에 여는 것도
     비파괴 변경이다.
-
-    네트워킹은 Azure CNI Pod Subnet(flat)로 고정된다 — Overlay는 노출하지 않는다. Overlay는
-    Pod 트래픽이 노드 IP로 SNAT돼 NSG 플로우 로그·Network Watcher에서 Pod 단위 관측성이
-    사라진다(소비 repo가 이미 확정한 결정, 축5 참조). 필요해지면 클러스터 재생성이 필요하다
-    (network_profile은 ForceNew).
   EOT
   type        = string
-  nullable    = false
+  default     = null
+
+  validation {
+    condition     = (var.cni_mode == "pod_subnet") == (var.pod_subnet_id != null)
+    error_message = "pod_subnet_id는 cni_mode = \"pod_subnet\"일 때만 지정한다(그 외 모드에서는 비워야 한다)."
+  }
+}
+
+variable "pod_cidr" {
+  description = <<-EOT
+    cni_mode = "overlay"일 때 Pod IP로 쓸 CIDR(VNet 밖, 노드당 /24를 예약한다 — 공식
+    문서 확인). 그 외 모드에서는 반드시 비워야 한다(provider 제약 자체가
+    network_plugin_mode가 "overlay"가 아니면 pod_cidr 설정을 막는다).
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = (var.cni_mode == "overlay") == (var.pod_cidr != null)
+    error_message = "pod_cidr는 cni_mode = \"overlay\"일 때만 지정한다(그 외 모드에서는 비워야 한다)."
+  }
 }
 
 variable "service_cidr" {
@@ -290,18 +359,29 @@ variable "enable_karpenter" {
     프로비저닝 정책은 이 모듈 밖(GitOps 소관)이다 — eks-cluster가 "helm 설치와
     NodePool/NodeClass는 GitOps 소관"이라고 선을 긋는 것과 같은 경계다.
 
-    ⚠️ 네트워킹 조합 확인(2026-08-28): 공식 문서·github.com/Azure/karpenter-provider-azure
-    README의 예제는 전부 Azure CNI **Overlay** + **Cilium**만 쓰지만("성능 최적화" 권고일
-    뿐 강제 문구 아님), 그 README의 "Known limitations"(원문 실측 확인)는 Windows·Kubenet·
-    Calico·IPv6·Service Principal·클러스터 stop·생성 후 outbound_type 변경 6개만 나열하고
-    **Pod Subnet 모드는 없다**. 이 모듈이 고정한 **flat Pod Subnet**과의 조합이 명시적으로
-    배제되지는 않았으나, 실제 예제·검증 사례도 없다(사용자 확인 후 채택, 2026-08-28). 이
-    저장소는 배포하지 않으므로(`.claude/rules/terraform.md`) live Azure로 실제 노드
-    프로비저닝까지는 확인할 수 없다 — 스키마 수준(mode 값·default_node_pool 존재)만 보장한다.
+    ⛔ **네트워킹 조합 확정(2026-09-03, 0.1.0의 "미검증" 딱지를 확정으로 교체)**:
+    karpenter-provider-azure 메인테이너가 공식 이슈에서 직접 명시했다 — "Currently
+    Karpenter on Azure does not support Azure CNI Pod Subnet (either dynamic IP
+    allocation or static block allocation)"(github.com/Azure/karpenter-provider-azure#1352,
+    2026-01-15 오픈, 아직 미해결). 즉 cni_mode = "pod_subnet"과는 절대 못 쓴다 — 아래
+    validation이 이 조합을 plan에서 차단한다. cni_mode = "node_subnet" 또는 "overlay"를
+    쓴다(cni_mode 변수 설명 참조). 기본값을 false로 두는 이유도 이것이다 — cni_mode
+    기본값("pod_subnet")과 조합했을 때 매개변수를 하나도 안 바꿔도 plan이 깨지는
+    "기본값끼리 상충하는" 상태를 피한다. NAP을 쓰려면 cni_mode와 enable_karpenter를
+    함께 명시적으로 바꿔야 한다.
+
+    이 저장소는 배포하지 않으므로(`.claude/rules/terraform.md`) live Azure로 실제 노드
+    프로비저닝까지는 확인할 수 없다 — 스키마 수준(mode 값·default_node_pool 존재·
+    network_profile 조합 유효성)만 보장한다.
   EOT
   type        = bool
-  default     = true
+  default     = false
   nullable    = false
+
+  validation {
+    condition     = !var.enable_karpenter || var.cni_mode != "pod_subnet"
+    error_message = "enable_karpenter = true는 cni_mode = \"pod_subnet\"과 함께 쓸 수 없다 — karpenter-provider-azure가 Pod Subnet(dynamic·static block 모두)을 지원하지 않는다(github.com/Azure/karpenter-provider-azure#1352). cni_mode를 \"node_subnet\" 또는 \"overlay\"로 바꾸거나 enable_karpenter를 false로 둔다."
+  }
 }
 
 # ── 버전 · SKU ───────────────────────────────────────────────────────────────

@@ -98,26 +98,129 @@ run "identity_input_only_no_creation" {
   # 코드 리뷰·grep으로 검증한다 — tftest는 존재하는 리소스만 assert할 수 있다).
 }
 
-# ── 네트워킹 — Azure CNI Pod Subnet 고정, NAT는 만들지 않는다 ───────────────────
-run "network_profile_flat_cni_fixed" {
+# ── 네트워킹 — cni_mode 기본값(pod_subnet), NAT는 만들지 않는다 ────────────────
+run "network_profile_pod_subnet_is_default" {
   command = plan
 
   assert {
     condition = alltrue([
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin == "azure",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == null,
+      # ⚠️ pod_cidr는 provider 스키마상 Optional+Computed라 mock에서는 명시적 null도
+      # plan 시점 unknown(임의 mock 문자열)으로 나온다 — 이 파일 상단 주석의 "computed
+      # 속성은 assertion 대상에서 뺀다" 제약과 같은 케이스라 여기서는 검사하지 않는다.
       azurerm_kubernetes_cluster.this[0].network_profile[0].outbound_type == "userAssignedNATGateway",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].load_balancer_sku == "standard",
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == var.pod_subnet_id,
     ])
-    error_message = "network_profile이 Azure CNI Pod Subnet(flat) 고정 계약과 다르다."
+    error_message = "cni_mode 기본값(pod_subnet)에서 network_profile·pod_subnet_id 배선이 계약과 다르다."
   }
 }
 
-# ── node_provisioning_profile — 항상 존재, enable_karpenter 기본값(true)이면 Auto ──
-run "node_provisioning_profile_defaults_to_auto" {
+# ── cni_mode = "node_subnet" — pod_subnet_id 없이 node_subnet_id만 쓴다 ────────
+run "cni_mode_node_subnet_no_pod_subnet" {
+  command = plan
+
+  variables {
+    cni_mode      = "node_subnet"
+    pod_subnet_id = null
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == null,
+      # pod_cidr는 Optional+Computed라 mock에서 검사하지 않는다(위 pod_subnet_is_default 참조).
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == null,
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
+    ])
+    error_message = "cni_mode = node_subnet인데 pod_subnet_id가 남아있거나 network_plugin_mode가 설정돼 있다."
+  }
+}
+
+# ── cni_mode = "overlay" — pod_cidr 필수, network_plugin_mode·data_plane 켜짐 ──
+run "cni_mode_overlay_wires_pod_cidr_and_cilium" {
+  command = plan
+
+  variables {
+    cni_mode      = "overlay"
+    pod_subnet_id = null
+    pod_cidr      = "10.244.0.0/16"
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == "overlay",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].pod_cidr == "10.244.0.0/16",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_data_plane == "cilium",
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == null,
+    ])
+    error_message = "cni_mode = overlay인데 pod_cidr·network_plugin_mode·network_data_plane 배선이 계약과 다르다."
+  }
+}
+
+# ── cni_mode 교차변수 validation — plan에서 차단된다 ────────────────────────────
+run "reject_invalid_cni_mode" {
+  command = plan
+
+  variables {
+    cni_mode = "bogus"
+  }
+
+  expect_failures = [var.cni_mode]
+}
+
+run "reject_pod_subnet_id_when_cni_mode_not_pod_subnet" {
+  command = plan
+
+  variables {
+    cni_mode = "node_subnet"
+    # pod_subnet_id를 기본 variables 블록 값 그대로 남겨둔다 — null로 안 비웠으니 위반.
+  }
+
+  expect_failures = [var.pod_subnet_id]
+}
+
+run "reject_pod_subnet_mode_without_pod_subnet_id" {
+  command = plan
+
+  variables {
+    pod_subnet_id = null
+    # cni_mode는 기본값(pod_subnet) 유지 — pod_subnet_id가 없으면 위반.
+  }
+
+  expect_failures = [var.pod_subnet_id]
+}
+
+run "reject_pod_cidr_when_cni_mode_not_overlay" {
+  command = plan
+
+  variables {
+    pod_cidr = "10.244.0.0/16"
+    # cni_mode는 기본값(pod_subnet) 유지 — overlay가 아니므로 pod_cidr는 위반.
+  }
+
+  expect_failures = [var.pod_cidr]
+}
+
+run "reject_overlay_without_pod_cidr" {
+  command = plan
+
+  variables {
+    cni_mode      = "overlay"
+    pod_subnet_id = null
+    # pod_cidr를 안 준다 — overlay인데 pod_cidr가 없으면 위반.
+  }
+
+  expect_failures = [var.pod_cidr]
+}
+
+# ── node_provisioning_profile — 항상 존재, enable_karpenter 기본값(false)이면 Manual ──
+run "node_provisioning_profile_defaults_to_manual" {
   command = plan
 
   assert {
-    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
-    error_message = "enable_karpenter 기본값(true)인데 node_provisioning_profile.mode가 Auto가 아니다."
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Manual"
+    error_message = "enable_karpenter 기본값(false)인데 node_provisioning_profile.mode가 Manual이 아니다 — cni_mode 기본값(pod_subnet)과 조합하면 plan이 깨져야 정상이다."
   }
 
   assert {
@@ -127,21 +230,52 @@ run "node_provisioning_profile_defaults_to_auto" {
 
   assert {
     condition     = length(azurerm_kubernetes_cluster.this[0].default_node_pool) == 1
-    error_message = "mode = Auto(NAP)에서도 default_node_pool(시스템 노드 풀)이 필수인데 사라졌다."
+    error_message = "default_node_pool(시스템 노드 풀)이 Manual에서도 필수인데 사라졌다."
   }
 }
 
-run "node_provisioning_profile_manual_when_karpenter_disabled" {
+# ── enable_karpenter = true는 cni_mode = node_subnet·overlay와만 유효하다 ──────
+run "node_provisioning_profile_auto_with_node_subnet" {
   command = plan
 
   variables {
-    enable_karpenter = false
+    cni_mode         = "node_subnet"
+    pod_subnet_id    = null
+    enable_karpenter = true
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Manual"
-    error_message = "enable_karpenter = false인데 node_provisioning_profile.mode가 Manual로 전환되지 않았다."
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
+    error_message = "cni_mode = node_subnet + enable_karpenter = true인데 mode가 Auto로 전환되지 않았다."
   }
+}
+
+run "node_provisioning_profile_auto_with_overlay" {
+  command = plan
+
+  variables {
+    cni_mode         = "overlay"
+    pod_subnet_id    = null
+    pod_cidr         = "10.244.0.0/16"
+    enable_karpenter = true
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
+    error_message = "cni_mode = overlay + enable_karpenter = true인데 mode가 Auto로 전환되지 않았다."
+  }
+}
+
+# ── enable_karpenter × cni_mode 교차변수 validation — plan에서 차단된다 ────────
+run "reject_karpenter_with_pod_subnet_mode" {
+  command = plan
+
+  variables {
+    enable_karpenter = true
+    # cni_mode는 기본값(pod_subnet) 유지 — karpenter-provider-azure#1352가 이 조합을 지원하지 않는다.
+  }
+
+  expect_failures = [var.enable_karpenter]
 }
 
 # ── Entra RBAC — 옵트인, 기본은 블록 자체가 없다(G2 확정) ───────────────────────
@@ -370,8 +504,8 @@ run "nullable_false_falls_back_to_default" {
   }
 
   assert {
-    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Auto"
-    error_message = "enable_karpenter = null이 default true(Auto)로 대체되지 않았다."
+    condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].mode == "Manual"
+    error_message = "enable_karpenter = null이 default false(Manual)로 대체되지 않았다."
   }
 }
 

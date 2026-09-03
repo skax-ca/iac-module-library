@@ -145,6 +145,17 @@ apply 단계에서 항상 실패했다. `aks-reference-infra`의 `live/hub/aks` 
 실측 발견해 수정했다(모듈 자체 `tofu test`는 `mock_provider`로 ARM을 모킹해 이 정합성
 오류를 잡지 못한다).
 
+## 노드 풀 업그레이드 설정 — `upgrade_settings.max_surge`를 항상 명시(0.5.0)
+
+`default_node_pool`·추가 노드 풀 둘 다 `upgrade_settings { max_surge = "10%" }`를
+명시로 고정한다. 생략하면 Azure가 노드 풀 생성 시 이 값을 자체 기본값(`10%`)으로
+채워 반환하는데, HCL에 선언이 없으면 매 plan마다 "제거 대상"으로 다시 표시된다 —
+apply해도 Azure가 다음 조회에서 같은 기본값을 또 채우므로 수렴하지 않는
+perpetual diff가 된다(`aks-reference-infra`의 `live/hub/aks` 실배포에서 독립된
+plan 3회 연속 같은 diff로 실측). `azurerm_kubernetes_cluster.default_node_pool.
+upgrade_settings.max_surge`는 provider 스키마상 Required라 블록을 선언하는 이상
+값을 생략할 수 없다. 값은 옵트인 변수로 열지 않는다(0.5.0 스코프 밖).
+
 ## 노드 풀 이름 — 하이픈 금지, 12자 한도
 
 시스템 노드 풀은 `npsystem` 고정, 추가 노드 풀은 `np<node_pools 키>`로 조합된다. 키는

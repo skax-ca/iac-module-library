@@ -1,9 +1,21 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster v0.5.0(cni_mode 선택형, 기본 overlay, NAP 호환). v0.4.0=network_policy 정정(ARM 거부), v0.5.0=upgrade_settings 정정(perpetual diff) — 둘 다 aks-reference-infra 실배포에서 발견, hub AKS 실배포 완료. 다음 Azure 모듈은 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster v0.5.0(cni_mode 선택형, 기본 overlay, NAP 호환). v0.4.0=network_policy 정정(ARM 거부), v0.5.0=upgrade_settings 정정(perpetual diff) — 둘 다 aks-reference-infra 실배포에서 발견, hub AKS 실배포 완료. 다음 Azure 모듈=aks-workbench(설계 v6 pending approval, .omc/plans/2026-09-03-azure-aks-workbench-design.md, RALPLAN-DR 5회 반복). 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
+### 2026-09-03 — Azure aks-workbench 모듈 설계(RALPLAN-DR 5회 반복, v6 pending approval)
+
+AWS `modules/aws/workbench`의 Azure 대응 모듈 설계. 먼저 접속 모델을 사용자와 여러 라운드 채팅으로 조사(Azure Bastion vs Run Command vs SSH 비교, vWAN 허브 안에 Bastion 배포 불가라는 공식 제약, Run Command의 출력 4,096바이트·90분·비대화형·취소불가 확정값, kubelogin `-l msi`가 System-assigned identity로 완전 비대화형 인증 가능함을 공식 문서로 확인, `Azure/aks-node-viewer`가 `eks-node-viewer`의 공식 fork임을 발견했으나 alpha 단계 확인 — 전부 공식 문서 인용으로 검증). 이후 `/ralplan`으로 정식 설계서 작성 착수.
+
+**RALPLAN-DR 결과**: 5회(최대) 반복 끝에 Critic 최종 판정 ITERATE("문서 보완 1회로 닫힌다", REJECT 아님), 그 보완까지 반영한 v6을 `pending approval`로 `.omc/plans/2026-09-03-azure-aks-workbench-design.md`에 저장. **매 라운드 실제 CRITICAL 결함이 나왔다**: v1(system-assigned 신원이 `docs/decisions.md`의 기각 사유와 충돌 + `tls_private_key`가 state에 SSH private key를 평문 상재) → v2("인바운드 0" 주장이 Azure NSG 기본 규칙 `AllowVNetInBound` 때문에 거짓, `egress_cidr_blocks` 변수가 NSG의 default-allow-outbound 때문에 무효) → v3(az CLI 버전 인용 오류, 이미지 축 변수 미선언) → v4(NSG 규칙의 `name`이 provider ForceNew인데 `index()`로 유도해 "회피했다"던 재생성 결함을 그대로 재현, NIC-NSG association 리소스 자체가 누락) → v5/최종(private AKS API 서버로의 **DNS 해석 전제조건**이 5라운드 내내 통째로 빠져 있었음 — `aks-cluster`의 private DNS zone이 AKS 노드 VNet에만 링크되므로, workbench가 다른 vWAN 스포크에 있으면 kubeconfig 부트스트랩은 성공하고 `kubectl` 사용 시점에야 조용히 실패).
+
+**최종 확정 설계**: 접속은 SSH(`ssh_ingress_cidrs`, 명시적 Deny priority 4096으로 실제 인바운드 차단, 기본값 없음=필수 입력)가 일상 운영 경로, Run Command는 그 경로가 없을 때의 브레이크글래스 진단 수단. 신원은 dual identity(System+User-assigned — `AADSSHLoginForLinux` 확장이 system-assigned를 강제하는 것과 `aks-cluster`의 identity_id 경계를 동시에 만족). 베이스 이미지는 Ubuntu LTS(AL2023이 Entra SSH 지원 배포판 목록에 없다는 게 결정적 근거). `az_cli_version` 하한 2.72.0(`az login --identity --resource-id` 요구).
+
+**다음 세션**: 사용자가 이 설계서(v6)를 검토·승인하면 team/ralph로 구현 착수. 미승인 시 남은 MINOR 항목(NIC/PIP Required 인자, kubeconfig public/private FQDN 선택 영향, `admin_ssh_public_key` 형식 검증 여부 등, 설계서 §9 참조)부터 확인.
+
+**부수 발견(aks-workbench와 별개, `aks-cluster` 관련)**: Azure Portal의 "Kubernetes 리소스" 그래픽 뷰는 private 클러스터에서 브라우저 실행 머신의 VNet 도달성을 요구(kubelogin과 무관, 순수 네트워크 문제) — 포털의 "Run command" 기능은 도달성 무관하게 동작. `aks-cluster`의 `entra_admin_group_object_ids`가 비어있으면(기본값) Entra RBAC 블록 자체가 안 만들어짐(`main.tf:15,121-127`) — AWS access entries의 세밀한 개별 부여(Reader 등) 대응물은 `aks-cluster`가 아니라 소비 레포의 `azurerm_role_assignment`.
+
 ### 2026-09-03 — aks-cluster CNI 모드 리서치·확장(v0.2.0)·기본값 overlay 전환(v0.3.0)
 
 `aks-reference-infra`의 `live/hub/aks` 설계 라운드에서 사용자가 발견한 두 문제(Karpenter가

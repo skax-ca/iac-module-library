@@ -159,7 +159,7 @@ Auto Provisioning, 옵트인 기본 활성화). `modules/azure/aks-cluster/`에 
 | 항목 | 내용 |
 |---|---|
 | 노드 서브넷 | `vnet`의 `subnet_ids_by_group["aks-node"]` → `node_subnet_id` |
-| Pod 서브넷 | `vnet`의 `subnet_ids_by_group["aks-pod"]` → `pod_subnet_id`. 소비자가 `vnet`의 `subnet_groups`에 이 그룹을 먼저 추가한다. Pod 대역은 VNet의 secondary `address_space`에서 뗀다 |
+| Pod 서브넷 | `cni_mode = "pod_subnet"`(기본)일 때만: `vnet`의 `subnet_ids_by_group["aks-pod"]` → `pod_subnet_id`. 소비자가 `vnet`의 `subnet_groups`에 이 그룹을 먼저 추가한다. Pod 대역은 VNet의 secondary `address_space`에서 뗀다. `cni_mode = "node_subnet"`은 Pod 서브넷 자체가 없다(aks-node가 겸함), `"overlay"`는 `pod_cidr`(VNet 밖 CIDR)를 쓴다 |
 | 아웃바운드 | `vnet`의 `nat_gateway_enabled` + `nat_routed = true` ↔ `outbound_type = "userAssignedNATGateway"`. ⚠️ 완전한 요구사항과 Pod 서브넷에도 `nat_routed`가 필요한지는 규정하지 않는다(구현 라운드에서 실측) |
 | 라우팅 테이블 | 불필요하다. UDR 요구는 kubenet 전용이고 Azure CNI에는 적용되지 않는다. `vnet`의 `route_table_enabled`는 AKS 때문이 아니라 운영 라우트(UDR 오버라이드)가 별도로 필요할 때만 켠다 |
 | 서브넷 위임 | ⛔ AKS 노드 풀 서브넷은 위임된 서브넷일 수 없다. `vnet`의 `subnet_groups`에서 그 그룹에 `delegations`를 쓰지 않는다 |
@@ -195,7 +195,7 @@ identity · role assignment · private DNS zone · 애드온 · 크로스 구독
 | API 엔드포인트 | public·private 독립 토글 | `private_cluster_enabled` 하나(변경 시 재생성) | AKS는 공개·비공개를 값 하나로 토글한다 |
 | 크로스 계정/구독 | 있음 | 없음(스코프 밖) | 본질적으로 role assignment라 이 모듈이 만들 수 없다 |
 | IAM/role 리소스 | 실제로 만든다(role·attachment·pod-identity) | 하나도 만들지 않는다 | 위 「신원」 행과 같은 이유(권한 봉투) |
-| Pod 네트워킹 | `pod_subnet_ids` 입력(custom networking) | `pod_subnet_id` 입력(Azure CNI Pod Subnet 고정) | Overlay는 노출하지 않는다 |
+| Pod 네트워킹 | `pod_subnet_ids` 입력(custom networking) | `cni_mode`로 선택(`pod_subnet`·`node_subnet`·`overlay`, 기본 `pod_subnet`) | Overlay는 SNAT로 Pod 단위 관측성을 잃는 대가로 NAP과 호환된다(`pod_subnet`은 NAP 자체가 미지원, karpenter-provider-azure#1352) |
 | 노드 그룹 키 문자집합 | 제약 없음 | 소문자+숫자만, 8자 이하, 숫자로 시작 불가 | 노드 풀 이름 물리 제약 |
 | Windows 노드 | 지원 | `0.1.0` 스코프 밖 | 이름 한도 6자 |
 | 서브넷 교체 | 노드그룹 롤링 교체 | cordon/drain 없는 풀 순환 | AKS 노드 풀 순환의 동작 |

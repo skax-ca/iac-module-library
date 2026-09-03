@@ -21,6 +21,12 @@ locals {
   system_pool_temp_name = "${local.system_pool_name}t" # 9자, 12자 한도 이내
 
   node_pool_names = { for key, pool in var.node_pools : key => "np${key}" }
+
+  # ── CNI 모드 — cni_mode 변수 설명 참조. 세 값 모두 network_plugin = "azure" 기반이다.
+  is_overlay = var.cni_mode == "overlay"
+  # 검증(variables.tf)이 이미 cni_mode = "pod_subnet" ⇔ pod_subnet_id != null을 보장하므로
+  # 여기서는 그 결과를 그대로 옮기기만 한다 — pod_subnet 모드가 아니면 null.
+  pod_subnet_id_by_mode = var.cni_mode == "pod_subnet" ? var.pod_subnet_id : null
 }
 
 resource "azurerm_kubernetes_cluster" "this" {
@@ -48,7 +54,7 @@ resource "azurerm_kubernetes_cluster" "this" {
     max_pods                    = var.system_node_pool.max_pods
     zones                       = var.system_node_pool.zones
     vnet_subnet_id              = var.node_subnet_id
-    pod_subnet_id               = var.pod_subnet_id
+    pod_subnet_id               = local.pod_subnet_id_by_mode
     temporary_name_for_rotation = local.system_pool_temp_name
 
     tags = var.tags
@@ -69,13 +75,23 @@ resource "azurerm_kubernetes_cluster" "this" {
 
   network_profile {
     network_plugin = "azure"
-    # Azure CNI Pod Subnet(flat) 고정. Overlay는 노출하지 않는다(축5, G-A 확정) —
-    # network_plugin_mode를 쓰지 않고 pod_subnet_id를 항상 요구한다.
-    outbound_type = "userAssignedNATGateway"
+    # cni_mode 변수 설명 참조 — overlay일 때만 켠다. provider 제약: network_plugin_mode가
+    # "overlay"가 아니면 pod_cidr 자체를 설정할 수 없다(azurerm_kubernetes_cluster 문서).
+    network_plugin_mode = local.is_overlay ? "overlay" : null
+    pod_cidr            = local.is_overlay ? var.pod_cidr : null
+    # Overlay는 Microsoft가 NAP에 권장하는 Cilium 데이터플레인으로 고정한다. 그 외
+    # 모드는 provider 기본값(azure)에 맡긴다 — 명시할 이유가 없다(cilium은 network_policy도
+    # cilium으로 맞춰야 하는데 이 라운드 스코프가 아니다, cni_mode 변수 설명 참조).
+    network_data_plane = local.is_overlay ? "cilium" : null
+    outbound_type      = "userAssignedNATGateway"
     # network_plugin = "azure"와 자연스럽게 짝지어지는 Azure 자체 네트워크 정책 엔진이다
     # (calico·cilium은 추가 조건이 필요해 이 라운드 스코프가 아니다). 노출하지 않는다 —
     # 방어 종심 목적의 고정값이다(설계 라운드에서 다루지 않은 축, 구현 시점 결정).
     network_policy = "azure"
+    # NAP(enable_karpenter)이 custom VNet에서 Standard LB를 요구한다(공식 문서 확인) —
+    # provider 기본값이 이미 "standard"라 동작은 바뀌지 않지만, 암묵적 의존 대신 명시
+    # 고정한다(network_policy와 같은 방어 종심 목적).
+    load_balancer_sku = "standard"
     # 이 모듈은 NAT Gateway를 만들지 않는다 — vnet 모듈이 node_subnet_id·pod_subnet_id가
     # 속한 서브넷 그룹에 nat_routed = true로 이미 붙여 둔 것을 쓴다(docs/module-catalog.md
     # 「vnet과의 연동」 참조).
@@ -117,14 +133,8 @@ resource "azurerm_kubernetes_cluster" "this" {
   # 이 필드 하나). default_node_pool은 Auto에서도 여전히 필수이고(공식 문서 확인),
   # NodePool/AKSNodeClass CRD 설치는 이 모듈 밖(GitOps 소관, eks-cluster와 같은 경계).
   #
-  # ⚠️ 네트워킹 조합 확인(2026-08-28): 공식 문서·github.com/Azure/karpenter-provider-azure
-  # README의 예제는 전부 Azure CNI Overlay + Cilium만 쓰지만("성능 최적화" 권고일 뿐 강제
-  # 문구 아님), 그 README의 "Known limitations"(원문 인용 대상, 실측 확인)는 Windows·
-  # Kubenet·Calico·IPv6·Service Principal·클러스터 stop·생성 후 outbound_type 변경 6개만
-  # 나열하고 **Pod Subnet 모드는 없다**. flat Pod Subnet과의 조합이 명시적으로 배제되지는
-  # 않았으나, 실제 예제·문서 검증 사례도 없다(사용자 확인 후 채택) — 이 저장소는 배포하지
-  # 않아 live Azure로 실제 노드 프로비저닝까지는 확인 못 하고, 스키마 수준(mode 값·
-  # default_node_pool 존재)만 tofu test로 검증한다.
+  # 네트워킹 조합 제약(cni_mode = "pod_subnet"과 절대 못 씀)은 variables.tf의
+  # enable_karpenter validation이 plan에서 강제한다 — 근거·출처는 그 변수 설명 참조.
   #
   # default_node_pools = "None" 고정(하드코딩, 변수 아님) — 기본값("Auto")이면 Azure가
   # Karpenter NodePool을 "default"·"system-surge" 2개 자동 생성한다. GitOps가
@@ -163,10 +173,11 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   node_labels          = each.value.node_labels
   node_taints          = each.value.node_taints
 
-  # 0.1.0은 전 노드 풀이 pod_subnet_id 하나를 공유한다(축10, 풀별 인자이지만 클러스터
-  # 단위 단일 입력으로 계약한다) — 풀별 오버라이드는 v0.2.0 이월.
+  # 전 노드 풀이 pod_subnet_id 하나를 공유한다(축10, 풀별 인자이지만 클러스터 단위 단일
+  # 입력으로 계약한다) — 풀별 오버라이드는 이월. cni_mode가 pod_subnet이 아니면 null
+  # (local.pod_subnet_id_by_mode, cni_mode 변수 설명 참조).
   vnet_subnet_id = var.node_subnet_id
-  pod_subnet_id  = var.pod_subnet_id
+  pod_subnet_id  = local.pod_subnet_id_by_mode
 
   temporary_name_for_rotation = "${local.node_pool_names[each.key]}t"
 

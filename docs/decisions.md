@@ -123,7 +123,7 @@
 | `local_account_disabled` 기본 `true` | object ID 하나만 틀려도 클러스터 접근이 끊기는 잠금 위험이 있다(브레이크글래스 소멸) |
 | `role_based_access_control_enabled` 노출 | 기본값이 `true`이고 변경 시 재생성이라, 끌 이유가 재사용 자산에 없다 |
 | `kubenet` 노출 | 2028-03-31에 지원이 끝난다 |
-| CNI를 Overlay로(기본이든 옵트인이든) | Pod 트래픽이 노드 IP로 SNAT돼 NSG 플로우 로그·Network Watcher에서 Pod 단위 관측성이 사라진다. AWS 원본이 VPC CNI underlay를 쓰는 설계 철학과 어긋난다 |
+| CNI를 Overlay로 **기본값** 설정 | Pod 트래픽이 노드 IP로 SNAT돼 NSG 플로우 로그·Network Watcher에서 Pod 단위 관측성이 사라진다. AWS 원본이 VPC CNI underlay를 쓰는 설계 철학과 어긋난다. `cni_mode = "overlay"` 옵트인으로는 0.2.0부터 허용한다(아래 「CNI 모드 확장」 참조, 관측성을 요구하지 않고 NAP을 원하는 소비자를 위한 명시적 선택지다) |
 | 노드 풀 약어를 약어 카탈로그에 등재 | CAF 권장 약어가 이 카탈로그의 등재 규칙(길이 상한)과 예시 형식 검사를 동시에 위반해 검증기가 막는다 |
 | 검증기에 노드 풀 예외 분기 추가 | 검증기가 스스로 선언한 불변식을 약화시킨다 |
 | 노드 풀 예시를 조작해 통과 | 거짓 문서가 된다 |
@@ -144,12 +144,42 @@
 > 노드 풀도 같은 경계 논리로 모듈이 소유한다. 노드 풀 이름은 `np<그룹키>`로 조합하며
 > `workload`·`env`·`리전코드` 토큰을 쓰지 않는다. **이 모듈은 신원도 role assignment도
 > 만들지 않고 user-assigned identity의 리소스 ID를 필수 입력으로만 받는다.** 네트워킹은
-> Azure CNI Pod Subnet(flat) 고정이고 노드·Pod 서브넷을 둘 다 입력으로 받는다(둘 다 `vnet`
-> 모듈이 만든다). Entra 통합은 옵트인이며 로컬 계정은 기본 유지한다. 애드온 블록·kubelet
-> 신원 입력·크로스 구독 확장은 `0.1.0`에서 제외한다.
+> `cni_mode`(0.2.0부터, 아래 참조)로 선택하고, 기본값은 Azure CNI Pod Subnet(flat)이다.
+> 노드·Pod 서브넷을 둘 다 입력으로 받는다(둘 다 `vnet` 모듈이 만든다). Entra 통합은 옵트인이며
+> 로컬 계정은 기본 유지한다. 애드온 블록·kubelet 신원 입력·크로스 구독 확장은 스코프 밖이다.
 >
 > 드라이버는 (1) 소비 repo CI 신원의 권한 경계 (2) Azure가 강제하는 것과 이 저장소 규약이
 > 충돌하는 지점(노드 풀 이름) (3) 틀린 기본값의 되돌리기 비용(CNI·Entra RBAC)이다.
+
+### CNI 모드 확장(0.2.0): `cni_mode`로 3모드 선택형, NAP 비호환 확정이 촉발
+
+`0.1.0`은 Azure CNI Pod Subnet(flat)을 유일한 선택지로 **고정**했다(위 결정, 축5). 이후
+`aks-reference-infra`의 `live/hub/aks` 설계 라운드에서 `enable_karpenter = true`(기본값)와
+이 고정 CNI가 실제로 함께 못 쓰인다는 것이 확정됐다. karpenter-provider-azure 메인테이너가
+공식 이슈에서 직접 명시: "Currently Karpenter on Azure does not support Azure CNI Pod
+Subnet (either dynamic IP allocation or static block allocation)"
+([github.com/Azure/karpenter-provider-azure#1352](https://github.com/Azure/karpenter-provider-azure/issues/1352),
+2026-01-15 오픈, 아직 미해결). `0.1.0`의 `enable_karpenter` 변수 설명이 "미검증"이라 적어뒀던
+바로 그 리스크가 확정으로 바뀐 것이다.
+
+공식 문서([node-auto-provisioning-networking](https://learn.microsoft.com/en-us/azure/aks/node-auto-provisioning-networking))
+확인 결과 NAP이 지원하는 네트워킹은 정확히 3가지뿐이다: Azure CNI Overlay · Azure CNI Overlay
+Powered by Cilium · Azure CNI(Legacy/Node Subnet). Pod Subnet(dynamic·static block 모두)은
+지원 목록에 없다. 이 중 "Legacy/Node Subnet"은 위 결정이 지킨 관측성 요구(SNAT 없음)를 그대로
+유지하면서 NAP도 쓸 수 있는 유일한 조합이다. `0.1.0` 설계 당시엔 검토하지 않았던 세 번째 축이다.
+
+**결정**: `cni_mode` 변수(`"pod_subnet"`(기본)·`"node_subnet"`·`"overlay"`)로 세 조합을 전부
+지원한다. 기본값은 `"pod_subnet"`을 유지해 위 결정의 관측성 우선순위를 그대로 보존하고,
+`enable_karpenter` 기본값을 `true`→`false`로 내려 "기본값끼리 조합하면 plan이 깨지는" 상태를
+피한다. NAP을 쓰려면 `cni_mode`(`"node_subnet"` 또는 `"overlay"`)와 `enable_karpenter`를 함께
+명시적으로 바꿔야 하고, 교차변수 validation이 `cni_mode = "pod_subnet"` + `enable_karpenter = true`
+조합을 plan에서 차단한다. `"overlay"`는 위 「하지 말 것」 표의 기각 사유(SNAT 관측성 손실)를
+그대로 안고 가는 명시적 옵트인이다. 기본값으로는 여전히 채택하지 않는다.
+
+`network_profile` 블록 전체가 provider에 의해 ForceNew라 `cni_mode`를 `"overlay"`로 오가는
+전환은 클러스터 재생성을 부른다. `"pod_subnet"` ↔ `"node_subnet"`만은 예외로, `pod_subnet_id`가
+`network_profile`이 아니라 `default_node_pool`에 있어 `temporary_name_for_rotation`을 통한
+노드 풀 순환으로 처리된다(azurerm_kubernetes_cluster 공식 문서 확인).
 >
 > **왜 이 결정인가**: 재사용 모듈이 만드는 리소스는 소비자의 CI 신원이 그것을 만들 권한을
 > 갖는다는 뜻이다. `azurerm_role_assignment`를 만드는 모듈은 소비자에게

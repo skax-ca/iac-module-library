@@ -30,17 +30,15 @@ module "vnet" {
 
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
-  # secondary 대역을 Pod 서브넷 전용으로 뗀다(RFC 6598) — VNet 주소 공간의 소유는 이 root다.
-  address_space = ["10.60.0.0/24", "100.64.0.0/24"]
+  # cni_mode 기본값(overlay)은 Pod CIDR을 VNet 밖에서 받는다 — secondary address_space도
+  # aks-pod 서브넷도 필요 없다(docs/module-catalog.md「Pod 네트워킹, cni_mode별 VNet 구조」).
+  address_space = ["10.60.0.0/24"]
 
   subnet_groups = {
     "aks-node" = {
       address_prefixes = ["10.60.0.0/26"]
       nat_routed       = true
       nsg_enabled      = true
-    }
-    "aks-pod" = {
-      address_prefixes = ["100.64.0.0/25"]
     }
   }
 }
@@ -77,7 +75,9 @@ module "aks_cluster" {
 
   identity_id    = azurerm_user_assigned_identity.aks.id
   node_subnet_id = module.vnet.subnet_ids_by_group["aks-node"]
-  pod_subnet_id  = module.vnet.subnet_ids_by_group["aks-pod"]
+  # cni_mode 기본값(overlay)이라 pod_subnet_id는 안 넘긴다. pod_cidr는 VNet 주소 공간과
+  # 무관한 값이면 되는데, az aks create의 기본값(10.244.0.0/16)을 그대로 따른다.
+  pod_cidr = "10.244.0.0/16"
 
   system_node_pool = {
     vm_size    = "Standard_D2s_v5"

@@ -110,6 +110,10 @@ run "network_profile_overlay_is_default" {
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin == "azure",
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == "overlay",
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_data_plane == "cilium",
+      # 0.4.0 회귀 방지: network_data_plane = cilium이면 network_policy도 반드시 cilium
+      # 이어야 한다(provider 문서 "must be set to cilium", ARM도 어기면 거부 — main.tf
+      # network_policy 주석 참고). "azure"로 두면 apply가 실패하므로 여기서 고정 검사한다.
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_policy == "cilium",
       # ⚠️ pod_cidr는 provider 스키마상 Optional+Computed라 mock에서는 명시적 값을 줘도
       # plan 시점 unknown(임의 mock 문자열)으로 나올 수 있다 — 이 파일 상단 주석의 "computed
       # 속성은 assertion 대상에서 뺀다" 제약과 같은 케이스라 여기서는 검사하지 않는다.
@@ -135,6 +139,7 @@ run "cni_mode_pod_subnet_explicit_wires_dedicated_subnet" {
     condition = alltrue([
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == null,
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_data_plane == null,
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_policy == "azure",
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == var.pod_subnet_id,
     ])
     error_message = "cni_mode = pod_subnet인데 network_profile·pod_subnet_id 배선이 계약과 다르다."
@@ -153,10 +158,11 @@ run "cni_mode_node_subnet_no_pod_subnet" {
   assert {
     condition = alltrue([
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == null,
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_policy == "azure",
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == null,
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
     ])
-    error_message = "cni_mode = node_subnet인데 pod_subnet_id가 남아있거나 network_plugin_mode가 설정돼 있다."
+    error_message = "cni_mode = node_subnet인데 pod_subnet_id가 남아있거나 network_plugin_mode·network_policy가 계약과 다르다."
   }
 }
 
@@ -174,9 +180,10 @@ run "cni_mode_overlay_wires_pod_cidr_and_cilium" {
     condition = alltrue([
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == "overlay",
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_data_plane == "cilium",
+      azurerm_kubernetes_cluster.this[0].network_profile[0].network_policy == "cilium",
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].pod_subnet_id == null,
     ])
-    error_message = "cni_mode = overlay인데 network_plugin_mode·network_data_plane 배선이 계약과 다르다."
+    error_message = "cni_mode = overlay인데 network_plugin_mode·network_data_plane·network_policy 배선이 계약과 다르다."
   }
 }
 

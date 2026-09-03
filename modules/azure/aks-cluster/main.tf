@@ -84,10 +84,18 @@ resource "azurerm_kubernetes_cluster" "this" {
     # cilium으로 맞춰야 하는데 이 라운드 스코프가 아니다, cni_mode 변수 설명 참조).
     network_data_plane = local.is_overlay ? "cilium" : null
     outbound_type      = "userAssignedNATGateway"
-    # network_plugin = "azure"와 자연스럽게 짝지어지는 Azure 자체 네트워크 정책 엔진이다
-    # (calico·cilium은 추가 조건이 필요해 이 라운드 스코프가 아니다). 노출하지 않는다 —
-    # 방어 종심 목적의 고정값이다(설계 라운드에서 다루지 않은 축, 구현 시점 결정).
-    network_policy = "azure"
+    # ⛔ 정정(0.4.0, aks-reference-infra live/hub/aks 계획 라운드에서 실측): provider
+    # 공식 문서가 "When network_data_plane is set to cilium, the network_policy field
+    # must be set to cilium"이라고 명시하고, ARM도 이를 어기면 "Cilium dataplane
+    # requires network policy cilium."으로 거부한다(hashicorp/terraform-provider-
+    # azurerm#23339 실사례). 위 network_data_plane과 짝을 맞추지 않으면 cni_mode =
+    # "overlay"(0.3.0 기본값) 경로가 첫 apply부터 실패한다 — 이전 버전(0.2.0·0.3.0)은
+    # 이 짝을 몰라 network_policy를 "azure"로 고정해 뒀었다(이 주석 자체가 그 인지
+    # 부족을 스스로 기록해 뒀다: "cilium은 network_policy도 cilium으로 맞춰야 하는데
+    # 이 라운드 스코프가 아니다"). 그 외 모드(pod_subnet·node_subnet)는 여전히 Azure
+    # 자체 정책 엔진("azure")을 쓴다 — cilium 데이터플레인이 아니므로 이 제약이
+    # 적용되지 않는다.
+    network_policy = local.is_overlay ? "cilium" : "azure"
     # NAP(enable_karpenter)이 custom VNet에서 Standard LB를 요구한다(공식 문서 확인) —
     # provider 기본값이 이미 "standard"라 동작은 바뀌지 않지만, 암묵적 의존 대신 명시
     # 고정한다(network_policy와 같은 방어 종심 목적).

@@ -79,8 +79,12 @@ run "system_node_pool_required_and_wired" {
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].vm_size == "Standard_D2s_v5",
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].node_count == 2,
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
+      # 0.5.0 회귀 방지: upgrade_settings.max_surge를 Azure 기본값(10%)으로 명시
+      # 고정한다. 생략하면 Azure가 매 조회마다 같은 기본값을 채워 넣어 plan이
+      # 영원히 수렴하지 않는다(aks-reference-infra 첫 실배포에서 세 번 연속 실측).
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].upgrade_settings[0].max_surge == "10%",
     ])
-    error_message = "시스템 노드 풀 설정이 var.system_node_pool·node_subnet_id와 어긋난다."
+    error_message = "시스템 노드 풀 설정이 var.system_node_pool·node_subnet_id·upgrade_settings와 어긋난다."
   }
 }
 
@@ -454,8 +458,10 @@ run "additional_node_pools_named_and_wired" {
       azurerm_kubernetes_cluster_node_pool.this["app"].vnet_subnet_id == var.node_subnet_id,
       azurerm_kubernetes_cluster_node_pool.this["app"].pod_subnet_id == null,
       azurerm_kubernetes_cluster_node_pool.this["app"].node_labels == tomap({ workload = "app" }),
+      # 0.5.0 회귀 방지: default_node_pool과 동일 근거(위 system_node_pool_required_and_wired 참조).
+      azurerm_kubernetes_cluster_node_pool.this["app"].upgrade_settings[0].max_surge == "10%",
     ])
-    error_message = "추가 노드 풀의 mode·서브넷·라벨이 계약과 다르다."
+    error_message = "추가 노드 풀의 mode·서브넷·라벨·upgrade_settings가 계약과 다르다."
   }
 }
 

@@ -57,6 +57,17 @@ resource "azurerm_kubernetes_cluster" "this" {
     pod_subnet_id               = local.pod_subnet_id_by_mode
     temporary_name_for_rotation = local.system_pool_temp_name
 
+    # ⛔ 정정(0.5.0, aks-reference-infra live/hub/aks 첫 실배포에서 실측): 이 블록을
+    # 생략하면 Azure가 노드 풀 생성 시 upgrade_settings를 max_surge="10%"로 채워
+    # 반환하는데, HCL에 선언이 없어 OpenTofu는 그것을 "제거 대상"으로 매 plan마다
+    # 다시 표시한다(apply해도 Azure가 같은 기본값을 또 채워 넣어 수렴하지 않는
+    # perpetual diff, 세 번 연속 실측 확인). azurerm_kubernetes_cluster의
+    # upgrade_settings.max_surge는 스키마상 Required라 블록 자체를 생략할 수 없다 —
+    # Azure의 실제 기본값을 그대로 명시해 diff를 없앤다.
+    upgrade_settings {
+      max_surge = "10%"
+    }
+
     tags = var.tags
   }
 
@@ -188,6 +199,13 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   pod_subnet_id  = local.pod_subnet_id_by_mode
 
   temporary_name_for_rotation = "${local.node_pool_names[each.key]}t"
+
+  # default_node_pool과 같은 이유(0.5.0 정정 주석 참조) — 이 리소스는 max_surge가
+  # Optional이라 생략해도 plan은 안 깨지지만, 생략하면 같은 perpetual diff가 생긴다.
+  # 일관되게 Azure 기본값을 명시한다.
+  upgrade_settings {
+    max_surge = "10%"
+  }
 
   tags = var.tags
 }

@@ -249,6 +249,25 @@ apply가 최종 검증선이라는 원칙, 이 절 서두 문단 참고).
 | 애드온·kubelet 신원 | `0.1.0`에서 제외한다. 필요해지면 다음 마이너를 기다린다 |
 | 미확정 2건 | `node_provisioning_profile` 필수 여부, flat 모드 Pod 서브넷 아웃바운드 요구사항. 구현 라운드 착수 게이트로 이월한다. 라우팅 테이블 요구는 kubenet 전용임이 확인돼 배포된 소비 루트를 고칠 필요가 없다 |
 
+### 0.5.0: `upgrade_settings` 미선언으로 인한 perpetual diff 정정
+
+`default_node_pool`·`azurerm_kubernetes_cluster_node_pool` 둘 다 `upgrade_settings`
+블록을 선언하지 않았다. Azure는 노드 풀 생성 시 이 블록을 `max_surge = "10%"`
+기본값으로 채워 반환하는데, HCL에 선언이 없으면 OpenTofu가 이를 "제거 대상"으로
+매 plan마다 표시한다. apply해도 Azure가 다음 조회에서 같은 기본값을 다시 채워
+넣어 **수렴하지 않는 perpetual diff**가 된다. `aks-reference-infra`의
+`live/hub/aks` 첫 실배포에서 독립된 plan 3회 연속 같은 diff로 실측 확인했다.
+`azurerm_kubernetes_cluster.default_node_pool.upgrade_settings.max_surge`는
+스키마상 **Required**라 블록을 선언하는 이상 값을 생략할 수 없다(provider 스키마
+직접 확인, `azurerm_kubernetes_cluster_node_pool` 쪽은 Optional).
+
+**결정**: 두 리소스 모두 `upgrade_settings { max_surge = "10%" }`를 명시한다.
+Azure의 실제 기본값을 그대로 선언해 diff를 없앤다. 옵트인 변수로 노출하지
+않는다(0.5.0 스코프 밖, 실수요 없이 축을 여는 것은 P5 위반). 필요해지면 다음
+마이너에서 변수화한다. `tests/plan.tftest.hcl`의 `system_node_pool_required_and_
+wired`·`additional_node_pools_named_and_wired`에 `upgrade_settings.max_surge`
+assertion을 추가해 회귀를 방지한다.
+
 ---
 
 ## 모듈 구조 (provider 계층)

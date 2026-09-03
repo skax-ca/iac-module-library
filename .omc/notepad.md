@@ -1,7 +1,7 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster는 v0.4.0(cni_mode=overlay/pod_subnet/node_subnet 선택형, 기본값 overlay, NAP 즉시 호환, PR #39·#40·#41 merge). v0.4.0에서 overlay의 network_policy를 cilium으로 정정(0.2.0~0.3.0은 ARM이 거부하는 조합이라 overlay 기본값 경로가 apply 불가였음, live/hub/aks 실배포 라운드 Architect 검토로 발견). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster v0.5.0(cni_mode 선택형, 기본 overlay, NAP 호환). v0.4.0=network_policy 정정(ARM 거부), v0.5.0=upgrade_settings 정정(perpetual diff) — 둘 다 aks-reference-infra 실배포에서 발견, hub AKS 실배포 완료. 다음 Azure 모듈은 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
 ### 2026-09-03 — aks-cluster CNI 모드 리서치·확장(v0.2.0)·기본값 overlay 전환(v0.3.0)
@@ -57,6 +57,27 @@ hub·dev secondary CIDR(`100.64.0.0/16`·`100.65.0.0/16`)은 그 repo 세션에�
 조건부화(PR #41, aks-cluster-v0.4.0 태그)하고 테스트 3건에 assertion 추가.
 `tofu test`는 `mock_provider`라 이런 ARM 레벨 정합성 오류를 구조적으로 못 잡는다는
 한계를 재확인 — 소비 repo의 실제 apply가 최종 검증선이라는 원칙이 이번에도 성립했다.
+
+### 2026-09-03(3차) — aks-cluster v0.5.0: upgrade_settings perpetual diff 정정 + hub AKS 실배포 완료
+
+v0.4.0으로 `aks-reference-infra`의 `live/hub/aks`(hub 구독 첫 실배포)를 진행하며 두 번째
+모듈 버그를 발견했다. `default_node_pool`·추가 노드 풀(`azurerm_kubernetes_cluster_
+node_pool`) 둘 다 `upgrade_settings`를 선언하지 않아, Azure가 노드 풀 생성 시 이 블록을
+`max_surge="10%"` 기본값으로 채워 반환하는데 HCL에 선언이 없으면 OpenTofu가 매 plan마다
+"제거 대상"으로 표시한다 — apply해도 Azure가 다음 조회에서 같은 기본값을 또 채워 넣어
+**수렴하지 않는 perpetual diff**였다(완료 판정 §4-8 "재-plan 수렴" 확인 중 독립된 plan
+3회 연속 같은 diff로 실측, 파괴적이진 않았음). `azurerm_kubernetes_cluster.default_
+node_pool.upgrade_settings.max_surge`는 provider 스키마상 Required라 블록 자체를
+생략할 수 없다(직접 스키마 조회로 확인, `azurerm_kubernetes_cluster_node_pool` 쪽은
+Optional). 두 리소스 모두 `upgrade_settings { max_surge = "10%" }`를 명시해 Azure
+기본값과 맞춰 정정(PR #42, aks-cluster-v0.5.0 태그), 테스트 2건에 assertion 추가.
+
+`live/hub/aks`를 v0.5.0으로 업그레이드해 재적용 → 완료 판정 §4 8항목 전부 통과, hub
+구독에 `aks-demo-hub-krc-main-01` 클러스터가 실제로 떠 있다(노드 2대 `Ready`, Overlay
+CNI, Karpenter는 GitOps 계층 부재로 꺼둔 채). 이 세션에서 발견한 버그 2건(v0.4.0
+network_policy, v0.5.0 upgrade_settings) 모두 모듈 자체 `tofu test`(mock_provider
+기반)로는 구조적으로 못 잡는 ARM 레벨 정합성 문제였다 — 소비 repo의 실제 apply가
+최종 검증선이라는 원칙이 이번 세션에서 두 번 연속 성립했다.
 
 ### 2026-09-01 — 발표자료 마무리 + notepad/project-memory MCP 도구 사용 전면 중단
 

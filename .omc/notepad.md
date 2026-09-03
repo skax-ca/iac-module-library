@@ -1,9 +1,50 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료(vnet-v0.2.0·aks-cluster-v0.1.0 포함, PR #38 merge 완료). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(2026-09-01, Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster는 v0.3.0(cni_mode=overlay/pod_subnet/node_subnet 선택형, 기본값 overlay, NAP 즉시 호환, PR #39·#40 merge, karpenter-provider-azure#1352 근거). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
+### 2026-09-03 — aks-cluster CNI 모드 리서치·확장(v0.2.0)·기본값 overlay 전환(v0.3.0)
+
+`aks-reference-infra`의 `live/hub/aks` 설계 라운드에서 사용자가 발견한 두 문제(Karpenter가
+Overlay 없이는 안 된다는 것, Azure에 workbench 대응 모듈이 없다는 것)를 공식 문서로 검증하며
+시작된 세션. `karpenter-provider-azure` 메인테이너가 공식 이슈(#1352, 2026-01-15 오픈,
+미해결)에서 "Pod Subnet(dynamic·static block 모두)은 NAP과 전혀 호환되지 않는다"고 직접
+명시한 것을 확인 — 8월 세션이 "미검증"으로 남긴 리스크가 확정으로 바뀜.
+
+**PR #39(aks-cluster-v0.2.0)**: `cni_mode` 변수 신설(`pod_subnet`(당시 기본)·`node_subnet`·
+`overlay`), `enable_karpenter` 기본값 `true`→`false`(기본값 조합 상충 회피), 교차변수
+validation으로 `pod_subnet`+`enable_karpenter=true` 조합을 plan에서 차단.
+
+**후속 리서치**: 사용자가 "AWS 모양 맞추기가 정답이 아니라 Azure 권고안으로 검토해야
+한다"고 방향을 잡아 Microsoft 공식 결정 가이드(`plan-pod-networking`)와 AKS 베이스라인
+참조 아키텍처를 재확인 — 둘 다 AWS 대칭성과 무관하게 Overlay를 일반 기본값으로 명시
+("Our general recommendation is to use Azure CNI Overlay"). 0.1.0이 Overlay를 기각한
+유일한 사유(SNAT로 인한 Pod 단위 관측성 손실)에 대해서도 Azure의 유료 애드온 Advanced
+Container Networking Services(ACNS)가 eBPF로 SNAT 이전 지점에서 Pod identity를 캡처하는
+별도 답을 갖고 있음을 확인(완전한 대체재는 아님, 저장 로그는 Cilium 전용·기본 집계는
+워크로드 단위).
+
+**PR #40(aks-cluster-v0.3.0)**: `cni_mode` 기본값을 `"pod_subnet"`→`"overlay"`로 전환.
+`enable_karpenter` 기본값은 `false` 유지(이제 호환성이 아니라 순수 옵트인 설계). 32개
+테스트 전부 overlay 기준으로 재작성. `examples/basic`·README.md Usage 예시 둘 다 새
+기본값이 요구하는 최소 구조(secondary CIDR·`aks-pod` 서브넷 불필요)로 재작성 — 사용자가
+README Usage 스니펫에서 `aks-pod` 잔재를 직접 발견해 추가 커밋으로 수정.
+
+**부수 발견**: `docs/decisions.md`에서 직전(PR #39) 세션이 새 절을 기존 blockquote 중간에
+잘못 삽입해 blockquote가 깨져 있던 버그를 발견·복구.
+
+**vnet 모듈 자체는 무변경**: `address_space`·`subnet_groups`는 CNI를 전혀 모르는 범용
+입력이라(검증 블록 없음, 실측 확인) `cni_mode` 관련 작업은 전부 소비자 root
+(`aks-reference-infra`) 또는 이 모듈 안에서 끝났다.
+
+⚠️ **다음 세션 확인 필요**: `aks-reference-infra`의 hub(`100.64.0.0/16`)·dev
+(`100.65.0.0/16`)는 아직 옛 기본값(`pod_subnet`) 전제로 secondary CIDR을 VNet에
+붙여둔 상태다. `cni_mode` 기본값이 overlay로 바뀐 지금 이 CIDR은 죽은 대역이다(지우지
+않아도 안전, 참조하는 서브넷 없음) — 정리할지 남겨둘지는 그 repo 세션에서 판단할 것.
+`docs/module-catalog.md`「Pod 네트워킹, cni_mode별 VNet 구조」절에 이 불일치를 명시
+경고해뒀다.
+
 ### 2026-09-01 — 발표자료 마무리 + notepad/project-memory MCP 도구 사용 전면 중단
 
 `presentations/ai-iac-asset-library.md`는 사용자가 "이걸로 마무리"라고 확정 — 더 이상 진행 중 상태 아님.

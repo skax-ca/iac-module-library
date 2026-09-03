@@ -116,7 +116,11 @@ variable "cni_mode" {
     노출하지 않는다, 축5 원 결정 유지):
 
       "overlay"     (기본, 0.3.0부터) — Azure CNI Overlay + Cilium 데이터플레인
-                     (network_data_plane = "cilium"로 고정). Pod가 VNet 밖 별도 CIDR
+                     (network_data_plane = "cilium"로 고정, network_policy도 함께
+                     "cilium"로 고정 — provider 문서가 "When network_data_plane is
+                     set to cilium, the network_policy field must be set to cilium"
+                     이라 명시하고 ARM도 어기면 "Cilium dataplane requires network
+                     policy cilium."으로 거부한다, 0.4.0에서 정정). Pod가 VNet 밖 별도 CIDR
                      (pod_cidr, 필수)에서 IP를 받고 클러스터 밖으로 나갈 때 노드 IP로
                      SNAT된다 — NSG 플로우 로그·Network Watcher에서 Pod 단위 관측성이
                      사라진다. 대신 Microsoft의 두 공식 문서가 이 모드를 일반 권고로

@@ -217,6 +217,26 @@ identity를 캡처한다("works across both Cilium and non-Cilium data planes").
 `network_profile`이 아니라 `default_node_pool`에 있어 `temporary_name_for_rotation`을 통한
 노드 풀 순환으로 처리된다(azurerm_kubernetes_cluster 공식 문서 확인).
 
+**0.4.0: `"overlay"`의 `network_policy` 배선 버그를 실배포 라운드에서 발견해 정정.**
+`0.3.0`은 `network_data_plane = "cilium"`만 조건부로 켰고 `network_policy`는 항상
+`"azure"`로 고정해 뒀다. 이 문서의 0.2.0 절 코드 주석에 "cilium은 network_policy도
+cilium으로 맞춰야 하는데 이 라운드 스코프가 아니다"라고 그 갭을 스스로 기록해 뒀지만
+반영하지 않은 채 넘어갔다. `aks-reference-infra`의 `live/hub/aks` 배포 계획 라운드
+(2026-09-03)에서 Architect 검토가 실제 apply를 앞두고 이 조합을 지목했고, provider
+공식 문서("When network_data_plane is set to cilium, the network_policy field must
+be set to cilium")와 ARM 실제 에러 사례(hashicorp/terraform-provider-azurerm#23339,
+"Cilium dataplane requires network policy cilium.")로 확정했다. 즉 `0.2.0`~`0.3.0`의
+`cni_mode = "overlay"`(0.3.0 기본값) 경로는 **한 번도 성립한 적이 없었다**. `tofu
+test`가 `mock_provider`로 ARM을 모킹해 이 정합성 오류를 구조적으로 못 잡는다는 사실도
+같이 확인됐다(`variables.tf`가 스스로 "스키마 수준만 보장한다"고 이미 표시해 뒀던
+바로 그 한계다).
+
+**결정**: `network_policy`를 `cni_mode == "overlay" ? "cilium" : "azure"`로 조건부화한다
+(`main.tf`). `tests/plan.tftest.hcl`의 overlay·pod_subnet·node_subnet 세 run 모두에
+`network_policy` assertion을 추가해 이 조합이 다시 깨져도 최소 스키마 레벨에서는 잡히게
+한다. ARM 레벨 정합성까지는 여전히 mock으로 못 잡는다는 한계는 남는다(소비 repo의 실제
+apply가 최종 검증선이라는 원칙, 이 절 서두 문단 참고).
+
 | 항목 | 내용 |
 |---|---|
 | `identity_id` | 필수 입력(`nullable = false`). 클러스터 생성 전에 identity와 그 role assignment를 별도 경로(수동/bootstrap)로 준비해야 한다. system-assigned는 지원하지 않는다 |

@@ -1,7 +1,7 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster는 v0.3.0(cni_mode=overlay/pod_subnet/node_subnet 선택형, 기본값 overlay, NAP 즉시 호환, PR #39·#40 merge, karpenter-provider-azure#1352 근거). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 재제안 전 필독). 규약=conventions.md(이름포맷 AWS=Name태그/Azure=name인자, 노드풀명은 conventions §2-6 소유). 네이밍=docs/naming/abbreviations/{aws,azure}.md(Azure 13개·5카테고리). 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster는 v0.4.0(cni_mode=overlay/pod_subnet/node_subnet 선택형, 기본값 overlay, NAP 즉시 호환, PR #39·#40·#41 merge). v0.4.0에서 overlay의 network_policy를 cilium으로 정정(0.2.0~0.3.0은 ARM이 거부하는 조합이라 overlay 기본값 경로가 apply 불가였음, live/hub/aks 실배포 라운드 Architect 검토로 발견). 다음 Azure 모듈 착수 여부는 사용자 판단. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
 ### 2026-09-03 — aks-cluster CNI 모드 리서치·확장(v0.2.0)·기본값 overlay 전환(v0.3.0)
@@ -44,6 +44,19 @@ README Usage 스니펫에서 `aks-pod` 잔재를 직접 발견해 추가 커밋�
 않아도 안전, 참조하는 서브넷 없음) — 정리할지 남겨둘지는 그 repo 세션에서 판단할 것.
 `docs/module-catalog.md`「Pod 네트워킹, cni_mode별 VNet 구조」절에 이 불일치를 명시
 경고해뒀다.
+
+### 2026-09-03(2차) — aks-cluster v0.4.0: overlay network_policy 버그 수정 + hub/dev CIDR 정리 확인
+
+위 "다음 세션 확인 필요" 두 항목 모두 같은 날 해소됐다. (1) `aks-reference-infra`의
+hub·dev secondary CIDR(`100.64.0.0/16`·`100.65.0.0/16`)은 그 repo 세션에서 실제로
+제거·apply 완료(PR #1). (2) 그 직후 `live/hub/aks` 배포 계획의 Architect 검토에서
+`cni_mode="overlay"`(0.2.0~0.3.0 공통) 경로가 실제로는 apply 불가였다는 걸 발견 —
+`network_data_plane="cilium"`은 조건부로 켰지만 `network_policy`는 `"azure"`로
+고정해 둬 ARM이 "Cilium dataplane requires network policy cilium."으로 거부한다
+(provider 문서에도 짝 요구가 명시돼 있었다). `network_policy`를 `cni_mode`에 따라
+조건부화(PR #41, aks-cluster-v0.4.0 태그)하고 테스트 3건에 assertion 추가.
+`tofu test`는 `mock_provider`라 이런 ARM 레벨 정합성 오류를 구조적으로 못 잡는다는
+한계를 재확인 — 소비 repo의 실제 apply가 최종 검증선이라는 원칙이 이번에도 성립했다.
 
 ### 2026-09-01 — 발표자료 마무리 + notepad/project-memory MCP 도구 사용 전면 중단
 

@@ -197,6 +197,16 @@ identity {
 kubeconfig를 변환하는 단계가 추가된다 — 이때 `identity_client_id`도 함께 필요하다
 (신원 절 참조).
 
+이 단계는 root 컨텍스트(cloud-init)에서 실행되지만, kubeconfig는 `/root/.kube/config`
+뿐 아니라 `/etc/kubernetes/workbench-kubeconfig`에도 복사되고 모든 로그인 셸에
+`KUBECONFIG` 환경변수가 자동 설정된다(`/etc/profile.d/aks-workbench-kubeconfig.sh`) —
+로컬 `admin_username`으로 로그인하든 Entra SSH로 로그인하든(그 계정은 로그인 시점에야
+동적으로 생겨 root의 `~/.kube`로는 미리 못 옮긴다) `sudo` 없이 바로 `kubectl`을 쓸 수
+있다. 이 경로의 파일 권한은 world-readable(0644)이다 — 이 VM에 로그인 가능하다는
+것 자체가 이미 sudo 권한(`Virtual Machine Administrator Login`, 「전제 role
+assignment」절)이라 root 전용으로 잠가도 실질적 방어선이 못 된다. 진짜 경계는
+NSG(`ssh_ingress_cidrs`)와 그 role assignment다.
+
 이 모듈은 role assignment를 만들지 않는다 — `aks-cluster`가 `identity_id`로 받는
 권한과 같은 이유(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR)로, 위
 「전제 role assignment」 표의 권한은 소비 레포의 bootstrap 계층이 부여한다.

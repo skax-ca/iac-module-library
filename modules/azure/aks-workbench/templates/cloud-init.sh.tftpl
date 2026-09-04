@@ -37,6 +37,25 @@ az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${a
 %{ if aks_entra_rbac_enabled }
 kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}"
 %{ endif }
+
+# custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
+# 이 VM에 실제로 로그인하는 사람은 root가 아니다(로컬 admin_username, 또는 Entra SSH로
+# 로그인 시점에 동적으로 만들어지는 계정 — 후자는 부팅 시점엔 존재조차 하지 않아 그
+# 계정 홈 디렉토리로 미리 복사해 둘 수 없다). 시스템 전역 고정 경로에 복사하고
+# /etc/profile.d로 모든 로그인 셸에 KUBECONFIG를 자동 export해 두 경로 모두 sudo 없이
+# 바로 kubectl을 쓰게 한다(2026-09-04 aks-reference-infra 실배포에서 sudo 없이는
+# "connection refused localhost:8080"으로 실측 확인된 문제).
+#
+# ⚠️ 권한을 world-readable(0644)로 두는 이유: 이 VM에 로그인 가능하다는 것 자체가
+# 이미 Virtual Machine Administrator Login(sudo, README「전제 role assignment」절)을
+# 뜻한다 — sudo cat /root/.kube/config로 어차피 읽을 수 있는 파일을 root 전용으로
+# 잠가 봐야 실질적 방어선이 아니다. 진짜 경계는 NSG(ssh_ingress_cidrs)와 이 role
+# assignment이지 파일 권한이 아니다.
+install -m 0644 -D /root/.kube/config /etc/kubernetes/workbench-kubeconfig
+cat > /etc/profile.d/aks-workbench-kubeconfig.sh <<'PROFILE_EOF'
+export KUBECONFIG=/etc/kubernetes/workbench-kubeconfig
+PROFILE_EOF
+chmod 0644 /etc/profile.d/aks-workbench-kubeconfig.sh
 %{ endif }
 %{ endif }
 

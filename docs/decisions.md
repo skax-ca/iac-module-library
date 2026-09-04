@@ -270,6 +270,23 @@ assertion을 추가해 회귀를 방지한다.
 
 ---
 
+## Azure 워크벤치 (aks-workbench)
+
+| 하지 말 것 | 이유 |
+|---|---|
+| "NSG 규칙 0개 = 인바운드 0"이라고 가정 | `AllowVNetInBound`가 이미 열려 있다. 명시적 Deny(priority 4096)로 덮어야 성립한다 |
+| Run Command를 기본 접속 경로로 삼기 | 4,096B·90분·비대화형·취소불가 제약이 일상 운영을 못 감당한다 |
+| CIDR마다 별도 NSG 규칙·`identity_client_id` 무조건 필수·system-assigned 단독 신원·role assignment 생성 | 각각 재생성 결함·불필요한 값 강제·사전 권한 부여 불가·CI 신원 권한 봉투 문제(`aks-cluster`와 같은 사유도 포함) |
+
+> **결정**: 세 번째 Azure 모듈 `aks-workbench`(AWS `workbench` 대응)를 스크래치 얇은
+> 모듈로 설계한다. 일상 경로는 SSH(필수 입력, 명시적 Deny priority 4096), Run
+> Command는 브레이크글래스다. 신원은 dual identity, `identity_client_id`는 교차
+> validation으로 조건부 필수다. identity·role·서브넷·리소스 그룹은 안 만든다. AWS
+> SSM 같은 서비스가 Azure에 없다는 격차를 RALPLAN-DR 5회 반복 끝에 감추지 않고
+> 드러내는 쪽으로 골랐다. 설계 이력은 `.omc/plans/2026-09-03-azure-aks-workbench-design.md` 참조.
+
+---
+
 ## 모듈 구조 (provider 계층)
 
 | 하지 말 것 | 이유 |

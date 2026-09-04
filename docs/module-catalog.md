@@ -253,6 +253,37 @@ Subnet 재검토 대비)는 그 repo 세션에서 판단할 문제다.
 
 ---
 
+## `aks-workbench`
+
+private AKS 클러스터의 운영 지점(kubectl·helm·argocd·az CLI·kubelogin이 설치된 지속적
+작업대). AWS `workbench`의 Azure 대응 모듈이다. `modules/azure/aks-workbench/`에 둔다.
+
+전체 계약(입력·출력·리소스) → [`modules/azure/aks-workbench/README.md`](../modules/azure/aks-workbench/README.md)
+
+### `vnet`·`aks-cluster`와의 연동
+
+| 항목 | 내용 |
+|---|---|
+| 배치 서브넷 | `vnet`의 `subnet_ids_by_group["<그룹키>"]` → `subnet_id` |
+| 신원 | bootstrap 계층이 user-assigned identity를 만들고 `identity_id`(필수)·`identity_client_id`(조건부 필수)로 넘긴다. **이 모듈은 identity도 role assignment도 만들지 않는다**(`aks-cluster`와 같은 경계 원칙) |
+| AKS 연동 | `aks_cluster_name`·`aks_resource_group_name`이 채워지면 kubeconfig를 부트스트랩한다. Entra RBAC를 쓰는 클러스터(`aks-cluster`의 `entra_admin_group_object_ids` 옵트인)면 `aks_entra_rbac_enabled = true` + `identity_client_id`가 함께 필요하다 |
+| private DNS 해석 | workbench가 대상 AKS 노드와 다른 VNet(스포크)에 있으면 별도 `azurerm_private_dns_zone_virtual_network_link`가 필요하다(`aks-cluster`의 private DNS zone은 노드 VNet에만 링크된다). 상세는 모듈 README「아웃바운드」절 참조 |
+
+**만들지 않는 것**: 리소스 그룹 · VNet · 서브넷 · user-assigned identity · role assignment ·
+private DNS zone link · AKS 클러스터 자체.
+
+### `workbench`(AWS)와의 비대칭
+
+| 축 | `modules/aws/workbench` | `aks-workbench` | 사유 |
+|---|---|---|---|
+| 일상 운영 경로 | SSM Session Manager(대화형 + 인바운드 0 동시 성립) | SSH(`ssh_ingress_cidrs`) | Azure에는 SSM과 같은 조합을 주는 서비스가 없다(README「접속 모델」절) |
+| "인바운드 0"의 성립 근거 | SG 기본이 전부 거부라 규칙 0개로 성립 | NSG 기본이 `AllowVNetInBound`로 이미 열려 있어, 명시적 Deny(priority 4096)로 별도로 만들어야 성립 | 두 플랫폼의 방화벽 기본값이 정반대다 |
+| 인증 자료 | AMI가 이미 SSM Agent를 담고 있으면 키페어 자체가 불필요 | 로컬 계정에 SSH 키 또는 비밀번호 중 하나가 항상 강제(플랫폼 요구) + Entra ID SSH를 별도로 얹음(선택) | Azure VM 생성 자체의 제약 |
+| 신원 종류 | IAM Role 하나(instance profile) | dual identity(System+User-assigned) | Entra SSH 확장이 system-assigned를 강제하고, `aks-cluster`와의 일관성을 위해 user-assigned도 쓴다 |
+| 브레이크글래스 진단 | 해당 없음(SSM이 이미 유일 경로) | Run Command(4,096B/90분/비대화형/취소불가) | SSH 경로 자체가 없을 때만 쓰는 보조 수단 |
+
+---
+
 ## 연동 예시
 
 `vpc` -> `eks-cluster` -> `workbench` 체인의 실제 output -> input 연동(태그 문법·소싱 방식

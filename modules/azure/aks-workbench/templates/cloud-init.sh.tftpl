@@ -1,0 +1,72 @@
+#!/bin/bash
+# cloud-init 표준 user-data 스크립트 — 실행 로그는 자동으로 /var/log/cloud-init-output.log에
+# 남는다(README「부팅 후 확인」절 참조, 이 파일이 별도로 로그를 만들지 않는다).
+set -x
+
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y ca-certificates curl gnupg lsb-release unzip git jq
+
+%{ if az_cli_version != null }
+install -m 0755 -d /etc/apt/keyrings
+curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | tee /etc/apt/keyrings/microsoft.gpg > /dev/null
+chmod go+r /etc/apt/keyrings/microsoft.gpg
+AZ_CODENAME="$(lsb_release -cs)"
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $${AZ_CODENAME} main" | tee /etc/apt/sources.list.d/azure-cli.list
+apt-get update -y
+apt-get install -y "azure-cli=${az_cli_version}"
+az version
+
+az login --identity --resource-id "${identity_id}"
+
+%{ if aks_cluster_name != null }
+az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing
+%{ if aks_entra_rbac_enabled }
+kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}"
+%{ endif }
+%{ endif }
+%{ endif }
+
+%{ if kubectl_version != null }
+curl -sLo /usr/local/bin/kubectl "https://dl.k8s.io/release/${kubectl_version}/bin/linux/$(dpkg --print-architecture)/kubectl"
+chmod 0755 /usr/local/bin/kubectl
+%{ endif }
+
+%{ if helm_version != null }
+HELM_ARCH="$(dpkg --print-architecture)"
+curl -sL "https://get.helm.sh/helm-${helm_version}-linux-$${HELM_ARCH}.tar.gz" -o /tmp/helm.tar.gz
+tar -xzf /tmp/helm.tar.gz -C /tmp
+install -m 0755 "/tmp/linux-$${HELM_ARCH}/helm" /usr/local/bin/helm
+rm -rf /tmp/helm.tar.gz "/tmp/linux-$${HELM_ARCH}"
+%{ endif }
+
+%{ if argocd_version != null }
+curl -sSLo /usr/local/bin/argocd "https://github.com/argoproj/argo-cd/releases/download/${argocd_version}/argocd-linux-$(dpkg --print-architecture)"
+chmod 0755 /usr/local/bin/argocd
+%{ endif }
+
+%{ if kubectl_version != null && krew_version != null }
+export KREW_ROOT=/usr/local/krew
+KREW_ARCH="$(dpkg --print-architecture)"
+KREW_TARBALL="krew-linux_$${KREW_ARCH}.tar.gz"
+curl -sL "https://github.com/kubernetes-sigs/krew/releases/download/${krew_version}/$${KREW_TARBALL}" -o "/tmp/$${KREW_TARBALL}"
+tar -xzf "/tmp/$${KREW_TARBALL}" -C /tmp
+"/tmp/krew-linux_$${KREW_ARCH}" install --krew-root=/usr/local/krew krew
+%{ for plugin in krew_plugins }
+/usr/local/krew/bin/kubectl-krew install --krew-root=/usr/local/krew "${plugin}" || true
+%{ endfor }
+%{ endif }
+
+%{ if aks_node_viewer_version != null }
+# alpha 단계(2024-11 이후 갱신 없음, README 참조) — 설치 실패는 부팅을 막지 않는다(|| true).
+# ⚠️ 자산 이름 매핑은 eks-node-viewer(upstream) 관행을 승계한 추정이다 — 아직 실측 확인 안 됨.
+case "$(dpkg --print-architecture)" in
+  amd64) NODEVIEWER_ARCH="x86_64" ;;
+  arm64) NODEVIEWER_ARCH="arm64" ;;
+  *)     NODEVIEWER_ARCH="$(dpkg --print-architecture)" ;;
+esac
+curl -sLo /usr/local/bin/aks-node-viewer "https://github.com/Azure/aks-node-viewer/releases/download/${aks_node_viewer_version}/aks-node-viewer_Linux_$${NODEVIEWER_ARCH}" || true
+chmod 0755 /usr/local/bin/aks-node-viewer || true
+%{ endif }
+
+echo "aks-workbench bootstrap complete"

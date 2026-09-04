@@ -168,10 +168,20 @@ variable "admin_username" {
     Entra ID SSH(entra_ssh_login_enabled)로 로그인하는 사람은 이 로컬 계정과 완전히
     별개의 자기 신원으로 들어온다 — 이 값은 사실상 브레이크글래스 계정 이름표일 뿐이라
     고정값으로 충분하고, 조직 표준이 있으면 바꿀 수 있게 변수로만 열어 둔다.
+
+    ⚠️ cloud-init.sh.tftpl이 이 값을 이스케이프 없이 셸 명령에 그대로 보간한다
+    (kubeconfig 사용자별 사본을 만드는 getent/install 호출) — 아래 validation이
+    Linux 계정명 관례(영숫자·밑줄·하이픈, 문자/밑줄로 시작)만 허용해 셸 메타문자
+    주입을 plan 단계에서 막는다(2026-09-04 code-review 발견).
   EOT
   type        = string
   default     = "azureuser"
   nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z_][a-z0-9_-]{0,31}$", var.admin_username))
+    error_message = "admin_username은 Linux 계정명 관례를 따라야 한다: 소문자/밑줄로 시작, 이후 소문자·숫자·밑줄·하이픈만, 최대 32자. 이 값이 cloud-init 스크립트의 셸 명령에 이스케이프 없이 보간되므로 다른 문자(따옴표·백틱·공백 등)는 스크립트 구문을 깨뜨리거나 명령 주입으로 이어질 수 있다."
+  }
 }
 
 variable "entra_ssh_login_enabled" {
@@ -295,8 +305,9 @@ variable "aks_entra_rbac_enabled" {
     쓰는지. true면 kubelogin convert-kubeconfig -l msi로 kubeconfig를 변환하는 단계가
     추가된다 — 로컬 계정 전용 클러스터에는 이 변환이 불필요하다.
 
-    true면 aks_cluster_name·aks_resource_group_name·identity_client_id 셋 다 값이
-    있어야 한다(kubelogin 변환 명령이 이 셋을 전부 요구한다, 아래 validation).
+    true면 aks_cluster_name·aks_resource_group_name·identity_client_id·kubelogin_version
+    넷 다 값이 있어야 한다(kubelogin 변환 명령 자체가 앞의 셋을 요구하고, 그 명령을
+    실행할 kubelogin 바이너리 설치에 버전 핀이 필요하다 — 아래 validation).
   EOT
   type        = bool
   default     = false
@@ -306,10 +317,26 @@ variable "aks_entra_rbac_enabled" {
     condition = !var.workbench_enabled || !var.aks_entra_rbac_enabled || (
       var.aks_cluster_name != null &&
       var.aks_resource_group_name != null &&
-      var.identity_client_id != null
+      var.identity_client_id != null &&
+      var.kubelogin_version != null
     )
-    error_message = "aks_entra_rbac_enabled = true면 aks_cluster_name·aks_resource_group_name·identity_client_id를 전부 지정해야 한다 — kubelogin convert-kubeconfig -l msi가 이 셋을 모두 요구한다."
+    error_message = "aks_entra_rbac_enabled = true면 aks_cluster_name·aks_resource_group_name·identity_client_id·kubelogin_version을 전부 지정해야 한다 — kubelogin convert-kubeconfig -l msi가 앞의 셋을 요구하고, 그 명령 자체를 실행할 kubelogin 바이너리 설치에 버전 핀이 필요하다(2026-09-04 code-review 발견: 이 값이 없으면 kubelogin이 설치조차 안 돼 변환이 조용히 실패하고 stale kubeconfig가 그대로 쓰였다)."
   }
+}
+
+variable "kubelogin_version" {
+  description = <<-EOT
+    설치할 kubelogin(Azure/kubelogin) 버전(예: "v0.2.19", "v" 접두사 포함). null이면
+    설치하지 않는다 — aks_entra_rbac_enabled = true일 때는 필수(위 validation).
+
+    kubectl_version 등과 달리 기본값을 null로만 두지 않고 aks_entra_rbac_enabled와
+    교차 검증하는 이유: 이 값이 없으면 kubelogin 바이너리 자체가 없어
+    `kubelogin convert-kubeconfig -l msi`가 "command not found"로 실패하는데, 스크립트에
+    set -e가 없어 그 실패가 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로
+    배포되는 문제가 있었다(2026-09-04 aks-reference-infra 실배포 code-review로 발견).
+  EOT
+  type        = string
+  default     = null
 }
 
 variable "az_cli_version" {

@@ -33,10 +33,59 @@ az version
 az login --identity --resource-id "${identity_id}"
 
 %{ if aks_cluster_name != null }
-az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing
+KUBECONFIG_OK=1
+az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing || KUBECONFIG_OK=0
+
 %{ if aks_entra_rbac_enabled }
-kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}"
+# kubelogin은 apt 패키지가 아니라 GitHub 릴리스 zip이다(Azure/kubelogin) — az CLI
+# 확장이나 apt 저장소로 받을 수 없다. 이 설치 단계가 전에는 아예 없어서
+# `kubelogin convert-kubeconfig`가 "command not found"로 실패했는데, 스크립트에
+# set -e가 없어 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로 배포되던 버그였다
+# (2026-09-04 aks-reference-infra 실배포 code-review로 발견 — 아래 KUBECONFIG_OK
+# 가드가 그 "조용한 전파"를 막는다).
+KUBELOGIN_ARCH="$(dpkg --print-architecture)"
+if curl -sSLo /tmp/kubelogin.zip "https://github.com/Azure/kubelogin/releases/download/${kubelogin_version}/kubelogin-linux-$${KUBELOGIN_ARCH}.zip"; then
+  unzip -oq /tmp/kubelogin.zip -d /tmp/kubelogin
+  install -m 0755 "/tmp/kubelogin/bin/linux_$${KUBELOGIN_ARCH}/kubelogin" /usr/local/bin/kubelogin
+  rm -rf /tmp/kubelogin.zip /tmp/kubelogin
+  kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}" || KUBECONFIG_OK=0
+else
+  KUBECONFIG_OK=0
+fi
 %{ endif }
+
+if [ "$KUBECONFIG_OK" = "1" ]; then
+  # custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
+  # 이 VM에 실제로 로그인하는 사람은 root가 아니다.
+  #
+  # ⛔ AWS workbench 모듈의 /etc/skel 배포 패턴(modules/aws/workbench/user-data.sh.tftpl)을
+  # 그대로 이식하지 않는다 — 이전 커밋에서 그렇게 했다가 code-review로 잡힌 보안 회귀다.
+  # AWS는 SSM 접근이 IAM 정책 하나로만 통제돼(2단계 OS 로그인 역할 구분이 없다) skel로
+  # "누구든 로그인하면 사본을 받는다"가 안전하지만, 이 모듈의 README「전제 role
+  # assignment」표는 Azure에 Virtual Machine Administrator Login(sudo)·Virtual Machine
+  # User Login(비-sudo) 두 단계를 명시해 뒀다. skel은 Entra SSH로 "로그인 시점에야
+  # 동적으로 생기는 계정"에 무조건 적용되므로, User Login만 받은 사람도 sudo 없이
+  # 이 VM의 공유 identity_id 권한(kubeconfig)을 자동으로 물려받게 된다 — 그 두 역할을
+  # 가르는 경계 자체가 무너진다.
+  #
+  # 그래서 사본은 root와 admin_username(부팅 시점에 이미 존재가 보장되는 유일한 로컬
+  # 계정, 모듈 자신이 "브레이크글래스" 용도로 규정한 값)에만 직접 넣는다. Entra SSH로
+  # 로그인하는 사람(Administrator Login이든 User Login이든)에게는 아무것도 자동으로
+  # 안 준다 — Administrator Login을 가진 사람은 이미 sudo가 있어
+  # `sudo cp /root/.kube/config ~/.kube/config`로 스스로 가져갈 수 있고, User Login만
+  # 가진 사람은 애초에 이 모듈이 AKS 접근권을 주기로 한 대상이 아니다(README 참조).
+  # root 자신은 이미 /root/.kube/config를 갖고 있다(위 az aks get-credentials가 만든
+  # 정본) — 대상은 admin_username 하나뿐이라 루프 없이 직접 처리한다.
+  # admin_username은 variables.tf의 validation으로 영숫자·밑줄·하이픈만 허용해 뒀다
+  # (Linux 계정명 관례와 동일 — 셸 메타문자가 이 스크립트에 그대로 보간되므로 필수).
+  _admin_home="$(getent passwd "${admin_username}" | cut -d: -f6)"
+  if [ -n "$_admin_home" ] && [ -d "$_admin_home" ]; then
+    install -d -m 0700 -o "${admin_username}" -g "$(id -gn "${admin_username}")" "$_admin_home/.kube"
+    install -m 0600 -o "${admin_username}" -g "$(id -gn "${admin_username}")" /root/.kube/config "$_admin_home/.kube/config"
+  fi
+else
+  echo "aks-workbench: kubeconfig 부트스트랩 실패 — /var/log/cloud-init-output.log에서 az aks get-credentials/kubelogin 실패 원인 확인 필요" >&2
+fi
 %{ endif }
 %{ endif }
 

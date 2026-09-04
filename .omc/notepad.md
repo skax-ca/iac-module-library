@@ -1,9 +1,23 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure3 전 7모듈 릴리스 완료(vnet·aks-cluster v0.5.0·aks-workbench v0.1.0/PR#43). aks-workbench=SSH가 일상경로(명시적 Deny로 인바운드0)+Run Command 브레이크글래스, dual identity, role assignment 미생성(aks-cluster와 동일 경계). 다음 Azure 모듈 미정. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure3 전 7모듈 릴리스 완료(vnet·aks-cluster v0.5.0·aks-workbench v0.2.0/PR#44). aks-workbench=SSH가 일상경로(명시적 Deny로 인바운드0)+Run Command 브레이크글래스, dual identity, role assignment 미생성(aks-cluster와 동일 경계). 다음 Azure 모듈 미정. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
+### 2026-09-04(2차) — aks-workbench v0.2.0: dpkg lock 경합 수정(PR #44)
+
+`aks-reference-infra`의 `live/hub/workbench` 첫 실배포에서 cloud-init의 azure-cli 설치 단계가
+"Could not get lock /var/lib/dpkg/lock-frontend"로 실패, 뒤이은 az login·az aks get-credentials까지
+연쇄 실패한 것을 실측(그쪽 repo 세션에서 발견). 원인은 부팅 직후 수십 초~수 분 동안 cloud-init
+자신의 다른 단계(unattended-upgrades·snapd 등)가 dpkg/apt 락을 잡고 있는 경합 — 별도 재시도
+루프가 아니라 apt-get 자체 내장 락 대기 옵션(`-o DPkg::Lock::Timeout`, APT 1.9.11+/Ubuntu 24.04
+기본 apt가 지원)을 모든 apt-get 호출(초기 설치·azure-cli 설치 두 지점 다)에 적용해 해결.
+
+브랜치 `fix/aks-workbench-apt-lock-retry`에서 최초 180초로 커밋 → code review에서
+"unattended-upgrades가 실측 사례 기준 수 분까지 락을 쥘 수 있다"는 지적을 받아 600초로 상향 →
+PR #44 CI 통과 후 merge(`bd7c4ab`) → `aks-workbench-v0.2.0` 태그 컷(태그가 실제로 merge 커밋을
+가리키는지, 태그 메시지가 실제 diff와 일치하는지 `git show`로 대조 확인).
+
 ### 2026-09-04 — aks-workbench v6 설계 승인·구현·릴리스 완료(PR #43, aks-workbench-v0.1.0)
 
 사용자가 아래 2026-09-03 설계 메모의 v6(pending approval)을 승인, 구현 착수 지시. `feat/azure-aks-workbench-module` 브랜치에서 fork에 구현을 위임(v6 설계서 전체를 컨텍스트로 이미 갖고 있어 재설명 없이 착수) — push·PR·notepad 갱신은 team-lead 몫으로 명시적으로 남기고 로컬 구현·게이트까지만 수행하도록 지시(과거 fork 완료 오보고·중도절단 전례 때문).

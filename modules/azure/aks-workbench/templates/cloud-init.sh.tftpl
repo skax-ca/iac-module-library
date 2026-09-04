@@ -4,8 +4,16 @@
 set -x
 
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -y
-apt-get install -y ca-certificates curl gnupg lsb-release unzip git jq
+
+# 부팅 직후 수십 초 동안은 cloud-init 자신의 다른 단계(예: unattended-upgrades,
+# snapd)가 dpkg/apt 락을 잡고 있을 수 있다(2026-09-04 aks-reference-infra 첫 실배포에서
+# "Could not get lock /var/lib/dpkg/lock-frontend"로 azure-cli install이 실패, 뒤이은
+# az login/az aks get-credentials까지 연쇄 실패했음을 실측). apt-get 자체에 내장된
+# 락 대기 옵션(APT 1.9.11+, Ubuntu 24.04 기본 apt가 지원)을 모든 apt-get 호출에 건다 —
+# 별도 재시도 루프·fuser 의존 없이 apt가 알아서 락이 풀릴 때까지 최대 180초 기다린다.
+APT_OPTS="-o DPkg::Lock::Timeout=180"
+apt-get $APT_OPTS update -y
+apt-get $APT_OPTS install -y ca-certificates curl gnupg lsb-release unzip git jq
 
 %{ if az_cli_version != null }
 install -m 0755 -d /etc/apt/keyrings
@@ -13,8 +21,8 @@ curl -sLS https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor | te
 chmod go+r /etc/apt/keyrings/microsoft.gpg
 AZ_CODENAME="$(lsb_release -cs)"
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $${AZ_CODENAME} main" | tee /etc/apt/sources.list.d/azure-cli.list
-apt-get update -y
-apt-get install -y "azure-cli=${az_cli_version}"
+apt-get $APT_OPTS update -y
+apt-get $APT_OPTS install -y "azure-cli=${az_cli_version}"
 az version
 
 az login --identity --resource-id "${identity_id}"

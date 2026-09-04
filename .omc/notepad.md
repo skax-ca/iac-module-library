@@ -1,9 +1,21 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure2 전 6모듈 릴리스 완료. aks-cluster v0.5.0(cni_mode 선택형, 기본 overlay, NAP 호환). v0.4.0=network_policy 정정(ARM 거부), v0.5.0=upgrade_settings 정정(perpetual diff) — 둘 다 aks-reference-infra 실배포에서 발견, hub AKS 실배포 완료. 다음 Azure 모듈=aks-workbench(설계 v6 pending approval, .omc/plans/2026-09-03-azure-aks-workbench-design.md, RALPLAN-DR 5회 반복). 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure3 전 7모듈 릴리스 완료(vnet·aks-cluster v0.5.0·aks-workbench v0.1.0/PR#43). aks-workbench=SSH가 일상경로(명시적 Deny로 인바운드0)+Run Command 브레이크글래스, dual identity, role assignment 미생성(aks-cluster와 동일 경계). 다음 Azure 모듈 미정. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
 
 ## Working Memory
+### 2026-09-04 — aks-workbench v6 설계 승인·구현·릴리스 완료(PR #43, aks-workbench-v0.1.0)
+
+사용자가 아래 2026-09-03 설계 메모의 v6(pending approval)을 승인, 구현 착수 지시. `feat/azure-aks-workbench-module` 브랜치에서 fork에 구현을 위임(v6 설계서 전체를 컨텍스트로 이미 갖고 있어 재설명 없이 착수) — push·PR·notepad 갱신은 team-lead 몫으로 명시적으로 남기고 로컬 구현·게이트까지만 수행하도록 지시(과거 fork 완료 오보고·중도절단 전례 때문).
+
+fork 완료 보고를 실물 대조로 전부 재검증: 모듈 파일 8종 실재, `tofu fmt`·`tflint`·`tofu test`(15/15)·`trivy config`(0건)·`terraform-docs`·`validate-doc-conventions`·`validate-abbreviations`(azure.md 15개·6개 카테고리, `vm` 신규 A.6 Compute 카테고리·`nic`·`nsg` 의미론 확장 착수 게이트 포함) 전부 재실행해 일치 확인. `project-memory.json`의 "의도치 않은 변경"도 hotPaths 자동 갱신뿐임을 diff로 직접 확인(핵심 필드 손상 없음). 보고와 실물이 완전히 일치 — 이번엔 오보고 없었음.
+
+커밋(`9ac67d0`) → push → PR #43 오픈 → CI 3게이트(공통 검증 7단계·문서 작성 규칙·약어 카탈로그 SSOT) 전부 통과(공통 검증 게이트 2분55초, pre-push 훅이 전체 6개 기존 모듈 회귀 테스트까지 자동 통과 확인) → 사용자 승인받아 일반 merge(squash 아님 — 최근 PR #41·#42 실제 부모 커밋 2개 확인 후 최신 관례 따름) → `aks-workbench-v0.1.0` 태그 컷·push, `git show`로 태그 스냅샷에 실제 변수 선언 존재함을 대조 검증.
+
+이 저장소는 이제 AWS 4개 + Azure 3개(vnet·aks-cluster·aks-workbench) 전 7모듈 릴리스 완료. Azure aks-workbench 스레드(설계→구현→PR→merge→릴리스) 전체 종결.
+
+**다음**: 다음 Azure 모듈 착수 여부는 사용자 판단 대상. 별도로, 사용자가 EKS·AKS GitOps 패턴이 각각 완성되면 네트워킹/EKS-AKS/workbench/GitOps 4축 AWS↔Azure 비교 자료(팀 공유자료 추가 예정)를 만들 계획 — 관련 리서치는 `project-memory.json`의 `open-items`(2026-09-04, timestamp 1788481170206)에 미리 정리해둠, 오늘 추가된 `docs/module-catalog.md`의 「`workbench`(AWS)와의 비대칭」표도 그 자료의 출발점으로 쓸 수 있음.
+
 ### 2026-09-03 — Azure aks-workbench 모듈 설계(RALPLAN-DR 5회 반복, v6 pending approval)
 
 AWS `modules/aws/workbench`의 Azure 대응 모듈 설계. 먼저 접속 모델을 사용자와 여러 라운드 채팅으로 조사(Azure Bastion vs Run Command vs SSH 비교, vWAN 허브 안에 Bastion 배포 불가라는 공식 제약, Run Command의 출력 4,096바이트·90분·비대화형·취소불가 확정값, kubelogin `-l msi`가 System-assigned identity로 완전 비대화형 인증 가능함을 공식 문서로 확인, `Azure/aks-node-viewer`가 `eks-node-viewer`의 공식 fork임을 발견했으나 alpha 단계 확인 — 전부 공식 문서 인용으로 검증). 이후 `/ralplan`으로 정식 설계서 작성 착수.

@@ -295,8 +295,9 @@ variable "aks_entra_rbac_enabled" {
     쓰는지. true면 kubelogin convert-kubeconfig -l msi로 kubeconfig를 변환하는 단계가
     추가된다 — 로컬 계정 전용 클러스터에는 이 변환이 불필요하다.
 
-    true면 aks_cluster_name·aks_resource_group_name·identity_client_id 셋 다 값이
-    있어야 한다(kubelogin 변환 명령이 이 셋을 전부 요구한다, 아래 validation).
+    true면 aks_cluster_name·aks_resource_group_name·identity_client_id·kubelogin_version
+    넷 다 값이 있어야 한다(kubelogin 변환 명령 자체가 앞의 셋을 요구하고, 그 명령을
+    실행할 kubelogin 바이너리 설치에 버전 핀이 필요하다 — 아래 validation).
   EOT
   type        = bool
   default     = false
@@ -306,10 +307,26 @@ variable "aks_entra_rbac_enabled" {
     condition = !var.workbench_enabled || !var.aks_entra_rbac_enabled || (
       var.aks_cluster_name != null &&
       var.aks_resource_group_name != null &&
-      var.identity_client_id != null
+      var.identity_client_id != null &&
+      var.kubelogin_version != null
     )
-    error_message = "aks_entra_rbac_enabled = true면 aks_cluster_name·aks_resource_group_name·identity_client_id를 전부 지정해야 한다 — kubelogin convert-kubeconfig -l msi가 이 셋을 모두 요구한다."
+    error_message = "aks_entra_rbac_enabled = true면 aks_cluster_name·aks_resource_group_name·identity_client_id·kubelogin_version을 전부 지정해야 한다 — kubelogin convert-kubeconfig -l msi가 앞의 셋을 요구하고, 그 명령 자체를 실행할 kubelogin 바이너리 설치에 버전 핀이 필요하다(2026-09-04 code-review 발견: 이 값이 없으면 kubelogin이 설치조차 안 돼 변환이 조용히 실패하고 stale kubeconfig가 그대로 쓰였다)."
   }
+}
+
+variable "kubelogin_version" {
+  description = <<-EOT
+    설치할 kubelogin(Azure/kubelogin) 버전(예: "v0.2.19", "v" 접두사 포함). null이면
+    설치하지 않는다 — aks_entra_rbac_enabled = true일 때는 필수(위 validation).
+
+    kubectl_version 등과 달리 기본값을 null로만 두지 않고 aks_entra_rbac_enabled와
+    교차 검증하는 이유: 이 값이 없으면 kubelogin 바이너리 자체가 없어
+    `kubelogin convert-kubeconfig -l msi`가 "command not found"로 실패하는데, 스크립트에
+    set -e가 없어 그 실패가 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로
+    배포되는 문제가 있었다(2026-09-04 aks-reference-infra 실배포 code-review로 발견).
+  EOT
+  type        = string
+  default     = null
 }
 
 variable "az_cli_version" {

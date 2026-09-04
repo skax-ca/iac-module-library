@@ -193,19 +193,28 @@ identity {
 
 `aks_cluster_name`·`aks_resource_group_name`(함께 주거나 함께 비운다)이 채워지면
 `custom_data`가 `az aks get-credentials`로 kubeconfig를 만든다.
-`aks_entra_rbac_enabled = true`면 `kubelogin convert-kubeconfig -l msi`로 그
-kubeconfig를 변환하는 단계가 추가된다 — 이때 `identity_client_id`도 함께 필요하다
-(신원 절 참조).
+`aks_entra_rbac_enabled = true`면 `kubelogin`(GitHub 릴리스 zip, `kubelogin_version`
+필수 — 아래 「신원」절)을 설치하고 `kubelogin convert-kubeconfig -l msi`로 그
+kubeconfig를 변환하는 단계가 추가된다 — 이때 `identity_client_id`도 함께 필요하다.
 
-이 단계는 root 컨텍스트(cloud-init)에서 실행되지만, kubeconfig는 `/root/.kube/config`
-뿐 아니라 `/etc/kubernetes/workbench-kubeconfig`에도 복사되고 모든 로그인 셸에
-`KUBECONFIG` 환경변수가 자동 설정된다(`/etc/profile.d/aks-workbench-kubeconfig.sh`) —
-로컬 `admin_username`으로 로그인하든 Entra SSH로 로그인하든(그 계정은 로그인 시점에야
-동적으로 생겨 root의 `~/.kube`로는 미리 못 옮긴다) `sudo` 없이 바로 `kubectl`을 쓸 수
-있다. 이 경로의 파일 권한은 world-readable(0644)이다 — 이 VM에 로그인 가능하다는
-것 자체가 이미 sudo 권한(`Virtual Machine Administrator Login`, 「전제 role
-assignment」절)이라 root 전용으로 잠가도 실질적 방어선이 못 된다. 진짜 경계는
-NSG(`ssh_ingress_cidrs`)와 그 role assignment다.
+이 단계는 root 컨텍스트(cloud-init)에서 실행되지만, 이 VM에 실제로 로그인하는 사람은
+root가 아니다(로컬 `admin_username`, 또는 Entra SSH로 로그인 시점에야 동적으로
+생기는 계정). AWS `workbench` 모듈이 이미 정립해 둔 패턴을 그대로 따른다
+(`modules/aws/workbench/user-data.sh.tftpl`「kubeconfig」절): 정본을
+`/etc/kubernetes/workbench-kubeconfig`(0444)에 두고, 이미 존재하는 홈(root·
+`admin_username`)에는 사용자별 사본(`~/.kube/config`, 0600)을 직접 넣고, 아직 존재하지
+않는 홈(Entra SSH 계정)에는 `/etc/skel`로 미리 넘겨 둔다 — 로그인 시점에 계정이 생기면
+그 사본을 자동으로 물려받는다. 사용자마다 **자기 사본**을 갖는 게 요점이다
+(`kubectl config set-context`가 남의 세션에 영향을 주지 않는다).
+
+⛔ **`/etc/profile.d`에 전역 `KUBECONFIG` 환경변수를 두지 않는다.** `KUBECONFIG`는
+`$HOME/.kube/config`보다 우선순위가 높아, 두면 위 사용자별 사본이 전부 죽은 경로가
+되고 "모두가 같은 정본을 가리키는" 전역 오염이 재현된다 — AWS 모듈이 이미 겪고
+명시적으로 금지해 둔 실수다(같은 파일 「로그인 프로파일」절).
+
+kubeconfig 부트스트랩(`az aks get-credentials`, 필요시 `kubelogin` 설치·변환)이 실패하면
+사용자별 사본 배포 자체를 건너뛴다 — 변환 안 된 stale kubeconfig가 조용히 퍼지는 것보다
+아예 없는 편이 안전하다(부팅 로그에 실패 원인이 남는다, 「부팅 후 확인」절).
 
 이 모듈은 role assignment를 만들지 않는다 — `aks-cluster`가 `identity_id`로 받는
 권한과 같은 이유(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR)로, 위
@@ -272,7 +281,7 @@ No modules.
 | <a name="input_admin_ssh_public_key"></a> [admin\_ssh\_public\_key](#input\_admin\_ssh\_public\_key) | 로컬 관리 계정(admin\_username)의 SSH 공개키. 기본값이 없다 = 필수 입력이다.<br/>private key는 이 모듈이 전혀 다루지 않는다 — 소비자가 자기 공개키만 넘긴다.<br/><br/>⚠️ Azure는 VM 생성 시 비밀번호 또는 SSH 키 중 하나를 강제한다(플랫폼 요구). 이<br/>모듈이 SSH 키만 받는 것은 그중 하나를 고른 선택이다. | `string` | n/a | yes |
 | <a name="input_admin_username"></a> [admin\_username](#input\_admin\_username) | 로컬 관리 계정 사용자명. admin\_ssh\_key.username(provider Required)과 VM 로컬 계정<br/>이름에 공용으로 쓰인다.<br/><br/>Entra ID SSH(entra\_ssh\_login\_enabled)로 로그인하는 사람은 이 로컬 계정과 완전히<br/>별개의 자기 신원으로 들어온다 — 이 값은 사실상 브레이크글래스 계정 이름표일 뿐이라<br/>고정값으로 충분하고, 조직 표준이 있으면 바꿀 수 있게 변수로만 열어 둔다. | `string` | `"azureuser"` | no |
 | <a name="input_aks_cluster_name"></a> [aks\_cluster\_name](#input\_aks\_cluster\_name) | kubeconfig를 생성할 AKS 클러스터 이름. null이면 kubeconfig를 만들지 않는다(az CLI<br/>설치 여부와도 무관하게 그 단계를 건너뛴다).<br/><br/>⚠️ aks\_resource\_group\_name과 함께 주거나 함께 비운다(아래 validation). | `string` | `null` | no |
-| <a name="input_aks_entra_rbac_enabled"></a> [aks\_entra\_rbac\_enabled](#input\_aks\_entra\_rbac\_enabled) | 대상 AKS 클러스터가 Entra RBAC(aks-cluster 모듈의 entra\_admin\_group\_object\_ids 옵트인)를<br/>쓰는지. true면 kubelogin convert-kubeconfig -l msi로 kubeconfig를 변환하는 단계가<br/>추가된다 — 로컬 계정 전용 클러스터에는 이 변환이 불필요하다.<br/><br/>true면 aks\_cluster\_name·aks\_resource\_group\_name·identity\_client\_id 셋 다 값이<br/>있어야 한다(kubelogin 변환 명령이 이 셋을 전부 요구한다, 아래 validation). | `bool` | `false` | no |
+| <a name="input_aks_entra_rbac_enabled"></a> [aks\_entra\_rbac\_enabled](#input\_aks\_entra\_rbac\_enabled) | 대상 AKS 클러스터가 Entra RBAC(aks-cluster 모듈의 entra\_admin\_group\_object\_ids 옵트인)를<br/>쓰는지. true면 kubelogin convert-kubeconfig -l msi로 kubeconfig를 변환하는 단계가<br/>추가된다 — 로컬 계정 전용 클러스터에는 이 변환이 불필요하다.<br/><br/>true면 aks\_cluster\_name·aks\_resource\_group\_name·identity\_client\_id·kubelogin\_version<br/>넷 다 값이 있어야 한다(kubelogin 변환 명령 자체가 앞의 셋을 요구하고, 그 명령을<br/>실행할 kubelogin 바이너리 설치에 버전 핀이 필요하다 — 아래 validation). | `bool` | `false` | no |
 | <a name="input_aks_node_viewer_version"></a> [aks\_node\_viewer\_version](#input\_aks\_node\_viewer\_version) | 설치할 aks-node-viewer 버전(예: "v0.0.2-alpha"). null이면 설치하지 않는다.<br/><br/>⚠️ Azure/aks-node-viewer는 eks-node-viewer의 공식 fork이지만 2024-11 이후 갱신이<br/>없는 alpha 단계다(리서치 확인) — 프로덕션 의존으로 삼지 말 것. 설치 실패도<br/>부팅을 막지 않는다(다른 도구 슬롯과 동일). | `string` | `null` | no |
 | <a name="input_aks_resource_group_name"></a> [aks\_resource\_group\_name](#input\_aks\_resource\_group\_name) | aks\_cluster\_name이 속한 리소스 그룹. null이면 kubeconfig를 만들지 않는다.<br/><br/>⚠️ aks\_cluster\_name과 함께 주거나 함께 비운다. | `string` | `null` | no |
 | <a name="input_argocd_version"></a> [argocd\_version](#input\_argocd\_version) | 설치할 argocd CLI 버전(예: "v3.5.0"). null이면 설치하지 않는다. | `string` | `null` | no |
@@ -284,6 +293,7 @@ No modules.
 | <a name="input_krew_plugins"></a> [krew\_plugins](#input\_krew\_plugins) | krew로 설치할 플러그인 목록. krew\_version이 null이면 무시된다.<br/>닫힌 열거가 아니다 — 고객사가 다른 세트를 원하면 이 변수로 바꾼다. | `list(string)` | <pre>[<br/>  "ctx",<br/>  "ns",<br/>  "neat",<br/>  "rbac-tool",<br/>  "view-secret",<br/>  "whoami"<br/>]</pre> | no |
 | <a name="input_krew_version"></a> [krew\_version](#input\_krew\_version) | 설치할 krew(kubectl 플러그인 관리자) 버전(예: "v0.5.0"). null이면 설치하지 않는다.<br/>kubectl\_version이 null이면 이 값도 무시된다. | `string` | `null` | no |
 | <a name="input_kubectl_version"></a> [kubectl\_version](#input\_kubectl\_version) | 설치할 kubectl 버전(예: "v1.35.7"). null이면 설치하지 않는다. | `string` | `null` | no |
+| <a name="input_kubelogin_version"></a> [kubelogin\_version](#input\_kubelogin\_version) | 설치할 kubelogin(Azure/kubelogin) 버전(예: "v0.2.19", "v" 접두사 포함). null이면<br/>설치하지 않는다 — aks\_entra\_rbac\_enabled = true일 때는 필수(위 validation).<br/><br/>kubectl\_version 등과 달리 기본값을 null로만 두지 않고 aks\_entra\_rbac\_enabled와<br/>교차 검증하는 이유: 이 값이 없으면 kubelogin 바이너리 자체가 없어<br/>`kubelogin convert-kubeconfig -l msi`가 "command not found"로 실패하는데, 스크립트에<br/>set -e가 없어 그 실패가 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로<br/>배포되는 문제가 있었다(2026-09-04 aks-reference-infra 실배포 code-review로 발견). | `string` | `null` | no |
 | <a name="input_location"></a> [location](#input\_location) | 리소스를 배치할 Azure 리전. | `string` | n/a | yes |
 | <a name="input_naming"></a> [naming](#input\_naming) | name 인자 합성용 네이밍 요소. 모듈이 리소스 타입별 약어를 조합하므로<br/>소비자는 약어를 직접 타이핑하지 않는다.<br/>예: {workload = "demo", env = "prd", region\_code = "krc"} → vm-demo-prd-krc-workbench-01 | <pre>object({<br/>    workload    = string<br/>    env         = string<br/>    region_code = string<br/>  })</pre> | n/a | yes |
 | <a name="input_os_disk_caching"></a> [os\_disk\_caching](#input\_os\_disk\_caching) | OS 디스크 캐싱 모드. | `string` | `"ReadWrite"` | no |

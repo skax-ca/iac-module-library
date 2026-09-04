@@ -33,29 +33,58 @@ az version
 az login --identity --resource-id "${identity_id}"
 
 %{ if aks_cluster_name != null }
-az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing
+KUBECONFIG_OK=1
+az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing || KUBECONFIG_OK=0
+
 %{ if aks_entra_rbac_enabled }
-kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}"
+# kubelogin은 apt 패키지가 아니라 GitHub 릴리스 zip이다(Azure/kubelogin) — az CLI
+# 확장이나 apt 저장소로 받을 수 없다. 이 설치 단계가 전에는 아예 없어서
+# `kubelogin convert-kubeconfig`가 "command not found"로 실패했는데, 스크립트에
+# set -e가 없어 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로 배포되던 버그였다
+# (2026-09-04 aks-reference-infra 실배포 code-review로 발견 — 아래 KUBECONFIG_OK
+# 가드가 그 "조용한 전파"를 막는다).
+KUBELOGIN_ARCH="$(dpkg --print-architecture)"
+if curl -sSLo /tmp/kubelogin.zip "https://github.com/Azure/kubelogin/releases/download/${kubelogin_version}/kubelogin-linux-$${KUBELOGIN_ARCH}.zip"; then
+  unzip -oq /tmp/kubelogin.zip -d /tmp/kubelogin
+  install -m 0755 "/tmp/kubelogin/bin/linux_$${KUBELOGIN_ARCH}/kubelogin" /usr/local/bin/kubelogin
+  rm -rf /tmp/kubelogin.zip /tmp/kubelogin
+  kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}" || KUBECONFIG_OK=0
+else
+  KUBECONFIG_OK=0
+fi
 %{ endif }
 
-# custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
-# 이 VM에 실제로 로그인하는 사람은 root가 아니다(로컬 admin_username, 또는 Entra SSH로
-# 로그인 시점에 동적으로 만들어지는 계정 — 후자는 부팅 시점엔 존재조차 하지 않아 그
-# 계정 홈 디렉토리로 미리 복사해 둘 수 없다). 시스템 전역 고정 경로에 복사하고
-# /etc/profile.d로 모든 로그인 셸에 KUBECONFIG를 자동 export해 두 경로 모두 sudo 없이
-# 바로 kubectl을 쓰게 한다(2026-09-04 aks-reference-infra 실배포에서 sudo 없이는
-# "connection refused localhost:8080"으로 실측 확인된 문제).
-#
-# ⚠️ 권한을 world-readable(0644)로 두는 이유: 이 VM에 로그인 가능하다는 것 자체가
-# 이미 Virtual Machine Administrator Login(sudo, README「전제 role assignment」절)을
-# 뜻한다 — sudo cat /root/.kube/config로 어차피 읽을 수 있는 파일을 root 전용으로
-# 잠가 봐야 실질적 방어선이 아니다. 진짜 경계는 NSG(ssh_ingress_cidrs)와 이 role
-# assignment이지 파일 권한이 아니다.
-install -m 0644 -D /root/.kube/config /etc/kubernetes/workbench-kubeconfig
-cat > /etc/profile.d/aks-workbench-kubeconfig.sh <<'PROFILE_EOF'
-export KUBECONFIG=/etc/kubernetes/workbench-kubeconfig
-PROFILE_EOF
-chmod 0644 /etc/profile.d/aks-workbench-kubeconfig.sh
+if [ "$KUBECONFIG_OK" = "1" ]; then
+  # custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
+  # 이 VM에 실제로 로그인하는 사람은 root가 아니다. AWS workbench 모듈이 이미 겪고 정립한
+  # 패턴을 그대로 따른다(modules/aws/workbench/user-data.sh.tftpl「kubeconfig」절) —
+  # 정본을 만든 뒤 (1) 이미 존재하는 홈(root·admin_username)에는 직접 사용자별 사본을
+  # 두고 (2) 아직 존재하지 않는 홈(Entra SSH는 로그인 시점에야 계정이 동적으로 생긴다)은
+  # /etc/skel로 미리 넘겨 둔다. 사용자마다 자기 사본을 갖는 게 요점이다 —
+  # `kubectl config set-context`가 남의 세션에 영향을 주지 않는다.
+  #
+  # ⛔ /etc/profile.d에 전역 KUBECONFIG 환경변수를 두지 않는다. KUBECONFIG는
+  # $HOME/.kube/config보다 우선순위가 높아 있으면 위 사본들을 죽은 경로로 만들고
+  # "모두가 같은 정본을 가리키는" 전역 오염을 재현한다 — AWS 모듈이 이미 겪고 명시적으로
+  # 금지해 둔 실수를 그대로 반복할 뻔했다(2026-09-04 code-review로 발견·정정).
+  KUBECONFIG_PATH=/etc/kubernetes/workbench-kubeconfig
+  install -d -m 0755 "$(dirname "$KUBECONFIG_PATH")"
+  install -m 0444 /root/.kube/config "$KUBECONFIG_PATH"
+
+  install -d -m 0700 /etc/skel/.kube
+  install -m 0600 "$KUBECONFIG_PATH" /etc/skel/.kube/config
+
+  for _home_user in root "${admin_username}"; do
+    _home="$(getent passwd "$_home_user" | cut -d: -f6)"
+    if [ -n "$_home" ] && [ -d "$_home" ]; then
+      install -d -m 0700 "$_home/.kube"
+      install -m 0600 "$KUBECONFIG_PATH" "$_home/.kube/config"
+      chown -R "$_home_user":"$(id -gn "$_home_user")" "$_home/.kube"
+    fi
+  done
+else
+  echo "aks-workbench: kubeconfig 부트스트랩 실패 — /var/log/cloud-init-output.log에서 az aks get-credentials/kubelogin 실패 원인 확인 필요" >&2
+fi
 %{ endif }
 %{ endif }
 

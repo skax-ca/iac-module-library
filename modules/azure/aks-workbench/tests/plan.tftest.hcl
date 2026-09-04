@@ -210,7 +210,8 @@ run "reject_aks_cluster_name_without_resource_group" {
   expect_failures = [var.aks_resource_group_name]
 }
 
-# ── aks_entra_rbac_enabled = true는 셋(cluster_name·resource_group·client_id) 전부를 요구한다 ──
+# ── aks_entra_rbac_enabled = true는 넷(cluster_name·resource_group·client_id·
+#    kubelogin_version) 전부를 요구한다 ──
 run "reject_entra_rbac_without_full_triplet" {
   command = plan
 
@@ -219,7 +220,24 @@ run "reject_entra_rbac_without_full_triplet" {
     aks_cluster_name        = "aks-demo-prd-krc-main-01"
     aks_resource_group_name = "rg-demo-prd-krc-main"
     az_cli_version          = "2.72.0-1~noble"
-    # identity_client_id를 비워서 위반시킨다.
+    # identity_client_id·kubelogin_version을 비워서 위반시킨다.
+  }
+
+  expect_failures = [var.aks_entra_rbac_enabled]
+}
+
+# kubelogin_version만 빠졌을 때도 같은 validation이 잡아야 한다(2026-09-04 code-review
+# 발견 — kubelogin 바이너리가 설치조차 안 돼 변환이 조용히 실패하던 문제의 재발 방지).
+run "reject_entra_rbac_without_kubelogin_version" {
+  command = plan
+
+  variables {
+    aks_entra_rbac_enabled  = true
+    aks_cluster_name        = "aks-demo-prd-krc-main-01"
+    aks_resource_group_name = "rg-demo-prd-krc-main"
+    identity_client_id      = "00000000-0000-0000-0000-000000000001"
+    az_cli_version          = "2.72.0-1~noble"
+    # kubelogin_version을 비워서 위반시킨다.
   }
 
   expect_failures = [var.aks_entra_rbac_enabled]
@@ -234,11 +252,12 @@ run "entra_rbac_enabled_with_full_triplet_ok" {
     aks_resource_group_name = "rg-demo-prd-krc-main"
     identity_client_id      = "00000000-0000-0000-0000-000000000001"
     az_cli_version          = "2.72.0-1~noble"
+    kubelogin_version       = "v0.2.19"
   }
 
   assert {
     condition     = length(azurerm_linux_virtual_machine.this) == 1
-    error_message = "aks_entra_rbac_enabled 셋이 전부 채워졌는데 plan이 통과하지 않았다."
+    error_message = "aks_entra_rbac_enabled 넷이 전부 채워졌는데 plan이 통과하지 않았다."
   }
 }
 

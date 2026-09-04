@@ -152,9 +152,11 @@ resource "azurerm_linux_virtual_machine" "this" {
     identity_id             = var.identity_id
     identity_client_id      = var.identity_client_id
     az_cli_version          = var.az_cli_version
+    admin_username          = var.admin_username
     aks_cluster_name        = var.aks_cluster_name
     aks_resource_group_name = var.aks_resource_group_name
     aks_entra_rbac_enabled  = var.aks_entra_rbac_enabled
+    kubelogin_version       = var.kubelogin_version
     kubectl_version         = var.kubectl_version
     helm_version            = var.helm_version
     argocd_version          = var.argocd_version

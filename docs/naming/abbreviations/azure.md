@@ -24,7 +24,7 @@
 | purpose | 자원의 상세 용도 | `main`, `app`, `web` |
 | serial/suffix | 일련번호 또는 식별 접미사 | `01`, `20260415`, `policy` |
 
-- 총 **13개** 약어, 5개 카테고리.
+- 총 **15개** 약어, 6개 카테고리.
 - 약어는 **소문자**, 리소스 타입 고유. 신규 약어 추가는 거버넌스 리뷰를 거친다.
 
 ### 신규 약어 등재 규칙 (거버넌스 리뷰 체크리스트)
@@ -67,8 +67,10 @@
 | 2026-08-28 | `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | `aks-cluster` 모듈은 컨트롤 플레인 신원을 만들지 않고 입력으로만 받기로 확정(축3, 모듈이 identity·role assignment를 만들면 소비 repo의 CI 신원 권한 경계가 무너진다). 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. 등재 근거는 `rg`·`st`·`entapp`과 같은 선례(소비 repo가 이름 지어 만들 리소스) |
 | 2026-08-28 | `vwan` | Virtual WAN (`azurerm_virtual_wan`, `Microsoft.Network/virtualWans`) | 소비 repo `aks-reference-infra`가 hub-spoke 네트워킹의 TGW 대응으로 vWAN을 설계 중(`live/hub/vwan`, raw 리소스 소비. 이 저장소는 vwan 모듈을 만들지 않는다). CAF 표에 정확히 `vwan`으로 등재돼 있어 그대로 채택 |
 | 2026-08-28 | `vhub` | Virtual WAN Hub (`azurerm_virtual_hub`, `Microsoft.Network/virtualHubs`) | 위와 같은 세션, 같은 소비 repo가 필요. CAF 표에 정확히 `vhub`로 등재돼 있어 그대로 채택. ⚠️ hub에 붙는 연결(`azurerm_virtual_hub_connection`)과 정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 별도 약어를 등재하지 않는다(위 "종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다" 규약, CAF 표에도 이 둘의 독립 항목이 없어 정합) |
+| 2026-09-04 | `nic` | 네트워크 인터페이스 (`azurerm_network_interface`, `Microsoft.Network/networkInterfaces`) | 세 번째 Azure 모듈 `aks-workbench` 설계 확정(`docs/decisions.md`「Azure 워크벤치 (aks-workbench)」ADR). CAF 표에 정확히 `nic`으로 등재돼 있어 그대로 채택 |
+| 2026-09-04 | `vm` | Linux 가상 머신 (`azurerm_linux_virtual_machine`, `Microsoft.Compute/virtualMachines`) | 위와 같은 세션. CAF 표에 정확히 `vm`으로 등재돼 있어 그대로 채택. ⚠️ 기존 5개 카테고리(Network·Management/governance·Storage·Identity·Containers) 어디에도 Compute 리소스가 없어 **신규 카테고리(A.6 Compute)**를 신설한다 |
 
-## A.1 Network (8)
+## A.1 Network (9)
 
 | L0 | L2 리소스 | 약어 | Name 예시 |
 |----|-----------|------|-----------|
@@ -80,10 +82,18 @@
 | Outbound | 공용 IP (`azurerm_public_ip`) | `pip` | pip-demo-prd-krc-main |
 | Virtual WAN | Virtual WAN (`azurerm_virtual_wan`) | `vwan` | vwan-demo-prd-krc-main |
 | Virtual WAN | Virtual WAN Hub (`azurerm_virtual_hub`) | `vhub` | vhub-demo-prd-krc-main |
+| Network Interface | 네트워크 인터페이스 (`azurerm_network_interface`) | `nic` | nic-demo-prd-krc-workbench-01 |
 
-⚠️ `pip`·`ng`·`vnet`·`vwan`·`vhub`는 `purpose` 토큰(예: `main`)을 쓴다. `snet`·`nsg`·`rt`는
+⚠️ `pip`·`ng`·`vnet`·`vwan`·`vhub`·`nic`은 `purpose` 토큰(예: `main`)을 쓴다. `snet`·`rt`는
 서브넷 그룹 키를 `purpose` 자리에 쓴다(예: `app`). `snet`은 AWS 카탈로그에도 있으나, 약어
 고유성은 파일 안에서만 판정하므로 클라우드 간 재사용은 허용된다.
+
+⚠️ **`nsg`의 `purpose` 의미론은 두 갈래다(2026-09-04 확장)**: 서브넷 레벨 NSG(`vnet`
+모듈이 `subnet_groups`로 만드는 것)는 위 규칙대로 서브넷 그룹 키를 쓴다(예: `app`). NIC
+레벨 NSG(예: `aks-workbench`처럼 VM 하나에 직접 붙는 것)는 애초에 서브넷 그룹 키가 없다.
+이 경우 `nsg`는 **그 모듈 자신의 purpose 토큰**을 그대로 쓴다(다른 리소스와 동일 규칙으로
+되돌아간다). 두 형태 모두 같은 약어 `nsg`를 공유하며, 어느 쪽인지는 그 NSG가 스코프된
+대상(서브넷 vs NIC)으로 판별한다(별도 약어를 새로 만들지 않는다).
 
 ## A.2 Management and governance (1)
 
@@ -131,16 +141,23 @@ assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/d
 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약(형태·
 길이 예산)은 `docs/conventions.md`의 「Azure 강제 방식」이 소유한다.
 
+## A.6 Compute (1)
+
+| L0 | L2 리소스 | 약어 | Name 예시 |
+|----|-----------|------|-----------|
+| Virtual Machines | Linux 가상 머신 (`azurerm_linux_virtual_machine`) | `vm` | vm-demo-prd-krc-workbench-01 |
+
 ## 카운트 요약
 
 | # | 카테고리 | 개수 |
 |---|---|---|
-| A.1 | Network | 8 |
+| A.1 | Network | 9 |
 | A.2 | Management and governance | 1 |
 | A.3 | Storage | 1 |
 | A.4 | Identity | 2 |
 | A.5 | Containers | 1 |
-| | **합계** | **13** |
+| A.6 | Compute | 1 |
+| | **합계** | **15** |
 
 > ⚠️ **총계는 세 곳에 있다**: 상단 서술, 섹션 헤더 "(NN)", 이 표. 셋이 어긋나면 SSOT를
 > 신뢰할 수 없으므로, **약어를 추가·삭제할 때는 ① 섹션 헤더 ② 상단 총계 ③ 이 표를 함께 고친다.**

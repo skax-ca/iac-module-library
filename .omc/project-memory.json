@@ -251,21 +251,21 @@
   },
   "hotPaths": [
     {
+      "path": "docs/decisions.md",
+      "accessCount": 34,
+      "lastAccessed": 1788482823711,
+      "type": "file"
+    },
+    {
       "path": "presentations/ai-iac-asset-library.md",
       "accessCount": 32,
       "lastAccessed": 1788155232478,
       "type": "file"
     },
     {
-      "path": "docs/decisions.md",
-      "accessCount": 22,
-      "lastAccessed": 1788418215011,
-      "type": "file"
-    },
-    {
       "path": "docs/module-catalog.md",
-      "accessCount": 19,
-      "lastAccessed": 1788409246043,
+      "accessCount": 23,
+      "lastAccessed": 1788482725374,
       "type": "file"
     },
     {
@@ -276,8 +276,14 @@
     },
     {
       "path": "modules/azure/aks-cluster/README.md",
+      "accessCount": 13,
+      "lastAccessed": 1788481869834,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-cluster/main.tf",
       "accessCount": 12,
-      "lastAccessed": 1788410780859,
+      "lastAccessed": 1788481861899,
       "type": "file"
     },
     {
@@ -287,15 +293,21 @@
       "type": "file"
     },
     {
-      "path": "modules/azure/aks-cluster/main.tf",
-      "accessCount": 11,
-      "lastAccessed": 1788436760788,
+      "path": "modules/azure/aks-cluster/tests/plan.tftest.hcl",
+      "accessCount": 10,
+      "lastAccessed": 1788481861975,
       "type": "file"
     },
     {
-      "path": "modules/azure/aks-cluster/tests/plan.tftest.hcl",
+      "path": "modules/aws/workbench/variables.tf",
       "accessCount": 9,
-      "lastAccessed": 1788435424682,
+      "lastAccessed": 1788481854631,
+      "type": "file"
+    },
+    {
+      "path": "docs/naming/abbreviations/azure.md",
+      "accessCount": 9,
+      "lastAccessed": 1788482731215,
       "type": "file"
     },
     {
@@ -308,12 +320,6 @@
       "path": "modules/aws/workbench/main.tf",
       "accessCount": 8,
       "lastAccessed": 1788436756225,
-      "type": "file"
-    },
-    {
-      "path": "modules/aws/workbench/variables.tf",
-      "accessCount": 8,
-      "lastAccessed": 1788436756321,
       "type": "file"
     },
     {
@@ -347,9 +353,9 @@
       "type": "file"
     },
     {
-      "path": "docs/naming/abbreviations/azure.md",
-      "accessCount": 3,
-      "lastAccessed": 1788418815975,
+      "path": "modules/azure/aks-workbench/tests/plan.tftest.hcl",
+      "accessCount": 4,
+      "lastAccessed": 1788482591781,
       "type": "file"
     },
     {
@@ -360,8 +366,8 @@
     },
     {
       "path": "docs/conventions.md",
-      "accessCount": 2,
-      "lastAccessed": 1788086193329,
+      "accessCount": 3,
+      "lastAccessed": 1788481847024,
       "type": "file"
     },
     {
@@ -386,6 +392,18 @@
       "path": "modules/azure/vnet/main.tf",
       "accessCount": 2,
       "lastAccessed": 1788436760857,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/outputs.tf",
+      "accessCount": 2,
+      "lastAccessed": 1788482128643,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/variables.tf",
+      "accessCount": 2,
+      "lastAccessed": 1788482244939,
       "type": "file"
     },
     {
@@ -446,6 +464,72 @@
       "path": "modules/aws/workbench/user-data.sh.tftpl",
       "accessCount": 1,
       "lastAccessed": 1788410780555,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-cluster/outputs.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788481853405,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-cluster/versions.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788481853441,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/versions.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788481994207,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/main.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482114614,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/templates/cloud-init.sh.tftpl",
+      "accessCount": 1,
+      "lastAccessed": 1788482184521,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/examples/basic/versions.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482286291,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/examples/basic/providers.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482287877,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/examples/basic/variables.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482291170,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/examples/basic/outputs.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482291989,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/examples/basic/main.tf",
+      "accessCount": 1,
+      "lastAccessed": 1788482305634,
+      "type": "file"
+    },
+    {
+      "path": "modules/azure/aks-workbench/README.md",
+      "accessCount": 1,
+      "lastAccessed": 1788482369352,
       "type": "file"
     }
   ],

@@ -168,10 +168,20 @@ variable "admin_username" {
     Entra ID SSH(entra_ssh_login_enabled)로 로그인하는 사람은 이 로컬 계정과 완전히
     별개의 자기 신원으로 들어온다 — 이 값은 사실상 브레이크글래스 계정 이름표일 뿐이라
     고정값으로 충분하고, 조직 표준이 있으면 바꿀 수 있게 변수로만 열어 둔다.
+
+    ⚠️ cloud-init.sh.tftpl이 이 값을 이스케이프 없이 셸 명령에 그대로 보간한다
+    (kubeconfig 사용자별 사본을 만드는 getent/install 호출) — 아래 validation이
+    Linux 계정명 관례(영숫자·밑줄·하이픈, 문자/밑줄로 시작)만 허용해 셸 메타문자
+    주입을 plan 단계에서 막는다(2026-09-04 code-review 발견).
   EOT
   type        = string
   default     = "azureuser"
   nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z_][a-z0-9_-]{0,31}$", var.admin_username))
+    error_message = "admin_username은 Linux 계정명 관례를 따라야 한다: 소문자/밑줄로 시작, 이후 소문자·숫자·밑줄·하이픈만, 최대 32자. 이 값이 cloud-init 스크립트의 셸 명령에 이스케이프 없이 보간되므로 다른 문자(따옴표·백틱·공백 등)는 스크립트 구문을 깨뜨리거나 명령 주입으로 이어질 수 있다."
+  }
 }
 
 variable "entra_ssh_login_enabled" {

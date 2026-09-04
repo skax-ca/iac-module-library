@@ -56,32 +56,33 @@ fi
 
 if [ "$KUBECONFIG_OK" = "1" ]; then
   # custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
-  # 이 VM에 실제로 로그인하는 사람은 root가 아니다. AWS workbench 모듈이 이미 겪고 정립한
-  # 패턴을 그대로 따른다(modules/aws/workbench/user-data.sh.tftpl「kubeconfig」절) —
-  # 정본을 만든 뒤 (1) 이미 존재하는 홈(root·admin_username)에는 직접 사용자별 사본을
-  # 두고 (2) 아직 존재하지 않는 홈(Entra SSH는 로그인 시점에야 계정이 동적으로 생긴다)은
-  # /etc/skel로 미리 넘겨 둔다. 사용자마다 자기 사본을 갖는 게 요점이다 —
-  # `kubectl config set-context`가 남의 세션에 영향을 주지 않는다.
+  # 이 VM에 실제로 로그인하는 사람은 root가 아니다.
   #
-  # ⛔ /etc/profile.d에 전역 KUBECONFIG 환경변수를 두지 않는다. KUBECONFIG는
-  # $HOME/.kube/config보다 우선순위가 높아 있으면 위 사본들을 죽은 경로로 만들고
-  # "모두가 같은 정본을 가리키는" 전역 오염을 재현한다 — AWS 모듈이 이미 겪고 명시적으로
-  # 금지해 둔 실수를 그대로 반복할 뻔했다(2026-09-04 code-review로 발견·정정).
-  KUBECONFIG_PATH=/etc/kubernetes/workbench-kubeconfig
-  install -d -m 0755 "$(dirname "$KUBECONFIG_PATH")"
-  install -m 0444 /root/.kube/config "$KUBECONFIG_PATH"
-
-  install -d -m 0700 /etc/skel/.kube
-  install -m 0600 "$KUBECONFIG_PATH" /etc/skel/.kube/config
-
-  for _home_user in root "${admin_username}"; do
-    _home="$(getent passwd "$_home_user" | cut -d: -f6)"
-    if [ -n "$_home" ] && [ -d "$_home" ]; then
-      install -d -m 0700 "$_home/.kube"
-      install -m 0600 "$KUBECONFIG_PATH" "$_home/.kube/config"
-      chown -R "$_home_user":"$(id -gn "$_home_user")" "$_home/.kube"
-    fi
-  done
+  # ⛔ AWS workbench 모듈의 /etc/skel 배포 패턴(modules/aws/workbench/user-data.sh.tftpl)을
+  # 그대로 이식하지 않는다 — 이전 커밋에서 그렇게 했다가 code-review로 잡힌 보안 회귀다.
+  # AWS는 SSM 접근이 IAM 정책 하나로만 통제돼(2단계 OS 로그인 역할 구분이 없다) skel로
+  # "누구든 로그인하면 사본을 받는다"가 안전하지만, 이 모듈의 README「전제 role
+  # assignment」표는 Azure에 Virtual Machine Administrator Login(sudo)·Virtual Machine
+  # User Login(비-sudo) 두 단계를 명시해 뒀다. skel은 Entra SSH로 "로그인 시점에야
+  # 동적으로 생기는 계정"에 무조건 적용되므로, User Login만 받은 사람도 sudo 없이
+  # 이 VM의 공유 identity_id 권한(kubeconfig)을 자동으로 물려받게 된다 — 그 두 역할을
+  # 가르는 경계 자체가 무너진다.
+  #
+  # 그래서 사본은 root와 admin_username(부팅 시점에 이미 존재가 보장되는 유일한 로컬
+  # 계정, 모듈 자신이 "브레이크글래스" 용도로 규정한 값)에만 직접 넣는다. Entra SSH로
+  # 로그인하는 사람(Administrator Login이든 User Login이든)에게는 아무것도 자동으로
+  # 안 준다 — Administrator Login을 가진 사람은 이미 sudo가 있어
+  # `sudo cp /root/.kube/config ~/.kube/config`로 스스로 가져갈 수 있고, User Login만
+  # 가진 사람은 애초에 이 모듈이 AKS 접근권을 주기로 한 대상이 아니다(README 참조).
+  # root 자신은 이미 /root/.kube/config를 갖고 있다(위 az aks get-credentials가 만든
+  # 정본) — 대상은 admin_username 하나뿐이라 루프 없이 직접 처리한다.
+  # admin_username은 variables.tf의 validation으로 영숫자·밑줄·하이픈만 허용해 뒀다
+  # (Linux 계정명 관례와 동일 — 셸 메타문자가 이 스크립트에 그대로 보간되므로 필수).
+  _admin_home="$(getent passwd "${admin_username}" | cut -d: -f6)"
+  if [ -n "$_admin_home" ] && [ -d "$_admin_home" ]; then
+    install -d -m 0700 -o "${admin_username}" -g "$(id -gn "${admin_username}")" "$_admin_home/.kube"
+    install -m 0600 -o "${admin_username}" -g "$(id -gn "${admin_username}")" /root/.kube/config "$_admin_home/.kube/config"
+  fi
 else
   echo "aks-workbench: kubeconfig 부트스트랩 실패 — /var/log/cloud-init-output.log에서 az aks get-credentials/kubelogin 실패 원인 확인 필요" >&2
 fi

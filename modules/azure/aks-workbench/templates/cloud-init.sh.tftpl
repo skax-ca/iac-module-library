@@ -108,14 +108,20 @@ chmod 0755 /usr/local/bin/argocd
 %{ endif }
 
 %{ if kubectl_version != null && krew_version != null }
+# 2026-09-07 실측 발견: krew 바이너리의 install 서브커맨드는 --krew-root 플래그를
+# 지원하지 않는다("unknown flag: --krew-root", 첫 실사용 실배포에서 실측 —
+# 이전까지 이 root가 krew_version을 넘긴 적이 없어 이 코드 경로 자체가 한 번도
+# 실행된 적 없었다). 공식 설치 문서(krew.sigs.k8s.io/docs/user-guide/setup/install)의
+# 명령도 `./krew-<os>_<arch> install krew`뿐 — KREW_ROOT 환경변수(아래 export)만으로
+# 설치 위치가 정해진다. kubectl-krew(플러그인 설치)도 마찬가지로 환경변수만 본다.
 export KREW_ROOT=/usr/local/krew
 KREW_ARCH="$(dpkg --print-architecture)"
 KREW_TARBALL="krew-linux_$${KREW_ARCH}.tar.gz"
 curl -sL "https://github.com/kubernetes-sigs/krew/releases/download/${krew_version}/$${KREW_TARBALL}" -o "/tmp/$${KREW_TARBALL}"
 tar -xzf "/tmp/$${KREW_TARBALL}" -C /tmp
-"/tmp/krew-linux_$${KREW_ARCH}" install --krew-root=/usr/local/krew krew
+"/tmp/krew-linux_$${KREW_ARCH}" install krew
 %{ for plugin in krew_plugins }
-/usr/local/krew/bin/kubectl-krew install --krew-root=/usr/local/krew "${plugin}" || true
+/usr/local/krew/bin/kubectl-krew install "${plugin}" || true
 %{ endfor }
 %{ endif }
 

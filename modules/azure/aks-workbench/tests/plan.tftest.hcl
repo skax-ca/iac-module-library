@@ -378,6 +378,33 @@ run "login_profile_skips_k_alias_without_kubectl" {
   }
 }
 
+# 2026-09-07 실측 회귀 방지 — krew 바이너리는 --krew-root 플래그를 지원하지 않는다
+# ("unknown flag: --krew-root", 첫 실사용 실배포에서 발견). KREW_ROOT 환경변수만으로
+# 충분하다(krew.sigs.k8s.io/docs/user-guide/setup/install 공식 명령도 플래그 없이
+# `install krew`뿐). mock_provider라 실제 부팅은 못 재현하지만, 이 문자열이 다시
+# 들어오면 렌더 단계에서라도 잡는다.
+run "krew_install_has_no_invalid_flag" {
+  command = plan
+
+  variables {
+    kubectl_version = "v1.35.7"
+    krew_version    = "v0.5.0"
+  }
+
+  assert {
+    # ⚠️ 바로 위 코드 블록의 설명 주석 자체가 "--krew-root" 문자열을 언급하므로(의도된
+    # 문서화), 그 부분 문자열만 보면 항상 실패한다 — 실제 잘못된 호출 형태(등호 포함,
+    # `--krew-root=`)만 좁혀서 검사한다.
+    condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "--krew-root=")
+    error_message = "krew install 명령에 --krew-root= 플래그가 다시 들어갔다 — krew는 이 플래그를 지원하지 않는다(unknown flag, 2026-09-07 실측). KREW_ROOT 환경변수만 쓴다."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "install krew")
+    error_message = "krew_version을 지정했는데 krew 자체 설치 명령이 렌더되지 않았다."
+  }
+}
+
 # krew는 kubectl 없이는 의미가 없다 — 이 모듈(main.tf)이 그 결합을 접는다(AWS 원본
 # krew_requires_kubectl과 동일 근거). 이 케이스가 없으면 "kubectl 없이 krew PATH만
 # 잡힌" 형상이 조용히 만들어진다.

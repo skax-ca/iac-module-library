@@ -44,6 +44,15 @@ module "vpc" {
 `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l`로 확인한다.
 태그는 **컴포넌트별 semver**: `vpc-vX.Y.Z` · `eks-cluster-vX.Y.Z`.
 
+⚠️ **`.omc/`(notepad.md·notepad-manual.md·project-memory.json)는 이 저장소의 지식 SSOT에
+들어오지 않는다.** 지금은 크로스머신(집↔회사 Mac) 핸드오프용으로 git에 커밋되지만, 팀원과
+공유하는 시점에는 `.omc/` 전체를 gitignore로 제외할 계획이다. 즉 `.omc/`는 Claude의 세션 간
+자기 기억(하네스 북마크)일 뿐, 위 표가 가리키는 지식 SSOT가 아니다. 팀원이 OMC 없이도 알아야
+할 설계·규약·gotcha는 반드시 `docs/decisions.md`·`docs/conventions.md`·`docs/module-catalog.md`·
+`docs/naming/abbreviations/`나 이 파일에도 반영한다(`.omc/notepad.md`의 Working/MANUAL 섹션이나
+`project-memory.json`의 `customNotes`에만 적어두고 끝내지 않는다). `.omc/`를 gitignore하기 전에,
+이미 그 안에 들어간 항목 중 팀 지식에 해당하는 것을 위 문서로 승격하는 감사가 필요하다(미착수).
+
 ## 버전 정책: 전 모듈 `0.y.z`
 
 번호 체계의 SSOT는 **`docs/conventions.md`**이고, 기각한 안은 **`docs/decisions.md`**가 갖는다.

@@ -283,7 +283,7 @@ assertion을 추가해 회귀를 방지한다.
 > Command는 브레이크글래스다. 신원은 dual identity, `identity_client_id`는 교차
 > validation으로 조건부 필수다. identity·role·서브넷·리소스 그룹은 안 만든다. AWS
 > SSM 같은 서비스가 Azure에 없다는 격차를 RALPLAN-DR 5회 반복 끝에 감추지 않고
-> 드러내는 쪽으로 골랐다. 설계 이력은 `.omc/plans/2026-09-03-azure-aks-workbench-design.md` 참조.
+> 드러내는 쪽으로 골랐다.
 
 ---
 

@@ -44,13 +44,6 @@ module "vpc" {
 `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l`로 확인한다.
 태그는 **컴포넌트별 semver**: `vpc-vX.Y.Z` · `eks-cluster-vX.Y.Z`.
 
-⚠️ **`.omc/`는 git 추적 대상이 아니다**(2026-09-07 전체 감사 후 gitignore 전환).
-Claude의 세션 간 자기 기억(notepad.md·project-memory.json·plans/ 등, 하네스 북마크)일 뿐,
-이 저장소의 지식 SSOT가 아니다. 팀원이 OMC 없이도 알아야 할 설계·규약·gotcha는 반드시
-`docs/decisions.md`·`docs/conventions.md`·`docs/module-catalog.md`·`docs/naming/abbreviations/`나
-이 파일에 반영한다(`.omc/`에만 적어두고 끝내지 않는다). 감사로 그때까지 쌓인 항목은 이미
-승격 또는 폐기 완료했다.
-
 ## 버전 정책: 전 모듈 `0.y.z`
 
 번호 체계의 SSOT는 **`docs/conventions.md`**이고, 기각한 안은 **`docs/decisions.md`**가 갖는다.

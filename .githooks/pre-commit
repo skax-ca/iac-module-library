@@ -16,8 +16,8 @@ fi
 
 # 문서 작성 규칙(docs/writing-style.md) — §N 인용·비표준 이모지·400줄 초과를 기계로 잡는다.
 # 적용 범위는 writing-style.md가 스스로 선언한 것과 같다: docs/*.md · 저장소 전역 README.md ·
-# 루트 CLAUDE.md, .omc/는 제외. staged된 파일만 검사한다(스크립트가 인자를 받으면 그것만 본다).
-docs_staged=$(printf '%s\n' "$changed" | grep -E '^docs/.*\.md$|(^|/)README\.md$|^CLAUDE\.md$' | grep -v '^\.omc/' || true)
+# 루트 CLAUDE.md. staged된 파일만 검사한다(스크립트가 인자를 받으면 그것만 본다).
+docs_staged=$(printf '%s\n' "$changed" | grep -E '^docs/.*\.md$|(^|/)README\.md$|^CLAUDE\.md$' || true)
 if [ -n "$docs_staged" ]; then
   echo "[pre-commit] 문서 변경 감지 — 작성 규칙 검사"
   # shellcheck disable=SC2086
@@ -29,7 +29,7 @@ fi
 # 최신이 v0.9.0인데 README는 v0.7.0을 가리키고 있었다) — 반복된 실제 사고라 "추측 대비"가
 # 아니라 현재 요구다. 검사 대상은 `ref=` 바로 뒤에 붙은 태그뿐이다(그 밖의 산문 속 과거 버전
 # 언급, 예: "vpc-v0.2.0이 고친 버그"는 의도적 역사 서술이라 오탐이 아니라 그냥 대상이 아니다).
-md_staged=$(printf '%s\n' "$changed" | grep -E '\.md$' | grep -v '^\.omc/' || true)
+md_staged=$(printf '%s\n' "$changed" | grep -E '\.md$' || true)
 if [ -n "$md_staged" ]; then
   stale_found=0
   while IFS= read -r f; do
@@ -49,37 +49,6 @@ if [ -n "$md_staged" ]; then
   if [ "$stale_found" -eq 1 ]; then
     echo "[pre-commit] stale 태그 참조 발견 — 의도적이면 git commit --no-verify로 우회(사유를 커밋 메시지에 명시)"
     exit 1
-  fi
-fi
-
-# notepad.md 비대화 방지 — Working Memory 섹션 내 동일 헤더 중복 시 커밋 차단.
-# 2026-08-30 사고: notepad_write_working이 기존 Working Memory 전체를 다시 써 넣는 방식으로
-# 동작해(근본 원인은 OMC 툴 쪽, 여기선 방어선만 침), 같은 헤더가 세션마다 한 겹씩 쌓여
-# 797KB까지 비대화됐다(8회 중복). 이 검사는 그 증상을 "두 번째 중복"에서 즉시 잡는다.
-# ⚠️ 2026-08-30(2차) 실측: 실제 세션 항목 헤더는 `### `(H3)인데 이 검사가 `## `(H2)만 봐서
-# 구조적으로 못 잡는 상태였다(H2는 "## Working Memory"/"## MANUAL" 섹션 경계뿐이라 정상 상태에선
-# 애초에 중복될 일이 없는 레벨을 보고 있었다). PR #38 squash-merge 직후 세션이 stale 캐시로
-# 106줄짜리 블록을 통째로 재삽입했는데도(2026-08-28, 커밋 8297c8ba) 이 검사가 존재하지조차
-# 않던 시점이라 안 잡혔고, 사후 발견(2026-08-30) 전까지 hook이 있었어도 레벨 버그 때문에
-# 못 잡았을 것이다. `#{2,3}`로 확장해 H2·H3 헤더 중복을 모두 검사한다.
-# ⚠️ 그 확장만으로도 사각지대가 남는다: 같은 내용이 헤더 레벨만 다르게(`## 2026-08-21 15:58`
-# vs `### 2026-08-21 15:58`) 중복되면 문자열 자체가 달라 `uniq -d`가 못 잡는다(같은 세션에서
-# 실측 발견·제거). `gsub`로 선행 `#+ `를 벗겨 헤더 텍스트만 비교하도록 정규화한다.
-notepad_staged=$(printf '%s\n' "$changed" | grep -E '^\.omc/notepad\.md$' || true)
-if [ -n "$notepad_staged" ]; then
-  echo "[pre-commit] notepad.md 변경 감지 — 중복 헤더·크기 검사"
-  dupes=$(awk '/^## Working Memory$/{w=1;next} /^## MANUAL/{w=0} w && /^#{2,3} /{gsub(/^#+ /,""); print}' .omc/notepad.md | sort | uniq -d)
-  if [ -n "$dupes" ]; then
-    echo "[pre-commit] ⚠️  Working Memory에 동일 헤더가 중복됐다:"
-    echo "$dupes" | sed 's/^/    /'
-    echo "    (2026-08-30 사고 재발 패턴 — 기존 내용이 다시 덧붙여졌을 가능성)"
-    echo "    중복 블록을 정리한 뒤 다시 커밋할 것. 의도적이면 --no-verify로 우회(사유를 커밋 메시지에 명시)."
-    exit 1
-  fi
-  size=$(wc -c < .omc/notepad.md)
-  limit=$((150 * 1024))
-  if [ "$size" -gt "$limit" ]; then
-    echo "[pre-commit] ⚠️  notepad.md가 $((size / 1024))KB — 150KB 상한 초과. 비대화 여부 확인 권장(커밋은 차단하지 않음)."
   fi
 fi
 

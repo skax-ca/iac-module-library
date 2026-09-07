@@ -44,14 +44,12 @@ module "vpc" {
 `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l`로 확인한다.
 태그는 **컴포넌트별 semver**: `vpc-vX.Y.Z` · `eks-cluster-vX.Y.Z`.
 
-⚠️ **`.omc/`(notepad.md·notepad-manual.md·project-memory.json)는 이 저장소의 지식 SSOT에
-들어오지 않는다.** 지금은 크로스머신(집↔회사 Mac) 핸드오프용으로 git에 커밋되지만, 팀원과
-공유하는 시점에는 `.omc/` 전체를 gitignore로 제외할 계획이다. 즉 `.omc/`는 Claude의 세션 간
-자기 기억(하네스 북마크)일 뿐, 위 표가 가리키는 지식 SSOT가 아니다. 팀원이 OMC 없이도 알아야
-할 설계·규약·gotcha는 반드시 `docs/decisions.md`·`docs/conventions.md`·`docs/module-catalog.md`·
-`docs/naming/abbreviations/`나 이 파일에도 반영한다(`.omc/notepad.md`의 Working/MANUAL 섹션이나
-`project-memory.json`의 `customNotes`에만 적어두고 끝내지 않는다). `.omc/`를 gitignore하기 전에,
-이미 그 안에 들어간 항목 중 팀 지식에 해당하는 것을 위 문서로 승격하는 감사가 필요하다(미착수).
+⚠️ **`.omc/`는 git 추적 대상이 아니다**(2026-09-07 전체 감사 후 gitignore 전환).
+Claude의 세션 간 자기 기억(notepad.md·project-memory.json·plans/ 등, 하네스 북마크)일 뿐,
+이 저장소의 지식 SSOT가 아니다. 팀원이 OMC 없이도 알아야 할 설계·규약·gotcha는 반드시
+`docs/decisions.md`·`docs/conventions.md`·`docs/module-catalog.md`·`docs/naming/abbreviations/`나
+이 파일에 반영한다(`.omc/`에만 적어두고 끝내지 않는다). 감사로 그때까지 쌓인 항목은 이미
+승격 또는 폐기 완료했다.
 
 ## 버전 정책: 전 모듈 `0.y.z`
 
@@ -83,13 +81,10 @@ module "vpc" {
 | 변경 대상 | 경로 |
 |-----------|------|
 | **`.tf` · `.github/workflows/`** | **브랜치 → PR** |
-| **문서 · `.omc/notepad.md` 전용** | **`main` 직접 커밋** |
+| **문서 전용** | **`main` 직접 커밋** |
 
 - 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. `verify.yml`은 **`push: branches: [main]`에도 돌므로**
   "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에 들어가기 전에 걸리느냐**뿐이다.
   문서에는 main을 깨뜨릴 산출물이 없다.
 - ⛔ **문서 전용 변경에 PR을 쓰지 않는다.** 이 repo는 사실상 1인 작업이라 리뷰는 self-merge = 형식이고,
   커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다. 형식만 남은 절차는 비용만 낸다.
-- ⚠️ **브랜치 작업 시 `.omc/notepad.md` 갱신을 같은 브랜치에 싣는다.** 누락되면 다음 세션이
-  이미 끝난 일을 다시 다음 태스크로 안내받는다. 브랜치가 늘 때마다 "무엇을 어디에 실을지"를
-  판단해야 하는 지점이라 놓치기 쉽다.

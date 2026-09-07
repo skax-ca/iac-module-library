@@ -1,9 +1,47 @@
 # Notepad — iac-module-library
 
 ## Priority Context
-SSOT=이 repo. 엔진=OpenTofu(decisions.md 필독). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure3 전 7모듈 릴리스 완료(vnet·aks-cluster v0.5.0·aks-workbench v0.2.0/PR#44). aks-workbench=SSH가 일상경로(명시적 Deny로 인바운드0)+Run Command 브레이크글래스, dual identity, role assignment 미생성(aks-cluster와 동일 경계). 다음 Azure 모듈 미정. 영구사실=project-memory.json. notepad/project-memory MCP 도구는 permissions.deny로 전면 제거(Read/Edit만 사용).
+SSOT=이 repo. 엔진=OpenTofu(decisions.md). 규약=conventions.md. 네이밍=docs/naming/abbreviations/. 모듈경로=modules/<provider>/<name>/. .tf규칙=.claude/rules/terraform.md. AWS4+Azure3 전 7모듈 릴리스 완료(vnet·aks-cluster v0.5.0·aks-workbench v0.2.0/PR#44). aks-workbench=SSH 일상경로+Run Command 브레이크글래스, dual identity, role assignment 미생성. 다음 Azure 모듈 미정. 영구사실=project-memory.json. notepad/project-memory 도구 deny 철회(2026-09-07)—Priority/project_memory는 도구, Working/MANUAL은 Edit.
 
 ## Working Memory
+### 2026-09-07 — eks-reference-infra 정합화: notepad/project-memory deny 철회 + 로컬 스킬 사본 제거
+
+사용자 요청으로 eks-reference-infra 최근 커밋(`3b60545`→`8eaff44`→`f4a62da`→`c333675`)을
+조사 — notepad/project-memory MCP 도구를 permissions.deny로 막았다가(3b60545), OMC 5.3.0
+소스 직접 확인 후 원인이 도구가 아니라 항상 실행되는 훅(SessionStart 24시간 재스캔,
+PostToolUse 20개 FIFO)이라는 걸 규명해 철회(8eaff44) → 철회 직후 `notepad_write_working`
+호출로 Working Memory 중복 삽입 버그가 실제로 재현돼 복구(f4a62da, `replaceSection` 정규식이
+`###` 하위헤딩을 못 벗어나는 결함) → session-start의 `section:"all"` 호출이 MANUAL까지 끌어와
+토큰 한도를 넘기던 근본원인 수정(c333675)까지 확인. 이 흐름의 최종 결론은 이미 전역
+`notepad-sync` 스킬(dotfiles-claude)에 반영돼 이 저장소도 쓰고 있었음(읽기: priority+working
+개별 호출, 쓰기: Priority만 도구·Working/MANUAL은 Edit).
+
+조사 중 eks-reference-infra가 그보다 더 나아가 `.omc/` 전체를 완전 제거하는 단계(`189d933`·
+`a5a2bfc`)까지 main에 이미 반영했고, 그 저장소 디렉토리가 `chore/remove-notepad-reference`
+브랜치로 다른 세션에 의해 동시 편집 중임을 발견 — 사용자에게 즉시 보고. 사용자는 "OMC 종속성
+완전 제거는 따로 얘기"하기로 하고, 이번엔 **하네스 관리방식만 eks-reference-infra의 중간
+단계(`c333675`, 완전 제거 이전)에 맞추는 것**으로 범위를 좁혔다.
+
+**적용(커밋 `18b06c0`)**: (1) `.claude/settings.json`의 `permissions.deny`를 `[]`로 비움 —
+비우자마자 `mcp__plugin_oh-my-claudecode_t__*` 도구가 즉시 사용 가능해짐을 실측 확인(재시작
+불필요). (2) 프로젝트 로컬 `.claude/skills/notepad-sync/SKILL.md` 삭제 — 전역화(2026-09-07)
+이후 이름 충돌 시 전역판이 우선 로드돼 실질적으로 죽은 코드였음. (3) `CLAUDE.md`에 `.omc/`
+콘텐츠 경계 절 신설(eks-reference-infra `8eaff44`의 동일 절을 이 저장소 문서 체계에 맞게
+이식) — `.omc/`는 하네스 북마크일 뿐 지식 SSOT가 아니며, 팀 지식은 `docs/*.md`로 승격해야
+함을 명시. (4) `project-memory.json`에 `mcp-tooling-fix` 카테고리로 이 결정 기록.
+
+**부수 발견**: `project_memory_add_note` 호출 시 `customNotes` 20개 FIFO 캡이 이번에 처음
+실제로 강제 적용돼 오래된 34개 중 15개가 잘림(직전 커밋 `HEAD`에 전부 남아있어 `git log -p`로
+복구 가능한 정상 동작, 손실 아님) — `techStack`·`conventions`·`structure`·`userDirectives`
+(8건)·`lastScanned`(sentinel 9999999999999 유지) 손상 없음을 각각 대조 확인.
+
+Priority Context도 갱신(454자) — 옛 문장("MCP 도구는 permissions.deny로 전면 제거")이 이번
+변경으로 사실과 달라져 반영.
+
+**다음 세션**: OMC 종속성 완전 제거(eks-reference-infra의 `189d933`·`a5a2bfc` 단계 — `.omc/`
+전체 삭제, gitignore 단순화, session-start/end를 순수 git/docs 기반으로 재작성) 여부는 사용자가
+별도로 논의하기로 함. 다음 Azure 모듈 착수 여부도 여전히 미정.
+
 ### 2026-09-04(2차) — aks-workbench v0.2.0: dpkg lock 경합 수정(PR #44)
 
 `aks-reference-infra`의 `live/hub/workbench` 첫 실배포에서 cloud-init의 azure-cli 설치 단계가

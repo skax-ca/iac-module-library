@@ -57,3 +57,8 @@ __pycache__/
 !/.omc/project-memory.json
 # 프로젝트 스코프 스킬 (OMC 규약상 커밋 대상)
 !/.omc/skills/
+# 설계 이력(ralplan 산출물). docs/decisions.md 등이 일부를 SSOT 참조로 인용하는데
+# 지금까지 git 미추적이라 이 머신에만 있는 단일 사본이었다(aks-reference-infra가
+# eb8c02d에서 겪은 것과 동일 위험, 2026-09-07 발견). 내용 승격(docs/로 이관, 미승격분
+# 압축)은 별도 감사 작업 — 이 줄은 그 전까지의 백업 확보만 목적이다.
+!/.omc/plans/

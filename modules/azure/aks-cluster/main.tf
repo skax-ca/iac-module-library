@@ -135,6 +135,16 @@ resource "azurerm_kubernetes_cluster" "this" {
     }
   }
 
+  # var.web_app_routing 변수 설명 참조 — 이 블록은 azurerm이 실제로 아는 하위 필드만
+  # 선언한다. Gateway API·Istio 모드는 이 모듈 밖에서 azapi_update_resource로 얹는다.
+  dynamic "web_app_routing" {
+    for_each = var.web_app_routing != null ? [var.web_app_routing] : []
+    content {
+      dns_zone_ids             = web_app_routing.value.dns_zone_ids
+      default_nginx_controller = web_app_routing.value.default_nginx_controller
+    }
+  }
+
   # OIDC issuer는 항상 켠다 — workload_identity_enabled와 무관하게 oidc_issuer_url을
   # 출력하기 위해서다(0.1.0의 원시 재료 원칙, 축6·축11이 참조하는 지점).
   oidc_issuer_enabled       = true

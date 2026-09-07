@@ -422,6 +422,67 @@ run "api_server_access_profile_set_when_ranges_given" {
   }
 }
 
+# ── App Routing(web_app_routing) — 옵트인, azurerm이 아는 하위 필드만 선언한다 ───
+run "web_app_routing_optin_default_off" {
+  command = plan
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].web_app_routing) == 0
+    error_message = "web_app_routing이 기본값(null)인데 web_app_routing 블록이 만들어졌다."
+  }
+}
+
+run "web_app_routing_enabled_with_values" {
+  command = plan
+
+  variables {
+    web_app_routing = {
+      dns_zone_ids             = []
+      default_nginx_controller = "None"
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_kubernetes_cluster.this[0].web_app_routing) == 1,
+      # ⚠️ 빈 리스트끼리의 == 비교는 tolist([])/toset([]) 어느 쪽으로 캐스팅해도 타입
+      # 불일치로 항상 false다(실측 확인) — length로 비교한다.
+      length(azurerm_kubernetes_cluster.this[0].web_app_routing[0].dns_zone_ids) == 0,
+      azurerm_kubernetes_cluster.this[0].web_app_routing[0].default_nginx_controller == "None",
+    ])
+    error_message = "web_app_routing을 넘겼는데 블록이 그 값대로 만들어지지 않았다."
+  }
+}
+
+run "web_app_routing_dns_zone_ids_default_empty" {
+  command = plan
+
+  variables {
+    # default_nginx_controller만 넘기고 dns_zone_ids는 생략 — optional(list(string), [])
+    # 기본값이 적용되는지 확인한다.
+    web_app_routing = {
+      default_nginx_controller = "Internal"
+    }
+  }
+
+  assert {
+    condition     = length(azurerm_kubernetes_cluster.this[0].web_app_routing[0].dns_zone_ids) == 0
+    error_message = "web_app_routing.dns_zone_ids를 생략했는데 기본값 []이 적용되지 않았다."
+  }
+}
+
+run "reject_web_app_routing_invalid_nginx_controller" {
+  command = plan
+
+  variables {
+    web_app_routing = {
+      default_nginx_controller = "Bogus"
+    }
+  }
+
+  expect_failures = [var.web_app_routing]
+}
+
 # ── service_cidr · dns_service_ip는 함께 지정하거나 함께 비운다 ─────────────────
 run "reject_service_cidr_without_dns_service_ip" {
   command = plan

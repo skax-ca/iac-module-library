@@ -4,7 +4,7 @@
 # 소비 클러스터(eks-cluster의 access_entries가 매핑하는 kubernetes_groups → RBAC)가 전담한다.
 # IAM 정책과 K8s RBAC 두 층을 분리하는 것이 최소 권한 설계다.
 #
-# 계약: docs/module-catalog.md, .omc/plans/2026-08-19-cross-account-trust-role.md "B. 스포크 측"
+# 계약: docs/module-catalog.md `cross-account-trust-role` 절
 
 locals {
   enabled = var.enabled

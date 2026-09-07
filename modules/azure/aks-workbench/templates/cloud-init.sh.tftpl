@@ -131,4 +131,38 @@ curl -sLo /usr/local/bin/aks-node-viewer "https://github.com/Azure/aks-node-view
 chmod 0755 /usr/local/bin/aks-node-viewer || true
 %{ endif }
 
+# ── 로그인 프로파일 ──────────────────────────────────────────────────────────
+#
+# 2026-09-07 실측 발견: 이 블록이 아예 없어 kubectl·helm·argocd는 /usr/local/bin이
+# 기본 PATH라 동작했지만, k alias·completion·krew PATH가 하나도 안 잡혀 있었다
+# (AWS 원본 modules/aws/workbench/user-data.sh.tftpl의 "로그인 프로파일" 절과 대조해
+# 발견). AWS와 같은 이유로 전역이 옳다 — alias·completion·KREW_ROOT+PATH는 사용자가
+# 바꿀 이유가 없는 "설정"이라 사용자별 사본을 두면 갱신 지점만 늘어난다(kubeconfig가
+# admin_username 전용 사본인 것과는 반대 축 — 그건 "상태"라 사용자별이 옳다).
+#
+# ⛔ KUBECONFIG를 여기 넣지 않는다 — admin_username 전용 kubeconfig 사본(위 블록)을
+# 무력화한다(AWS 원본과 동일 근거, 그쪽은 사용자별 kubeconfig 사본 대비 같은 금지).
+PROFILE=/etc/profile.d/aks-workbench.sh
+{
+  echo "# aks-workbench 로그인 프로파일 (cloud-init 생성 — 직접 고치면 VM 재생성 시 사라진다)"
+  echo "# 이 KUBECONFIG를 여기 넣지 말 것 — admin_username 전용 kubeconfig 사본을 무력화한다."
+%{ if kubectl_version != null && krew_version != null }
+  echo 'export KREW_ROOT=/usr/local/krew'
+  echo 'export PATH="$PATH:$KREW_ROOT/bin"'
+%{ endif }
+%{ if aks_node_viewer_version != null }
+  echo 'command -v aks-node-viewer >/dev/null 2>&1 && alias nv="aks-node-viewer --resources cpu,memory"'
+%{ endif }
+%{ if kubectl_version != null }
+  # ⚠️ `complete -F __start_kubectl`는 그 함수가 먼저 정의돼 있어야 동작한다 — 정의하는
+  # 것은 `kubectl completion bash`다(AWS 원본과 동일 순서 의존, 두 줄을 한 묶음으로 둔다).
+  echo 'if [ -n "$BASH_VERSION" ] && command -v kubectl >/dev/null 2>&1; then'
+  echo '  alias k=kubectl'
+  echo '  source <(kubectl completion bash)'
+  echo '  complete -o default -F __start_kubectl k'
+  echo 'fi'
+%{ endif }
+} > "$PROFILE"
+chmod 0644 "$PROFILE"
+
 echo "aks-workbench bootstrap complete"

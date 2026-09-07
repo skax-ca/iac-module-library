@@ -343,6 +343,71 @@ run "admin_username_custom_value_ok" {
   }
 }
 
+# ── 로그인 프로파일(/etc/profile.d) — 2026-09-07 신설, AWS 원본
+#    modules/aws/workbench/tests/plan.tftest.hcl의 tooling_installed_when_pinned·
+#    krew_requires_kubectl과 동일 패턴(strcontains로 렌더된 custom_data 내용 검증).
+#    custom_data는 base64encode(templatefile(...))라 base64decode 후 검사한다.
+run "login_profile_k_alias_when_kubectl_pinned" {
+  command = plan
+
+  variables {
+    kubectl_version = "v1.35.7"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "alias k=kubectl")
+    error_message = "kubectl_version을 지정했는데 로그인 프로파일에 k alias가 렌더되지 않았다."
+  }
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "kubectl completion bash")
+    error_message = "kubectl_version을 지정했는데 completion 설정이 렌더되지 않았다 — alias만 있고 completion이 없으면 함수 미정의로 조용히 안 먹는다."
+  }
+}
+
+run "login_profile_skips_k_alias_without_kubectl" {
+  command = plan
+
+  variables {
+    kubectl_version = null
+  }
+
+  assert {
+    condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "alias k=kubectl")
+    error_message = "kubectl_version이 null인데 k alias가 렌더됐다 — 존재하지 않는 kubectl을 가리키는 죽은 alias다."
+  }
+}
+
+# krew는 kubectl 없이는 의미가 없다 — 이 모듈(main.tf)이 그 결합을 접는다(AWS 원본
+# krew_requires_kubectl과 동일 근거). 이 케이스가 없으면 "kubectl 없이 krew PATH만
+# 잡힌" 형상이 조용히 만들어진다.
+run "login_profile_krew_path_requires_kubectl" {
+  command = plan
+
+  variables {
+    kubectl_version = null
+    krew_version    = "v0.5.0"
+  }
+
+  assert {
+    condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "export KREW_ROOT=")
+    error_message = "kubectl이 없는데 krew PATH가 계획됐다 — 플러그인을 실행할 kubectl이 없다."
+  }
+}
+
+run "login_profile_node_viewer_alias" {
+  command = plan
+
+  variables {
+    aks_node_viewer_version = "v0.0.2-alpha"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "alias nv=")
+    error_message = "aks_node_viewer_version을 지정했는데 nv alias가 렌더되지 않았다."
+  }
+}
+
 # ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
 run "nullable_false_falls_back_to_default" {
   command = plan

@@ -498,3 +498,48 @@ variable "workload_identity_enabled" {
   default     = false
   nullable    = false
 }
+
+# ── App Routing(web_app_routing) ────────────────────────────────────────────
+
+variable "web_app_routing" {
+  description = <<-EOT
+    App Routing add-on(`web_app_routing` 블록) 설정. `null`(기본)이면 블록 자체를 만들지
+    않는다 — entra_admin_group_object_ids·authorized_ip_ranges와 같은 옵트인 형태다.
+
+    dns_zone_ids              - DNS Zone 리소스 ID 목록(provider 스키마상 블록 안에서는
+                                 Required이지만 빈 배열이 유효한 값이다 — 이 변수의 기본값도
+                                 `[]`). App Routing의 자동 DNS 레코드 생성을 쓰지 않으면
+                                 비워도 된다.
+    default_nginx_controller  - 기본 NginxIngressController 커스텀 리소스의 인그레스 타입.
+                                 `"None"`·`"Internal"`·`"External"`·`"AnnotationControlled"`
+                                 (provider 기본값) 중 하나. Gateway API 경로만 쓰고 레거시
+                                 NGINX 인그레스 컨트롤러 자동 생성을 원치 않으면 `"None"`으로
+                                 명시한다.
+
+    🔑 **이 변수 하나로 Gateway API·Istio 모드까지 켜지지는 않는다.** azurerm은 아직
+    `ingressProfile.gatewayAPI`·`webAppRouting.gatewayAPIImplementations`(관리형 Gateway
+    API 설치·Istio 구현체 전환)를 노출하지 않는다(hashicorp/terraform-provider-azurerm#22392,
+    확인 시점 2026-09-07) — 그 두 필드는 이 모듈 밖에서 `azapi_update_resource`로 얹어야
+    한다(aks-reference-infra의 `live/hub/aks`가 실사용 예). 이 변수의 목적은 그 값 자체를
+    대신 켜주는 게 아니라, **azurerm이 실제로 아는 하위 필드(`enabled`·`dns_zone_ids`·
+    `default_nginx_controller`)를 이 모듈이 소비자 대신 선언해, azurerm 자신의 plan이 그
+    필드들을 두고 azapi와 충돌하지 않게 하는 것**이다 — 이 변수를 넘기지 않은 채
+    `azapi_update_resource`로 `ingressProfile.webAppRouting.enabled = true`만 얹으면,
+    azurerm이 자기 스키마 안의 `web_app_routing` 블록이 HCL에 없다는 이유로 다음 plan마다
+    그 값을 되돌리려 한다(실측: aks-reference-infra의 apply 후 수렴 검증에서 재현).
+  EOT
+  type = object({
+    dns_zone_ids             = optional(list(string), [])
+    default_nginx_controller = optional(string)
+  })
+  default = null
+
+  validation {
+    condition = (
+      var.web_app_routing == null ||
+      var.web_app_routing.default_nginx_controller == null ||
+      contains(["None", "Internal", "External", "AnnotationControlled"], var.web_app_routing.default_nginx_controller)
+    )
+    error_message = "web_app_routing.default_nginx_controller는 \"None\", \"Internal\", \"External\", \"AnnotationControlled\" 중 하나이거나 비워야 한다."
+  }
+}

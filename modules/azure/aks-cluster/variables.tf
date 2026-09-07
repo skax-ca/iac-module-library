@@ -402,6 +402,38 @@ variable "enable_karpenter" {
   }
 }
 
+# ── KEDA(이벤트 기반 오토스케일링) ───────────────────────────────────────────
+
+variable "enable_keda" {
+  description = <<-EOT
+    KEDA(Kubernetes Event-driven Autoscaling) managed add-on 활성화 여부. eks-cluster에는
+    이 변수와 대응하는 것이 없다 — AWS는 KEDA를 GitOps로 소비자가 직접 설치해야 하지만
+    (eks-platform-gitops의 addons/catalog/keda.yaml), Azure는 AKS 자신이 operator·metrics
+    server까지 완전 관리형으로 제공한다(Microsoft 공식문서 aks/keda-about: "The managed
+    KEDA add-on provides a fully supported KEDA installation integrated with AKS"). 그래서
+    이 모듈은 `workload_autoscaler_profile.keda_enabled` 필드 하나로 끝난다 — enable_karpenter
+    (node_provisioning_profile)와 같은 형태이지만, ScaledObject/ScaledJob은 애플리케이션
+    팀이 쓰는 워크로드 리소스라 GitOps 소관 CR조차 없다(NodePool/AKSNodeClass와 다른 지점).
+
+    true면 workload_autoscaler_profile.keda_enabled = true로 설정한다. 이 값은 azurerm
+    공식 문서(kubernetes_cluster.html.markdown) 확인 결과 ForceNew 표시가 없어 in-place
+    전환이다.
+
+    ⚠️ Workload Identity를 쓰는 경우 공식 문서가 KEDA add-on **이전에** Workload Identity를
+    먼저 켜라고 명시한다("If you plan to use workload identity on AKS Standard, enable
+    workload identity before enabling the KEDA add-on") — 이 모듈은 workload_identity_enabled
+    를 KEDA보다 먼저(같은 리소스 블록 내 선언 순서와 무관하게 apply 시 함께 적용되므로)
+    조건화하지 않는다. 순서가 실제로 문제가 되면(예: 이미 워크로드가 KEDA로 스케일 중인
+    상태에서 뒤늦게 workload identity를 켜는 경우) 공식 문서의 KEDA operator 파드 재시작
+    절차(`kubectl rollout restart deployment keda-operator -n kube-system`)를 소비자가
+    수동으로 따른다 — 이 모듈이 자동화하지 않는다(둘 다 opt-in 변수라 동시 최초 활성화가
+    일반적인 경로).
+  EOT
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 # ── 버전 · SKU ───────────────────────────────────────────────────────────────
 
 variable "kubernetes_version" {

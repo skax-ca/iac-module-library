@@ -273,6 +273,29 @@ run "node_provisioning_profile_defaults_to_manual" {
   }
 }
 
+# ── workload_autoscaler_profile(KEDA) — 항상 존재, enable_keda 기본값(false)이면 꺼짐 ──
+run "workload_autoscaler_profile_defaults_to_disabled" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].workload_autoscaler_profile[0].keda_enabled == false
+    error_message = "enable_keda 기본값(false)인데 workload_autoscaler_profile.keda_enabled가 false가 아니다."
+  }
+}
+
+run "workload_autoscaler_profile_keda_enabled" {
+  command = plan
+
+  variables {
+    enable_keda = true
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].workload_autoscaler_profile[0].keda_enabled == true
+    error_message = "enable_keda = true인데 workload_autoscaler_profile.keda_enabled가 true로 반영되지 않았다."
+  }
+}
+
 # ── enable_karpenter = true는 cni_mode = overlay·node_subnet과만 유효하다(기본 overlay 포함) ──
 run "node_provisioning_profile_auto_with_default_overlay" {
   command = plan

@@ -165,6 +165,14 @@ resource "azurerm_kubernetes_cluster" "this" {
     default_node_pools = "None"
   }
 
+  # KEDA managed add-on. enable_karpenter(node_provisioning_profile)와 같은 형태 —
+  # AKS가 operator·metrics server를 완전 관리형으로 제공해 이 필드 하나로 끝난다
+  # (변수 설명 참조, docs.microsoft aks/keda-about 확인). vertical_pod_autoscaler_enabled는
+  # 이 모듈이 아직 다루지 않는다(요구 없음, 필요해지면 그때 연다).
+  workload_autoscaler_profile {
+    keda_enabled = var.enable_keda
+  }
+
   tags = var.tags
 
   lifecycle {

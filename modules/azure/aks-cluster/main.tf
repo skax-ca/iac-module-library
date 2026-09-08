@@ -12,7 +12,7 @@ locals {
   name_mid     = "${var.naming.workload}-${var.naming.env}-${var.naming.region_code}"
   cluster_name = "aks-${local.name_mid}-${var.purpose}-${var.serial}"
 
-  enable_aad                 = length(var.entra_admin_group_object_ids) > 0
+  enable_aad                 = length(var.entra_admin_group_object_ids) > 0 || var.entra_integration_enabled
   enable_api_server_ip_range = length(var.authorized_ip_ranges) > 0
 
   # ── 노드 풀 이름 — 하이픈 금지·12자 한도(축1). 부모(클러스터) 이름이 이미
@@ -118,6 +118,10 @@ resource "azurerm_kubernetes_cluster" "this" {
     dns_service_ip = var.dns_service_ip
   }
 
+  # azure_rbac_enabled는 변수화하지 않고 true로 고정한다 — local.enable_aad가 이미
+  # "admin 그룹이 있거나 entra_integration_enabled가 true"일 때만 이 블록을 만들므로,
+  # 블록이 존재하는 시점엔 두 경로 모두 azure_rbac_enabled가 항상 true다(값이 갈리는
+  # 경우가 없다). 변수로 바꾸면 죽은 분기만 늘어난다(0.8.0 설계 검토, RALPLAN-DR 대응).
   dynamic "azure_active_directory_role_based_access_control" {
     for_each = local.enable_aad ? [1] : []
     content {

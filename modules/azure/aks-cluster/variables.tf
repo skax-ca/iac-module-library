@@ -466,22 +466,42 @@ variable "entra_admin_group_object_ids" {
   nullable    = false
 }
 
+variable "entra_integration_enabled" {
+  description = <<-EOT
+    entra_admin_group_object_ids 없이도 Entra 통합(Azure RBAC 포함)을 켜는 독립 토글.
+    기본 false — 기존처럼 admin 그룹을 지정해야만 켜지는 경로는 그대로 유지된다. true면
+    admin 그룹이 비어 있어도 Entra 통합 블록이 생성되고 azure_rbac_enabled = true로
+    켜진다(사람 admin 접근 없이, 접근 권한 전부를 소비자가 이 모듈 밖에서 role
+    assignment로 부여하는 시나리오 — 예: 크로스 구독 GitOps 컨트롤러 접근).
+
+    ⚠️ Entra 통합은 켠 뒤 되돌릴 수 없다 — Azure가 통합 해제 자체를 지원하지 않는다
+    (`az aks update --disable-azure-rbac`는 Azure RBAC만 개별로 끄고, Entra 통합 자체는
+    끌 수 없다. 공식 문서 `managed-azure-ad`: "Microsoft Entra integration can't be
+    disabled after it's enabled on a cluster."). 되돌리려면 클러스터 재생성이 필요하다.
+  EOT
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 variable "local_account_disabled" {
   description = <<-EOT
     true면 로컬 계정(kubeconfig의 클러스터 admin 자격증명)을 비활성화한다. 기본 false로
     브레이크글래스(kube_admin_config) 경로를 유지한다(G2 확정).
 
-    ⚠️ entra_admin_group_object_ids가 비어 있는 채로 이 값을 true로 두면 클러스터 접근
-    수단이 전혀 남지 않는다 — provider도 local_account_disabled = true일 때 Entra ID
-    RBAC 활성화를 요구한다.
+    ⚠️ entra_admin_group_object_ids와 entra_integration_enabled가 둘 다 비어/false인
+    채로 이 값을 true로 두면 클러스터 접근 수단이 전혀 남지 않는다 — provider도
+    local_account_disabled = true일 때 Entra ID RBAC 활성화를 요구한다.
   EOT
   type        = bool
   default     = false
   nullable    = false
 
   validation {
-    condition     = !var.local_account_disabled || length(var.entra_admin_group_object_ids) > 0
-    error_message = "local_account_disabled = true이면 entra_admin_group_object_ids를 비워둘 수 없다 — 클러스터 접근 수단이 사라진다."
+    condition = !var.local_account_disabled || (
+      length(var.entra_admin_group_object_ids) > 0 || var.entra_integration_enabled
+    )
+    error_message = "local_account_disabled = true이면 entra_admin_group_object_ids 또는 entra_integration_enabled 중 하나로 Entra 통합이 켜져 있어야 한다 — 클러스터 접근 수단이 사라진다."
   }
 }
 

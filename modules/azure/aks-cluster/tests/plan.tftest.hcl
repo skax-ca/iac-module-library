@@ -374,6 +374,24 @@ run "entra_rbac_enabled_when_admin_groups_given" {
   }
 }
 
+# entra_integration_enabled — admin 그룹 없이도 독립적으로 Entra 통합을 켠다(0-8).
+run "entra_rbac_enabled_via_independent_toggle" {
+  command = plan
+
+  variables {
+    entra_integration_enabled = true
+  }
+
+  assert {
+    condition = alltrue([
+      length(azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control) == 1,
+      length(azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control[0].admin_group_object_ids) == 0,
+      azurerm_kubernetes_cluster.this[0].azure_active_directory_role_based_access_control[0].azure_rbac_enabled == true,
+    ])
+    error_message = "entra_integration_enabled = true인데 admin 그룹 없이 AAD RBAC 블록이 만들어지지 않았다."
+  }
+}
+
 # ── local_account_disabled 잠금 위험 — plan에서 차단된다(0-8) ───────────────────
 run "reject_local_account_disabled_without_admin_group" {
   command = plan
@@ -396,6 +414,21 @@ run "local_account_disabled_allowed_with_admin_group" {
   assert {
     condition     = azurerm_kubernetes_cluster.this[0].local_account_disabled == true
     error_message = "entra_admin_group_object_ids를 함께 줬는데 local_account_disabled = true가 반영되지 않았다."
+  }
+}
+
+# local_account_disabled 완화(0-8) — entra_integration_enabled만으로도 잠금 조건을 만족한다.
+run "local_account_disabled_allowed_with_independent_toggle" {
+  command = plan
+
+  variables {
+    local_account_disabled    = true
+    entra_integration_enabled = true
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].local_account_disabled == true
+    error_message = "entra_integration_enabled = true를 함께 줬는데 local_account_disabled = true가 반영되지 않았다."
   }
 }
 

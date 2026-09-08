@@ -8,6 +8,7 @@
 | [module-catalog.md](module-catalog.md) | 배포 루트에서 모듈을 호출하려는 사람 |
 | [conventions.md](conventions.md) | 이 저장소에 코드를 쓰거나 모듈을 소비하는 사람 |
 | [decisions.md](decisions.md) | *"왜 X 안 해요?"* 라고 묻고 싶은 사람 |
+| [decisions-aks-cluster.md](decisions-aks-cluster.md) | `aks-cluster` 모듈을 만들거나 바꾸려는 사람(decisions.md에서 분리, 400줄 상한) |
 | [architectures/](architectures/README.md) | 새 고객사 프로젝트의 아키텍처 패턴을 골라야 하는 사람 |
 | [writing-style.md](writing-style.md) | 저장소 문서를 쓰거나 고치는 사람 |
 

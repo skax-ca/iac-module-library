@@ -499,3 +499,27 @@ run "apt_daily_timer_masked_before_apt_calls" {
     error_message = "apt-daily mask 시퀀스가 첫 apt-get update보다 뒤에 렌더됐다 — 부팅 초기 경쟁자를 없애기 전에 이미 apt-get을 호출하면 이 수정이 무의미하다."
   }
 }
+
+# 2026-09-09 실측 회귀 방지 — cloud-init(systemd cloud-final.service)이 root로 이
+# 스크립트를 실행할 때 $HOME이 "/"로 잡혀(/root가 아님), --kubeconfig 없이는
+# kubelogin이 존재하지 않는 /.kube/config를 대상으로 잡아 변환할 게 없어 조용히
+# 성공(exit 0)해버린다 — az aks get-credentials가 실제로 쓴 /root/.kube/config는
+# 전혀 안 건드려져 devicecode 그대로 남고, kubectl이 대화형 로그인을 요구하며
+# 멈춘다. --kubeconfig /root/.kube/config를 명시해 이 환경 의존을 없앴다.
+run "kubelogin_convert_targets_root_kubeconfig_explicitly" {
+  command = plan
+
+  variables {
+    aks_cluster_name        = "aks-demo-prd-krc-main-01"
+    aks_resource_group_name = "rg-demo-prd-krc-main"
+    az_cli_version          = "2.72.0-1~noble"
+    aks_entra_rbac_enabled  = true
+    identity_client_id      = "11111111-1111-1111-1111-111111111111"
+    kubelogin_version       = "v0.2.19"
+  }
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "kubelogin convert-kubeconfig -l msi --client-id \"11111111-1111-1111-1111-111111111111\" --kubeconfig /root/.kube/config")
+    error_message = "kubelogin convert-kubeconfig 호출에 --kubeconfig /root/.kube/config가 없다 — cloud-init 실행 환경의 $HOME이 \"/\"로 잡혀(2026-09-09 실측) 이 플래그 없이는 존재하지 않는 파일을 조용히 변환한 척(exit 0)하고 실제 kubeconfig는 devicecode로 남는다."
+  }
+}

@@ -66,7 +66,16 @@ if curl -sSLo /tmp/kubelogin.zip "https://github.com/Azure/kubelogin/releases/do
   unzip -oq /tmp/kubelogin.zip -d /tmp/kubelogin
   install -m 0755 "/tmp/kubelogin/bin/linux_$${KUBELOGIN_ARCH}/kubelogin" /usr/local/bin/kubelogin
   rm -rf /tmp/kubelogin.zip /tmp/kubelogin
-  kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}" || KUBECONFIG_OK=0
+  # ⚠️ --kubeconfig를 반드시 명시한다 — 2026-09-09 실측: cloud-init(systemd
+  # cloud-final.service)이 이 스크립트를 root로 실행할 때 $HOME이 "/"로 잡힌다
+  # (`/root`가 아님, `/proc/1/environ`으로 확인). az aks get-credentials는 이 값과
+  # 무관하게 /root/.kube/config에 정확히 쓰는데, kubelogin은 기본 경로를
+  # $HOME/.kube/config로 잡아 "/.kube/config"(존재하지 않는 파일)를 대상으로 잡고
+  # 변환할 게 없어 조용히 성공(exit 0)해버린다 — KUBECONFIG_OK 가드로도 못 잡는
+  # "성공했다고 나오는데 실제로는 아무것도 안 한" 유형의 실패였다(빈 /.kube 디렉토리만
+  # 부산물로 남는 게 유일한 흔적). az가 실제로 쓴 경로를 명시해 이 환경 의존을
+  # 완전히 없앤다.
+  kubelogin convert-kubeconfig -l msi --client-id "${identity_client_id}" --kubeconfig /root/.kube/config || KUBECONFIG_OK=0
 else
   KUBECONFIG_OK=0
 fi

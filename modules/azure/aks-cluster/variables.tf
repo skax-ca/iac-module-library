@@ -270,6 +270,31 @@ variable "authorized_ip_ranges" {
   nullable    = false
 }
 
+variable "private_cluster_public_fqdn_enabled" {
+  description = <<-EOT
+    true면 private 클러스터에 추가로 공개 FQDN을 만든다 — 이 이름은 공개 DNS로 조회
+    가능하지만 그 이름이 반환하는 IP는 여전히 private다(공식 문서: "A public FQDN
+    doesn't create a public API endpoint or remove the requirement for network
+    connectivity to the private endpoint"). private_cluster_enabled = false면 무의미
+    (provider가 무시). 기본 false — private_cluster_enabled 하나로 공개·비공개를 가르는
+    이 모듈의 기존 기본 방침을 그대로 유지하고, 이 옵션은 옵트인이다.
+
+    ForceNew 아님(provider 소스 `kubernetes_cluster_resource.go` 확인 — Update 함수가
+    `d.HasChanges("private_cluster_public_fqdn_enabled", ...)`로 in-place 갱신). 이미
+    private_cluster_enabled = true로 떠 있는 클러스터에도 재생성 없이 켤 수 있다.
+
+    소비 예: 크로스 구독/크로스 계정에서 API 서버에 접근해야 하는데(예: hub의 GitOps
+    컨트롤러가 spoke 클러스터를 관리) 상대 VNet에 이 클러스터의 private DNS zone을 링크할
+    방법이 마땅치 않은 경우 — 공개 DNS가 private IP를 직접 반환하므로 zone 링크 없이도
+    네트워크 경로(vWAN·피어링 등)만 있으면 이름 해석이 된다. AWS EKS의 private-only
+    엔드포인트가 기본으로 하는 것과 같은 메커니즘(공식 문서 `cluster-endpoint.html`:
+    "resolved by public DNS servers to a private IP address").
+  EOT
+  type        = bool
+  default     = false
+  nullable    = false
+}
+
 # ── 시스템 노드 풀 — AKS가 클러스터 리소스의 필수 구성요소로 강제한다 ────────────
 
 variable "system_node_pool" {

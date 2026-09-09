@@ -41,7 +41,8 @@ resource "azurerm_kubernetes_cluster" "this" {
   kubernetes_version = var.kubernetes_version
   sku_tier           = var.sku_tier
 
-  private_cluster_enabled = var.private_cluster_enabled
+  private_cluster_enabled             = var.private_cluster_enabled
+  private_cluster_public_fqdn_enabled = var.private_cluster_public_fqdn_enabled
 
   default_node_pool {
     name                        = local.system_pool_name

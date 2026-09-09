@@ -469,3 +469,33 @@ run "nullable_false_falls_back_to_default" {
     error_message = "vm_size = null이 default \"Standard_B2s\"로 대체되지 않았다."
   }
 }
+
+# 2026-09-09 실측 회귀 방지 — apt-daily.timer/apt-daily-upgrade.timer가 부팅 15초
+# 만에 자체 apt-get update를 돌려 /var/lib/apt/lists/lock을 잡고, 이 스크립트의
+# 두 번째 apt-get update(azure-cli repo 추가 후)와 경합해 az CLI 설치가 실패하는
+# 걸 aks-reference-infra dev workbench 재배포에서 실측했다. DPkg::Lock::Timeout은
+# 이 축(update 경로의 lists lock)에는 재시도를 안 걸어 그 옵션만으로는 못 막는다는
+# 것까지 같은 세션에서 실측 확인 — apt-get 호출 전에 그 타이머를 mask하는 게 실제
+# 방어선이다. 변수 조합과 무관하게 항상 렌더돼야 한다(기본 변수만으로 실행).
+run "apt_daily_timer_masked_before_apt_calls" {
+  command = plan
+
+  assert {
+    condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "systemctl mask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer")
+    error_message = "apt-daily.timer/apt-daily-upgrade.timer를 mask하는 명령이 빠졌다 — 부팅 초기 백그라운드 apt-get과 경합해 az CLI 설치가 실패할 수 있다(2026-09-09 실측)."
+  }
+
+  assert {
+    # mask 시퀀스가 반드시 첫 apt-get 호출보다 앞서야 한다 — 순서가 뒤바뀌면 경쟁자를
+    # 이미 만난 뒤에 죽이는 꼴이라 무의미하다. index(split("\n", ...))는 줄 경계·공백에
+    # 취약해(실측 실패) 대신 각 마커의 첫 등장 위치(앞부분 길이)를 비교한다.
+    condition = length(split(
+      "systemctl mask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer",
+      base64decode(azurerm_linux_virtual_machine.this[0].custom_data)
+      )[0]) < length(split(
+      "apt-get $APT_OPTS update -y",
+      base64decode(azurerm_linux_virtual_machine.this[0].custom_data)
+    )[0])
+    error_message = "apt-daily mask 시퀀스가 첫 apt-get update보다 뒤에 렌더됐다 — 부팅 초기 경쟁자를 없애기 전에 이미 apt-get을 호출하면 이 수정이 무의미하다."
+  }
+}

@@ -5,17 +5,35 @@ set -x
 
 export DEBIAN_FRONTEND=noninteractive
 
-# 부팅 직후 수십 초~수 분 동안은 cloud-init 자신의 다른 단계(예: unattended-upgrades,
-# snapd)가 dpkg/apt 락을 잡고 있을 수 있다(2026-09-04 aks-reference-infra 첫 실배포에서
-# "Could not get lock /var/lib/dpkg/lock-frontend"로 azure-cli install이 실패, 뒤이은
-# az login/az aks get-credentials까지 연쇄 실패했음을 실측). apt-get 자체에 내장된
-# 락 대기 옵션(APT 1.9.11+, Ubuntu 24.04 기본 apt가 지원)을 모든 apt-get 호출에 건다 —
-# 별도 재시도 루프·fuser 의존 없이 apt가 알아서 락이 풀릴 때까지 기다린다.
-#
-# ⚠️ 600초(10분)로 잡는다 — unattended-upgrades는 실측 사례 기준 수 분까지 락을 쥐고
-# 있을 수 있어(code-review PR #44 지적), 최초 180초는 "짧으면 같은 실패가 낮은 확률로
-# 재발"하는 상태였다. 이 값이 다시 짧다고 판명되면 늘리는 게 맞는 대응이지, 재시도 루프를
-# 별도로 짜는 게 아니다(APT_OPTS 하나로 이미 충분한 메커니즘).
+# Ubuntu의 apt-daily.timer/apt-daily-upgrade.timer는 부팅 후 수십 초 안에 자체
+# apt-get update/unattended-upgrade를 돌려 /var/lib/apt/lists/lock을 잡는다(실측:
+# 2026-09-09 aks-reference-infra dev workbench 재배포 — 부팅 15초 만에
+# apt-daily-upgrade.timer가 트리거돼, 이 스크립트가 azure-cli repo 추가 뒤 두 번째로
+# 부르는 apt-get update와 충돌해 "E: Could not get lock /var/lib/apt/lists/lock"으로
+# 실패 → az CLI 설치·az login·az aks get-credentials·kubelogin 변환까지 연쇄 실패).
+# 이 스크립트가 apt/dpkg 락을 쓰기 전에 그 경쟁자 자체를 없앤다 — 이미 실행 중이었을
+# 수 있어 kill까지 하고, 재부팅 시 다시 뜨지 않도록 mask한다.
+systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+systemctl stop apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
+systemctl kill --kill-who=all apt-daily.service 2>/dev/null || true
+systemctl kill --kill-who=all apt-daily-upgrade.service 2>/dev/null || true
+systemctl mask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+# kill 직후에도 프로세스가 완전히 죽기까지 짧은 유예가 있을 수 있어, 실제로 락이
+# 빌 때까지 최대 60초 폴링한다(psmisc의 fuser, Ubuntu 서버 이미지 기본 설치).
+for _lock in /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock; do
+  for _i in $(seq 1 60); do
+    fuser "$_lock" >/dev/null 2>&1 || break
+    sleep 1
+  done
+done
+
+# ⚠️ 아래 DPkg::Lock::Timeout(APT 1.9.11+, Ubuntu 24.04 기본 apt가 지원)은 dpkg
+# 프론트엔드 락(apt-get install 경로, 2026-09-04 최초 발견 당시 실패 지점)만 재시도
+# 한다 — 2026-09-09 실측(apt 2.8.3, Ubuntu 24.04 noble): 이 옵션을 건 채로 실제
+# apt-get update 프로세스 2개를 동시에 띄워 재현한 결과, /var/lib/apt/lists/lock
+# 경합(update 경로)에는 재시도를 전혀 걸지 않고 즉시 실패했다. 그래서 이 옵션 하나로는
+# 이번 클래스(apt-daily와의 경합)를 못 막고, 위 apt-daily 무력화가 실제 방어선이다 —
+# 이 옵션은 dpkg 프론트엔드 락에는 여전히 유효해 방어 종심으로 남긴다.
 APT_OPTS="-o DPkg::Lock::Timeout=600"
 apt-get $APT_OPTS update -y
 apt-get $APT_OPTS install -y ca-certificates curl gnupg lsb-release unzip git jq

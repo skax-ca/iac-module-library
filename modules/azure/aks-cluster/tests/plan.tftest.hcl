@@ -516,6 +516,29 @@ run "reject_web_app_routing_invalid_nginx_controller" {
   expect_failures = [var.web_app_routing]
 }
 
+# ── private_cluster_public_fqdn_enabled — 기본 false, 옵트인 시 그대로 전달 ─────
+run "private_cluster_public_fqdn_optin_default_off" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].private_cluster_public_fqdn_enabled == false
+    error_message = "private_cluster_public_fqdn_enabled 기본값이 false가 아니다."
+  }
+}
+
+run "private_cluster_public_fqdn_enabled_when_set" {
+  command = plan
+
+  variables {
+    private_cluster_public_fqdn_enabled = true
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].private_cluster_public_fqdn_enabled == true
+    error_message = "private_cluster_public_fqdn_enabled = true를 넘겼는데 리소스에 반영되지 않았다."
+  }
+}
+
 # ── service_cidr · dns_service_ip는 함께 지정하거나 함께 비운다 ─────────────────
 run "reject_service_cidr_without_dns_service_ip" {
   command = plan

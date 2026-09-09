@@ -42,8 +42,12 @@ output "node_resource_group" {
 
 output "fqdn" {
   description = <<-EOT
-    클러스터 API 서버 FQDN(공용 엔드포인트). private_cluster_enabled = true면 null이다
-    (provider 동작). cluster_enabled = false면도 null이다.
+    클러스터 API 서버 FQDN. private_cluster_enabled = true이고
+    private_cluster_public_fqdn_enabled = false(기본값)면 null이다(provider 동작 — 이
+    조합엔 공개 이름 자체가 없다). private_cluster_public_fqdn_enabled = true면
+    private_cluster_enabled = true여도 이 필드가 채워진다 — 이 이름은 공개 DNS로 조회
+    가능하지만 반환되는 IP는 여전히 private다(private_cluster_public_fqdn_enabled 변수
+    설명 참고). cluster_enabled = false면도 null이다.
   EOT
   value       = one(azurerm_kubernetes_cluster.this[*].fqdn)
 }

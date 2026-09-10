@@ -1,7 +1,6 @@
 # iac-module-library
 
-Cloud Architect 팀이 여러 고객사 프로젝트에서 재사용하는 **IaC 모듈 자산 라이브러리**.
-고객사가 **구독 라이선스 없이 바로 착수**할 수 있는 것이 이 저장소의 목표다.
+여러 고객사 프로젝트에서 재사용하는 **IaC 모듈 자산 라이브러리**.
 
 **스택**: OpenTofu · GitHub Actions(OIDC) · S3 backend · ArgoCD
 

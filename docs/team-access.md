@@ -23,7 +23,10 @@
 | 이 저장소의 Team 내 권한 | `maintain` |
 
 **"프로젝트 묶음"이라는 별도 계층은 GitHub에 없다.** org > 프로젝트 > repo처럼 중첩된 구조는
-지원되지 않는다. 관련 저장소를 묶는 실체는 **Team + 이름 프리픽스**(`iac-`)뿐이다.
+지원되지 않는다. 관련 저장소를 묶는 실체는 **Team**(`iac`)이다.
+
+org 기본 권한(`default_repository_permission`)이 `read`라 org 멤버는 Team 없이도 저장소를
+읽는다. Team이 주는 것은 `maintain`(push·브랜치 관리)이다.
 
 새 IaC 관련 저장소를 만들면 아래로 Team에 붙인다:
 
@@ -31,8 +34,9 @@
 gh api --method PUT orgs/skax-ca/teams/iac/repos/skax-ca/<repo> -f permission='maintain'
 ```
 
-**무료 플랜의 제약**: private repo에 required reviewers를 걸 수 없다. 승인 게이트가 필요하면
-Team 플랜 이상이 필요하다.
+**무료 플랜의 제약**: private repo에 required reviewers를 걸 수 없다. 무료 플랜은 **public
+repo에서만** environment protection rule을 설정할 수 있어서, 승인 게이트가 필요하면 Team
+플랜 이상으로 올리거나 저장소를 public으로 전환해야 한다.
 
 **GitHub Actions(CI) 무료 사용량**: private 저장소 기준 **월 2,000분**까지 무료다(공개 저장소는
 표준 러너로 무제한). Artifact storage 500MB · Cache storage 10GB(저장소당)를 넘으면 과금된다.

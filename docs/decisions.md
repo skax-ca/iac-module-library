@@ -172,6 +172,26 @@
 
 ---
 
+## 관리형 기능 채택 기준
+
+| 하지 말 것 | 이유 |
+|---|---|
+| **EKS Auto Mode** 채택 | 아래 기준 두 개를 모두 넘지 못한다. **비용**: EC2 요금에 더해 인스턴스 유형별 관리 수수료가 붙는다(AWS EKS 요금표). **패턴 충돌**: Auto Mode 내장 로드밸런서 컨트롤러가 Gateway API를 지원하지 않고, self-managed ALBC가 만든 로드밸런서를 Auto Mode 관리로 옮기는 경로도 AWS가 지원하지 않는다. VPC CNI의 `ENIConfig` custom networking과 VPC CNI 설정 옵션이 적용되지 않아, `eks-cluster`의 Pod 비라우팅 대역 배선(`enable_custom_networking`)을 NodeClass `podSubnetSelectorTerms`로 다시 설계해야 한다 |
+| 관리형이 **버전 승격 시점을 가져간다**는 이유로 기각 | Azure에서 NAP·App Routing을 같은 조건(AKS 클러스터 업그레이드에 맞춰 in-place 갱신)으로 채택했다. 이 사유를 쓰면 두 클라우드의 판단이 서로 모순된다. 티어별 승격(`staged`)은 GitOps로 조립한 addon에만 적용한다([addon-rollout.md](architectures/eks-gitops-hub-spoke/addon-rollout.md)) |
+
+> **결정**: 관리형 기능은 **별도 요금이 없고 이 저장소의 다른 패턴과 충돌하지 않을 때** 쓴다.
+> 하나라도 걸리면 계층 1이 IAM 같은 전제를 만들고 계층 2(GitOps, Helm)가 컨트롤러를 조립한다.
+> 기준은 하나지만 두 클라우드의 제공 형태가 달라 답이 갈린다. 두 클라우드 모두 전부 맡기는
+> 모드(EKS Auto Mode · AKS Automatic)에는 별도 요금이 붙고, 이 저장소는 둘 다 쓰지 않는다.
+
+| 기능 | AWS(EKS, Auto Mode 아님) | Azure(AKS, Automatic 아님) |
+|---|---|---|
+| 노드 오토프로비저닝 | 관리형은 Auto Mode뿐이다(유료·패턴 충돌). Karpenter를 GitOps로 조립한다 | NAP: AKS가 Karpenter를 배포·관리한다. AKS 요금표에 별도 항목이 없다. `aks-cluster`의 `enable_karpenter`로 채택 |
+| L7 인그레스(Gateway API) | EKS에 ALBC 관리형 addon이 없다. ALBC를 GitOps로 조립한다 | App Routing(Istio 기반): 컨트롤러·CRD·GatewayClass를 AKS가 관리하고 internal LB를 annotation으로 지원한다. 채택. Application Gateway for Containers는 frontend가 private IP를 지원하지 않아 "hub는 전부 private" 원칙과 충돌한다 |
+| KEDA | 관리형이 없다. opt-in 카탈로그로 조립한다 | 관리형 add-on. `aks-cluster`의 `enable_keda`로 채택 |
+
+---
+
 ## GitOps와 ArgoCD
 
 | 하지 말 것 | 이유 |

@@ -1,0 +1,213 @@
+# 계층 2: addon을 GitOps로 운영한다
+
+**읽는 사람**: addon을 클러스터에 얹거나, 그 버전을 올리려는 사람.
+
+계층 2가 무엇인지와 계층 1과의 경계는 [README.md](README.md)가 소유한다. 이 문서는 그 경계
+안에서 **어디에 두고 · 어떤 이름으로 · 어떻게 내보내는가**를 정한다. 클라우드가 어떤 addon을
+관리형으로 제공하는지는 [aws/README.md](aws/README.md)·[azure/README.md](azure/README.md)가 갖는다.
+
+---
+
+## 1. 이 addon은 계층 2인가
+
+컨트롤러는 계층 1, 그 컨트롤러가 읽는 설정 CR은 계층 2다. 설정 CR은 계층 2(플랫폼)와 계층
+3(앱, 범위 밖)으로 다시 갈린다. *"cluster-scoped면 플랫폼, namespace-scoped면 앱"* 은
+**성립하지 않는다.** 반례가 실재한다. 스코프가 아니라 아래 두 질문이 정한다.
+
+**판별 1: 인프라 정체성을 담는가?**
+권한 · 비용 · 용량 · 발급 신뢰를 인코딩하면 **계층 2**다. 스코프와 무관하다.
+
+**판별 2: 누군가를 제약하는 규칙인가?**
+가드레일은 **제약받는 쪽이 소유하면 무의미**하다. 앱팀을 제약하는 정책은 **계층 2**다.
+
+| CR | 스코프 | 계층 | 판별 |
+|---|---|---|---|
+| Karpenter NodePool · EC2NodeClass | cluster | 2 | 1: `spec.role`이 권한을 인코딩 |
+| Kyverno ClusterPolicy | cluster | 2 | 2: 앱팀을 제약하는 가드레일 |
+| cert-manager Issuer | **namespace** | **2** | 1: 발급 신뢰는 인프라다 |
+| KEDA ScaledObject | namespace | 3 | 특정 워크로드에 결합 |
+| KEDA ClusterTriggerAuthentication | **cluster** | **2** | 앱 인증에 결합하나 공유 제공물 |
+
+굵게 표시한 두 행이 *"스코프로 판정하면 틀린다"* 의 증거다.
+
+---
+
+## 2. 네임스페이스 배치
+
+**계층 2 addon은 전용 네임스페이스를 신설한다.** 격리가 기본값이다.
+
+예외를 만들려면 **컨트롤러가 그 네임스페이스를 전제로 동작한다는 근거**를 대야 한다.
+*"차트 기본값이 `kube-system`이라서"* 는 근거가 아니다. 클라우드별 예외 목록과 그 근거는
+각 클라우드 문서가 갖는다.
+
+---
+
+## 3. Application 이름과 release 이름을 분리한다
+
+ApplicationSet의 cluster generator(등록된 클러스터마다 Application을 자동 복제하는 제너레이터)는
+Application 이름을 `{{name}}-<addon>`으로 짓는다. 하나의 ArgoCD가 여러 클러스터를 관리하므로
+콘솔에서 어느 클러스터의 addon인지 구분하려면 이 접두사가 필요하다.
+
+**release 이름을 따로 지정하지 않으면 그 접두사가 Kubernetes 리소스 이름까지 전파된다.** ArgoCD는
+`spec.source.helm.releaseName`이 없으면 release 이름을 Application 이름과 같게 쓰고
+([ArgoCD 공식 문서](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)), 대부분의 차트는
+`{{ .Release.Name }}-{{ .Chart.Name }}` 형태로 리소스 이름을 만든다. 접두사가 두 번 겹친다.
+
+⚠️ 가독성만의 문제가 아니다. Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있어, 접두사가
+길수록 서로 다른 리소스가 63자 지점에서 같은 이름으로 잘려 충돌한다(`cluster-autoscaler`에서
+실제로 발생했다).
+
+**결정**: release 이름이 리소스 이름에 그대로 쓰이는 addon은 `spec.source.helm.releaseName`을
+짧게 명시한다. Application 이름은 그대로 둔다. 콘솔 식별과 리소스 이름은 서로 다른 축이고,
+[Kubernetes 공식 문서](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/)도
+클러스터·인스턴스 식별을 `app.kubernetes.io/instance` 라벨의 몫으로 다룬다.
+
+release 이름은 **클러스터 안에서만** 유일하면 된다. `destination.server`가 클러스터마다 다르므로
+허브와 스포크가 같은 release 이름을 써도 충돌하지 않는다. ArgoCD의 소유권 추적 라벨은 release
+이름이 아니라 Application 이름을 기준으로 붙으므로, release 이름을 바꿔도 클러스터·addon 단위
+추적은 유지된다.
+
+예외: 차트가 release 이름과 무관하게 컨트롤러 이름을 고정으로 렌더링하면(kyverno 계열) 애초에
+접두사가 겹치지 않아 지정하지 않는다.
+
+---
+
+## 4. 전파 정책: 누가 받고, 어떤 버전을 받나
+
+### selector는 "누가 받나"까지만 가른다
+
+ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. 버전은 고르지 않는다.
+`targetRevision`이 리터럴 한 개라, 그 selector에 걸린 클러스터는 전부 같은 버전을 받는다.
+
+| selector | 대상 |
+|------|------|
+| `matchExpressions [{key: environment, operator: Exists}]` | 등록된 전 클러스터 |
+| `matchLabels {addon-<name>: enabled}` | 그 라벨을 단 클러스터 |
+
+`environment` 라벨의 값은 이름과 values 경로를 푸는 데 쓴다. 버전 분기에는 쓰지 않는다.
+
+이 상태에서 `targetRevision`을 올리면 등록된 클러스터가 동시에 올라간다. 컨트롤러를 비운영
+클러스터에서 먼저 검증하고 운영으로 승격하려면 정책이 하나 더 필요하다.
+
+### 정책 셋
+
+| 정책 | selector | 버전 | 상태 |
+|------|----------|------|------|
+| **uniform** | `environment` Exists | 전 클러스터 한 개 | ✅ |
+| **staged** | `tier` 값별 ApplicationSet 분리 | 티어마다 한 개 | ⏳ |
+| **opt-in** | `matchLabels {addon-<name>: enabled}` | 구독 클러스터 한 개 | ✅ |
+
+| 이 addon이 | 정책 | 이유 |
+|-----------|------|------|
+| 앱팀을 제약하는 가드레일인가 | **uniform** | 클러스터마다 정책 버전이 다르면 통과 기준이 갈린다. 차이 자체가 위험이다 |
+| 인프라를 직접 움직이는 컨트롤러인가 | **staged** | 노드를 만들고 트래픽을 받는다. 비운영에서 먼저 확인하고 승격한다 |
+| 팀이 필요할 때만 켜는 기능인가 | **opt-in** | 쓰는 클러스터가 정해져 있어 승격 단계를 나눌 대상이 적다 |
+
+| addon | 정책 |
+|-------|------|
+| `kyverno` · `kyverno-policies` · `kyverno-custom-policies` | uniform |
+| `karpenter` · `aws-load-balancer-controller` · `gateway-api-crds` | staged |
+| `keda` · `cluster-autoscaler` | opt-in |
+
+### staged를 쓰는 형태
+
+addon 파일 하나에 ApplicationSet을 티어 수만큼 둔다. 파일은 나누지 않는다.
+
+```yaml
+# addons/baseline/karpenter.yaml
+metadata:
+  name: karpenter-nonprd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            tier: nonprd
+  template:
+    spec:
+      source:
+        targetRevision: 1.15.0    # 검증 중
+---
+metadata:
+  name: karpenter-prd
+spec:
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            tier: prd
+  template:
+    spec:
+      source:
+        targetRevision: 1.14.0    # 운영
+```
+
+🔑 두 `targetRevision`의 차이가 승격이 어디까지 갔는지를 저장소에 기록한다. 파일에 적힌 차이는
+의도한 것이고, 그 밖의 클러스터 간 차이는 사고다. 클러스터를 열어 보지 않고 저장소만 읽어
+판정한다.
+
+블록 수는 티어 수를 따라간다. 클러스터 수를 따라가지 않는다. 스포크를 몇 개 늘려도 addon
+파일은 그대로다.
+
+**승격 절차**
+
+1. `karpenter-nonprd`의 `targetRevision`을 새 버전으로 올려 커밋한다.
+2. 비운영 클러스터에서 컨트롤러 동작을 확인한다.
+3. `karpenter-prd`의 `targetRevision`을 같은 값으로 올려 커밋한다.
+4. 두 값이 같아지면 승격이 끝난 것이다.
+
+### 전제: `tier` 라벨 어휘를 먼저 고정한다
+
+staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 붙어 있고, 값 어휘가 저장소마다
+갈려 있다.
+
+| 저장소 | 클러스터 | 현재 값 |
+|--------|---------|--------|
+| `eks-platform-gitops` | hub | `prd` |
+| `aks-platform-gitops` | hub | `prd` |
+| `aks-platform-gitops` | dev | `dev` |
+
+⚠️ staged를 구현하기 전에 값을 `nonprd`와 `prd` 둘로 고정한다. 값이 갈린 채로 selector를 걸면
+어느 쪽에도 안 걸리는 클러스터가 조용히 생긴다. ArgoCD는 대상이 0개인 팬아웃을 오류로 보고하지
+않는다.
+
+`environment`가 아니라 `tier`를 쓰는 이유는 값의 개수다. `environment`는 클러스터가 늘면 값이
+함께 늘고, `tier`는 둘로 고정된다.
+
+---
+
+## 5. 관리형으로 받을 것과 조립할 것
+
+기준은 [`decisions.md`](../../decisions.md)의 「관리형 기능 채택 기준」이 소유한다. 기준은 하나지만
+두 클라우드의 제공 형태가 달라 답이 갈린다.
+
+| 기능 | AWS(EKS, Auto Mode 아님) | Azure(AKS, Automatic 아님) |
+|---|---|---|
+| 노드 오토프로비저닝 | 관리형은 Auto Mode뿐이다(유료·패턴 충돌). Karpenter를 GitOps로 조립한다 | NAP: AKS가 Karpenter를 배포·관리한다. AKS 요금표에 별도 항목이 없다. `aks-cluster`의 `enable_karpenter`로 채택 |
+| L7 인그레스(Gateway API) | EKS에 ALBC 관리형 addon이 없다. ALBC를 GitOps로 조립한다 | App Routing(Istio 기반): 컨트롤러·CRD·GatewayClass를 AKS가 관리하고 internal LB를 annotation으로 지원한다. 채택 |
+| KEDA | 관리형이 없다. opt-in 카탈로그로 조립한다 | 관리형 add-on. `aks-cluster`의 `enable_keda`로 채택 |
+
+---
+
+## 6. 하지 않는 것
+
+| 하지 말 것 | 이유 |
+|---|---|
+| **cluster generator**로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
+| `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`(kubectl 대신 API 서버가 patch를 계산하는 적용 방식)보다 우선해 무력화한다 |
+| `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
+| root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
+| seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
+| CI용 GitHub App **재사용** · 설치 범위를 **All repositories**로 | 권한 경계가 무너진다. GitOps용을 별도로 만들고 저장소 1개로 한정한다 |
+| `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
+| 관리형이 **버전 승격 시점을 가져간다**는 이유로 관리형을 기각 | Azure에서 NAP·App Routing을 같은 조건으로 채택했다. 이 사유를 쓰면 두 클라우드의 판단이 서로 모순된다. 티어별 승격은 GitOps로 조립한 addon에만 적용한다(4절) |
+| cluster Secret에 `addon-version-<name>` 라벨을 달고 `targetRevision`에 주입 | 승인된 버전이 클러스터 파일마다 흩어진다. 플랫폼이 어떤 버전을 승인했는지 한 곳에서 읽지 못하고, 버전을 올릴 때 클러스터 수만큼 파일을 고쳐야 한다 |
+| matrix generator로 `clusters/<tier>/versions.yaml`을 읽어 주입 | 버전 목록은 한 곳에 모이지만 generator 조합이 늘어 팬아웃이 안 될 때 원인을 좁히기 어렵다. baseline addon이 다섯 개인 지금은 값에 비해 비싸다. addon이 늘면 다시 본다 |
+| `goTemplate`으로 `tier`를 조건 분기해 `targetRevision`을 고름 | 버전이 템플릿 표현식 안으로 들어간다. helm values를 저장소 파일 그대로 쓰고 `--set`을 금지한 이 패턴의 기준과 어긋난다 |
+
+### 되살리면 안 되는 근거
+
+| 근거 | 무엇이 반증했나 |
+|---|---|
+| *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 진짜 원인은 **CRD 스키마 defaulting**이다 |
+| *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃이 Secret의 라벨과 이름을 읽는다** |

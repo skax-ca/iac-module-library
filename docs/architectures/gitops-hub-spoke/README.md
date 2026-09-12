@@ -132,7 +132,8 @@ iac-module-library         모듈(.tf) + 패턴 문서.        어느 계층도 
 | [gitops.md](gitops.md) | 계층 2 전부: addon 배치 · 이름 · 전파 정책 | ✅ |
 | [aws/README.md](aws/README.md) | EKS 구성, ArgoCD 형태 선택, 실행 기반 | ✅ |
 | [aws/network.md](aws/network.md) | 허브 위치와 크로스 계정 네트워크(Transit Gateway) | ✅ |
-| [azure/README.md](azure/README.md) | AKS 구성 | ⏳ 작성 중 |
+| [azure/README.md](azure/README.md) | AKS 구성, addon 분류, 클러스터 등록, 실행 기반 | ✅ |
+| [azure/network.md](azure/network.md) | 허브-스포크 연결(Virtual WAN)과 Pod 네트워킹 | ✅ |
 
 패턴별 살아있는 배포(계정·클러스터명이 등장하는 세우기·걷어내기 절차)는 이 저장소가 아니라
 그 패턴의 레퍼런스 배포 저장소가 소유한다.

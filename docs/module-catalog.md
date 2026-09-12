@@ -54,14 +54,14 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 ### 크로스 계정 확장
 
 허브 계정의 self-managed ArgoCD가 스포크 계정의 EKS에 접근하기 위한 입력·출력이다
-([choose-your-path.md](architectures/eks-gitops-hub-spoke/choose-your-path.md) 질문 D의 IAM 경계를 구현한다, `eks-cluster-v0.8.0`부터).
+([network.md](architectures/gitops-hub-spoke/aws/network.md)의 「허브를 어디에 두는가」가 정의한 IAM 경계를 구현한다, `eks-cluster-v0.8.0`부터).
 허브 계정에서만 켠다. 스포크 쪽은 `cross-account-trust-role` 모듈이 소유한다.
 변수·출력 전체는 위 README 링크를 본다.
 
 ⚠️ 이 변수들은 **IAM 경계만** 만든다. private-only 엔드포인트에서 허브가 스포크에 실제로
 도달하려면 Transit Gateway가 **별도로** 필요하다(VPC Peering은 CIDR 3계층의 pod-dup 대역
 재사용 설계와 구조적으로 충돌해 쓸 수 없다).
-[choose-your-path.md](architectures/eks-gitops-hub-spoke/choose-your-path.md)의 「네트워크 경로」 절 참조.
+[network.md](architectures/gitops-hub-spoke/aws/network.md)의 「네트워크 경로」 절 참조.
 이 모듈은 그 리소스를 만들지 않는다(재사용 모듈로 두지 않기로 한 이유도 그 절에 있다).
 
 ---
@@ -95,7 +95,7 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이지 않는다. 실제 Kubernetes
 권한은 스포크의 `eks-cluster` 모듈 `access_entries`가 결정한다(아래 「K8s 권한 부여 방식」
 참조). `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
-([choose-your-path.md](architectures/eks-gitops-hub-spoke/choose-your-path.md) 질문 D에서 허브 분리를 택한 경우)에서만 쓴다.
+([network.md](architectures/gitops-hub-spoke/aws/network.md)에서 허브 분리를 택한 경우)에서만 쓴다.
 
 전체 계약(입력·출력) → [`modules/aws/cross-account-trust-role/README.md`](../modules/aws/cross-account-trust-role/README.md)
 
@@ -216,8 +216,7 @@ Container Networking Services(ACNS)의 Container Network Observability가 eBPF�
 identity를 SNAT 이전 지점에서 캡처해 이 손실을 다른 방식으로 메운다(NSG 플로우 로그의
 완전한 대체재는 아니다, 저장 로그 모드는 Cilium 데이터플레인 전용이고, 기본 집계에서는
 개별 Pod IP 대신 워크로드·네임스페이스 단위로 뭉친다). 전체 근거는
-`modules/azure/aks-cluster/README.md`「네트워킹」절과 `docs/decisions.md`「Azure 컨테이너
-(aks-cluster)」ADR을 본다.
+`modules/azure/aks-cluster/README.md`「네트워킹」절을 본다.
 
 ⚠️ **이 표는 소비자 root(`aks-reference-infra`)의 설계 문제이지 `vnet` 모듈의 계약 문제가
 아니다.** `vnet`의 `address_space`(`list(string)`)·`subnet_groups`(`map(object)`)는 CNI를
@@ -294,4 +293,5 @@ private DNS zone link · AKS 클러스터 자체.
 → [`modules/aws/eks-cluster/examples/enterprise/`](../modules/aws/eks-cluster/examples/enterprise/)
 
 배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은 이 저장소가 아니라
-[overview.md](architectures/eks-gitops-hub-spoke/overview.md)의 「실행 기반」 절이 소유한다.
+[gitops-hub-spoke/README.md](architectures/gitops-hub-spoke/README.md)의 「실행 기반」 절이 소유한다
+(클라우드별 자격증명·state는 그 아래 클라우드 문서가 갖는다).

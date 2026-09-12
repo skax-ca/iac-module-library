@@ -36,7 +36,7 @@ provider를 가로질러 고유해야 한다.
 | 단계 | AWS | Azure | 무엇을 하는지 |
 |------|-----|-------|----------------|
 | 배포 루트 | `eks-reference-infra` | `aks-reference-infra` | 이 저장소의 모듈을 git tag로 소싱해 클러스터를 만들고 ArgoCD를 세운다 |
-| 플랫폼 GitOps | `eks-platform-gitops` | `aks-platform-gitops`(예정) | ArgoCD가 pull로 reconcile하는 플랫폼 매니페스트 |
+| 플랫폼 GitOps | `eks-platform-gitops` | `aks-platform-gitops` | ArgoCD가 pull로 reconcile하는 플랫폼 매니페스트 |
 
 새 고객사 프로젝트는 AWS면 `eks-reference-infra`, Azure면 `aks-reference-infra`를 본떠
 `<project>-infra`를 만들고, 이 저장소의 모듈을 **태그로 고정해** 소싱한다.
@@ -49,7 +49,7 @@ provider를 가로질러 고유해야 한다.
 |--------|---------|
 | 이 조직에 막 합류했다 | [`docs/team-access.md`](docs/team-access.md): GitHub org 구조·합류 방법 |
 | 팀에 처음 왔다 | [`docs/architectures/README.md`](docs/architectures/README.md): 아키텍처 패턴 라우팅표 |
-| 새 프로젝트를 맡았다 | [`docs/architectures/eks-gitops-hub-spoke/choose-your-path.md`](docs/architectures/eks-gitops-hub-spoke/choose-your-path.md): 패턴을 고른 뒤 세우기·걷어내기 절차는 `eks-reference-infra` 참조 |
+| 새 프로젝트를 맡았다 | [`docs/architectures/gitops-hub-spoke/README.md`](docs/architectures/gitops-hub-spoke/README.md): 이 패턴이 맞는지 판정한다. 세우기·걷어내기 절차는 `eks-reference-infra`(AWS)·`aks-reference-infra`(Azure) 참조 |
 | 모듈을 쓰려 한다 | [`docs/module-catalog.md`](docs/module-catalog.md): 입출력 계약 |
 | 왜 이렇게 됐는지 궁금하다 | [`docs/decisions.md`](docs/decisions.md): 검토하고 기각한 것들 |
 

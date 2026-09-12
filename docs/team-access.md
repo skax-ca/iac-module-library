@@ -10,7 +10,7 @@
 고객사 프로젝트가 인프라를 세울 때 따르는 **패턴**을 담을 뿐, 우리 팀이 실제로 운영 중인
 계정·저장소 그 자체가 아니다. 이 저장소는 배포하지 않는다.
 
-전체 그림은 [`architectures/eks-gitops-hub-spoke/overview.md`](architectures/eks-gitops-hub-spoke/overview.md), repo 간 역할 분담은 `CLAUDE.md`를 본다.
+전체 그림은 [`architectures/gitops-hub-spoke/README.md`](architectures/gitops-hub-spoke/README.md), repo 간 역할 분담은 `CLAUDE.md`를 본다.
 
 ---
 

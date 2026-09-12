@@ -2,7 +2,7 @@
 #
 # 관심사 순서: 공통 규약 → 배치 → 신원 → 네트워킹 → 시스템 노드 풀 → 추가 노드 풀 → 접근 제어.
 #
-# 계약: docs/module-catalog.md · docs/decisions.md「Azure 컨테이너 (aks-cluster)」ADR
+# 계약: docs/module-catalog.md · docs/decisions.md「모듈 경계」
 
 # ── 공통 규약 ────────────────────────────────────────────────────────────────
 
@@ -96,8 +96,8 @@ variable "identity_id" {
 
     이 모듈은 identity도 role assignment도 만들지 않는다 — 만들면 소비자의 CI 신원이 그
     리소스를 만들 권한(Microsoft.Authorization/roleAssignments/write 포함)을 가져야 하고,
-    그 권한은 CI 신원이 자기 자신에게 상위 역할을 부여할 수 있게 만든다(축3,
-    docs/decisions.md「Azure 컨테이너 (aks-cluster)」ADR 참조).
+    그 권한은 CI 신원이 자기 자신에게 상위 역할을 부여할 수 있게 만든다
+    (docs/decisions.md「모듈 경계」참조).
 
     ⚠️ 순서 의존: ① identity 생성 → ② node_subnet_id·pod_subnet_id가 속한 서브넷에 이
     identity의 Network Contributor 역할 부여 → ③ 이 모듈 apply. ②를 건너뛰면 ③은 성공하고

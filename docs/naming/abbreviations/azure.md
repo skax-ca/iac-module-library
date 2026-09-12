@@ -63,11 +63,11 @@
 | 2026-08-27 | `rg` | 리소스 그룹 (`azurerm_resource_group`, `Microsoft.Resources/resourceGroups`) | `aks-reference-infra`의 `bootstrap/`(자격증명 계층)이 실제 Azure 실행 검증 중 필요해 등재. CAF 표에 정확히 `rg`로 등재돼 있어 그대로 채택 |
 | 2026-08-27 | `st` | Storage Account (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`) | 위와 같은 세션, state 저장소 계층에 필요. CAF 표에 정확히 `st`로 등재돼 있어 그대로 채택. ⚠️ Storage Account 이름은 하이픈을 전혀 쓸 수 없는 Azure 물리 제약(3~24자, 소문자+숫자만)이 있어, A.3 표의 "Name 예시"는 토큰 순서만 보여주는 것이고 실제 이름은 하이픈 없이 이어붙인다 |
 | 2026-08-27 | `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | 위와 같은 세션, GitHub Actions OIDC 신원에 필요. **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 ARM 리소스가 아니라 Microsoft Graph 객체라 애초에 그 표의 대상이 아니다(실측 확인, 2026-08-27). 이 카탈로그의 첫 non-ARM 등재 사례다. 후보로 `app`(Azure Web App/`Microsoft.Web/sites`이 이미 CAF에서 이 약어를 쓰므로 향후 등재 시 충돌 예약, 기각), `aadapp`(레거시 이름 Azure AD 기반, 기각. Microsoft가 Entra ID로 명칭을 통일)을 검토했고, "Entra + Application"의 `entapp`(6자, 등재 규칙 4의 길이 한도 이내)을 채택했다. Service Principal은 `az ad sp create --id <appId>`로 App Registration의 displayName을 그대로 물려받아 별도 이름 인자가 없으므로, 위 "종속 객체" 규약과 같은 이유로 새 약어를 만들지 않는다 |
-| 2026-08-28 | `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | 두 번째 Azure 모듈 `aks-cluster` 설계 확정(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR). CAF 표에 정확히 `aks`로 등재돼 있어 그대로 채택. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가 하이픈 금지 + 길이 초과로 이 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
+| 2026-08-28 | `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | 두 번째 Azure 모듈 `aks-cluster` 설계 확정(`modules/azure/aks-cluster/README.md`). CAF 표에 정확히 `aks`로 등재돼 있어 그대로 채택. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가 하이픈 금지 + 길이 초과로 이 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다(실증). 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
 | 2026-08-28 | `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | `aks-cluster` 모듈은 컨트롤 플레인 신원을 만들지 않고 입력으로만 받기로 확정(축3, 모듈이 identity·role assignment를 만들면 소비 repo의 CI 신원 권한 경계가 무너진다). 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. 등재 근거는 `rg`·`st`·`entapp`과 같은 선례(소비 repo가 이름 지어 만들 리소스) |
 | 2026-08-28 | `vwan` | Virtual WAN (`azurerm_virtual_wan`, `Microsoft.Network/virtualWans`) | 소비 repo `aks-reference-infra`가 hub-spoke 네트워킹의 TGW 대응으로 vWAN을 설계 중(`live/hub/vwan`, raw 리소스 소비. 이 저장소는 vwan 모듈을 만들지 않는다). CAF 표에 정확히 `vwan`으로 등재돼 있어 그대로 채택 |
 | 2026-08-28 | `vhub` | Virtual WAN Hub (`azurerm_virtual_hub`, `Microsoft.Network/virtualHubs`) | 위와 같은 세션, 같은 소비 repo가 필요. CAF 표에 정확히 `vhub`로 등재돼 있어 그대로 채택. ⚠️ hub에 붙는 연결(`azurerm_virtual_hub_connection`)과 정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 별도 약어를 등재하지 않는다(위 "종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다" 규약, CAF 표에도 이 둘의 독립 항목이 없어 정합) |
-| 2026-09-04 | `nic` | 네트워크 인터페이스 (`azurerm_network_interface`, `Microsoft.Network/networkInterfaces`) | 세 번째 Azure 모듈 `aks-workbench` 설계 확정(`docs/decisions.md`「Azure 워크벤치 (aks-workbench)」ADR). CAF 표에 정확히 `nic`으로 등재돼 있어 그대로 채택 |
+| 2026-09-04 | `nic` | 네트워크 인터페이스 (`azurerm_network_interface`, `Microsoft.Network/networkInterfaces`) | 세 번째 Azure 모듈 `aks-workbench` 설계 확정(`modules/azure/aks-workbench/README.md`). CAF 표에 정확히 `nic`으로 등재돼 있어 그대로 채택 |
 | 2026-09-04 | `vm` | Linux 가상 머신 (`azurerm_linux_virtual_machine`, `Microsoft.Compute/virtualMachines`) | 위와 같은 세션. CAF 표에 정확히 `vm`으로 등재돼 있어 그대로 채택. ⚠️ 기존 5개 카테고리(Network·Management/governance·Storage·Identity·Containers) 어디에도 Compute 리소스가 없어 **신규 카테고리(A.6 Compute)**를 신설한다 |
 
 ## A.1 Network (9)
@@ -126,8 +126,8 @@ Principal은 App Registration의 `displayName`을 그대로 물려받는 종속 
 없다(위 "종속 객체" 규약).
 
 ⚠️ `id`는 이 저장소의 모듈이 만들지 않는다. `aks-cluster` 모듈은 identity도 role
-assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/decisions.md`「Azure 컨테이너
-(aks-cluster)」ADR). 소비 repo의 bootstrap 계층이 이름 지어 만든다.
+assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/decisions.md`의 「모듈 경계」와
+`modules/azure/aks-cluster/README.md`). 소비 repo의 bootstrap 계층이 이름 지어 만든다.
 
 ## A.5 Containers (1)
 

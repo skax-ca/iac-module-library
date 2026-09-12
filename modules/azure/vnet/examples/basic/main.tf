@@ -1,7 +1,7 @@
 # vnet 예제(배포 루트 형태) — 최소 착수 템플릿
 #
 # 리소스 그룹과 vnet을 한 apply에서 세운다 — vnet 모듈이 RG를 읽지 않으므로 성립한다
-# (docs/decisions.md 「Azure 네트워킹 (vnet)」 ADR의 "명시 답변" 참조).
+# (모듈이 RG를 만들지도 읽지도 않는 이유는 docs/decisions.md 「모듈 경계」).
 #
 # ⚠️ 소싱은 상대경로다. 소비 프로젝트는 git tag를 쓴다(README.md 참조).
 

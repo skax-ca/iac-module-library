@@ -4,8 +4,7 @@ private AKS 클러스터의 운영 지점(kubectl·helm·argocd·az CLI·kubelog
 작업대). AWS `modules/aws/workbench`의 Azure 대응 모듈이다.
 
 이 모듈은 identity·role assignment·서브넷·리소스 그룹을 만들지 않는다. 전부 입력으로만
-받는다 — `aks-cluster`와 같은 경계 원칙이다(`docs/decisions.md`「Azure 워크벤치
-(aks-workbench)」ADR 참조).
+받는다 — `aks-cluster`와 같은 경계 원칙이다(`docs/decisions.md`「모듈 경계」참조).
 
 ## Usage
 
@@ -224,7 +223,7 @@ kubeconfig 부트스트랩(`az aks get-credentials`, 필요시 `kubelogin` 설�
 아예 없는 편이 안전하다(부팅 로그에 실패 원인이 남는다, 「부팅 후 확인」절).
 
 이 모듈은 role assignment를 만들지 않는다 — `aks-cluster`가 `identity_id`로 받는
-권한과 같은 이유(`docs/decisions.md`「Azure 컨테이너 (aks-cluster)」ADR)로, 위
+권한과 같은 이유(`docs/decisions.md`「모듈 경계」)로, 위
 「전제 role assignment」 표의 권한은 소비 레포의 bootstrap 계층이 부여한다.
 
 ## 이미지·디스크

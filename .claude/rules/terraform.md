@@ -20,7 +20,7 @@ paths:
 
 ## 변수 계약: `nullable`
 
-새 `variable` 선언 시 판정 기준(근거·적용 이력은 `docs/decisions.md`의 「변수 계약 (nullable)」이 소유,
+새 `variable` 선언 시 판정 기준(근거는 `docs/decisions.md`의 「변수 계약 (nullable)」이 소유,
 여기서 중복 서술하지 않는다):
 
 - default가 없는 **필수** 변수, 또는 default가 **`null`이 아닌** 변수 → `nullable = false`를 추가한다.

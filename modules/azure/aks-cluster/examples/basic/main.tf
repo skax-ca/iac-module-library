@@ -8,8 +8,8 @@
 # 그래프(depends_on)로 강제해 보여준다.
 #
 # ⚠️ 실제 배포에서는 identity 생성·role assignment가 이 root가 아니라 별도 "bootstrap"
-# 계층(사람이 저빈도로 수동 실행하는 IaC)에 있어야 한다(docs/decisions.md「Azure 컨테이너
-# (aks-cluster)」ADR — CI 신원이 roleAssignments/write를 가지면 안 된다). 이 예제는 CI가
+# 계층(사람이 저빈도로 수동 실행하는 IaC)에 있어야 한다(docs/decisions.md「모듈 경계」
+# — CI 신원이 roleAssignments/write를 가지면 안 된다). 이 예제는 CI가
 # 매 커밋 validate하는 단일 스택이라 편의상 한 파일에 담았을 뿐, 배포 토폴로지 권고가 아니다.
 #
 # ⚠️ 소싱은 상대경로다. 소비 프로젝트는 git tag를 쓴다(README.md 참조).
@@ -52,7 +52,7 @@ resource "azurerm_user_assigned_identity" "aks" {
 
 # ② role assignment — VNet 스코프로 부여해 노드·Pod 서브넷 둘 다 덮는다(0-26-a: 내장
 # Network Contributor를 쓴다. 커스텀 역할로 좁히지 않는다 — roleAssignments/write를
-# 클러스터 identity에 쥐여 주게 된다, docs/decisions.md 참조).
+# 클러스터 identity에 쥐여 주게 된다, docs/decisions.md「모듈 경계」참조).
 resource "azurerm_role_assignment" "aks_network_contributor" {
   scope                = module.vnet.vnet_id
   role_definition_name = "Network Contributor"

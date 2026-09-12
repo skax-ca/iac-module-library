@@ -1,7 +1,7 @@
 # AKS 클러스터 · 시스템 노드 풀(필수) · 추가 노드 풀(옵트인, for_each)
 #
 # 이 모듈은 identity·role assignment·서브넷·리소스 그룹을 만들지 않는다. 전부 입력으로만
-# 받는다(축3·축10, docs/decisions.md「Azure 컨테이너 (aks-cluster)」ADR).
+# 받는다(docs/decisions.md「모듈 경계」).
 #
 # 계약: docs/module-catalog.md
 

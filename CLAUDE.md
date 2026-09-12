@@ -31,7 +31,7 @@
 | `eks-reference-infra` | AWS 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
 | `eks-platform-gitops` | AWS 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
 | `aks-reference-infra` | Azure 배포 루트. 이 repo의 모듈을 **git tag로 소싱** |
-| `aks-platform-gitops` | Azure 플랫폼 GitOps 매니페스트(**계층 2**, 생성 예정). ArgoCD가 pull로 reconcile 예정 |
+| `aks-platform-gitops` | Azure 플랫폼 GitOps 매니페스트(**계층 2**). ArgoCD가 pull로 reconcile |
 
 ### 소비 방식 (프로젝트 repo에서)
 
@@ -65,8 +65,10 @@ module "vpc" {
 - "간단해 보인다"는 이유로 이 단계를 건너뛰지 않는다. 새 모듈·아키텍처 변경·인터페이스 변경은 예외 없음.
 - 순서: **설계 문서화 → 검토/승인 → 구현 → 검증(fmt/validate/test)**.
 
-> ⛔ **기각한 안을 다시 제안하기 전에 `docs/decisions.md`를 읽는다.** 거기 적힌 이유가
-> 더 이상 성립하지 않음을 먼저 보여야 재검토가 열린다.
+> ⛔ **기각한 안을 다시 제안하기 전에 그 스코프의 기록을 읽는다.** 저장소 전역은
+> `docs/decisions.md`(패턴 문서 색인도 여기 있다), 아키텍처마다 갈리는 것은 그 패턴 문서의
+> 「하지 않는 것」, 모듈 하나에만 걸리는 것은 그 모듈의 `variables.tf` description과 README다.
+> 거기 적힌 이유가 더 이상 성립하지 않음을 먼저 보여야 재검토가 열린다.
 
 ---
 

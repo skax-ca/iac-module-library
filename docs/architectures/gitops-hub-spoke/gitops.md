@@ -183,7 +183,7 @@ staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 
 
 | 기능 | AWS(EKS, Auto Mode 아님) | Azure(AKS, Automatic 아님) |
 |---|---|---|
-| 노드 오토프로비저닝 | 관리형은 Auto Mode뿐이다(유료·패턴 충돌). Karpenter를 GitOps로 조립한다 | NAP: AKS가 Karpenter를 배포·관리한다. AKS 요금표에 별도 항목이 없다. `aks-cluster`의 `enable_karpenter`로 채택 |
+| 노드 오토프로비저닝 | 관리형은 Auto Mode뿐이다(패턴 충돌, [aws/README.md](aws/README.md) 「하지 않는 것」). Karpenter를 GitOps로 조립한다 | NAP: AKS가 Karpenter를 배포·관리한다. AKS 요금표에 별도 항목이 없다. `aks-cluster`의 `enable_karpenter`로 채택 |
 | L7 인그레스(Gateway API) | EKS에 ALBC 관리형 addon이 없다. ALBC를 GitOps로 조립한다 | App Routing(Istio 기반): 컨트롤러·CRD·GatewayClass를 AKS가 관리하고 internal LB를 annotation으로 지원한다. 채택 |
 | KEDA | 관리형이 없다. opt-in 카탈로그로 조립한다 | 관리형 add-on. `aks-cluster`의 `enable_keda`로 채택 |
 
@@ -200,7 +200,7 @@ staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
 | CI용 GitHub App **재사용** · 설치 범위를 **All repositories**로 | 권한 경계가 무너진다. GitOps용을 별도로 만들고 저장소 1개로 한정한다 |
 | `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
-| 관리형이 **버전 승격 시점을 가져간다**는 이유로 관리형을 기각 | Azure에서 NAP·App Routing을 같은 조건으로 채택했다. 이 사유를 쓰면 두 클라우드의 판단이 서로 모순된다. 티어별 승격은 GitOps로 조립한 addon에만 적용한다(4절) |
+| 관리형이 **버전 승격 시점을 가져간다**는 이유로 관리형을 기각 | 관리형 addon은 라이프사이클이 클러스터에 묶여 있다. AKS가 클러스터 업그레이드에 맞춰 버전을 갱신하므로, 플랫폼 관리자가 addon 버전을 따로 추적·승격하지 않아도 된다. 티어별 승격은 GitOps로 조립한 addon에만 적용한다(4절) |
 | cluster Secret에 `addon-version-<name>` 라벨을 달고 `targetRevision`에 주입 | 승인된 버전이 클러스터 파일마다 흩어진다. 플랫폼이 어떤 버전을 승인했는지 한 곳에서 읽지 못하고, 버전을 올릴 때 클러스터 수만큼 파일을 고쳐야 한다 |
 | matrix generator로 `clusters/<tier>/versions.yaml`을 읽어 주입 | 버전 목록은 한 곳에 모이지만 generator 조합이 늘어 팬아웃이 안 될 때 원인을 좁히기 어렵다. baseline addon이 다섯 개인 지금은 값에 비해 비싸다. addon이 늘면 다시 본다 |
 | `goTemplate`으로 `tier`를 조건 분기해 `targetRevision`을 고름 | 버전이 템플릿 표현식 안으로 들어간다. helm values를 저장소 파일 그대로 쓰고 `--set`을 금지한 이 패턴의 기준과 어긋난다 |

@@ -208,7 +208,7 @@ flowchart TB
 
 | 하지 말 것 | 이유 |
 |---|---|
-| **EKS Auto Mode** 채택 | 「관리형 기능 채택 기준」([`decisions.md`](../../../decisions.md))의 기준 두 개를 모두 넘지 못한다. **비용**: EC2 요금에 더해 인스턴스 유형별 관리 수수료가 붙는다. **패턴 충돌**: Auto Mode 내장 로드밸런서 컨트롤러가 Gateway API를 지원하지 않고, self-managed ALBC가 만든 로드밸런서를 Auto Mode 관리로 옮기는 경로도 AWS가 지원하지 않는다. VPC CNI의 `ENIConfig` custom networking이 적용되지 않아 `eks-cluster`의 Pod 비라우팅 대역 배선을 NodeClass로 다시 설계해야 한다. 재평가 트리거: Auto Mode 로드밸런서 컨트롤러가 Gateway API를 지원하게 되면 |
+| **EKS Auto Mode** 채택 | 「관리형 기능 채택 기준」([`decisions.md`](../../../decisions.md))의 기준(패턴 충돌)에 걸린다. Auto Mode 내장 로드밸런서 컨트롤러가 Gateway API를 지원하지 않고, self-managed ALBC가 만든 로드밸런서를 Auto Mode 관리로 옮기는 경로도 AWS가 지원하지 않는다. Auto Mode 노드에는 VPC CNI의 `ENIConfig` custom networking을 쓸 수 없어 `eks-cluster`의 Pod 비라우팅 대역 배선을 NodeClass로 다시 설계해야 한다. EC2 요금에 더해 인스턴스 유형별 관리 수수료도 붙지만, 기각은 이 두 충돌로 정했다. 재평가 트리거: Auto Mode 로드밸런서 컨트롤러가 Gateway API를 지원하게 되면 |
 | 매니페스트에 **AWS가 발급한 ID**(VPC ID · 해시 붙은 role 이름) 적기 | 환경을 다시 세우면 값이 바뀌어 없는 자원을 가리킨다. 계층 1이 **이름을 결정적으로** 만들고 계층 2는 이름을 참조한다 |
 | ALBC를 위해 노드 **IMDS hop limit을 2로** | 그 노드의 모든 파드가 노드 IAM role을 탈취할 수 있다. VPC는 `--aws-vpc-tags`로 찾는다 |
 | **eksctl** 도입 | IaC 소유 경계를 깬다 |

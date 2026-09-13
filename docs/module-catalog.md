@@ -211,8 +211,8 @@ space on multiple independent AKS clusters"). `node_subnet`은 애초에 별도 
 
 **관측성**: `pod_subnet`·`node_subnet`은 SNAT가 없어 NSG 플로우 로그·Network Watcher에서
 Pod 단위 가시성이 유지된다. `overlay`는 Pod CIDR 밖으로 나가는 트래픽만 노드 IP로 SNAT돼
-그 구간의 NSG 기반 가시성을 잃는다. 대신 Azure가 별도로 제공하는 유료 애드온인 Advanced
-Container Networking Services(ACNS)의 Container Network Observability가 eBPF로 Pod
+그 구간의 NSG 기반 가시성을 잃는다. 대신 AKS 유료 기능인 Advanced Container Networking
+Services(ACNS, add-on이 아니라 `--enable-acns`로 켜는 클러스터 기능, 노드·시간당 과금)의 Container Network Observability가 eBPF로 Pod
 identity를 SNAT 이전 지점에서 캡처해 이 손실을 다른 방식으로 메운다(NSG 플로우 로그의
 완전한 대체재는 아니다, 저장 로그 모드는 Cilium 데이터플레인 전용이고, 기본 집계에서는
 개별 Pod IP 대신 워크로드·네임스페이스 단위로 뭉친다). 전체 근거는

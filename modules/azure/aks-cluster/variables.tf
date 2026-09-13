@@ -126,8 +126,9 @@ variable "cni_mode" {
                      사라진다. 대신 Microsoft의 두 공식 문서가 이 모드를 일반 권고로
                      명시한다: plan-pod-networking("Our general recommendation is to use
                      Azure CNI Overlay")·AKS baseline 참조 아키텍처("we recommend it for
-                     most deployments"). 관측성 손실은 유료 애드온 Advanced Container
-                     Networking Services(ACNS)의 Container Network Observability(eBPF로
+                     most deployments"). 관측성 손실은 AKS 유료 기능(add-on이 아니라
+                     클러스터 단위로 켜는 기능) Advanced Container Networking
+                     Services(ACNS)의 Container Network Observability(eBPF로
                      SNAT 이전 Pod identity 캡처)로 다른 방식으로 메울 수 있다 — NSG
                      플로우 로그의 완전한 대체재는 아니다(저장 로그는 Cilium 데이터플레인
                      전용, 기본 집계는 개별 Pod IP 대신 워크로드 단위로 뭉침). NAP

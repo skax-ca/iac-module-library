@@ -70,7 +70,7 @@ Pod IP는 **VNet 밖 오버레이 대역**에서 뜬다. VNet에 Pod 전용 seco
 |---|---|
 | 클러스터 간 중복 | **허용된다.** 오버레이가 클러스터마다 독립이라 허브와 스포크가 같은 Pod CIDR을 써도 된다(Microsoft 공식). AWS에서 pod-dup 대역을 모든 VPC가 재사용하는 것과 목적이 같다 |
 | 라우팅 노출 | 없다. Pod 트래픽은 클러스터 밖으로 나갈 때 노드 IP로 SNAT된다. 그래서 vWAN 라우팅에서 Pod 대역을 고려할 필요가 없다 |
-| 대가 | 그 SNAT 때문에 NSG 플로우 로그에서 Pod를 식별할 수 없다. 유료 애드온(ACNS의 Container Network Observability)이 eBPF로 SNAT 이전 지점에서 잡아 다른 방식으로 메운다 |
+| 대가 | 그 SNAT 때문에 NSG 플로우 로그에서 Pod를 식별할 수 없다. AKS 유료 기능(ACNS의 Container Network Observability, `--enable-acns`로 켜는 클러스터 기능)이 eBPF로 SNAT 이전 지점에서 잡아 다른 방식으로 메운다 |
 | service CIDR | 지정하지 않으면 provider 기본값을 쓴다. 클러스터 로컬 값이라 중복이 무해하다. 다만 이 축도 ForceNew라 나중에 명시하려면 클러스터 재생성이다 |
 
 ⛔ **AWS의 Pod 대역 설계를 그대로 옮기지 않는다.** 이 저장소는 한때 Azure CNI Pod Subnet(플랫,

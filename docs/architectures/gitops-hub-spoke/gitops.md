@@ -173,6 +173,26 @@ spec:
 버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
 커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있는 셈이다.
 
+### uniform에서 staged로 전환하기
+
+이미 돌고 있는 addon을 옮길 때는 **기존 ApplicationSet의 이름을 prd 쪽이 물려받는다.**
+`-prd` 접미사를 새로 붙이지 않는다.
+
+ApplicationSet 이름을 바꾸면 기존 것이 삭제된 것으로 처리된다. 그것이 만든 Application은
+ownerReference를 따라 함께 지워지고, Application에 붙은 `resources-finalizer.argocd.argoproj.io`가
+**클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께
+사라진다. 같은 이유로 selector를 바꿀 때도 기존 대상이 계속 매칭되는지 먼저 확인한다.
+
+| | ApplicationSet 이름 | selector |
+|---|---|---|
+| 전환 전 | `<addon>` | `environment` Exists |
+| 전환 후(prd) | `<addon>` 그대로 | `tier: prd` |
+| 전환 후(nonprd) | `<addon>-nonprd` 신규 | `tier: nonprd` |
+
+prd 클러스터는 두 selector 모두에 걸리므로 Application이 유지되고 리소스가 그대로 간다.
+이름이 비대칭인 것은 전환의 흔적이다. 신규 addon을 처음부터 staged로 만들 때는 양쪽에 접미사를
+붙여 대칭으로 둔다.
+
 ### 전제: `tier` 라벨 어휘를 먼저 고정한다
 
 staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 붙어 있고, 값 어휘가 저장소마다

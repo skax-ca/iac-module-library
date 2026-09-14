@@ -1,0 +1,1558 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iac-module-library, 팀의 IaC Asset</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --font-body: 'IBM Plex Sans KR', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+    --font-mono: 'IBM Plex Mono', 'SF Mono', Consolas, monospace;
+
+    --bg: #0e1116;
+    --surface: #161b22;
+    --surface-2: #1b222c;
+    --surface-3: #222b37;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+    --text: #e9eef4;
+    --text-dim: #96a2b1;
+    --text-faint: #6b7787;
+
+    --aws: #f0883e;
+    --aws-dim: rgba(240, 136, 62, 0.14);
+    --aws-line: rgba(240, 136, 62, 0.45);
+    --azure: #58a6ff;
+    --azure-dim: rgba(88, 166, 255, 0.14);
+    --azure-line: rgba(88, 166, 255, 0.45);
+    --ui: #3fd0c9;
+    --ui-dim: rgba(63, 208, 201, 0.12);
+    --warn: #e5534b;
+    --warn-dim: rgba(229, 83, 75, 0.13);
+    --ok: #57c785;
+
+    --code-bg: #0a0d12;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #ffffff;
+      --surface: #f6f8fa;
+      --surface-2: #eef1f5;
+      --surface-3: #e4e9ef;
+      --border: rgba(16, 22, 30, 0.12);
+      --border-strong: rgba(16, 22, 30, 0.24);
+      --text: #10161e;
+      --text-dim: #56616f;
+      --text-faint: #7d8794;
+      --aws: #c2601a;
+      --aws-dim: rgba(194, 96, 26, 0.10);
+      --aws-line: rgba(194, 96, 26, 0.45);
+      --azure: #1667c8;
+      --azure-dim: rgba(22, 103, 200, 0.10);
+      --azure-line: rgba(22, 103, 200, 0.45);
+      --ui: #0f9c94;
+      --ui-dim: rgba(15, 156, 148, 0.10);
+      --warn: #c0332b;
+      --warn-dim: rgba(192, 51, 43, 0.10);
+      --ok: #1c8a52;
+      --code-bg: #10161e;
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    /* 한글 단어가 줄 끝에서 쪼개지지 않도록 */
+    word-break: keep-all;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ============================ DECK ============================ */
+  .deck {
+    height: 100dvh;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .deck::-webkit-scrollbar { display: none; }
+
+  .slide {
+    height: 100dvh;
+    scroll-snap-align: start;
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    row-gap: clamp(14px, 2.2vh, 30px);
+    padding: clamp(28px, 4.5vh, 56px) clamp(32px, 5vw, 88px) clamp(24px, 3.8vh, 46px);
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity .45s cubic-bezier(.16,1,.3,1), transform .45s cubic-bezier(.16,1,.3,1);
+  }
+  .slide.is-on { opacity: 1; transform: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide { opacity: 1 !important; transform: none !important; transition: none !important; }
+  }
+
+  /* ---- 상단바 ---- */
+  .top {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 16px; border-bottom: 1px solid var(--border); padding-bottom: clamp(8px, 1.2vh, 14px);
+  }
+  .top__eyebrow {
+    font-family: var(--font-mono); font-size: clamp(10px, 1.05vw, 13px);
+    letter-spacing: .14em; text-transform: uppercase; color: var(--ui); font-weight: 600;
+  }
+  .top__num {
+    font-family: var(--font-mono); font-size: clamp(10px, 1vw, 12px);
+    color: var(--text-faint); font-variant-numeric: tabular-nums; white-space: nowrap;
+  }
+
+  /* ---- 제목 ---- */
+  .head h2 {
+    font-size: clamp(23px, 3.15vw, 44px); font-weight: 700; line-height: 1.24;
+    letter-spacing: -.02em; text-wrap: balance;
+  }
+  .head p {
+    margin-top: clamp(6px, .9vh, 12px);
+    font-size: clamp(13.5px, .7vw + .8vh, 21px); color: var(--text-dim); line-height: 1.6; font-weight: 300;
+    max-width: 92ch;
+  }
+  .head em { font-style: normal; color: var(--text); font-weight: 600; }
+
+  /* ---- 간지: 부와 부 사이의 전환에만 쓴다(1→2, 2→3, 3→4 세 번).
+     Part 1은 전환이 아니라 시작이고 표지+로드맵이 이미 그 역할을 하므로 간지를 두지 않는다.
+     하단에 표지와 같은 3분할 카드를 두되 현재 부만 밝혀 진행 위치를 함께 보여준다. ---- */
+  .divider { grid-template-rows: auto 1fr auto; }
+  .divider__mid { display: flex; flex-direction: column; justify-content: center; gap: clamp(4px, .7vh, 9px); }
+  .divider__n {
+    font-family: var(--font-mono); font-size: clamp(11px, 1.15vw, 15px);
+    letter-spacing: .16em; color: var(--ui); font-weight: 700;
+  }
+  .divider__t { font-size: clamp(38px, 6.5vw, 92px); font-weight: 700; letter-spacing: -.035em; line-height: 1.02; }
+  .divider__d { font-size: clamp(15px, 1.5vw, 24px); color: var(--text-dim); font-weight: 300; }
+  .divider__bridge {
+    margin-top: clamp(12px, 2vh, 26px);
+    border-left: 3px solid var(--ui); padding-left: clamp(10px, 1.2vw, 16px);
+    font-size: clamp(13px, .62vw + .78vh, 19px); line-height: 1.6; color: var(--text);
+    font-weight: 400; max-width: 74ch;
+  }
+  .cover__part--now { border-top-color: var(--ui); border-top-width: 3px; }
+  .cover__part--past { opacity: .38; }
+  .cover__part--next { opacity: .38; }
+
+
+  /* ---- 용어 각주: 본문 카드가 아니라 머리말에 둔다(설명은 주장과 같은 레벨이 아니다) ---- */
+  .head .termnote {
+    margin-top: clamp(6px, .8vh, 10px);
+    font-size: clamp(11px, .95vw, 13.5px); color: var(--text-faint);
+    font-weight: 300; line-height: 1.5;
+  }
+  .head .termnote .mono { color: var(--text-dim); }
+
+  /* ---- 본문 영역: 남은 공간을 항상 채운다 ----
+     콘텐츠가 짧을 때는 카드 안쪽이 아니라 카드 바깥에 여백이 생기도록 가운데 정렬한다.
+     (테두리 안의 빈 공간은 고장처럼 보이고, 테두리 밖 여백은 의도처럼 보인다) */
+  .body { min-height: 0; display: grid; gap: clamp(12px, 1.8vw, 26px); align-content: center; }
+  .body--2 { grid-template-columns: 1fr 1fr; }
+  .body--3 { grid-template-columns: repeat(3, 1fr); }
+  .body--2t3 { grid-template-columns: 2fr 3fr; }
+  .body--3t2 { grid-template-columns: 3fr 2fr; }
+  /* 행을 1fr로 강제하면 카드가 화면 높이까지 늘어나 아래가 빈다.
+     auto로 두면 기본 align-items:stretch가 "가장 긴 카드 높이"로만 맞춰 준다. */
+  .body--rows { grid-auto-rows: auto; }
+  .body--stack { grid-auto-flow: row; }
+  .body > * { min-width: 0; min-height: 0; }
+
+  /* ---- 하단 결론 한 줄 ---- */
+  .kick {
+    display: flex; gap: clamp(10px, 1.2vw, 16px); align-items: flex-start;
+    border-top: 1px solid var(--border); padding-top: clamp(10px, 1.5vh, 18px);
+  }
+  .kick::before {
+    content: ''; flex: none; width: 3px; align-self: stretch; background: var(--ui); border-radius: 2px;
+    min-height: 1.2em;
+  }
+  .kick p { font-size: clamp(13px, .62vw + .78vh, 19.5px); line-height: 1.55; color: var(--text); font-weight: 400; }
+  .kick strong { font-weight: 600; }
+  .kick .muted { color: var(--text-dim); font-weight: 300; }
+
+  /* ============================ 부품 ============================ */
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: clamp(14px, 1.9vh, 26px) clamp(14px, 1.5vw, 26px);
+    display: flex; flex-direction: column; gap: clamp(6px, .9vh, 12px); min-width: 0;
+  }
+  /* 카드 그리드는 화면에서 충분한 존재감을 갖도록 최소 높이를 준다 */
+  .body--2 > .card, .body--3 > .card { min-height: clamp(170px, 32vh, 330px); }
+  .card--flat { background: transparent; }
+  .card--aws { border-top: 3px solid var(--aws); }
+  .card--azure { border-top: 3px solid var(--azure); }
+  .card--warn { border-top: 3px solid var(--warn); }
+  .card--ok { border-top: 3px solid var(--ok); }
+  .card--ui { border-top: 3px solid var(--ui); }
+
+  .tag {
+    font-family: var(--font-mono); font-size: clamp(9.5px, .95vw, 12px); font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .tag--aws { color: var(--aws); }
+  .tag--azure { color: var(--azure); }
+  .tag--ui { color: var(--ui); }
+  .tag--dim { color: var(--text-faint); }
+  .tag--warn { color: var(--warn); }
+
+  .card h3 { font-size: clamp(16px, .8vw + 1.05vh, 26px); font-weight: 600; line-height: 1.3; letter-spacing: -.01em; }
+  .card p, .card li { font-size: clamp(13.5px, .62vw + .8vh, 20px); line-height: 1.62; color: var(--text-dim); font-weight: 300; }
+  .card strong { color: var(--text); font-weight: 600; }
+
+  ul.ticks { list-style: none; display: flex; flex-direction: column; gap: clamp(5px, .75vh, 10px); }
+  ul.ticks li { position: relative; padding-left: 15px; }
+  ul.ticks li::before {
+    content: ''; position: absolute; left: 0; top: .62em; width: 5px; height: 5px;
+    border-radius: 1px; background: var(--text-faint);
+  }
+  ul.ticks--aws li::before { background: var(--aws); }
+  ul.ticks--azure li::before { background: var(--azure); }
+
+  code, .mono { font-family: var(--font-mono); }
+  .card code, .kick code, p code, li code, td code {
+    font-family: var(--font-mono); font-size: .87em;
+    background: var(--surface-3); color: var(--text); padding: 1px 6px; border-radius: 4px;
+    word-break: break-all;
+  }
+
+  .pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: clamp(12px, 1.6vh, 20px) clamp(12px, 1.3vw, 20px);
+    font-family: var(--font-mono); font-size: clamp(11px, .5vw + .6vh, 16px); line-height: 1.75;
+    color: #cfd8e3; overflow: auto; white-space: pre; min-width: 0;
+  }
+  .pre .k { color: #79c0ff; }
+  .pre .s { color: #8ddb8c; }
+  .pre .c { color: #6b7787; }
+  .pre .hl { color: var(--ui); font-weight: 600; }
+
+  /* ---- 표 ---- */
+  /* align-self:start를 주면 flex 컬럼 안에서 가로 폭이 줄어든다(교차축이 가로라서).
+     세로 과확장은 .body의 align-content:center가 이미 막고 있으므로 지정하지 않는다. */
+  .tbl-wrap { border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--surface-2); font-family: var(--font-mono);
+    font-size: clamp(9.5px, .95vw, 12px); font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text-dim); text-align: left; padding: clamp(8px, 1.15vh, 14px) clamp(10px, 1.1vw, 18px);
+    border-bottom: 1px solid var(--border-strong); white-space: nowrap;
+  }
+  td {
+    padding: clamp(8px, 1.15vh, 16px) clamp(10px, 1.1vw, 18px);
+    border-bottom: 1px solid var(--border); font-size: clamp(12.5px, .55vw + .72vh, 18.5px);
+    line-height: 1.5; color: var(--text-dim); font-weight: 300; vertical-align: top;
+  }
+  /* 표가 본문의 유일한 내용일 때는 행이 남는 높이를 나눠 갖는다 */
+  .body--stack .tbl-wrap { align-self: stretch; display: flex; }
+  .body--stack .tbl-wrap table { height: 100%; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.lead { color: var(--text); font-weight: 500; white-space: nowrap; }
+  td.c, th.c { text-align: center; }
+  th.aws, td.aws-col { color: var(--aws); }
+  th.azure, td.azure-col { color: var(--azure); }
+
+  .dot {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: clamp(20px, 2vw, 26px); height: clamp(20px, 2vw, 26px); border-radius: 50%;
+    font-size: clamp(11px, 1.1vw, 14px); font-weight: 700;
+  }
+  .dot--full { background: rgba(87,199,133,.16); color: var(--ok); }
+  .dot--half { background: var(--aws-dim); color: var(--aws); }
+  .dot--none { background: var(--surface-3); color: var(--text-faint); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: clamp(10px, 1.6vw, 24px); align-items: center; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; font-size: clamp(11px, 1.05vw, 13.5px); color: var(--text-dim); font-weight: 300; }
+
+  /* ---- 스텝 흐름 ---- */
+  .flow { display: flex; flex-direction: column; gap: 0; justify-content: center; }
+  .flow__step {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 9px;
+    padding: clamp(8px, 1.15vh, 14px) clamp(11px, 1.1vw, 16px);
+  }
+  .flow__step .n { font-family: var(--font-mono); font-size: clamp(9px, .9vw, 11px); color: var(--text-faint); letter-spacing: .1em; }
+  .flow__step .t { font-size: clamp(12px, 1.18vw, 15.5px); line-height: 1.45; margin-top: 3px; font-weight: 400; }
+  .flow__step--end { background: var(--surface-3); }
+  .flow--aws .flow__step--end { border-color: var(--aws-line); }
+  .flow--azure .flow__step--end { border-color: var(--azure-line); }
+  .flow__arr { display: flex; justify-content: center; padding: clamp(3px, .5vh, 7px) 0; }
+  .flow__arr svg { width: 14px; height: 14px; }
+  .flow--aws .flow__arr svg { stroke: var(--aws-line); }
+  .flow--azure .flow__arr svg { stroke: var(--azure-line); }
+
+  /* ---- 다이어그램 공용 ---- */
+  .fig {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: clamp(12px, 1.8vh, 24px) clamp(12px, 1.4vw, 24px);
+    display: flex; flex-direction: column; gap: clamp(8px, 1.2vh, 16px);
+    min-height: 0; min-width: 0;
+  }
+  .fig__cap { font-family: var(--font-mono); font-size: clamp(9.5px, .95vw, 12px); letter-spacing: .1em; text-transform: uppercase; font-weight: 600; }
+  .fig svg { width: 100%; height: 100%; flex: 1; min-height: 0; display: block; }
+  .fig__note { font-size: clamp(11px, 1.1vw, 14px); color: var(--text-dim); line-height: 1.55; font-weight: 300; }
+  .fig__note strong { color: var(--text); font-weight: 600; }
+
+  /* SVG 텍스트 공통 */
+  .svgt { font-family: var(--font-body); fill: var(--text); font-weight: 500; }
+  .svgt-dim { font-family: var(--font-body); fill: var(--text-dim); font-weight: 300; }
+  .svgm { font-family: var(--font-mono); fill: var(--text-faint); font-weight: 500; letter-spacing: .06em; }
+
+  /* ---- 표지 ---- */
+  .cover { grid-template-rows: auto 1fr auto; }
+  .cover__mid { display: flex; flex-direction: column; justify-content: center; gap: clamp(10px, 1.6vh, 20px); }
+  .cover h1 {
+    font-size: clamp(34px, 6vw, 84px); font-weight: 700; letter-spacing: -.035em; line-height: 1.02;
+  }
+  .cover h1 .sub { display: block; font-size: .5em; font-weight: 300; color: var(--text-dim); letter-spacing: -.02em; margin-top: .28em; }
+  .cover__line { width: clamp(48px, 6vw, 86px); height: 4px; background: var(--ui); border-radius: 2px; }
+  .cover__desc { font-size: clamp(14px, 1.55vw, 21px); color: var(--text-dim); font-weight: 300; line-height: 1.6; max-width: 62ch; }
+  .cover__parts { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(10px, 1.4vw, 20px); }
+  .cover__part { border-top: 1px solid var(--border-strong); padding-top: clamp(8px, 1.2vh, 14px); }
+  .cover__part .n { font-family: var(--font-mono); font-size: clamp(10px, 1vw, 12px); color: var(--ui); letter-spacing: .1em; }
+  .cover__part .t { font-size: clamp(13px, 1.35vw, 18px); font-weight: 600; margin-top: 4px; }
+  .cover__part .d { font-size: clamp(11px, 1.1vw, 14px); color: var(--text-dim); font-weight: 300; margin-top: 3px; line-height: 1.5; }
+
+  /* ---- 큰 숫자 로드맵 ---- */
+  .road { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(12px, 1.6vw, 24px); }
+  .road__item {
+    border: 1px solid var(--border); border-radius: 12px; background: var(--surface);
+    padding: clamp(18px, 3.4vh, 44px) clamp(16px, 1.7vw, 30px);
+    display: flex; flex-direction: column; gap: clamp(8px, 1.4vh, 18px); position: relative; overflow: hidden;
+  }
+  .road__n {
+    font-family: var(--font-mono); font-size: clamp(34px, 2.2vw + 2.6vh, 82px); font-weight: 600;
+    line-height: .85; color: var(--border-strong); letter-spacing: -.04em;
+  }
+  .road__item h3 { font-size: clamp(18px, .9vw + 1.2vh, 30px); font-weight: 600; }
+  .road__item p { font-size: clamp(13.5px, .62vw + .8vh, 20px); color: var(--text-dim); line-height: 1.6; font-weight: 300; }
+  .road__keys { margin-top: auto; display: flex; flex-wrap: wrap; gap: 6px; }
+  .road__keys span {
+    font-family: var(--font-mono); font-size: clamp(9.5px, .95vw, 11.5px); color: var(--text-faint);
+    border: 1px solid var(--border); border-radius: 20px; padding: 3px 9px;
+  }
+  .road__item--focus { border-color: var(--ui); }
+  .road__item--focus .road__n { color: var(--ui); opacity: .5; }
+
+  /* ---- 갈래 배지 ---- */
+  .axis-badge {
+    display: inline-flex; align-items: center; gap: 8px; align-self: flex-start;
+    font-family: var(--font-mono); font-size: clamp(9.5px, .95vw, 12px); font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    background: var(--ui-dim); color: var(--ui); border-radius: 20px; padding: 4px 12px;
+  }
+  .axis-badge--same { background: rgba(87,199,133,.14); color: var(--ok); }
+  .axis-badge--means { background: var(--warn-dim); color: var(--warn); }
+  .axis-badge--answer { background: var(--ui-dim); color: var(--ui); }
+
+  /* ---- 비교 두 칸 헤더 ---- */
+  .vs { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(12px, 1.6vw, 24px); min-height: 0; }
+  .vs__col { display: flex; flex-direction: column; gap: clamp(8px, 1.2vh, 14px); min-height: 0; min-width: 0; }
+  .vs__hd { display: flex; align-items: baseline; gap: 10px; }
+  .vs__hd h3 { font-size: clamp(14px, 1.5vw, 20px); font-weight: 600; }
+
+  /* ---- 미니 통계 ---- */
+  .stats { display: flex; gap: clamp(14px, 2vw, 34px); flex-wrap: wrap; }
+  .stat .v { font-family: var(--font-mono); font-size: clamp(20px, 2.6vw, 36px); font-weight: 600; letter-spacing: -.02em; }
+  .stat .l { font-size: clamp(10.5px, 1.05vw, 13px); color: var(--text-dim); font-weight: 300; margin-top: 2px; }
+
+  /* ============================ 크롬 ============================ */
+  .bar { position: fixed; top: 0; left: 0; height: 2px; background: var(--ui); z-index: 50; transition: width .3s ease; }
+  .dots {
+    position: fixed; right: clamp(8px, 1.1vw, 16px); top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 6px; z-index: 50; padding: 8px 6px;
+    border-radius: 20px; background: color-mix(in srgb, var(--bg) 55%, transparent);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  .dots button {
+    width: 6px; height: 6px; border-radius: 50%; border: none; padding: 0; cursor: pointer;
+    background: var(--text-faint); opacity: .35; transition: all .18s ease;
+  }
+  .dots button:hover { opacity: .75; }
+  .dots button.on { opacity: 1; background: var(--ui); transform: scale(1.6); }
+  .hint {
+    position: fixed; bottom: clamp(10px, 1.6vh, 20px); left: 50%; transform: translateX(-50%);
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); z-index: 50;
+    transition: opacity .5s ease; pointer-events: none;
+  }
+  .hint.gone { opacity: 0; }
+
+  /* ============================ 반응형 ============================ */
+  @media (max-height: 720px) {
+    .card p, .card li { line-height: 1.5; }
+    .head p { display: none; }
+  }
+  @media (max-width: 900px) {
+    .body--2, .body--3, .body--2t3, .body--3t2, .road, .vs, .cover__parts { grid-template-columns: 1fr; }
+    .dots { display: none; }
+    .slide { grid-template-rows: auto auto auto auto; height: auto; min-height: 100dvh; }
+    .deck { scroll-snap-type: none; }
+  }
+
+  @media print {
+    body { overflow: visible; }
+    .deck { height: auto; overflow: visible; }
+    .slide { height: auto; min-height: 96vh; page-break-after: always; opacity: 1 !important; transform: none !important; }
+    .bar, .dots, .hint { display: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ══════════════════ 표지 ══════════════════ -->
+  <section class="slide cover" data-part="">
+    <div class="top">
+      <span class="top__eyebrow">Team Share</span>
+      <span class="top__num"></span>
+    </div>
+    <div class="cover__mid">
+      <div class="cover__line"></div>
+      <h1>iac-module-library<span class="sub">팀의 IaC Asset</span></h1>
+      <p class="cover__desc">매번 다시 하던 설계 판단을 코드와 문서로 남기고, AWS에서 짠 패턴을 Azure로 옮기며 배운 것, 그리고 두 클라우드가 함께 맞은 Gateway API 전환.</p>
+    </div>
+    <div class="cover__parts">
+      <div class="cover__part"><div class="n">PART 1</div><div class="t">자산</div><div class="d">무엇을 만들었나</div></div>
+      <div class="cover__part"><div class="n">PART 2</div><div class="t">아키텍처 패턴</div><div class="d">먼저 만든 건 GitOps입니다</div></div>
+      <div class="cover__part"><div class="n">PART 3</div><div class="t">옮기기</div><div class="d">AWS 패턴을 Azure로</div></div>
+      <div class="cover__part"><div class="n">PART 4</div><div class="t">Gateway API</div><div class="d">Ingress를 대신할 표준</div></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════ 로드맵 ══════════════════ -->
+  <section class="slide">
+    <div class="top"><span class="top__eyebrow">오늘 할 얘기</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>하나의 흐름입니다</h2>
+      <p><em>문제 → 자산 → 옮기기 → 전환</em> 순서로 이어집니다.</p>
+    </div>
+    <div class="body">
+      <div class="road">
+        <div class="road__item">
+          <div class="road__n">01</div>
+          <h3>자산</h3>
+          <p>매번 다시 하던 설계 판단을 코드·결정·규약으로 남겼습니다.</p>
+          <div class="road__keys"><span>모듈 7개</span><span>태그 고정 소싱</span><span>네이밍 카탈로그</span></div>
+        </div>
+        <div class="road__item">
+          <div class="road__n">02</div>
+          <h3>아키텍처 패턴</h3>
+          <p>클러스터가 늘어도 addon을 따로 관리하지 않게, hub 하나에 배포 도구를 모았습니다.</p>
+          <div class="road__keys"><span>허브-스포크</span><span>ApplicationSet</span><span>3계층 소유</span></div>
+        </div>
+        <div class="road__item">
+          <div class="road__n">03</div>
+          <h3>옮기기</h3>
+          <p>AWS 패턴을 Azure로 옮겼습니다. 그대로 옮겼거나, 방법을 바꿨거나, 답이 달라졌습니다.</p>
+          <div class="road__keys"><span>목표</span><span>방법</span><span>기준</span></div>
+        </div>
+        <div class="road__item road__item--focus">
+          <div class="road__n">04</div>
+          <h3>Gateway API</h3>
+          <p>ingress-nginx 지원 종료를 계기로 두 클라우드 모두 Ingress를 옮깁니다. 앱팀 매니페스트까지 바뀝니다.</p>
+          <div class="road__keys"><span>HTTPRoute</span><span>3계층</span><span>구현체 선택</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>Part 1·2는 무엇을 만들었는지, Part 3은 그걸 옮기며 배운 것, <strong>Part 4는 팀이 곧 직접 겪을 전환</strong>입니다.</p></div>
+  </section>
+
+  <!-- ══════════════════ Part 1 ══════════════════ -->
+
+  <!-- 1-1 문제 -->
+  <section class="slide" data-part="Part 1 · 자산">
+    <div class="top"><span class="top__eyebrow">Part 1 · 자산</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>같은 고민을 매번 다시 합니다</h2>
+      <p>프로젝트마다 아키텍처는 새로 그립니다. 그때 내린 판단이 남지 않아 <em>비슷한 고민을 처음부터 다시 합니다</em>.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--text-faint)">지금까지</div>
+        <svg viewBox="0 0 620 296" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ah0" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6" fill="none" stroke="var(--border-strong)" stroke-width="1.4"/>
+            </marker>
+          </defs>
+
+          <!-- 프로젝트마다 다른 아키텍처 -->
+          <g>
+            <text x="96" y="14" text-anchor="middle" class="svgm" font-size="12">PROJECT A</text>
+            <rect x="8" y="22" width="176" height="88" rx="10" fill="none" stroke="var(--border-strong)" stroke-dasharray="5 4"/>
+            <rect x="26" y="32" width="140" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="26" y="58" width="140" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="26" y="84" width="140" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+          </g>
+          <g>
+            <text x="310" y="14" text-anchor="middle" class="svgm" font-size="12">PROJECT B</text>
+            <rect x="222" y="22" width="176" height="88" rx="10" fill="none" stroke="var(--border-strong)" stroke-dasharray="5 4"/>
+            <rect x="240" y="32" width="140" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="240" y="58" width="66" height="46" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="314" y="58" width="66" height="46" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+          </g>
+          <g>
+            <text x="524" y="14" text-anchor="middle" class="svgm" font-size="12">PROJECT C</text>
+            <rect x="436" y="22" width="176" height="88" rx="10" fill="none" stroke="var(--border-strong)" stroke-dasharray="5 4"/>
+            <rect x="454" y="32" width="66" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="528" y="32" width="66" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="454" y="58" width="66" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="528" y="58" width="66" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+            <rect x="454" y="84" width="140" height="20" rx="5" fill="var(--surface-3)" stroke="var(--border)"/>
+          </g>
+
+          <!-- 셋 다 같은 질문으로 내려온다 -->
+          <path d="M96,110 L96,132" stroke="var(--border-strong)" stroke-width="1.5" marker-end="url(#ah0)"/>
+          <path d="M310,110 L310,132" stroke="var(--border-strong)" stroke-width="1.5" marker-end="url(#ah0)"/>
+          <path d="M524,110 L524,132" stroke="var(--border-strong)" stroke-width="1.5" marker-end="url(#ah0)"/>
+
+          <rect x="8" y="140" width="604" height="82" rx="10" fill="var(--ui-dim)" stroke="var(--ui)" stroke-width="2"/>
+          <text x="22" y="161" class="svgm" font-size="11.5" fill="var(--ui)">매번 다시 마주치는 질문</text>
+          <rect x="24" y="170" width="180" height="36" rx="6" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="114" y="193" text-anchor="middle" class="svgt" font-size="13">서브넷을 어떻게 쪼갤까</text>
+          <rect x="220" y="170" width="180" height="36" rx="6" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="310" y="193" text-anchor="middle" class="svgt" font-size="13">권한 경계를 어디에 둘까</text>
+          <rect x="416" y="170" width="180" height="36" rx="6" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="506" y="193" text-anchor="middle" class="svgt" font-size="13">이름을 어떻게 붙일까</text>
+
+          <!-- 그런데 답이 남는 곳이 없다 -->
+          <path d="M310,222 L310,242" stroke="var(--border-strong)" stroke-width="1.5" marker-end="url(#ah0)"/>
+          <rect x="170" y="250" width="280" height="34" rx="8" fill="none" stroke="var(--border-strong)" stroke-width="1.5" stroke-dasharray="6 5"/>
+          <text x="310" y="272" text-anchor="middle" class="svgm" font-size="12.5">남는 곳이 없다</text>
+        </svg>
+        <div class="fig__note">아키텍처는 매번 달라도 <strong>고민은 매번 같습니다.</strong></div>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">왜 우리가 갖고 있어야 하나</span>
+        <h3>이 미션이 계속되는 한, 자산은 IaC입니다</h3>
+        <p>우리 팀 미션 중 하나가 여러 프로젝트의 클라우드 구조를 설계하는 일입니다. 그 판단이 코드와 문서로 남지 않으면 팀의 역량이 <strong>개인의 경험으로만 쌓입니다.</strong></p>
+        <p>코드·결정·규약으로 남겨야 다음 프로젝트가 <strong>그 위에서</strong> 시작합니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p>고민이 남지 않으면 <strong>판단의 품질이 매번 사람에 따라 달라집니다.</strong> 자산화의 목적은 일관성입니다.</p></div>
+  </section>
+
+  <!-- 1-2 자산의 세 가지 -->
+  <section class="slide" data-part="Part 1 · 자산">
+    <div class="top"><span class="top__eyebrow">Part 1 · 자산</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>코드·결정·규약, 세 가지를 남깁니다</h2>
+      <p>코드만 있으면 다음 프로젝트에서 같은 판단을 다시 해야 합니다. 그래서 <em>결정과 규약까지 함께</em> 남깁니다.</p>
+    </div>
+    <div class="body body--3 body--rows">
+      <div class="card card--ui">
+        <span class="tag tag--ui">첫째</span>
+        <h3>코드</h3>
+        <p><code>modules/&lt;provider&gt;/&lt;name&gt;/</code> 경로 규칙으로 AWS·Azure 모듈을 둡니다.</p>
+        <p>소싱은 <strong>태그로 고정</strong>합니다. 오늘 가져온 코드와 내일 가져온 코드가 달라지면 안 됩니다.</p>
+        <div class="pre" ><span class="c"># 금지</span>
+ref=main
+<span class="c"># 규칙</span>
+ref=<span class="hl">vpc-v0.5.0</span></div>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">둘째</span>
+        <h3>결정</h3>
+        <p>반복되는 설계 판단과 합의도 문서로 만들어 자산에 넣습니다.</p>
+        <ul class="ticks">
+          <li>output 공유 대신 <strong>Name 태그로 조회</strong>합니다. 워크스페이스를 쪼개도 값이 오갑니다</li>
+          <li>Security Group rule은 개별 리소스로 분리합니다. inline으로 몰면 순환 의존성과 전체 교체가 생깁니다</li>
+          <li>계정 간 순환 의존성은 Terraform 밖으로 뺍니다. TGW RAM 공유 수락을 CI 단계로 옮겼습니다</li>
+          <li>리소스를 추가할 때 네이밍 컨벤션과 약어 카탈로그도 함께 정의</li>
+        </ul>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">셋째</span>
+        <h3>규약</h3>
+        <ul class="ticks">
+          <li><code>tofu</code>만 씁니다. terraform과 섞으면 lock 파일이 꼬입니다</li>
+          <li><code>.tf</code>를 쓰기 전에 설계 문서 승인부터</li>
+          <li><strong>릴리스 태그는 바꾸지 않습니다.</strong> 참조 중인 버전이 몰래 바뀌는 사고를 막습니다</li>
+          <li>컴포넌트별 semver, 전 모듈 <code>0.y.z</code>. 모듈마다 성숙 속도가 다릅니다</li>
+          <li>사람이 만들든 Claude Code에 위임하든 규약은 동일</li>
+        </ul>
+      </div>
+    </div>
+    <div class="kick"><p>규칙이 <strong>문서로 있어야</strong> 사람도 AI도 같은 기준으로 판단합니다.</p></div>
+  </section>
+
+  <!-- 1-3 지도와 현황 -->
+  <section class="slide" data-part="Part 1 · 자산">
+    <div class="top"><span class="top__eyebrow">Part 1 · 자산</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>이 repo가 SSOT, 나머지는 가져다 씁니다</h2>
+      <p>모듈 코드도 아키텍처 패턴도 이 repo에 씁니다. 나머지 네 저장소는 그 패턴을 <em>실제로 적용한 예시</em>이고, 모듈은 git 태그로 가져다 씁니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--ui)">자산과 적용 예시</div>
+        <svg viewBox="0 0 640 260" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6" fill="none" stroke="var(--ui)" stroke-width="1.4"/>
+            </marker>
+          </defs>
+          <rect x="14" y="96" width="196" height="68" rx="10" fill="var(--ui-dim)" stroke="var(--ui)" stroke-width="2"/>
+          <text x="112" y="124" text-anchor="middle" class="svgt" font-size="16" font-weight="600">iac-module-library</text>
+          <text x="112" y="146" text-anchor="middle" class="svgm" font-size="12" fill="var(--ui)">코드 · 결정 · 규약</text>
+
+          <text x="468" y="16" text-anchor="middle" class="svgm" font-size="11">적용 예시</text>
+          <line x1="306" y1="22" x2="630" y2="22" stroke="var(--border)" stroke-dasharray="3 3"/>
+
+          <path d="M210,120 C258,120 258,58 300,58" fill="none" stroke="var(--ui)" stroke-width="1.6" marker-end="url(#ah)"/>
+          <path d="M210,140 C258,140 258,202 300,202" fill="none" stroke="var(--ui)" stroke-width="1.6" marker-end="url(#ah)"/>
+          <text x="255" y="106" text-anchor="middle" class="svgm" font-size="11">git tag</text>
+
+          <rect x="306" y="30" width="150" height="56" rx="9" fill="var(--aws-dim)" stroke="var(--aws-line)"/>
+          <text x="381" y="54" text-anchor="middle" class="svgt" font-size="13">eks-reference-infra</text>
+          <text x="381" y="72" text-anchor="middle" class="svgm" font-size="11" fill="var(--aws)">AWS 배포 루트</text>
+
+          <rect x="306" y="174" width="150" height="56" rx="9" fill="var(--azure-dim)" stroke="var(--azure-line)"/>
+          <text x="381" y="198" text-anchor="middle" class="svgt" font-size="13">aks-reference-infra</text>
+          <text x="381" y="216" text-anchor="middle" class="svgm" font-size="11" fill="var(--azure)">Azure 배포 루트</text>
+
+          <line x1="456" y1="58" x2="496" y2="58" stroke="var(--border-strong)" stroke-dasharray="4 4"/>
+          <line x1="456" y1="202" x2="496" y2="202" stroke="var(--border-strong)" stroke-dasharray="4 4"/>
+
+          <rect x="498" y="30" width="132" height="56" rx="9" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="564" y="63" text-anchor="middle" class="svgt" font-size="12">eks-platform-gitops</text>
+
+          <rect x="498" y="174" width="132" height="56" rx="9" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="564" y="207" text-anchor="middle" class="svgt" font-size="12">aks-platform-gitops</text>
+        </svg>
+        <div class="pre">module <span class="s">"vpc"</span> {
+  source = <span class="s">"git::…/iac-module-library.git//modules/aws/vpc?ref=<span class="hl">vpc-v0.5.0</span>"</span>
+}</div>
+      </div>
+      <div class="card">
+        <span class="tag tag--dim">지금까지 만든 것</span>
+        <div class="stats" style="margin-bottom:4px">
+          <div class="stat"><div class="v" style="color:var(--aws)">4</div><div class="l">AWS 모듈</div></div>
+          <div class="stat"><div class="v" style="color:var(--azure)">3</div><div class="l">Azure 모듈</div></div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>모듈</th><th>Provider</th><th>태그</th></tr></thead>
+            <tbody>
+              <tr><td class="lead">vpc</td><td class="aws-col">AWS</td><td><code>v0.5.0</code></td></tr>
+              <tr><td class="lead">eks-cluster</td><td class="aws-col">AWS</td><td><code>v0.11.0</code></td></tr>
+              <tr><td class="lead">workbench</td><td class="aws-col">AWS</td><td><code>v0.9.0</code></td></tr>
+              <tr><td class="lead">cross-account-trust-role</td><td class="aws-col">AWS</td><td><code>v0.4.0</code></td></tr>
+              <tr><td class="lead">vnet</td><td class="azure-col">Azure</td><td><code>v0.2.0</code></td></tr>
+              <tr><td class="lead">aks-cluster</td><td class="azure-col">Azure</td><td><code>v0.9.0</code></td></tr>
+              <tr><td class="lead">aks-workbench</td><td class="azure-col">Azure</td><td><code>v0.7.0</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>버전이 제각각인 건 <strong>모듈마다 성숙 속도가 다르다</strong>는 정보입니다. 태그가 고정이라 소비 측은 흔들리지 않습니다.</p></div>
+  </section>
+
+  <!-- 1-4 도구와 CI -->
+  <section class="slide" data-part="Part 1 · 자산">
+    <div class="top"><span class="top__eyebrow">Part 1 · 자산</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>운영 도구와 승인 게이트</h2>
+      <p>OpenTofu · GitHub Actions · S3(Azure는 Blob) backend. <em>AWS와 Azure가 같은 CI 패턴</em>을 씁니다.</p>
+    </div>
+    <div class="body body--2 body--rows">
+      <div class="card card--ui">
+        <span class="tag tag--ui">스택</span>
+        <ul class="ticks">
+          <li><strong>OpenTofu</strong>: 로컬·CI 모두 <code>tofu</code> 하나</li>
+          <li><strong>GitHub Actions</strong>: OIDC로 자격증명을 심지 않고 인증</li>
+          <li><strong>S3 / Blob backend</strong>: state 저장, lock은 backend 기능으로</li>
+        </ul>
+        <p >저장소는 GitHub organization 하나에 모읍니다. org와 repo 사이에 묶는 계층이 없어서, 관련 저장소는 <strong>GitHub Team(<code>iac</code>)에 붙여</strong> 권한을 한 번에 줍니다.</p>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">CI 게이트</span>
+        <div class="flow" style="gap:0;margin-top:2px">
+          <div class="flow__step"><div class="n">PUSH</div><div class="t">plan까지만 자동 실행</div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--ui)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step"><div class="n">REVIEW</div><div class="t">사람이 plan 결과를 확인</div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--ui)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step flow__step--end" style="border-color:var(--ui)"><div class="n">DISPATCH</div><div class="t">apply는 <code>workflow_dispatch</code> 전용</div></div>
+        </div>
+        <p >무료 플랜의 private repo는 environment에 required reviewer를 걸 수 없습니다. 그래서 <strong>dispatch 버튼을 누르는 행위 자체가 승인</strong>을 대신합니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p>무료 플랜의 <strong>제약에 맞춰 게이트를 설계</strong>했습니다. 이 판단도 자산에 문서로 남겼습니다.</p></div>
+  </section>
+
+  <!-- ══════════════════ Part 2 ══════════════════ -->
+
+  <!-- ══════ 간지: Part 2 ══════ -->
+  <section class="slide divider" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 1 → Part 2</span><span class="top__num"></span></div>
+    <div class="divider__mid">
+      <div class="divider__n">PART 2</div>
+      <h2 class="divider__t">아키텍처 패턴</h2>
+      <p class="divider__d">먼저 만든 건 GitOps입니다</p>
+      <p class="divider__bridge">이 자산으로 처음 짠 패턴이 GitOps 허브-스포크 구조입니다.</p>
+    </div>
+    <div class="cover__parts">
+        <div class="cover__part cover__part--past"><div class="n">PART 1</div><div class="t">자산</div><div class="d">무엇을 만들었나</div></div>
+        <div class="cover__part cover__part--now"><div class="n">PART 2</div><div class="t">아키텍처 패턴</div><div class="d">먼저 만든 건 GitOps입니다</div></div>
+        <div class="cover__part cover__part--next"><div class="n">PART 3</div><div class="t">옮기기</div><div class="d">AWS 패턴을 Azure로</div></div>
+        <div class="cover__part cover__part--next"><div class="n">PART 4</div><div class="t">Gateway API</div><div class="d">Ingress를 대신할 표준</div></div>
+    </div>
+  </section>
+
+  <!-- 2-1 문제 -->
+  <section class="slide" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 2 · 아키텍처 패턴</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>addon을 클러스터마다 따로 관리하게 됩니다</h2>
+      <p>클러스터 하나면 그 자리에서 설치합니다. 둘 이상이면 <em>정책 하나 추가하는 일이 클러스터 수만큼의 반복</em>이 됩니다.</p>
+      <p class="termnote"><span class="mono">addon</span>: 클러스터에 공통으로 설치하는 운영 컴포넌트(정책 엔진, 오토스케일러, 인그레스 컨트롤러 등).</p>
+    </div>
+    <div class="body body--2t3">
+      <div class="card card--warn">
+        <span class="tag tag--warn">증상</span>
+        <ul class="ticks">
+          <li>버전을 하나 올리려면 클러스터 수만큼 같은 작업을 반복</li>
+          <li>dev → stg → prod 순차 검증은 정상. 그런데 <strong>그 차이가 의도인지 사고인지 가릴 지점이 없음</strong></li>
+          <li>전 클러스터가 같아야 할 Kyverno(정책 엔진)까지 제각각이 되고, 장애가 나야 알게 됨</li>
+        </ul>
+      </div>
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--warn)">클러스터 4 × addon 5 = 관리 포인트 20</div>
+        <svg viewBox="0 0 620 230" preserveAspectRatio="xMidYMid meet">
+          <g class="svgm" font-size="12">
+            <text x="70" y="26" text-anchor="middle">dev</text>
+            <text x="205" y="26" text-anchor="middle">stg</text>
+            <text x="340" y="26" text-anchor="middle">prod-a</text>
+            <text x="475" y="26" text-anchor="middle">prod-b</text>
+          </g>
+          <g class="svgt-dim" font-size="12" text-anchor="end">
+            <text x="595" y="58">Kyverno</text>
+            <text x="595" y="71" class="svgm" font-size="9.5">동일 필수</text>
+            <text x="595" y="94">Karpenter</text>
+            <text x="595" y="107" class="svgm" font-size="9.5">승격 중</text>
+            <text x="595" y="130">CSI</text>
+            <text x="595" y="166">Ingress</text>
+            <text x="595" y="202">KEDA</text>
+          </g>
+          <g>
+            <rect x="20" y="42" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="70" y="58" text-anchor="middle" class="svgm" font-size="11">v1.11</text>
+            <rect x="155" y="42" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="205" y="58" text-anchor="middle" class="svgm" font-size="11">v1.11</text>
+            <rect x="290" y="42" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="340" y="58" text-anchor="middle" class="svgm" font-size="11">v1.11</text>
+            <rect x="425" y="42" width="100" height="22" rx="4" fill="var(--warn-dim)" stroke="var(--warn)"/><text x="475" y="58" text-anchor="middle" class="svgm" font-size="11" fill="var(--warn)">v1.8</text>
+
+            <rect x="20" y="78" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="70" y="94" text-anchor="middle" class="svgm" font-size="11">v1.3</text>
+            <rect x="155" y="78" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="205" y="94" text-anchor="middle" class="svgm" font-size="11">v1.3</text>
+            <rect x="290" y="78" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="340" y="94" text-anchor="middle" class="svgm" font-size="11">v1.2</text>
+            <rect x="425" y="78" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="475" y="94" text-anchor="middle" class="svgm" font-size="11">v1.2</text>
+
+            <rect x="20" y="114" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="70" y="130" text-anchor="middle" class="svgm" font-size="11">ok</text>
+            <rect x="155" y="114" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="205" y="130" text-anchor="middle" class="svgm" font-size="11">ok</text>
+            <rect x="290" y="114" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="340" y="130" text-anchor="middle" class="svgm" font-size="11">ok</text>
+            <rect x="425" y="114" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="475" y="130" text-anchor="middle" class="svgm" font-size="11">ok</text>
+
+            <rect x="20" y="150" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="70" y="166" text-anchor="middle" class="svgm" font-size="11">v2.4</text>
+            <rect x="155" y="150" width="100" height="22" rx="4" fill="var(--warn-dim)" stroke="var(--warn)"/><text x="205" y="166" text-anchor="middle" class="svgm" font-size="11" fill="var(--warn)">v2.2</text>
+            <rect x="290" y="150" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="340" y="166" text-anchor="middle" class="svgm" font-size="11">v2.4</text>
+            <rect x="425" y="150" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="475" y="166" text-anchor="middle" class="svgm" font-size="11">v2.4</text>
+
+            <rect x="20" y="186" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="70" y="202" text-anchor="middle" class="svgm" font-size="11">v2.1</text>
+            <rect x="155" y="186" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="205" y="202" text-anchor="middle" class="svgm" font-size="11">v2.1</text>
+            <rect x="290" y="186" width="100" height="22" rx="4" fill="var(--surface-3)" stroke="var(--border)"/><text x="340" y="202" text-anchor="middle" class="svgm" font-size="11">v2.1</text>
+            <rect x="425" y="186" width="100" height="22" rx="4" fill="var(--warn-dim)" stroke="var(--warn)"/><text x="475" y="202" text-anchor="middle" class="svgm" font-size="11" fill="var(--warn)">없음</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+    <div class="kick"><p><strong>관리 포인트</strong>도 늘어납니다. 클러스터를 하나 늘릴 때마다 관리할 곳이 addon 수만큼 함께 늘어납니다.</p></div>
+  </section>
+
+  <!-- 2-2 답: 허브-스포크 -->
+  <section class="slide" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 2 · 아키텍처 패턴</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>hub에 모으고, spoke는 등록만</h2>
+      <p>ArgoCD는 hub 한 곳에만 직접 운영(self-managed)하고, spoke 클러스터는 <em>원격으로 등록만</em> 합니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--ui)">허브-스포크 등록과 팬아웃</div>
+        <svg viewBox="0 0 640 250" preserveAspectRatio="xMidYMid meet">
+          <defs>
+            <marker id="ah2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+              <path d="M0,0 L7,3 L0,6" fill="none" stroke="var(--ui)" stroke-width="1.4"/>
+            </marker>
+          </defs>
+          <rect x="16" y="86" width="170" height="80" rx="10" fill="var(--surface-3)" stroke="var(--border)"/>
+          <text x="101" y="70" text-anchor="middle" class="svgm" font-size="12">GIT</text>
+          <text x="101" y="120" text-anchor="middle" class="svgt" font-size="14">platform-gitops</text>
+          <text x="101" y="142" text-anchor="middle" class="svgt-dim" font-size="12">addon 정의 한 벌</text>
+
+          <path d="M186,126 L232,126" stroke="var(--ui)" stroke-width="1.8" marker-end="url(#ah2)"/>
+          <text x="209" y="116" text-anchor="middle" class="svgm" font-size="11">pull</text>
+
+          <rect x="236" y="76" width="152" height="100" rx="12" fill="var(--ui-dim)" stroke="var(--ui)" stroke-width="2"/>
+          <text x="312" y="62" text-anchor="middle" class="svgm" font-size="12" fill="var(--ui)">HUB</text>
+          <text x="312" y="116" text-anchor="middle" class="svgt" font-size="15" font-weight="600">ArgoCD</text>
+          <text x="312" y="138" text-anchor="middle" class="svgt-dim" font-size="12">self-managed</text>
+          <text x="312" y="158" text-anchor="middle" class="svgt-dim" font-size="12">한 대만 운영</text>
+
+          <path d="M388,104 C440,104 440,42 486,42" fill="none" stroke="var(--ui)" stroke-width="1.6" marker-end="url(#ah2)"/>
+          <path d="M388,126 C440,126 440,126 486,126" fill="none" stroke="var(--ui)" stroke-width="1.6" marker-end="url(#ah2)"/>
+          <path d="M388,148 C440,148 440,210 486,210" fill="none" stroke="var(--ui)" stroke-width="1.6" marker-end="url(#ah2)"/>
+          <text x="437" y="92" text-anchor="middle" class="svgm" font-size="10">등록 + ApplicationSet</text>
+
+          <rect x="490" y="20" width="134" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)"/>
+          <text x="557" y="41" text-anchor="middle" class="svgt" font-size="13">spoke · dev</text>
+          <text x="557" y="56" text-anchor="middle" class="svgm" font-size="10">tier: nonprd</text>
+          <rect x="490" y="104" width="134" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)"/>
+          <text x="557" y="125" text-anchor="middle" class="svgt" font-size="13">spoke · stg</text>
+          <text x="557" y="140" text-anchor="middle" class="svgm" font-size="10">tier: nonprd</text>
+          <rect x="490" y="188" width="134" height="44" rx="8" fill="var(--surface)" stroke="var(--border-strong)"/>
+          <text x="557" y="209" text-anchor="middle" class="svgt" font-size="13">spoke · prod</text>
+          <text x="557" y="224" text-anchor="middle" class="svgm" font-size="10">tier: prd</text>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,18px);min-height:0">
+        <div class="card card--ok" style="flex:1">
+          <span class="tag" style="color:var(--ok)">달라지는 것</span>
+          <h3>Kyverno 버전 올리기 = 커밋 한 번</h3>
+          <p><code>platform-gitops</code>에 Kyverno 버전을 커밋하면 대상 클러스터가 자동으로 맞춰집니다. 클러스터가 늘어도 <strong>addon 정의 파일은 늘지 않습니다.</strong></p>
+        </div>
+        <div class="card" style="flex:1">
+          <span class="tag tag--dim">용어</span>
+          <p><strong>ArgoCD</strong>: Git 저장소의 상태를 클러스터에 계속 맞춰주는 GitOps 도구. 클러스터 안에서 스스로 Git을 당겨옵니다(pull).</p>
+          <p><strong>spoke 등록</strong>: hub의 ArgoCD가 다른 클러스터의 API 서버에 접속할 수 있도록 자격증명을 등록하는 것.</p>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>이제 클러스터를 하나 늘려도 <strong>관리할 곳은 늘지 않습니다.</strong> spoke마다 반복하던 일이 커밋 한 번으로 끝납니다.</p></div>
+  </section>
+
+  <!-- 2-3 팬아웃 두 방식 -->
+  <section class="slide" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 2 · 아키텍처 패턴</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>addon마다 내보내는 방식을 고릅니다</h2>
+      <p>selector 하나가 <em>누가 받고 어떤 버전을 받는지</em>를 정합니다. 세 가지를 씁니다.</p>
+    </div>
+    <div class="body body--3 body--rows">
+      <div class="card card--ok">
+        <span class="tag" style="color:var(--ok)">uniform · 전 클러스터</span>
+        <h3>같은 버전을 모두에게</h3>
+        <p>라벨의 <strong>존재 여부만</strong> 봅니다. 클러스터를 하나 등록하는 행위 자체가 곧 배포가 됩니다.</p>
+        <div class="pre"><span class="c"># kyverno.yaml</span>
+generators:
+  - clusters:
+      <span class="hl">selector</span>:
+        matchExpressions:
+          - key: environment
+            operator: <span class="hl">Exists</span></div>
+        <p >정책 엔진이 여기입니다. 클러스터마다 버전이 다르면 <strong>통과 기준도 달라집니다.</strong></p>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">staged · 티어별 승격</span>
+        <h3>비운영에서 먼저, 검증 후 운영</h3>
+        <p><code>tier</code> 라벨로 ApplicationSet을 나누고 각각에 버전을 답니다.</p>
+        <div class="pre"><span class="c"># karpenter.yaml</span>
+generators:
+  - clusters:
+      <span class="hl">selector</span>:
+        matchLabels: {tier: <span class="hl">nonprd</span>}
+targetRevision: 1.15.0
+<span class="c">---</span>
+      <span class="hl">selector</span>:
+        matchLabels: {tier: <span class="hl">prd</span>}
+targetRevision: 1.14.0</div>
+        <p >노드를 만들고 트래픽을 받는 컨트롤러가 여기입니다. Karpenter, ALB Controller.</p>
+      </div>
+      <div class="card card--flat">
+        <span class="tag tag--dim">opt-in · 라벨 구독</span>
+        <h3>라벨을 단 클러스터에만</h3>
+        <p>cluster Secret에 붙인 <strong>라벨 값</strong>을 <code>matchLabels</code>로 지정해 대상을 고릅니다.</p>
+        <div class="pre"><span class="c"># keda.yaml</span>
+generators:
+  - clusters:
+      <span class="hl">selector</span>:
+        <span class="hl">matchLabels</span>:
+          addon-keda: enabled</div>
+        <p >AWS에서 KEDA가 이 경로를 탑니다. Azure는 KEDA가 완전 관리형이라 <strong>이 경로 자체가 필요 없습니다</strong>. Part 3에서 다시 나올 차이입니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p>어느 클러스터가 어떤 버전을 쓰는지 <strong>저장소만 보면 알 수 있습니다.</strong></p></div>
+  </section>
+
+  <!-- 2-4 도는 원리 -->
+  <section class="slide" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 2 · 아키텍처 패턴</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>hub 하나에 모았으니, 가드레일이 필요합니다</h2>
+      <p>배포 편의를 얻은 만큼 <em>한 번의 실수가 닿는 범위</em>도 커졌습니다. 두 가지로 막습니다.</p>
+    </div>
+    <div class="body body--2">
+      <div class="card" style="border-top:3px solid var(--ok)">
+        <span class="tag" style="color:var(--ok)">self-heal · prune</span>
+        <h3>Git과 다르면 되돌립니다</h3>
+        <p>클러스터에서 직접 고친 값은 다음 sync에서 되돌아갑니다. 전 addon이 같은 설정을 씁니다.</p>
+        <div class="pre">syncPolicy:
+  automated:
+    <span class="hl">prune</span>: true      <span class="c"># Git에서 지운 건 클러스터에서도</span>
+    <span class="hl">selfHeal</span>: true   <span class="c"># 손댄 변경은 되돌림</span></div>
+        <p >장애 대응으로 급히 손을 댔더라도 <strong>Git을 고쳐야 반영됩니다.</strong></p>
+      </div>
+      <div class="card card--warn">
+        <span class="tag tag--warn">AppProject</span>
+        <h3>저장소 쪽 실수를 막는 층은 여기뿐입니다</h3>
+        <p>argo-cd 차트 기본값이 application controller에 <strong>cluster-admin을 줍니다.</strong> RBAC으로는 막을 게 없습니다.</p>
+        <ul class="ticks">
+          <li><span class="mono">sourceRepos</span> 어느 차트 저장소에서 받는가</li>
+          <li><span class="mono">destinations</span> 어느 클러스터·네임스페이스에 배포하는가</li>
+          <li><span class="mono">clusterResourceWhitelist</span> 어떤 cluster-scoped kind를 만드는가</li>
+        </ul>
+        <p >기본 차단에서 시작해 <strong>addon마다 필요한 kind만</strong> 엽니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p>클러스터 쪽 손댐은 <strong>self-heal</strong>이, 저장소 쪽 실수는 <strong>AppProject</strong>가 막습니다.</p></div>
+  </section>
+
+  <!-- 2-5 3계층 -->
+  <section class="slide" data-part="Part 2 · 아키텍처 패턴">
+    <div class="top"><span class="top__eyebrow">Part 2 · 아키텍처 패턴</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>3계층으로 소유를 나눴습니다</h2>
+      <p>계층 1과 2는 도구가 달라 나뉩니다. 정작 지키기 어려운 건 <em>플랫폼과 앱 사이</em>입니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--ui)">소유 경계</div>
+        <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
+          <rect x="20" y="16" width="360" height="66" rx="10" fill="var(--surface-3)" stroke="var(--border-strong)"/>
+          <text x="38" y="42" class="svgm" font-size="11" fill="var(--ui)">계층 1</text>
+          <text x="38" y="64" class="svgt" font-size="15" font-weight="600">Terraform</text>
+          <text x="362" y="44" text-anchor="end" class="svgt-dim" font-size="12">클러스터 · 관리형 addon · 신원</text>
+          <text x="362" y="64" text-anchor="end" class="svgm" font-size="11">*-reference-infra</text>
+
+          <rect x="20" y="92" width="360" height="66" rx="10" fill="var(--ui-dim)" stroke="var(--ui)" stroke-width="2"/>
+          <text x="38" y="118" class="svgm" font-size="11" fill="var(--ui)">계층 2</text>
+          <text x="38" y="140" class="svgt" font-size="15" font-weight="600">플랫폼 GitOps</text>
+          <text x="362" y="120" text-anchor="end" class="svgt-dim" font-size="12">helm addon · 등록 · 가드레일</text>
+          <text x="362" y="140" text-anchor="end" class="svgm" font-size="11" fill="var(--ui)">*-platform-gitops</text>
+
+          <rect x="20" y="168" width="360" height="66" rx="10" fill="none" stroke="var(--border)" stroke-dasharray="5 4"/>
+          <text x="38" y="194" class="svgm" font-size="11">계층 3</text>
+          <text x="38" y="216" class="svgt-dim" font-size="15" font-weight="600">앱 GitOps</text>
+          <text x="362" y="196" text-anchor="end" class="svgt-dim" font-size="12">비즈니스 워크로드</text>
+          <text x="362" y="216" text-anchor="end" class="svgm" font-size="11">앱팀별 repo · 범위 밖</text>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,18px);min-height:0">
+        <div class="card card--ui">
+          <span class="tag tag--ui">경계를 지키는 법</span>
+          <h3><code>platform-gitops</code>에 <code>apps/</code>를 두지 않습니다</h3>
+          <p>addon 업그레이드는 클러스터 전체에, 앱 배포는 팀 하나에 영향을 줍니다. 영향 범위가 다른 것을 같은 저장소에 담지 않습니다.</p>
+        </div>
+        <div class="card card--flat">
+          <span class="tag tag--dim">플랫폼 ↔ 앱</span>
+          <h3>Gateway는 우리가, HTTPRoute는 앱팀이</h3>
+          <ul class="ticks">
+            <li>플랫폼이 <strong>Gateway</strong>(리스너·포트·TLS)를 소유합니다</li>
+            <li>앱팀은 <strong>HTTPRoute</strong>를 자기 저장소에 두고 <span class="mono">parentRefs</span>로 붙입니다</li>
+          </ul>
+          <p >이 경계는 <strong>Gateway API의 리소스 경계와 일치합니다.</strong> Part 4에서 다시 나옵니다.</p>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>한 계층을 고칠 때 <strong>다른 계층을 건드리지 않고</strong>, 잘못 올려도 그 계층 밖으로 퍼지지 않습니다.</p></div>
+  </section>
+
+  <!-- ══════════════════ Part 3 ══════════════════ -->
+
+  <!-- ══════ 간지: Part 3 ══════ -->
+  <section class="slide divider" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 2 → Part 3</span><span class="top__num"></span></div>
+    <div class="divider__mid">
+      <div class="divider__n">PART 3</div>
+      <h2 class="divider__t">옮기기</h2>
+      <p class="divider__d">AWS 패턴을 Azure로</p>
+      <p class="divider__bridge">패턴은 AWS에서 먼저 정했고, Azure 프로젝트에 옮기면서 <strong>지킨 것과 바꾼 것</strong>을 정리했습니다.</p>
+    </div>
+    <div class="cover__parts">
+        <div class="cover__part cover__part--past"><div class="n">PART 1</div><div class="t">자산</div><div class="d">무엇을 만들었나</div></div>
+        <div class="cover__part cover__part--past"><div class="n">PART 2</div><div class="t">아키텍처 패턴</div><div class="d">먼저 만든 건 GitOps입니다</div></div>
+        <div class="cover__part cover__part--now"><div class="n">PART 3</div><div class="t">옮기기</div><div class="d">AWS 패턴을 Azure로</div></div>
+        <div class="cover__part cover__part--next"><div class="n">PART 4</div><div class="t">Gateway API</div><div class="d">Ingress를 대신할 표준</div></div>
+    </div>
+  </section>
+
+  <!-- 3-0 지도 -->
+  <section class="slide" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 3 · 옮기기</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>결정 하나를 옮길 때마다 셋 중 하나가 일어났습니다</h2>
+      <p>AWS 결정을 그대로 옮겼는지부터 봅니다. <em>목표·방법</em> 다 유지됐으면 첫 번째, 구조 차이로 <em>방법만</em> 바뀌었으면 두 번째, 같은 기준인데 <em>결과</em>가 갈렸으면 세 번째입니다.</p>
+    </div>
+    <div class="body body--3 body--rows">
+      <div class="card card--ok">
+        <span class="axis-badge axis-badge--same">① 그대로 옮겨졌다</span>
+        <h3>목표도 방법도 유지했습니다</h3>
+        <p>원칙은 두 클라우드에서 <strong>같은 모양으로</strong> 성립했습니다. Azure에 다른 선택지가 있어도 그대로 옮긴 것이 있습니다.</p>
+        <div class="road__keys"><span>모듈 인터페이스</span><span>3계층</span><span>권한 주는 방향</span></div>
+      </div>
+      <div class="card card--warn">
+        <span class="axis-badge axis-badge--means">② 방법을 바꿨다</span>
+        <h3>플랫폼이 AWS의 방법을 막았습니다</h3>
+        <p>목표는 그대로 두고, <strong>Azure에서 성립하는 방법</strong>으로 바꿨습니다. 플랫폼 제약이 원인입니다.</p>
+        <div class="road__keys"><span>Pod IP 대역</span><span>private L7 (Part 4)</span></div>
+      </div>
+      <div class="card card--ui">
+        <span class="axis-badge axis-badge--answer">③ 답이 달라졌다</span>
+        <h3>같은 기준에 제공 형태가 달랐습니다</h3>
+        <p>관리형을 쓸지 <strong>같은 기준</strong>으로 판단했는데, 두 클라우드가 제공하는 형태가 달랐습니다. 우리 선택입니다.</p>
+        <div class="road__keys"><span>노드 오토프로비저닝</span><span>인그레스</span><span>KEDA</span></div>
+      </div>
+    </div>
+    <div class="kick"><p>Azure는 처음 다루는 클라우드라 <strong>AWS 방법을 먼저 가져갔다가 막히는 일</strong>이 잦았습니다. 그 시행착오도 이 셋 중 하나로 정리됩니다.</p></div>
+  </section>
+
+  <!-- 3-1 그대로 옮겨진 것 -->
+  <section class="slide" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 3 · ① 그대로 옮겨졌다</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>상위 스코프를 쓸 수 있어도, 권한은 클러스터마다 줬습니다</h2>
+      <p>hub ArgoCD가 spoke 클러스터에 접근하는 권한입니다. Azure RBAC은 <em>구독·관리 그룹 스코프</em>로 한 번에 줄 수 있지만, <code>aks-reference-infra</code>는 spoke 클러스터마다 줍니다.</p>
+    </div>
+    <div class="body body--2t3">
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0">
+      <div class="card card--ok" style="flex:1;justify-content:center">
+        <span class="tag" style="color:var(--ok)">두 클라우드에서 같은 원칙</span>
+        <ul class="ticks">
+          <li>모듈 인터페이스 · Name 태그 조회 · 태그 고정 소싱</li>
+          <li>3계층 소유 · 허브-스포크 GitOps</li>
+          <li>hub는 전부 private</li>
+          <li><strong>권한은 리소스를 소유한 쪽이 부여</strong> <span style="color:var(--ui)">← 이 장</span></li>
+        </ul>
+      </div>
+      <div class="card card--warn" style="flex:1;justify-content:center">
+        <span class="tag tag--warn">클러스터 스코프로 제한한 이유</span>
+        <ul class="ticks">
+          <li><strong>Azure 랜딩존은 hub와 spoke를 다른 관리 그룹에 배치합니다.</strong> hub는 네트워크 연결 전용 구독에, spoke는 워크로드 구독에 들어갑니다. 구독 스코프로는 둘을 함께 못 덮고, <strong>상위 관리 그룹까지 올라가야</strong> 합니다</li>
+          <li><strong>그런데 Microsoft는 관리 그룹 스코프 RBAC 할당을 권고하지 않습니다.</strong> 권한이 과도해지고 하위 구독까지 상속되기 때문입니다. 플랫폼 팀이 필요할 때만 권한을 켜는 예외는 있지만, ArgoCD는 <strong>워크로드 ID(관리 ID)</strong>로 인증하므로 권한을 항상 열어둬야 합니다</li>
+        </ul>
+        <p style="font-size:clamp(10px,1vw,12.5px);color:var(--text-faint)">출처: CAF 「Management groups」 설계 영역 · Azure 아키텍처 센터 「Hub-spoke network topology」</p>
+      </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0">
+      <div class="fig" style="flex:1;min-height:0">
+        <div class="fig__cap" style="color:var(--text-faint)">hub ArgoCD 권한을 매기는 곳</div>
+        <svg viewBox="0 0 400 316" preserveAspectRatio="xMidYMid meet">
+          <text x="14" y="20" class="svgm" font-size="12" fill="var(--aws)">AWS · ACCESS ENTRY</text>
+          <g>
+            <rect x="14" y="32" width="110" height="38" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="69" y="56" text-anchor="middle" class="svgt" font-size="12">spoke 1</text>
+            <rect x="140" y="32" width="110" height="38" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="195" y="56" text-anchor="middle" class="svgt" font-size="12">spoke 2</text>
+            <rect x="266" y="32" width="110" height="38" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="321" y="56" text-anchor="middle" class="svgt" font-size="12">spoke 3</text>
+          </g>
+          <g stroke="var(--aws)" stroke-width="1.8"><path d="M69,70 L69,88"/><path d="M195,70 L195,88"/><path d="M321,70 L321,88"/></g>
+          <g fill="var(--aws)"><circle cx="69" cy="96" r="7"/><circle cx="195" cy="96" r="7"/><circle cx="321" cy="96" r="7"/></g>
+          <text x="195" y="124" text-anchor="middle" class="svgm" font-size="11" fill="var(--aws)">spoke 배포 루트가 클러스터마다 부여</text>
+
+          <line x1="14" y1="146" x2="386" y2="146" stroke="var(--border)"/>
+
+          <text x="14" y="172" class="svgm" font-size="12" fill="var(--azure)">AZURE · ROLE ASSIGNMENT</text>
+          <rect x="14" y="182" width="362" height="30" rx="7" fill="none" stroke="var(--azure-line)" stroke-dasharray="5 4"/>
+          <text x="195" y="202" text-anchor="middle" class="svgt-dim" font-size="11">구독 · 관리 그룹 스코프 · 플랫폼 지원, 미채택</text>
+          <g>
+            <rect x="14" y="226" width="110" height="34" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="69" y="248" text-anchor="middle" class="svgt" font-size="12">spoke 1</text>
+            <rect x="140" y="226" width="110" height="34" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="195" y="248" text-anchor="middle" class="svgt" font-size="12">spoke 2</text>
+            <rect x="266" y="226" width="110" height="34" rx="7" fill="var(--surface-3)" stroke="var(--border)"/>
+            <text x="321" y="248" text-anchor="middle" class="svgt" font-size="12">spoke 3</text>
+          </g>
+          <g stroke="var(--azure)" stroke-width="1.8"><path d="M69,260 L69,276"/><path d="M195,260 L195,276"/><path d="M321,260 L321,276"/></g>
+          <g fill="var(--azure)"><circle cx="69" cy="284" r="7"/><circle cx="195" cy="284" r="7"/><circle cx="321" cy="284" r="7"/></g>
+          <text x="195" y="310" text-anchor="middle" class="svgm" font-size="11" fill="var(--azure)">spoke 배포 루트가 클러스터마다 부여</text>
+        </svg>
+        <p class="fig__note">Microsoft Learn은 상위 스코프 부여를 <strong>“한 번 부여해 여러 클러스터를 통제한다”</strong>고 설명합니다. 지원되는 구성이지만, 우리 hub·spoke를 함께 덮는 상위 스코프는 비권고인 관리 그룹뿐이라 쓰지 않았습니다.</p>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>부여 단위</th><th class="aws">AWS</th><th class="azure">Azure</th></tr></thead>
+          <tbody>
+            <tr><td class="lead">플랫폼이 허용</td><td>클러스터 1개<br><span style="color:var(--text-faint)">단일 옵션</span></td><td>클러스터 ~ 구독·관리 그룹<br><span style="color:var(--text-faint)">상위 스코프 가능</span></td></tr>
+            <tr><td class="lead">우리가 사용</td><td>클러스터 1개</td><td>클러스터 1개</td></tr>
+          </tbody>
+        </table>
+      </div>
+      </div>
+    </div>
+    <div class="kick"><p>스코프를 넓게 잡으면 신원이 탈취됐을 때 <strong>영향 범위도 그만큼 넓어집니다</strong>. 한 번에 부여하는 운영 편의 대신 영향 범위를 좁히는 쪽을 골랐습니다.</p></div>
+  </section>
+
+  <!-- 3-2a Pod IP -->
+  <section class="slide" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 3 · ② 방법을 바꿨다 · Pod IP 대역</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>IP를 아끼는 목표는 두고, 대역을 쓰는 방법을 바꿨습니다</h2>
+      <p>IP가 부족한 엔터프라이즈 환경을 전제로 AWS에서 <em>비라우팅 대역 재사용</em>을 설계했습니다. 같은 방법을 Azure로 옮기자 두 곳에서 막혔습니다.</p>
+    </div>
+    <div class="body body--3 body--rows">
+      <div class="card card--aws">
+        <span class="tag tag--aws">AWS · custom networking</span>
+        <h3>100.64.0.0/16을 모든 VPC가 재사용</h3>
+        <p>Pod는 VPC secondary CIDR에 만든 Pod 전용 서브넷에서 IP를 받고, VPC 밖으로 나갈 때 <strong>노드 IP로 SNAT</strong>됩니다.</p>
+        <p style="color:var(--text-faint)">spoke가 늘어도 Pod 대역을 조율할 필요가 없습니다.</p>
+      </div>
+      <div class="card card--warn">
+        <span class="tag tag--warn">Azure · pod_subnet · 0.1.0 기본</span>
+        <h3>같은 방법을 옮겼더니</h3>
+        <ul class="ticks">
+          <li>대역이 겹치면 라우팅이 깨집니다. hub <code>100.64</code>, dev <code>100.65</code>로 <strong>따로 줘야 했고</strong>, 대역을 재사용할 수 없었습니다</li>
+          <li>AKS가 관리하는 Karpenter인 <strong>NAP</strong>(Node Auto Provisioning)이 이 모드를 지원하지 않습니다. 메인테이너가 공식 이슈에서 명시했습니다</li>
+        </ul>
+      </div>
+      <div class="card card--azure">
+        <span class="tag tag--azure">Azure · overlay · 0.3.0부터 기본</span>
+        <h3>Pod IP를 VNet 밖으로 뺐습니다</h3>
+        <p>노드 밖 트래픽은 노드 IP로 SNAT됩니다. hub와 spoke가 <strong>같은 Pod 대역을 다시 쓰고</strong>, NAP도 동작합니다. Microsoft도 Overlay를 기본으로 권고합니다.</p>
+        <p style="color:var(--text-faint)">트레이드오프: NSG 플로우 로그의 Pod 단위 가시성 상실. AKS 유료 기능인 Advanced Container Networking Services로 일부 보완합니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p>Overlay로 hub와 spoke가 같은 Pod 대역을 쓰니 <strong>IP를 아끼는 목표는 그대로 지켰습니다</strong>. 기본값을 바꾼 근거는 <code>azure/network.md</code>에 남겼습니다.</p></div>
+  </section>
+
+  <!-- 3-3 같은 기준, 다른 답 -->
+  <section class="slide" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 3 · ③ 답이 달라졌다</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>관리형을 쓰는 기준은 하나였습니다</h2>
+      <p><em>우리 패턴과 충돌하지 않으면</em> 관리형을 씁니다. 요금은 줄어드는 운영 부담과 견줘 봅니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th style="width:44%">컴포넌트</th><th class="aws c">AWS · EKS</th><th class="azure c">Azure · AKS</th></tr></thead>
+            <tbody>
+              <tr><td class="lead">스토리지 CSI (블록+파일)</td><td class="c"><span class="dot dot--full">●</span></td><td class="c"><span class="dot dot--full">●</span></td></tr>
+              <tr><td class="lead">Cluster Autoscaler</td><td class="c"><span class="dot dot--half">◐</span></td><td class="c"><span class="dot dot--full">●</span></td></tr>
+              <tr><td class="lead">노드 오토프로비저닝 (Karpenter/NAP)</td><td class="c"><span class="dot dot--half">◐</span></td><td class="c"><span class="dot dot--full">●</span></td></tr>
+              <tr><td class="lead">KEDA</td><td class="c"><span class="dot dot--none">○</span></td><td class="c"><span class="dot dot--full">●</span></td></tr>
+              <tr><td class="lead">Ingress / Gateway API</td><td class="c"><span class="dot dot--half">◐</span></td><td class="c"><span class="dot dot--full">●</span></td></tr>
+              <tr><td class="lead">Kyverno</td><td class="c"><span class="dot dot--none">○</span></td><td class="c"><span class="dot dot--none">○</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="legend">
+          <span><span class="dot dot--full" style="width:20px;height:20px;font-size:11px">●</span> 완전 관리형</span>
+          <span><span class="dot dot--half" style="width:20px;height:20px;font-size:11px">◐</span> Terraform이 IAM 전제, 컨트롤러는 GitOps(Part 2 계층 1+2)</span>
+          <span><span class="dot dot--none" style="width:20px;height:20px;font-size:11px">○</span> 완전 self-hosted</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0">
+        <div class="card card--aws" style="flex:1">
+          <span class="tag tag--aws">EKS Auto Mode · 기각</span>
+          <p>아래 영역을 <strong>한 묶음으로</strong> 관리합니다.</p>
+          <div class="road__keys" style="margin-top:0"><span>노드 오토스케일링</span><span>로드밸런싱</span><span>블록 스토리지</span><span>Pod 네트워킹</span><span>Pod Identity</span></div>
+          <ul class="ticks ticks--aws">
+            <li>내장 로드밸런서 컨트롤러가 <strong>Gateway API를 지원하지 않습니다</strong> (self-managed ALB Controller는 GA, Auto Mode 내장은 미지원)</li>
+            <li><code>ENIConfig</code> <strong>custom networking을 쓸 수 없어</strong> Pod 대역을 다시 설계해야 합니다</li>
+          </ul>
+          <p style="color:var(--text-faint)">EC2 요금에 인스턴스별 관리 수수료도 붙습니다.</p>
+        </div>
+        <div class="card card--azure" style="flex:1">
+          <span class="tag tag--azure">AKS 관리형 기능 · 기능별 채택</span>
+          <p>같은 영역을 <strong>기능 단위로</strong> 켭니다.</p>
+          <div class="road__keys" style="margin-top:0"><span>NAP</span><span>App Routing</span><span>CSI 드라이버</span><span>Azure CNI Overlay + Cilium</span><span>워크로드 ID</span></div>
+          <ul class="ticks">
+            <li>NAP은 AKS가 Karpenter를 <strong>배포하고 관리</strong>하며, overlay와 함께 동작합니다</li>
+            <li>App Routing이 <strong>Gateway API를 지원</strong>해 Part 4의 전환 경로와 맞습니다</li>
+          </ul>
+          <p style="color:var(--text-faint)">요금표에 NAP 별도 항목은 없습니다.</p>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>같은 기준을 적용했지만 <strong>제공 형태가 달라 답이 갈렸습니다</strong>. 기준은 <code>docs/decisions.md</code>에, 컴포넌트별 판정은 <code>gitops.md</code>에 남겼습니다.</p></div>
+  </section>
+
+  <!-- 3-4 시행착오와 결정 -->
+  <section class="slide" data-part="Part 3 · 옮기기">
+    <div class="top"><span class="top__eyebrow">Part 3 · 결정으로 남기기</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>12일 동안 아홉 번 릴리스했습니다</h2>
+      <p>AWS 방법을 먼저 가져갔다가 막힌 과정이 <code>aks-cluster</code> 버전 이력에 그대로 있습니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>버전</th><th>날짜</th><th>바꾼 것</th><th>계기</th></tr></thead>
+          <tbody>
+            <tr><td class="lead">0.1.0</td><td>08-28</td><td>첫 릴리스, <code>pod_subnet</code> 기본</td><td>AWS custom networking을 그대로 옮김</td></tr>
+            <tr><td class="lead">0.2.0</td><td>09-03</td><td><code>cni_mode</code> 3모드 선택형</td><td>NAP이 Pod Subnet을 지원하지 않음</td></tr>
+            <tr><td class="lead">0.3.0</td><td>09-03</td><td>기본값을 <code>overlay</code>로</td><td>Microsoft 공식 권고 재검토</td></tr>
+            <tr><td class="lead">0.4.0</td><td>09-03</td><td>overlay의 network policy를 cilium으로</td><td style="color:var(--warn)">실제 apply에서 ARM이 거부</td></tr>
+            <tr><td class="lead">0.5.0</td><td>09-03</td><td>노드 풀 <code>upgrade_settings</code> 명시</td><td style="color:var(--warn)">실제 apply에서 plan이 수렴하지 않음</td></tr>
+            <tr><td class="lead">0.6~0.9</td><td>09-07~09</td><td>KEDA · App Routing · Entra 통합 토글 등</td><td>소비 저장소 요구</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">다음에 옮길 때 묻는 세 가지</span>
+        <div class="flow">
+          <div class="flow__step"><div class="n">01 · 목표</div><div class="t">이 결정의 목표는 무엇인가</div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--ui)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step"><div class="n">02 · 방법</div><div class="t">같은 방법이 성립하는가 <span style="color:var(--text-faint)">(공식 문서)</span></div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--ui)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step flow__step--end" style="border-color:var(--ui)"><div class="n">03 · 기준</div><div class="t">같은 기준이면 답도 같은가 <span style="color:var(--text-faint)">(패턴 충돌·제공 형태)</span></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>막힐 때마다 릴리스로 고치고 <strong>판단은 결정 문서에 남겼습니다</strong>. 다음에 옮길 때는 이 기록과 세 질문부터 봅니다.</p></div>
+  </section>
+
+  <!-- ══════════════════ Part 4 ══════════════════ -->
+
+  <!-- ══════ 간지: Part 4 ══════ -->
+  <section class="slide divider" data-part="Part 4 · Gateway API">
+    <div class="top"><span class="top__eyebrow">Part 3 → Part 4</span><span class="top__num"></span></div>
+    <div class="divider__mid">
+      <div class="divider__n">PART 4</div>
+      <h2 class="divider__t">Gateway API</h2>
+      <p class="divider__d">Ingress를 대신할 표준</p>
+      <p class="divider__bridge">ingress-nginx 지원 종료를 계기로 두 클라우드 모두 Ingress를 Gateway API로 옮깁니다. <strong>앱팀이 쓰는 매니페스트까지</strong> 바뀝니다.</p>
+    </div>
+    <div class="cover__parts">
+        <div class="cover__part cover__part--past"><div class="n">PART 1</div><div class="t">자산</div><div class="d">무엇을 만들었나</div></div>
+        <div class="cover__part cover__part--past"><div class="n">PART 2</div><div class="t">아키텍처 패턴</div><div class="d">먼저 만든 건 GitOps입니다</div></div>
+        <div class="cover__part cover__part--past"><div class="n">PART 3</div><div class="t">옮기기</div><div class="d">AWS 패턴을 Azure로</div></div>
+        <div class="cover__part cover__part--now"><div class="n">PART 4</div><div class="t">Gateway API</div><div class="d">Ingress를 대신할 표준</div></div>
+    </div>
+  </section>
+
+  <!-- 4-1 왜 지금 -->
+  <section class="slide" data-part="Part 4 · Gateway API">
+    <div class="top"><span class="top__eyebrow">Part 4 · 지금 옮기는 이유</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>ingress-nginx 지원이 끝났습니다(EOL)</h2>
+      <p>기존 배포는 계속 동작하지만, 지원 종료 이후 <em>새 취약점의 패치는 나오지 않습니다</em>.</p>
+    </div>
+    <div class="body body--2t3">
+      <div class="card card--warn">
+        <span class="tag tag--warn">일정</span>
+        <div class="flow" style="margin-top:4px">
+          <div class="flow__step"><div class="n">2025-11</div><div class="t">Kubernetes SIG Network · Security Response Committee가 지원 종료 발표</div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--warn)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step" style="border-color:var(--warn)"><div class="n">2026-03</div><div class="t">업스트림 지원 종료. 릴리스·버그 수정·보안 패치 중단</div></div>
+          <div class="flow__arr"><svg viewBox="0 0 20 20" fill="none" stroke-width="2" stroke-linecap="round" stroke="var(--warn)"><path d="M10 4 L10 16 M6 12 L10 16 L14 12"/></svg></div>
+          <div class="flow__step flow__step--end" style="border-color:var(--azure-line)"><div class="n">2026-11</div><div class="t">AKS 관리형 NGINX(App Routing) 지원 종료. 보안 패치 중단</div></div>
+        </div>
+      </div>
+      <div class="vs">
+        <div class="vs__col">
+          <div class="card card--azure" style="flex:1">
+            <span class="tag tag--azure">Azure</span>
+            <h3>관리형 NGINX가 그 위에 있습니다</h3>
+            <p>App Routing add-on은 ingress-nginx 기반이라 2026-11까지 옮겨야 합니다. Microsoft는 <strong>App Routing의 Gateway API 구현</strong>을 후속으로 권고하고, AKS Automatic 1.36 이상 신규 클러스터에서는 기본값으로 켰습니다.</p>
+          </div>
+        </div>
+        <div class="vs__col">
+          <div class="card card--aws" style="flex:1">
+            <span class="tag tag--aws">AWS</span>
+            <h3>ALB Controller는 Ingress를 그대로 써도 됩니다</h3>
+            <p>ingress-nginx 위에서 돌지 않고, Ingress API도 제거 계획이 없습니다. 다만 Kubernetes는 Ingress를 frozen으로 두고 Gateway API를 권장하며, ALB Controller도 2026-03에 <strong>Gateway API를 GA로 지원</strong>합니다. ingress-nginx를 자체 설치한 클러스터는 Azure와 같은 일정입니다.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>Azure는 옮겨야 하고, AWS는 안 옮겨도 됩니다. 그래도 두 클라우드 모두 Ingress를 <strong>Gateway API</strong>로 바꿉니다.</p></div>
+  </section>
+
+  <!-- 4-2 리소스 셋 = 3계층 -->
+  <section class="slide" data-part="Part 4 · Gateway API">
+    <div class="top"><span class="top__eyebrow">Part 4 · 구조</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>Ingress 하나가 세 리소스로 나뉘고, 소유자가 우리 3계층과 겹칩니다</h2>
+      <p>Ingress는 한 리소스에 다 담았고, Gateway API는 <em>역할별로 셋으로</em> 나눕니다. 아래 리소스가 위 리소스를 이름으로 가리킵니다.</p>
+    </div>
+    <div class="body body--2t3">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--text-faint)">책임 분리</div>
+        <svg viewBox="0 0 400 210" preserveAspectRatio="xMidYMid meet">
+          <text x="14" y="20" class="svgm" font-size="11" fill="var(--warn)">INGRESS</text>
+          <rect x="14" y="30" width="170" height="72" rx="9" fill="var(--warn-dim)" stroke="var(--warn)"/>
+          <text x="99" y="58" text-anchor="middle" class="svgt" font-size="13">Ingress</text>
+          <text x="99" y="78" text-anchor="middle" class="svgt-dim" font-size="11">라우팅 + 인프라 설정</text>
+          <text x="99" y="94" text-anchor="middle" class="svgt-dim" font-size="11">한 리소스에 섞임</text>
+
+          <path d="M192,66 L214,66" stroke="var(--border-strong)" stroke-width="1.5"/>
+          <path d="M208,60 L214,66 L208,72" fill="none" stroke="var(--border-strong)" stroke-width="1.5"/>
+
+          <text x="222" y="20" class="svgm" font-size="11" fill="var(--ok)">GATEWAY API</text>
+          <rect x="222" y="30" width="164" height="38" rx="7" fill="var(--surface-3)" stroke="var(--border-strong)"/>
+          <text x="234" y="47" class="svgt" font-size="12">GatewayClass</text>
+          <text x="234" y="62" class="svgm" font-size="10">인프라 제공자</text>
+
+          <rect x="222" y="92" width="164" height="38" rx="7" fill="var(--surface-3)" stroke="var(--ui)"/>
+          <text x="234" y="109" class="svgt" font-size="12">Gateway</text>
+          <text x="234" y="124" class="svgm" font-size="10" fill="var(--ui)">플랫폼팀 · 계층 2</text>
+
+          <rect x="222" y="154" width="164" height="38" rx="7" fill="var(--surface-3)" stroke="var(--border-strong)"/>
+          <text x="234" y="171" class="svgt" font-size="12">HTTPRoute</text>
+          <text x="234" y="186" class="svgm" font-size="10">앱팀 · 계층 3</text>
+
+          <!-- 참조 방향: 아래 리소스가 위 리소스를 필드로 가리킨다 -->
+          <g stroke="var(--ok)" stroke-width="1.5" fill="none" stroke-linecap="round">
+            <path d="M304,92 L304,70"/><path d="M300,74 L304,70 L308,74"/>
+            <path d="M304,154 L304,132"/><path d="M300,136 L304,132 L308,136"/>
+          </g>
+          <text x="296" y="84" text-anchor="end" class="svgm" font-size="9.5" fill="var(--ok)">gatewayClassName</text>
+          <text x="296" y="146" text-anchor="end" class="svgm" font-size="9.5" fill="var(--ok)">parentRefs</text>
+
+          <text x="99" y="140" text-anchor="middle" class="svgt-dim" font-size="11">구현체 annotation으로 확장</text>
+          <text x="99" y="156" text-anchor="middle" class="svgt-dim" font-size="11">구현체를 바꾸면 다시 쓴다</text>
+        </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0;align-self:center">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>리소스</th><th>하는 일</th><th>소유자</th></tr></thead>
+            <tbody>
+              <tr><td class="lead">GatewayClass</td><td>어떤 구현체가 처리할지 지정</td><td>인프라 제공자 · 계층 1~2</td></tr>
+              <tr><td class="lead">Gateway</td><td>로드밸런서를 만들고 리스너를 정의<br><span style="color:var(--text-faint)">앱팀 라우트가 붙는 자리</span></td><td>플랫폼팀 · 계층 2</td></tr>
+              <tr><td class="lead">HTTPRoute</td><td>경로 → 서비스 라우팅 규칙</td><td>앱팀 · 계층 3</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>Part 2에서 나눈 계층 2와 계층 3의 경계가 Gateway API에서는 <strong>리소스 경계와 일치</strong>합니다. 플랫폼팀은 Gateway를, 앱팀은 HTTPRoute를 소유합니다.</p></div>
+  </section>
+
+  <!-- 4-3 앱팀 관점 -->
+  <section class="slide" data-part="Part 4 · Gateway API">
+    <div class="top"><span class="top__eyebrow">Part 4 · 앱팀이 쓰는 것</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>앱팀이 쓰는 HTTPRoute는 두 클라우드에서 같은 파일입니다</h2>
+      <p>구현체 차이는 <em>Gateway 쪽(<code>gatewayClassName</code>과 internal LB 설정)</em>에만 있고, 그 파일은 플랫폼팀 저장소에 있습니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="fig">
+        <div class="fig__cap" style="color:var(--ok)">앱팀 저장소 · EKS와 AKS 공통</div>
+<div class="pre"><span class="k">apiVersion</span>: gateway.networking.k8s.io/v1
+<span class="k">kind</span>: HTTPRoute
+<span class="k">metadata</span>:
+  <span class="k">name</span>: orders
+  <span class="k">namespace</span>: orders
+<span class="k">spec</span>:
+  <span class="k">parentRefs</span>:
+    - <span class="k">name</span>: <span class="hl">shared-gateway</span>
+      <span class="k">namespace</span>: <span class="hl">gateway-system</span>
+  <span class="k">rules</span>:
+    - <span class="k">matches</span>:
+        - <span class="k">path</span>:
+            <span class="k">type</span>: PathPrefix
+            <span class="k">value</span>: /orders
+      <span class="k">backendRefs</span>:
+        - <span class="k">name</span>: orders
+          <span class="k">port</span>: 8080</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:clamp(10px,1.4vh,16px);min-height:0;justify-content:center">
+        <div class="card card--aws" style="flex:none">
+          <span class="tag tag--aws">플랫폼팀 저장소 · EKS Gateway</span>
+<div class="pre" style="font-size:clamp(10px,.4vw + .5vh,13px)"><span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="hl">shared-gateway</span>                     <span class="c"># 양쪽 같음</span>
+  <span class="k">namespace</span>: <span class="hl">gateway-system</span>
+<span class="k">spec</span>:
+  <span class="k">gatewayClassName</span>: <span class="hl">alb</span>                      <span class="c"># ← 다름</span>
+  <span class="k">infrastructure</span>:
+    <span class="hl">parametersRef</span>:                           <span class="c"># ← 다름: 내부 LB</span>
+      <span class="k">kind</span>: <span class="hl">LoadBalancerConfiguration</span></div>
+        </div>
+        <div class="card card--azure" style="flex:none">
+          <span class="tag tag--azure">플랫폼팀 저장소 · AKS Gateway</span>
+<div class="pre" style="font-size:clamp(10px,.4vw + .5vh,13px)"><span class="k">metadata</span>:
+  <span class="k">name</span>: <span class="hl">shared-gateway</span>                     <span class="c"># 양쪽 같음</span>
+  <span class="k">namespace</span>: <span class="hl">gateway-system</span>
+<span class="k">spec</span>:
+  <span class="k">gatewayClassName</span>: <span class="hl">approuting-istio</span>         <span class="c"># ← 다름</span>
+  <span class="k">infrastructure</span>:
+    <span class="hl">annotations</span>:                             <span class="c"># ← 다름: 내부 LB</span>
+      <span class="hl">service.beta.kubernetes.io/azure-load-balancer-internal</span>: "true"</div>
+        </div>
+      </div>
+    </div>
+    <div class="kick"><p>Ingress에서는 annotation 때문에 구현체마다 매니페스트가 달랐습니다. Gateway API로 옮기면 <strong>앱 저장소의 라우팅 파일이 클라우드와 무관</strong>해집니다.</p></div>
+  </section>
+
+  <!-- 4-4 플랫폼팀 관점 -->
+  <section class="slide" data-part="Part 4 · Gateway API">
+    <div class="top"><span class="top__eyebrow">Part 4 · 플랫폼팀이 하는 것</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>플랫폼 쪽에는 Part 3의 세 가지가 다 있습니다</h2>
+      <p>앱팀 HTTPRoute 뒤에서 플랫폼팀이 세우는 <em>Gateway·CRD·컨트롤러</em>가 AWS와 Azure에서 어떻게 다른지 정리했습니다.</p>
+    </div>
+    <div class="body body--3t2">
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>항목</th><th class="aws">AWS</th><th class="azure">Azure</th><th>분류</th></tr></thead>
+          <tbody>
+            <tr><td class="lead">3계층 소유<br>HTTPRoute</td><td colspan="2">양쪽 같음</td><td><span class="axis-badge axis-badge--same">① 그대로 옮겨졌다</span></td></tr>
+            <tr><td class="lead">internal 전용</td><td><code>scheme: internal</code><br><span style="color:var(--text-faint)">infrastructure.parametersRef</span></td><td>internal LB annotation<br><span style="color:var(--text-faint)">infrastructure.annotations</span></td><td><span class="axis-badge axis-badge--means">② 방법을 바꿨다</span></td></tr>
+            <tr><td class="lead">표준 CRD</td><td>GitOps가 git 소스로 설치</td><td>AKS 관리형</td><td><span class="axis-badge axis-badge--answer">③ 답이 달라졌다</span></td></tr>
+            <tr><td class="lead">컨트롤러</td><td>ALB Controller · Helm</td><td>istiod · AKS 관리형<br><span style="color:var(--text-faint)">AKS 버전에 맞춰 자동 갱신</span></td><td><span class="axis-badge axis-badge--answer">③ 답이 달라졌다</span></td></tr>
+            <tr><td class="lead">GatewayClass</td><td>platform-gitops가 만듦</td><td>AKS가 자동 등록</td><td><span class="axis-badge axis-badge--answer">③ 답이 달라졌다</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card card--azure" style="align-self:center">
+        <span class="tag tag--azure">Azure 구현체는 한 번에 못 정했습니다</span>
+        <ul class="ticks ticks--azure">
+          <li><strong>AGFC</strong>: 먼저 채택. frontend가 private IP를 지원하지 않아 교체 <span class="tag tag--warn">플랫폼 제약</span></li>
+          <li><strong>Cilium Gateway API</strong>: AKS 관리형 Cilium이 이 기능을 노출하지 않음 <span class="tag tag--warn">플랫폼 제약</span></li>
+          <li><strong>Envoy Gateway</strong>: 동작하지만 자체 설치. 관리형(App Routing)이 있어 보류 <span class="tag tag--ui">우리 선택</span></li>
+          <li><strong>App Routing Gateway API</strong>(Istio 기반): 관리형, internal LB 지원. 채택</li>
+        </ul>
+      </div>
+    </div>
+    <div class="kick"><p>AGFC는 AWS의 ALB에 대응하는 서비스부터 찾다가 고른 후보였습니다. <strong>Part 3의 Pod 대역과 같은 시행착오</strong>입니다.</p></div>
+  </section>
+
+  <!-- ══════════════════ 닫으며 ══════════════════ -->
+  <section class="slide" data-part="닫으며">
+    <div class="top"><span class="top__eyebrow">닫으며</span><span class="top__num"></span></div>
+    <div class="head">
+      <h2>모듈은 계속 늘어나고, 두 클라우드는 계속 달라집니다</h2>
+      <p>판단을 남겼으니 <em>다음 프로젝트는 그 위에서 시작합니다</em>. 앞으로 할 일입니다.</p>
+    </div>
+    <div class="body body--2 body--rows">
+      <div class="card card--ui">
+        <span class="tag tag--ui">01</span>
+        <h3>티어별 승격으로 업그레이드 실측</h3>
+        <p>EKS·AKS 양쪽에서 nonprd를 먼저 올리고 운영으로 승격하는 경로를 실제로 돌려보고, 거기서 나온 개선사항을 모듈에 반영합니다.</p>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">02</span>
+        <h3>Claude Code로 다중 저장소 관리</h3>
+        <p>이 자산과 그걸 소비하는 배포 저장소 넷을 한 세션에서 함께 고치는 방안을 검토합니다.</p>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">03</span>
+        <h3>Private → Public 전환 검토</h3>
+        <p>무료 플랜의 CI 월 2,000분과 기능 제약을 풀고, 팀원이 바로 볼 수 있게 합니다.</p>
+      </div>
+      <div class="card card--ui">
+        <span class="tag tag--ui">04</span>
+        <h3>새로운 아키텍처 패턴 추가</h3>
+        <p>실제 프로젝트에서 쓴 조합과 판단 근거를 자산에 쌓습니다.</p>
+      </div>
+    </div>
+    <div class="kick"><p style="font-size:clamp(15px,1.7vw,23px);font-weight:600">같은 원칙으로 새 모듈을 얹습니다.</p></div>
+  </section>
+
+</div>
+
+<div class="bar" id="bar"></div>
+<div class="dots" id="dots"></div>
+<div class="hint" id="hint">← → 또는 스크롤로 이동</div>
+
+<script>
+(function () {
+  var deck = document.getElementById('deck');
+  var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+  var bar = document.getElementById('bar');
+  var dotWrap = document.getElementById('dots');
+  var hint = document.getElementById('hint');
+  var total = slides.length;
+  var current = 0;
+  var target = 0;
+  var lastJump = 0;
+
+  // 슬라이드 번호 채우기
+  slides.forEach(function (s, i) {
+    var num = s.querySelector('.top__num');
+    if (num) num.textContent = String(i + 1).padStart(2, '0') + ' / ' + total;
+    var b = document.createElement('button');
+    b.title = '슬라이드 ' + (i + 1);
+    b.addEventListener('click', function () { go(i); });
+    dotWrap.appendChild(b);
+  });
+  var dots = Array.prototype.slice.call(dotWrap.children);
+
+  function paint() {
+    bar.style.width = ((current + 1) / total * 100) + '%';
+    dots.forEach(function (d, i) { d.classList.toggle('on', i === current); });
+  }
+
+  function go(i) {
+    var idx = Math.max(0, Math.min(i, total - 1));
+    target = idx;
+    var now = Date.now();
+    // scroll-snap은 진행 중인 smooth 스크롤의 목적지 변경을 무시한다.
+    // 연타 시에는 즉시 이동해야 목적지가 조용히 버려지지 않는다.
+    var rapid = now - lastJump < 450;
+    lastJump = now;
+    slides[idx].scrollIntoView({ behavior: rapid ? 'auto' : 'smooth' });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target.closest('input, textarea, [contenteditable]')) return;
+    var k = e.key;
+    if (k === 'ArrowRight' || k === 'ArrowDown' || k === ' ' || k === 'PageDown') {
+      e.preventDefault(); go(target + 1);
+    } else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'PageUp') {
+      e.preventDefault(); go(target - 1);
+    } else if (k === 'Home') { e.preventDefault(); go(0); }
+    else if (k === 'End') { e.preventDefault(); go(total - 1); }
+    else return;
+    hint.classList.add('gone');
+  });
+
+  var touchY = null;
+  deck.addEventListener('touchstart', function (e) { touchY = e.touches[0].clientY; }, { passive: true });
+  deck.addEventListener('touchend', function (e) {
+    if (touchY === null) return;
+    var dy = touchY - e.changedTouches[0].clientY;
+    if (Math.abs(dy) > 55) { go(target + (dy > 0 ? 1 : -1)); hint.classList.add('gone'); }
+    touchY = null;
+  });
+
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      en.target.classList.add('is-on');
+      var i = slides.indexOf(en.target);
+      if (i > -1) { current = i; if (Date.now() - lastJump > 400) target = i; paint(); }
+    });
+  }, { threshold: 0.5 });
+  slides.forEach(function (s) { obs.observe(s); });
+
+  // 첫 화면은 즉시 표시 (관찰자 콜백을 기다리지 않는다)
+  slides[0].classList.add('is-on');
+  paint();
+  setTimeout(function () { hint.classList.add('gone'); }, 4500);
+})();
+</script>
+
+</body>
+</html>

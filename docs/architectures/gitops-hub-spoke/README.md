@@ -129,7 +129,7 @@ iac-module-library         모듈(.tf) + 패턴 문서.        어느 계층도 
 
 | 문서 | 무엇 | 상태 |
 |------|------|:---:|
-| [gitops.md](gitops.md) | 계층 2 전부: addon 배치 · 이름 · 전파 정책 | ✅ |
+| [gitops.md](gitops.md) | 계층 2 전부: addon 배치 · 이름 · 전파 정책 · L7 진입 | ✅ |
 | [aws/README.md](aws/README.md) | EKS 구성, ArgoCD 형태 선택, 실행 기반 | ✅ |
 | [aws/network.md](aws/network.md) | 허브 위치와 크로스 계정 네트워크(Transit Gateway) | ✅ |
 | [azure/README.md](azure/README.md) | AKS 구성, addon 분류, 클러스터 등록, 실행 기반 | ✅ |

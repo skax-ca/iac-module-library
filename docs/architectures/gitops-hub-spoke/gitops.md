@@ -189,7 +189,30 @@ staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 
 
 ---
 
-## 6. 하지 않는 것
+## 6. L7 진입: Ingress가 아니라 Gateway API
+
+양 클라우드 공통이다. Azure는 옮겨야 하고 AWS는 옮기지 않아도 되지만, 둘 다 Gateway API로 받는다.
+
+| 클라우드 | 강제인가 | 근거 |
+|---|:---:|---|
+| Azure(AKS) | **그렇다** | App Routing add-on이 ingress-nginx 기반이다. 업스트림 ingress-nginx는 지원이 끝나 릴리스·버그 수정·보안 패치가 없고, AKS 관리형 NGINX도 2026-11까지만 중요 보안 패치를 받는다. Microsoft는 App Routing의 Gateway API 구현을 후속으로 권고한다 |
+| AWS(EKS) | **아니다** | ALB Controller는 ingress-nginx 위에서 돌지 않아 이 지원 종료의 영향을 받지 않는다. Ingress API도 frozen일 뿐 제거 계획이 없다(Kubernetes 공식 문서). 그대로 써도 된다 |
+
+**그런데도 AWS까지 옮기는 이유**는 앱팀 매니페스트다. Ingress는 라우팅 규칙과 인프라 설정을
+리소스 하나에 담고 세부 동작을 구현체별 annotation으로 확장한다. 구현체가 다르면 같은 라우팅에
+다른 파일을 쓰게 되고, 구현체를 바꾸면 앱 저장소를 다시 쓴다. Gateway API는 그 책임을
+GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫폼이 소유하는 앞의 둘에 갇히고,
+앱팀의 HTTPRoute는 양 클라우드에서 같은 파일이 된다. 리소스 경계가 [README.md](README.md)
+「3계층 소유 모델」의 플랫폼-앱 경계와 일치한다.
+
+**예외**: EKS에 ingress-nginx를 자체 설치한 클러스터는 AWS 쪽이어도 Azure와 같은 일정으로 옮긴다.
+
+구현체를 관리형으로 받을지 조립할지는 「관리형으로 받을 것과 조립할 것」이, 구현체 후보를 무엇까지
+보고 무엇을 기각했는지는 [aws/README.md](aws/README.md) · [azure/README.md](azure/README.md)가 갖는다.
+
+---
+
+## 7. 하지 않는 것
 
 | 하지 말 것 | 이유 |
 |---|---|

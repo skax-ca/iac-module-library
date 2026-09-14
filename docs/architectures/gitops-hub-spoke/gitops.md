@@ -94,7 +94,7 @@ ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. �
 | 정책 | selector | 버전 | 상태 |
 |------|----------|------|------|
 | **uniform** | `environment` Exists | 전 클러스터 한 개 | ✅ |
-| **staged** | `tier` 값별 ApplicationSet 분리 | 티어마다 한 개 | ⏳ |
+| **staged** | `tier` 값별 ApplicationSet 분리 | 티어마다 한 개 | ✅ |
 | **opt-in** | `matchLabels {addon-<name>: enabled}` | 구독 클러스터 한 개 | ✅ |
 
 | 이 addon이 | 정책 | 이유 |

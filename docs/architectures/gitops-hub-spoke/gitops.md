@@ -77,25 +77,22 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 ### selector는 "누가 받나"까지만 가른다
 
 ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. 버전은 고르지 않는다.
-`targetRevision`이 리터럴 한 개라, 그 selector에 걸린 클러스터는 전부 같은 버전을 받는다.
+`targetRevision`이 리터럴 한 개라, **한 ApplicationSet에 걸린 클러스터는 전부 같은 버전을 받는다.**
 
-| selector | 대상 |
-|------|------|
-| `matchExpressions [{key: environment, operator: Exists}]` | 등록된 전 클러스터 |
-| `matchLabels {addon-<name>: enabled}` | 그 라벨을 단 클러스터 |
+버전을 갈라 받으려면 selector가 아니라 **ApplicationSet 자체를 나눠야** 한다. 아래 세 정책 중
+staged만 그렇게 한다.
 
 `environment` 라벨의 값은 이름과 values 경로를 푸는 데 쓴다. 버전 분기에는 쓰지 않는다.
 
-이 상태에서 `targetRevision`을 올리면 등록된 클러스터가 동시에 올라간다. 컨트롤러를 비운영
-클러스터에서 먼저 검증하고 운영으로 승격하려면 정책이 하나 더 필요하다.
-
 ### 정책 셋
 
-| 정책 | selector | 버전 | 상태 |
-|------|----------|------|------|
-| **uniform** | `environment` Exists | 전 클러스터 한 개 | ✅ |
-| **staged** | `tier` 값별 ApplicationSet 분리 | 티어마다 한 개 | ✅ |
-| **opt-in** | `matchLabels {addon-<name>: enabled}` | 구독 클러스터 한 개 | ✅ |
+addon마다 하나를 고른다. 조합하지 않는다.
+
+| 정책 | 무엇으로 고르나 | 버전 |
+|------|----------|------|
+| **uniform** | `environment` 라벨의 **존재** | 전 클러스터가 한 개 |
+| **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 |
+| **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 |
 
 | 이 addon이 | 정책 | 이유 |
 |-----------|------|------|
@@ -109,7 +106,25 @@ ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. �
 | `karpenter` · `aws-load-balancer-controller` · `gateway-api-crds` | staged |
 | `keda` · `cluster-autoscaler` | opt-in |
 
-### staged를 쓰는 형태
+### uniform: 전 클러스터가 같은 버전
+
+```yaml
+# addons/baseline/kyverno.yaml
+generators:
+  - clusters:
+      selector:
+        matchExpressions:
+          - key: environment
+            operator: Exists
+```
+
+라벨의 **존재만** 본다. 값은 보지 않는다. 클러스터를 등록하는 행위 자체가 곧 배포가 되므로,
+스포크가 늘어도 addon 파일은 그대로다.
+
+ApplicationSet이 하나라 `targetRevision`도 하나다. 올리면 등록된 전 클러스터가 함께 올라간다.
+가드레일에는 그것이 맞다. 클러스터마다 정책 버전이 다르면 무엇이 통과하는지가 갈린다.
+
+### staged: 티어별로 승격
 
 addon 파일 하나에 두되, **버전 핀을 가진 ApplicationSet만** 티어 수만큼 둔다. 파일은 나누지 않는다.
 
@@ -124,6 +139,9 @@ CRD를 쓰는 CR이 뒤에 와야 해서 sync-wave로 둘을 가른다. 티어�
 
 `main`은 저장소 최신을 따라가는 참조지 고정된 버전이 아니다. 두 블록으로 나눠도 값이 항상
 같아 승격이 기록되지 않는다. 블록만 늘고 읽을 정보가 없다.
+
+ApplicationSet 이름은 `<addon>-<티어>`로 짓는다. 나누지 않는 블록은 접미사 대신 역할로 짓는다
+(`karpenter-nodepool`). ⛔ 이 이름은 **한 번 배포되면 계약**이다(「하지 않는 것」).
 
 ```yaml
 # addons/baseline/karpenter.yaml
@@ -173,33 +191,25 @@ spec:
 버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
 커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있는 셈이다.
 
-### uniform에서 staged로 전환하기
+### opt-in: 구독한 클러스터에만
 
-이미 돌고 있는 addon을 옮길 때는 **기존 ApplicationSet의 이름을 prd 쪽이 물려받는다.**
-`-prd` 접미사를 새로 붙이지 않는다.
+```yaml
+# addons/catalog/keda.yaml
+generators:
+  - clusters:
+      selector:
+        matchLabels:
+          addon-keda: enabled
+```
 
-ApplicationSet 이름을 바꾸면 기존 것이 삭제된 것으로 처리된다. 그것이 만든 Application은
-ownerReference를 따라 함께 지워지고, Application에 붙은 `resources-finalizer.argocd.argoproj.io`가
-**클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께
-사라진다. 같은 이유로 selector를 바꿀 때도 기존 대상이 계속 매칭되는지 먼저 확인한다.
+라벨의 **값**을 본다. cluster Secret에 그 라벨을 단 클러스터에만 팬아웃된다. 라벨을 붙이고 떼는
+것이 곧 구독과 해지다. 파일은 `addons/catalog/` 아래 둔다.
 
-| | ApplicationSet 이름 | selector |
-|---|---|---|
-| 전환 전 | `<addon>` | `environment` Exists |
-| 전환 후(prd) | `<addon>` 그대로 | `tier: prd` |
-| 전환 후(nonprd) | `<addon>-nonprd` 신규 | `tier: nonprd` |
+⚠️ 라벨을 빠뜨린 채 클러스터를 등록하면 그 addon이 **조용히 빠진 채** 배포된다. ArgoCD는 대상이
+0개인 팬아웃을 오류로 보고하지 않는다.
 
-prd 클러스터는 두 selector 모두에 걸리므로 Application이 유지되고 리소스가 그대로 간다.
-이름이 비대칭인 것은 전환의 흔적이다. 신규 addon을 처음부터 staged로 만들 때는 양쪽에 접미사를
-붙여 대칭으로 둔다.
-
-**전면 재구축은 예외다.** 클러스터를 철거하고 다시 세우는 경우에는 이름을 대칭으로 정리한다.
-철거로 클러스터의 ApplicationSet이 모두 사라진 뒤라면 이름이 바뀌어도 **삭제로 관측할 ArgoCD가
-없다.** 저장소 텍스트만 바뀌고 클러스터에는 처음부터 그 이름으로 생성된다.
-
-순서가 안전 요건이다. **철거 완료 → 이름 정리 커밋 → seed** 순으로 간다. 뒤집어서 ArgoCD가
-살아 있는 동안 이름 변경을 밀면 그것이 바로 이 절이 막으려는 경로다. 철거가 예정돼 있더라도
-마찬가지다.
+ApplicationSet이 하나라 버전도 하나다. 구독한 클러스터가 여럿이면 함께 올라간다. 티어별 승격이
+필요해질 만큼 대상이 늘면 그 addon을 staged로 옮긴다.
 
 ### `tier` 라벨 어휘
 
@@ -266,6 +276,7 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 | 하지 말 것 | 이유 |
 |---|---|
 | **cluster generator**로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
+| 돌고 있는 클러스터가 있는데 **ApplicationSet 이름·selector 변경** | 이름이 바뀌면 기존 ApplicationSet이 삭제된 것으로 처리된다. 그것이 만든 Application이 ownerReference를 따라 지워지고 `resources-finalizer.argocd.argoproj.io`가 **클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께 사라진다. selector도 기존 대상이 안 걸리게 바꾸면 같은 경로다. **이름과 selector는 배포된 순간 계약**이고, 바꿀 수 있는 시점은 전면 철거 이후 seed 이전뿐이다. 같은 편집이 클러스터 상태에 따라 무해하기도 파괴적이기도 한데 diff만 봐서는 구분되지 않는다 |
 | `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`(kubectl 대신 API 서버가 patch를 계산하는 적용 방식)보다 우선해 무력화한다 |
 | `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
 | root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |

@@ -172,15 +172,19 @@ generators:
 ```
 
 값을 고정하지 않고 존재 여부만 보기 때문에, 클러스터 등록 하나를 추가하는 것 자체가 자동
-팬아웃이 된다. selector를 어떻게 쓰느냐로 addon마다 전파 정책을 고른다.
+팬아웃이 된다. selector를 어떻게 쓰느냐로 addon마다 전파 정책 하나를 고른다. 조합하지 않는다.
 
 | 정책 | selector | 버전 | 쓰는 곳 |
 |---|---|---|---|
 | uniform | `environment` 존재 여부 | 전 클러스터 하나 | 정책·가드레일(Kyverno). 클러스터 간 차이가 곧 위험이다 |
-| staged | `tier` 값별로 ApplicationSet 분리 | 티어마다 하나 | 컨트롤러(Karpenter·ALB Controller). 검증 후 승격한다 |
+| staged | `tier` 값별로 ApplicationSet 분리 | 티어마다 하나 | 컨트롤러와 그 CRD(Karpenter·ALB Controller·Gateway API CRD). 검증 후 승격한다 |
 | opt-in | `addon-<name>` 라벨 값 | 구독 클러스터 하나 | 카탈로그(KEDA). 팀이 필요할 때 켠다 |
 
-staged는 같은 addon 파일 안에 ApplicationSet을 티어 수만큼 두고 각각에 버전을 단다.
+staged는 같은 addon 파일 안에 **버전 핀을 가진** ApplicationSet을 티어 수만큼 두고 각각에
+버전을 단다. `targetRevision`이 `main`인 블록은 나누지 않는다. 저장소 최신을 따라가는 참조라
+두 벌로 쪼개도 값이 항상 같아 승격이 기록되지 않기 때문이다. Karpenter의 NodePool CR이
+여기 해당한다.
+
 nonprd를 먼저 올려 검증하고, 통과하면 prd를 같은 값으로 올린다. 두 `targetRevision`의
 차이가 승격이 어디까지 갔는지를 저장소에 기록한다. 파일에 적힌 차이만 의도한 것이고,
 그 밖의 클러스터 간 차이는 사고로 본다. 블록 수는 티어 수를 따라가므로 spoke를 늘려도 addon

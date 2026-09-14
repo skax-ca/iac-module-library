@@ -111,7 +111,19 @@ ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. �
 
 ### staged를 쓰는 형태
 
-addon 파일 하나에 ApplicationSet을 티어 수만큼 둔다. 파일은 나누지 않는다.
+addon 파일 하나에 두되, **버전 핀을 가진 ApplicationSet만** 티어 수만큼 둔다. 파일은 나누지 않는다.
+
+한 addon 파일에 ApplicationSet이 여럿인 경우는 이미 있다. 컨트롤러 차트가 CRD를 동봉하면 그
+CRD를 쓰는 CR이 뒤에 와야 해서 sync-wave로 둘을 가른다. 티어는 여기에 **두 번째 축**으로
+얹히는데, 두 축을 곱하지 않는다.
+
+| ApplicationSet | `targetRevision` | 티어로 나누나 |
+|---|---|:---:|
+| 컨트롤러 helm(업스트림 차트 버전 핀) | `1.14.0` | ✅ |
+| CR(이 저장소의 로컬 차트) | `main` | ❌ |
+
+`main`은 저장소 최신을 따라가는 참조지 고정된 버전이 아니다. 두 블록으로 나눠도 값이 항상
+같아 승격이 기록되지 않는다. 블록만 늘고 읽을 정보가 없다.
 
 ```yaml
 # addons/baseline/karpenter.yaml
@@ -156,6 +168,11 @@ spec:
 3. `karpenter-prd`의 `targetRevision`을 같은 값으로 올려 커밋한다.
 4. 두 값이 같아지면 승격이 끝난 것이다.
 
+⚠️ **1~3 사이에는 CR이 두 버전 모두에서 유효해야 한다.** 티어로 나누지 않은 CR ApplicationSet은
+양 티어가 같은 차트를 본다. 그 구간에는 nonprd가 새 CRD를, prd가 옛 CRD를 갖고 있으므로, 새
+버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
+커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있는 셈이다.
+
 ### 전제: `tier` 라벨 어휘를 먼저 고정한다
 
 staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 붙어 있고, 값 어휘가 저장소마다
@@ -170,6 +187,11 @@ staged는 cluster Secret의 `tier` 라벨을 소비한다. 이 라벨은 이미 
 ⚠️ staged를 구현하기 전에 값을 `nonprd`와 `prd` 둘로 고정한다. 값이 갈린 채로 selector를 걸면
 어느 쪽에도 안 걸리는 클러스터가 조용히 생긴다. ArgoCD는 대상이 0개인 팬아웃을 오류로 보고하지
 않는다.
+
+대상이 0개인 것 자체는 사고가 아니다. 그 티어의 클러스터가 아직 없으면 **빈 슬롯**으로 남고,
+클러스터가 등록되는 순간 팬아웃된다. 사고는 클러스터가 **있는데** 어휘가 갈려 안 걸리는 경우다.
+둘은 등록된 cluster Secret의 `tier` 값을 세어 구분한다. 어느 쪽 값도 아닌 클러스터가 있으면
+사고다.
 
 `environment`가 아니라 `tier`를 쓰는 이유는 값의 개수다. `environment`는 클러스터가 늘면 값이
 함께 늘고, `tier`는 둘로 고정된다.

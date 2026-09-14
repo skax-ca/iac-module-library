@@ -82,7 +82,9 @@ ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. �
 버전을 갈라 받으려면 selector가 아니라 **ApplicationSet 자체를 나눠야** 한다. 아래 세 정책 중
 staged만 그렇게 한다.
 
-`environment` 라벨의 값은 이름과 values 경로를 푸는 데 쓴다. 버전 분기에는 쓰지 않는다.
+두 라벨의 역할이 다르다. `environment`는 **존재**가 uniform selector이고 **값**은 리소스 이름을
+만드는 데 쓴다(AWS의 공유 Gateway가 그 값으로 ALB 이름과 태그를 짓는다). `tier`는 값이 staged
+selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 
 ### 정책 셋
 

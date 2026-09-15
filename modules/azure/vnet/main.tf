@@ -69,6 +69,11 @@ resource "azurerm_subnet" "this" {
 
   # azurerm_subnet은 tags 인자를 지원하지 않는다. 공통 규약 "모든 리소스에 태그를 단다"가
   # 서브넷에서는 구조적으로 달성 불가하다(docs/conventions.md Azure 강제 방식 3번).
+
+  # NSG·라우팅 테이블은 network_security_group_id_wo·route_table_id_wo 인자가 아니라 아래
+  # association 리소스로 연결한다. 두 write-only 인자는 Azure Policy가 서브넷 생성·수정 시점에
+  # NSG·라우팅 테이블 지정을 요구하는 환경 전용이고, provider 문서도 association 리소스를
+  # 권장한다. 그런 정책이 deny로 걸린 구독에서는 이 모듈의 서브넷 생성이 거부된다.
 }
 
 # ── NSG(옵트인) ──────────────────────────────────────────────────────────────

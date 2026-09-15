@@ -32,12 +32,8 @@ misconfigurations:
     paths:
       - "modules/azure/aks-cluster/main.tf"
     statement: >-
-      aks-cluster 설계(ralplan v4, 축7)가 이미 판정한 값이다 — 0.1.0은 애드온 블록을
-      하나도 열지 않는다("요구가 생기면 그때 연다" 패턴, modules/azure/aks-cluster/README.md
-      참조). OMS Agent
-      (Azure Monitor Container Insights)는 축7이 열지 않기로 한 개별 addon 블록 중 하나이고,
-      log_analytics_workspace_id를 요구해 소비자가 미리 Log Analytics 워크스페이스를 만들어야
-      하는 추가 선행 의존성을 진다.
+      aks-cluster는 OMS Agent(Azure Monitor Container Insights) 블록을 열지 않는다
+      (modules/azure/aks-cluster/README.md 참조). 열면 log_analytics_workspace_id를 요구해
+      소비자가 Log Analytics 워크스페이스를 먼저 만들어야 하는 선행 의존성이 생긴다.
       백로그: 실수요(로그 수집 요구)가 확인되면 oms_agent 블록을 옵트인 변수로 여는
-      후속 마이너를 낸다 — 0.1.0에 지금 여는 것은 검증하지 않은 요구를 배송 계약에 넣는
-      것이다(P5).
+      마이너를 낸다. 검증하지 않은 요구를 배송 계약에 넣지 않는다.

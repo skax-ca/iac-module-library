@@ -249,8 +249,12 @@ grep -rn "§\|D-[A-Z]\|20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" --include='*.tf' --in
 
 ```
 pre-commit: tofu fmt -recursive -check -> tflint --recursive -> trivy config .
-pre-push (modules/ 변경 시만): tofu test
+pre-push (코드가 바뀐 모듈만): tofu test
 ```
+
+pre-push는 push 범위에서 `.tf`·`.tftpl`·`.tftest.hcl`·`.terraform.lock.hcl`이 바뀐 모듈
+디렉토리만 test한다. `examples/`와 README 변경은 test 대상이 아니다. CI 게이트 4는 범위와 무관하게
+전 모듈을 test한다.
 
 git hook으로 강제한다. clone마다 1회 활성화:
 

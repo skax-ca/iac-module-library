@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# pre-push — 모듈 tofu test 실행 (push 범위에 modules/ 변경이 있을 때만)
+# pre-push — push 범위에서 코드가 바뀐 모듈만 tofu test 실행
 # 활성화: git config core.hooksPath .githooks
 set -euo pipefail
 
@@ -19,14 +19,30 @@ while read -r _local_ref local_sha _remote_ref remote_sha; do
   changed="$changed"$'\n'"$range_diff"
 done
 
-echo "$changed" | grep -qE '^modules/.*\.tf$' || exit 0
+# test 결과를 바꿀 수 있는 파일: .tf, templatefile()이 읽는 .tftpl, 계약인 .tftest.hcl,
+# provider 버전을 고정하는 .terraform.lock.hcl. README·examples/는 test 대상이 아니다
+# (examples/는 CI 게이트 5가 validate한다).
+#
+# ⚠️ 모듈 단위로 좁히는 전제: 각 모듈의 tests/는 자기 모듈만 plan한다. 한 모듈의 test가 다른
+#    모듈을 source로 참조하게 되면 이 범위 판정도 바꿔야 한다. CI 게이트 4는 범위와 무관하게
+#    전 모듈을 test한다.
+modules=$(echo "$changed" \
+  | grep -E '^modules/[^/]+/[^/]+/' \
+  | grep -v '/examples/' \
+  | grep -E '\.(tf|tftpl|tftest\.hcl)$|/\.terraform\.lock\.hcl$' \
+  | cut -d/ -f1-3 | sort -u || true)
 
-echo "[pre-push] modules/ 변경 감지 — tofu test 실행"
-for m in modules/*/*/; do
+[ -n "$modules" ] || exit 0
+
+echo "[pre-push] 코드 변경 모듈 감지 — tofu test 실행"
+# 목록은 fd 3으로 읽는다. stdin으로 넘기면 루프 안의 tofu가 남은 목록을 삼킬 수 있다.
+while read -r m <&3; do
+  m="$m/"
+  [ -d "$m" ] || continue        # push 범위에서 삭제된 모듈
   [ -d "${m}tests" ] || continue
   [ -d "${m}.terraform" ] || tofu -chdir="$m" init -backend=false -input=false > /dev/null  # 이미 init된 모듈은 재실행하지 않는다
   echo "  test: $m"
   tofu -chdir="$m" test
-done
+done 3<<< "$modules"
 
 echo "[pre-push] 테스트 통과 ✓"

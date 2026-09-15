@@ -72,12 +72,13 @@ paths:
 ### 코드 변경 후 (로컬 CLI 게이트, git hook으로 강제)
 ```
 pre-commit: tofu fmt -recursive -check → tflint --recursive → trivy config .
-pre-push (modules/ 변경 시만): tofu test
+pre-push (코드가 바뀐 모듈만): tofu test
 ```
 - ⚠️ **tflint의 `terraform_unused_declarations`는 선언만 하고 쓰지 않은 변수를 exit 2로 잡는다.**
   따라서 `variables.tf`만 있고 이를 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다**.
   설계 문서가 태스크마다 Commit 라인을 두더라도 실제 커밋 단위는 "변수가 전부 소비되는 시점"이다.
-- **git hook 강제**: `.githooks/pre-commit`(fmt·tflint·trivy)와 `.githooks/pre-push`(modules 변경 시 `tofu test`).
+- **git hook 강제**: `.githooks/pre-commit`(fmt·tflint·trivy)와 `.githooks/pre-push`(push 범위에서 `.tf`·`.tftpl`·`.tftest.hcl`·lock이 바뀐 모듈만
+  `tofu test`, `examples/`·README 변경은 제외).
   clone마다 1회 활성화: `git config core.hooksPath .githooks`
   우회(`--no-verify`)는 긴급 시에만, 사유를 커밋 메시지에 명시한다.
 - tflint: `.tflint.hcl`(terraform recommended preset + aws ruleset 정확 핀). 설치:

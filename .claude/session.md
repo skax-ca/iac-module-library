@@ -1,15 +1,24 @@
 # Session — iac-module-library
 
 ## 지난 세션 (2026-09-15)
-aws-mcp MCP는 사내 SSL 인터셉션 루트 CA(SK holdings C&C)가 Basic Constraints를 critical로
-표시하지 않아 클라이언트 설정으로 우회할 수 없어(strict·partial-chain·리프 핀닝 모두 실측 실패)
-서버를 지우고 aws-docs의 무효 CA 설정도 뺐다(`2eb4154`). 문서 쪽은 문체 규칙 일괄 적용(`d5f6bcd`),
-team-access.md 배포 자격증명 절을 AWS 문서로 이관(`8c1c947`), 아카이브 태그 참조·썩는 모듈 수 제거와
-약어 「개정 이력」→「등재 근거」 전환(`1d8faac`)을 했다. `modules/`는 주석·README의 날짜·실측·
-설계문서 좌표(축N)·버전 이력 74건과 em-dash 682건을 정리하면서 코드와 반대로 적힌 network_policy
-주석 등 결함 3건을 고쳤다(PR #53, `7920327`). 코드 동작 변경이 없어 태그는 달지 않았다.
+OMC 종속성을 걷어냈다. 이 저장소는 `.omc` 11개(899파일, 추적 0)를 `~/archive/`에 압축한 뒤 지웠고,
+로컬 유일본 `open-questions.md` 6건 중 기록이 없던 vnet `*_wo` 기각만 `vnet/main.tf` 주석으로,
+`.trivyignore.yaml`의 끊긴 설계 참조(ralplan v4)는 걷어냈다(`7de7df8`), `.gitignore`의
+`.omc`·opencode 규칙도 뺐다(`2657e1c`). 전역은 dotfiles에서 CLAUDE.md 18줄 축소(`88bb574`),
+bootstrap 9단계 OMC 잔재 정리(`abed034`, `36dd4f7`), opencode 동기화 제거(`39499f7`), audit hook
+제거(`3b7e901`), 스킬 3개(session-start·end, stop-slop)·hook 1개(permission-request)만 남김(`e006a3a`).
+에이전트 6개(OMC 5.4.0 복사본)와 insane-search 플러그인·gptaku 마켓플레이스도 지웠다.
 
 ## 다음 할 일
+- [ ] 원격 Mac 세션 시작 시 bootstrap 9단계 출력(`[cleanup]`·`[warn]`) 확인. 플러그인은 머신별이라
+      `claude plugin uninstall insane-search@gptaku-plugins --scope user` ·
+      `claude plugin marketplace remove gptaku-plugins`를 직접 실행하고, `~/.claude/skills` 아래
+      링크가 아닌 디렉토리·`~/.config/opencode`도 직접 지운다
+- [ ] ⚠️ 다른 저장소 `.omc` 정리 — `aks-reference-infra`의 `hub-argocd-rbac-direction-flip.md`·
+      `dev-gitops-registration.md`는 gitignore된 유일본인데 `.tf` 주석·docs·`aks-platform-gitops`가
+      근거로 가리킨다. `eks-reference-infra` plans 2개도 유일본. curo는 팀 저장소라 따로 판단
+- [ ] `0.1.0` 버전 한정 표현 4곳 정리(writing-style 규칙 2): `module-catalog.md:130·247`,
+      `conventions.md:125`, `aks-cluster/variables.tf` node_pools
 - [ ] EKS·AKS 재구축 후 cluster Secret 등록 — ⚠️ teardown이 매칭 라벨을 **먼저 떼고** 파일을
       지웠다. git 이력에서 되살리면 라벨이 빠진 껍데기이고 그 상태로는 Application이 하나도
       안 생긴다. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·`karpenterNodeRole`,
@@ -23,3 +32,4 @@ team-access.md 배포 자격증명 절을 AWS 문서로 이관(`8c1c947`), 아�
       릴리스가 8개 있는데 "같은 번호 유지" 규칙이 그것을 막는다. 보안 패치면 부딪힐 자리다
 - [ ] (검토) `.tf` 주석 좌표 금지(`conventions.md` 5절)의 판정 grep이 어떤 게이트에도 물려 있지
       않다 — 그래서 날짜·실측 서술이 74건까지 쌓였다
+- [ ] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

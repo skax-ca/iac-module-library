@@ -89,12 +89,13 @@ Subnet을 지원하지 않는다. 가시성 손실은 ACNS로 메울 수 있고,
 **패킷이 닿아야 한다.** private 클러스터의 API 서버 주소는 private DNS zone이 풀어 주는데, 그
 zone은 노드 VNet에만 링크돼 있어 허브에서는 이름이 풀리지 않는다.
 
-두 가지 길이 있다.
+세 가지 길이 있다.
 
 | 방법 | 내용 |
 |---|---|
 | private DNS zone을 허브 VNet에도 링크 | zone 링크를 스포크마다 만들어야 한다 |
+| 허브·스포크 클러스터가 **공유 커스텀 private DNS zone**을 쓴다 | Microsoft가 제시하는 허브-스포크 구성이지만 `private_dns_zone_id`는 생성 후 바꿀 수 없어(ForceNew) 이미 선 클러스터는 전부 재생성해야 한다. 클러스터 신원마다 허브 zone에 대한 Private DNS Zone Contributor도 필요하다 |
 | **공개 FQDN을 켠다**(`private_cluster_public_fqdn_enabled`) | 공개 DNS가 **private IP를 그대로 반환**한다. 이름만 공개고 주소는 사설이라, 도달은 vWAN 라우팅이 있는 쪽에서만 된다. zone 링크가 필요 없다 |
 
-이 저장소는 두 번째를 쓴다. 공개 FQDN은 **이름 해석만 공개**한다. 엔드포인트는 사설로 남는다.
+이 저장소는 세 번째를 쓴다. 공개 FQDN은 **이름 해석만 공개**한다. 엔드포인트는 사설로 남는다.
 클러스터를 재생성하면 FQDN의 무작위 접미사가 바뀌므로 등록 Secret을 갱신해야 한다.

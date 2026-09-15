@@ -81,8 +81,14 @@ GitOps는 그 순서를 표현할 수단이 없다.
 토큰은 ArgoCD가 런타임에 발급받는다. AWS에서 스포크 계정이 신뢰 Role을 만들고 허브의 Pod Identity를 신뢰하는
 것과 같은 자리다.
 
-⚠️ hub ArgoCD의 신원(UAMI)이 hub 클러스터와 같은 배포 루트에 있으면, **hub를 재구축할 때마다 그
-client ID가 바뀌어** spoke Secret을 갱신해야 한다.
+**스포크 클러스터에 대한 ArgoCD 권한은 스포크가 만든다.** 스포크 배포 루트가 허브 ArgoCD 신원을
+태그로 찾아, 자기 클러스터 스코프의 role assignment를 자기 apply 안에서 만든다. 권한을 부여하는
+쪽이 리소스를 소유한 쪽이므로, 스포크가 허브에서 받는 것은 그 신원을 찾는 read 권한뿐이다
+([network.md](network.md)의 `hub-peer`).
+
+⚠️ hub ArgoCD의 신원(UAMI)이 hub 클러스터와 같은 배포 루트에 있으면 hub를 재구축할 때마다 신원이
+새로 발급된다. **모든 스포크**가 배포 루트를 다시 apply해 role assignment를 새 principal로 옮기고,
+등록 Secret의 client ID도 갱신해야 한다.
 
 ---
 
@@ -129,5 +135,6 @@ client ID가 바뀌어** spoke Secret을 갱신해야 한다.
 | **Envoy Gateway를 자체 설치** | 동작은 하고 Terraform도 필요 없지만, 관리형이 GA로 있는 자리를 자체 설치로 채우게 된다. 「관리형 기능 채택 기준」([`decisions.md`](../../../decisions.md))의 기준을 App Routing이 이미 통과한다 |
 | Pod 대역을 **플랫 모델(`pod_subnet`)** 로 두는 것을 기본값으로 | NAP이 Azure CNI Pod Subnet을 지원하지 않고(karpenter-provider-azure#1352), Microsoft 공식 권고도 Overlay를 일반 기본으로 명시한다. 플랫 모델은 Pod 단위 관측성을 포기할 수 없을 때만 고른다([network.md](network.md)) |
 | "NSG 규칙 0개 = 인바운드 0"이라고 가정 | Azure는 `AllowVNetInBound`가 이미 열려 있다. 막으려면 명시적 Deny(priority 4096)로 덮어야 한다. AWS 보안 그룹과 기본값이 정반대다 |
+| 허브가 스포크 클러스터를 발견해 **허브 쪽에서** ArgoCD role assignment를 만든다 | 허브 CI가 스포크 리소스 그룹에 `roleAssignments/write`를 가져야 한다. 그 권한이면 허브 CI가 그 리소스 그룹에서 자신에게 어떤 역할이든 부여할 수 있다. 「모듈 경계」([`decisions.md`](../../../decisions.md))가 모듈에 신원·권한 부여 리소스를 두지 않는 것과 같은 논리다 |
 | Entra 통합을 "일단 켜 보고 아니면 되돌린다" | Azure가 통합 해제를 지원하지 않는다. 되돌리려면 클러스터 재생성이다 |
 | CI 신원의 **권한 크기**를 방어선으로 삼기(리소스 그룹 스코프 커스텀 역할 + 불변식 검사) | 한 번 세웠다가 걷어냈다. 배포 루트는 리소스 그룹·역할 할당까지 만들어야 해서 좁힌 역할을 계속 넓히게 되고, 그 과정에서 검사 항목만 늘어난다. AWS 실행 Role도 `AdministratorAccess`라 대칭이 아니었다. **방어선은 그 신원에 도달하는 경로(FIC subject) 하나뿐이다** |

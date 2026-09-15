@@ -1,7 +1,7 @@
 # 컨트롤러 IAM 전제조건
 #
 # 원칙: baseline 컨트롤러의 IAM 전제는 **IaC(이 모듈)** 소관이고, **정책은 hand-author하지
-# 않는다** — AWS 관리형이나 커뮤니티 큐레이션에 위임한다. self-authored 정책은 churn을 우리가 떠안는다.
+# 않는다**: AWS 관리형이나 커뮤니티 큐레이션에 위임한다. self-authored 정책은 churn을 우리가 떠안는다.
 #
 # 두 갈래로 나뉜다:
 #   · AWS 관리형 정책으로 충분한 것(EBS CSI · EFS CSI) → 이 파일이 role을 직접 만들고 addon이 association을 건다.
@@ -14,7 +14,7 @@
 
 # ── EBS CSI Driver  ──────────────────────────────────────────────────
 #
-# addon을 opt-out하면 role도 만들지 않는다 — 쓰지 않는 role을 남기지 않는다.
+# addon을 opt-out하면 role도 만들지 않는다. 쓰지 않는 role을 남기지 않는다.
 
 data "aws_iam_policy_document" "ebs_csi_assume_role" {
   count = local.ebs_csi_enabled ? 1 : 0
@@ -25,7 +25,7 @@ data "aws_iam_policy_document" "ebs_csi_assume_role" {
     principals {
       type = "Service"
       # Pod Identity의 주체다. EKS Capability(capabilities.eks.amazonaws.com)와 다른 principal이니
-      # 혼동하지 않는다 — 둘은 용도가 완전히 다르다.
+      # 혼동하지 않는다. 둘은 용도가 완전히 다르다.
       identifiers = ["pods.eks.amazonaws.com"]
     }
 
@@ -50,14 +50,14 @@ resource "aws_iam_role_policy_attachment" "ebs_csi" {
   count = local.ebs_csi_enabled ? 1 : 0
 
   role = aws_iam_role.ebs_csi[0].name
-  # AWS 관리형 정책에 위임한다 — self-author 하면 churn 을 우리가 떠안는다.
+  # AWS 관리형 정책에 위임한다. self-author 하면 churn 을 우리가 떠안는다.
   # ⚠️ 고객 관리형 KMS 키로 볼륨을 암호화하면 KMS 권한이 더 필요하다.
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
 }
 
 # ── EFS CSI Driver ───────────────────────────────────────────────────
 #
-# EBS CSI와 같은 취급이다 — AWS 관리형 정책 하나로 충분하다. EBS와 다른 점은 baseline이 아니라
+# EBS CSI와 같은 취급이다. AWS 관리형 정책 하나로 충분하다. EBS와 다른 점은 baseline이 아니라
 # opt-in이라는 것뿐이다(addons.tf 참조): RWX 공유 스토리지는 일부 워크로드만 쓰므로, 안 쓰는
 # 소비자에게 idle role을 강제하지 않는다. 활성화 여부는 baseline 소속과 무관하게 소비자가
 # cluster_addons에 이 addon을 추가했는지로만 판정된다(merge 메커니즘이 이미 일반적이라 별도
@@ -101,7 +101,7 @@ resource "aws_iam_role_policy_attachment" "efs_csi" {
 #
 # 기본값이 false인 이유: 유휴 role과 불필요한 plan diff를 만들지 않기 위해서다. 소비자 opt-in.
 # 컨트롤러의 설치 경로(ALBC = GitOps helm, external-dns = IaC addon)와 무관하게 IAM 메커니즘은
-# 동일하다 — standalone Pod Identity association이 서비스 어카운트에 바인딩된다.
+# 동일하다. standalone Pod Identity association이 서비스 어카운트에 바인딩된다.
 
 module "alb_controller_pod_identity" {
   source  = "terraform-aws-modules/eks-pod-identity/aws"
@@ -113,7 +113,7 @@ module "alb_controller_pod_identity" {
   name            = "iamr-${local.name_mid}-alb-controller"
   use_name_prefix = false
 
-  # 커뮤니티가 유지보수하는 정책을 쓴다 — ALBC 정책은 길고 자주 바뀌어 hand-author 대상이 아니다.
+  # 커뮤니티가 유지보수하는 정책을 쓴다. ALBC 정책은 길고 자주 바뀌어 hand-author 대상이 아니다.
   attach_aws_lb_controller_policy = true
 
   associations = {
@@ -164,11 +164,11 @@ module "argocd_hub_pod_identity" {
   attach_custom_policy = true
   policy_statements = [{
     sid = "AssumeSpokeTrustRoles"
-    # sts:TagSession도 함께 필요하다 — 이 Role 자신이 Pod Identity로 assume될 때 이미
+    # sts:TagSession도 함께 필요하다. 이 Role 자신이 Pod Identity로 assume될 때 이미
     # 세션 태그가 붙는데(위 argocd_hub_pod_identity의 트러스트가 sts:TagSession도 허용하는
     # 것과 같은 이유), 그 세션으로 스포크 Role을 다시 assume(체이닝)할 때도 AWS STS가
-    # sts:TagSession을 별도 액션으로 검사한다 — sts:AssumeRole만 있으면 403
-    # "not authorized to perform: sts:TagSession"으로 거부된다(실측, 2026-08-20).
+    # sts:TagSession을 별도 액션으로 검사한다. sts:AssumeRole만 있으면 403
+    # "not authorized to perform: sts:TagSession"으로 거부된다.
     actions   = ["sts:AssumeRole", "sts:TagSession"]
     resources = var.argocd_hub_assumable_role_arns
   }]
@@ -177,7 +177,7 @@ module "argocd_hub_pod_identity" {
     this = {
       cluster_name = module.eks.cluster_name
       namespace    = var.argocd_namespace
-      # argocd-server가 아니라 argocd-application-controller다 — 스포크 클러스터와 실제로
+      # argocd-server가 아니라 argocd-application-controller다. 스포크 클러스터와 실제로
       # 통신해 reconcile하는 컴포넌트가 이쪽이기 때문이다.
       service_account = "argocd-application-controller"
     }
@@ -195,14 +195,14 @@ module "cluster_autoscaler_pod_identity" {
   name            = "iamr-${local.name_mid}-cluster-autoscaler"
   use_name_prefix = false
 
-  # least-privilege 정책이 커뮤니티 큐레이션이다 — kubernetes/autoscaler AWS README의 권장 정책과
+  # least-privilege 정책이 커뮤니티 큐레이션이다. kubernetes/autoscaler AWS README의 권장 정책과
   # 동일한 조건(SetDesiredCapacity·TerminateInstanceInAutoScalingGroup을 클러스터 소유 ASG로
-  # 태그 스코핑)을 upstream이 이미 만든다(cluster_autoscaler.tf 실측).
+  # 태그 스코핑)을 upstream이 이미 만든다(upstream의 cluster_autoscaler.tf).
   attach_cluster_autoscaler_policy = true
   cluster_autoscaler_cluster_names = [module.eks.cluster_name]
 
   # kube-system·cluster-autoscaler는 공식 요구사항이 아니라 관례다(Karpenter의 kube-system과
-  # 달리 APF FlowSchema 같은 근거가 없다) — docs/architectures/gitops-hub-spoke/aws/README.md의
+  # 달리 APF FlowSchema 같은 근거가 없다). docs/architectures/gitops-hub-spoke/aws/README.md의
   # 「네임스페이스 예외」에 그대로 기록한다.
   associations = {
     this = {

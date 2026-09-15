@@ -1,5 +1,5 @@
 # 출력 계약이 실제로 소비되는지 보이는 곳.
-# 9그룹 구성에서 map 출력이 왜 고정 리스트보다 나은지가 여기서 드러난다 —
+# 9그룹 구성에서 map 출력이 왜 고정 리스트보다 나은지가 여기서 드러난다.
 # private_subnet_ids 같은 타입 고정 출력으로는 elb/pod/db/data/ep/tgw를 구분할 수 없다.
 
 output "vpc_id" {
@@ -17,14 +17,14 @@ output "subnet_ids_by_group" {
   value       = module.vpc.subnet_ids_by_group
 }
 
-# 하류 EKS 모듈이 실제로 받는 형태 — 노드와 Pod 서브넷이 분리돼 넘어간다.
+# 하류 EKS 모듈이 실제로 받는 형태: 노드와 Pod 서브넷이 분리돼 넘어간다.
 output "eks_node_subnet_ids" {
-  description = "EKS 노드용 private 서브넷(uniq 대역 — node-SNAT 소스)."
+  description = "EKS 노드용 private 서브넷(uniq 대역: node-SNAT 소스)."
   value       = module.vpc.subnet_ids_by_group["node-uniq"]
 }
 
 output "eks_pod_subnet_ids" {
-  description = "EKS Pod 전용 isolated 서브넷(dup 대역 — ENIConfig에 지정)."
+  description = "EKS Pod 전용 isolated 서브넷(dup 대역: ENIConfig에 지정)."
   value       = module.vpc.subnet_ids_by_group["pod-dup"]
 }
 

@@ -3,7 +3,7 @@
 # ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 plan 시점에 평가되므로,
 #    examples를 validate까지만 도는 규약으로는 계약 위반이 잡히지 않는다.
 #
-# mock_provider로 azurerm 전체를 모킹한다 — 이 repo는 배포하지 않아 CI에 Azure 자격증명이
+# mock_provider로 azurerm 전체를 모킹한다. 이 repo는 배포하지 않아 CI에 Azure 자격증명이
 # 없다. 모킹에서는 computed 속성(id 등)이 plan 시점에 unknown일 수 있다. assertion은 설정값과
 # 인스턴스 개수·키 집합만 본다(modules/azure/aks-cluster/tests/plan.tftest.hcl과 같은 제약).
 
@@ -45,7 +45,7 @@ variables {
   location            = "koreacentral"
   subnet_id           = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-demo-prd-krc-main/providers/Microsoft.Network/virtualNetworks/vnet-demo-prd-krc-main/subnets/snet-demo-prd-krc-workbench"
   identity_id         = "/subscriptions/12345678-1234-9876-4563-123456789012/resourceGroups/rg-demo-prd-krc-main/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-demo-prd-krc-workbench-01"
-  # 실제로 유효한 SSH 공개키 형태여야 한다 — provider가 client-side로 파싱을 검증해
+  # 실제로 유효한 SSH 공개키 형태여야 한다. provider가 client-side로 파싱을 검증해
   # mock_provider로도 형식 오류(placeholder 문자열)는 못 가린다. 이 값은 테스트 전용
   # 더미 키페어의 공개키다(private key는 존재하지 않음, 순수 fixture).
   admin_ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIP6HacqFxdt5rCsQz945B26C+K5Jy476LkPBtxrwwWvD test-fixture"
@@ -59,7 +59,7 @@ variables {
   }
 }
 
-# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
+# ── 네이밍 규약: 릴리스 게이트 필수 항목 ───────────────────────────────────────
 run "naming_contract" {
   command = plan
 
@@ -92,7 +92,7 @@ run "naming_contract_public_ip" {
   }
 }
 
-# ── 신원 — dual identity, identity_id 하나만 소비한다 ───────────────────────────
+# ── 신원: dual identity, identity_id 하나만 소비한다 ───────────────────────────
 run "dual_identity_wired" {
   command = plan
 
@@ -108,7 +108,7 @@ run "dual_identity_wired" {
   # main.tf에 그 리소스 타입 자체가 없다는 사실로 보장된다(tftest는 존재하는 리소스만 검사한다).
 }
 
-# ── NSG — ssh_ingress_cidrs를 명시적으로 비우면 진짜 인바운드 0 ─────────────────
+# ── NSG: ssh_ingress_cidrs를 명시적으로 비우면 진짜 인바운드 0 ─────────────────
 run "empty_ssh_ingress_cidrs_yields_true_zero_inbound" {
   command = plan
 
@@ -131,11 +131,11 @@ run "empty_ssh_ingress_cidrs_yields_true_zero_inbound" {
 
   assert {
     condition     = length(azurerm_network_interface_security_group_association.this) == 1
-    error_message = "NSG가 NIC에 연결되지 않았다 — 이게 없으면 NSG가 있어도 무효하다."
+    error_message = "NSG가 NIC에 연결되지 않았다. 이게 없으면 NSG가 있어도 무효하다."
   }
 }
 
-# ── NSG — CIDR이 채워지면 단일 규칙이 그 목록을 그대로 받는다 ───────────────────
+# ── NSG: CIDR이 채워지면 단일 규칙이 그 목록을 그대로 받는다 ───────────────────
 run "ssh_ingress_cidrs_wired_to_single_rule" {
   command = plan
 
@@ -145,7 +145,7 @@ run "ssh_ingress_cidrs_wired_to_single_rule" {
 
   assert {
     condition     = length(azurerm_network_security_rule.ssh_allow) == 1
-    error_message = "CIDR이 여러 개인데 AllowSsh 규칙이 1개가 아니다 — for_each+index() 방식으로 되돌아갔을 가능성이 있다."
+    error_message = "CIDR이 여러 개인데 AllowSsh 규칙이 1개가 아니다. for_each+index() 방식으로 되돌아갔을 가능성이 있다."
   }
 
   assert {
@@ -185,7 +185,7 @@ run "reject_latest_image_version" {
   expect_failures = [var.source_image_reference]
 }
 
-# ── AKS 연동 — az_cli_version 없이 aks_cluster_name만 주면 부팅 시점에야 실패한다 ──
+# ── AKS 연동: az_cli_version 없이 aks_cluster_name만 주면 부팅 시점에야 실패한다 ──
 run "reject_aks_cluster_name_without_az_cli_version" {
   command = plan
 
@@ -226,8 +226,8 @@ run "reject_entra_rbac_without_full_triplet" {
   expect_failures = [var.aks_entra_rbac_enabled]
 }
 
-# kubelogin_version만 빠졌을 때도 같은 validation이 잡아야 한다(2026-09-04 code-review
-# 발견 — kubelogin 바이너리가 설치조차 안 돼 변환이 조용히 실패하던 문제의 재발 방지).
+# kubelogin_version만 빠졌을 때도 같은 validation이 잡아야 한다. 그 값이 없으면 kubelogin
+# 바이너리가 설치되지 않아 kubeconfig 변환이 조용히 실패한다.
 run "reject_entra_rbac_without_kubelogin_version" {
   command = plan
 
@@ -261,7 +261,7 @@ run "entra_rbac_enabled_with_full_triplet_ok" {
   }
 }
 
-# ── entra_ssh_login_enabled — ssh_ingress_cidrs와 직교하는 별도 게이트 ───────────
+# ── entra_ssh_login_enabled: ssh_ingress_cidrs와 직교하는 별도 게이트 ───────────
 run "entra_ssh_login_disabled_skips_extension" {
   command = plan
 
@@ -318,8 +318,8 @@ run "kill_switch_disables_everything" {
   }
 }
 
-# ── admin_username은 cloud-init 셸 명령에 이스케이프 없이 보간된다 — 메타문자를
-#    plan 단계에서 거부해야 한다(2026-09-04 code-review 발견) ──────────────────────
+# ── admin_username은 cloud-init 셸 명령에 이스케이프 없이 보간된다. 메타문자를
+#    plan 단계에서 거부해야 한다 ──────────────────────────────────────────────────
 run "reject_admin_username_with_shell_metacharacters" {
   command = plan
 
@@ -343,7 +343,7 @@ run "admin_username_custom_value_ok" {
   }
 }
 
-# ── 로그인 프로파일(/etc/profile.d) — 2026-09-07 신설, AWS 원본
+# ── 로그인 프로파일(/etc/profile.d): AWS 원본
 #    modules/aws/workbench/tests/plan.tftest.hcl의 tooling_installed_when_pinned·
 #    krew_requires_kubectl과 동일 패턴(strcontains로 렌더된 custom_data 내용 검증).
 #    custom_data는 base64encode(templatefile(...))라 base64decode 후 검사한다.
@@ -361,7 +361,7 @@ run "login_profile_k_alias_when_kubectl_pinned" {
 
   assert {
     condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "kubectl completion bash")
-    error_message = "kubectl_version을 지정했는데 completion 설정이 렌더되지 않았다 — alias만 있고 completion이 없으면 함수 미정의로 조용히 안 먹는다."
+    error_message = "kubectl_version을 지정했는데 completion 설정이 렌더되지 않았다. alias만 있고 completion이 없으면 함수 미정의로 조용히 안 먹는다."
   }
 }
 
@@ -374,11 +374,11 @@ run "login_profile_skips_k_alias_without_kubectl" {
 
   assert {
     condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "alias k=kubectl")
-    error_message = "kubectl_version이 null인데 k alias가 렌더됐다 — 존재하지 않는 kubectl을 가리키는 죽은 alias다."
+    error_message = "kubectl_version이 null인데 k alias가 렌더됐다. 존재하지 않는 kubectl을 가리키는 죽은 alias다."
   }
 }
 
-# 2026-09-07 실측 회귀 방지 — krew 바이너리는 --krew-root 플래그를 지원하지 않는다
+# 회귀 방지: krew 바이너리는 --krew-root 플래그를 지원하지 않는다
 # ("unknown flag: --krew-root", 첫 실사용 실배포에서 발견). KREW_ROOT 환경변수만으로
 # 충분하다(krew.sigs.k8s.io/docs/user-guide/setup/install 공식 명령도 플래그 없이
 # `install krew`뿐). mock_provider라 실제 부팅은 못 재현하지만, 이 문자열이 다시
@@ -393,10 +393,10 @@ run "krew_install_has_no_invalid_flag" {
 
   assert {
     # ⚠️ 바로 위 코드 블록의 설명 주석 자체가 "--krew-root" 문자열을 언급하므로(의도된
-    # 문서화), 그 부분 문자열만 보면 항상 실패한다 — 실제 잘못된 호출 형태(등호 포함,
+    # 문서화), 그 부분 문자열만 보면 항상 실패한다. 실제 잘못된 호출 형태(등호 포함,
     # `--krew-root=`)만 좁혀서 검사한다.
     condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "--krew-root=")
-    error_message = "krew install 명령에 --krew-root= 플래그가 다시 들어갔다 — krew는 이 플래그를 지원하지 않는다(unknown flag, 2026-09-07 실측). KREW_ROOT 환경변수만 쓴다."
+    error_message = "krew install 명령에 --krew-root= 플래그가 다시 들어갔다. krew는 이 플래그를 지원하지 않는다(unknown flag). KREW_ROOT 환경변수만 쓴다."
   }
 
   assert {
@@ -405,7 +405,7 @@ run "krew_install_has_no_invalid_flag" {
   }
 }
 
-# krew는 kubectl 없이는 의미가 없다 — 이 모듈(main.tf)이 그 결합을 접는다(AWS 원본
+# krew는 kubectl 없이는 의미가 없다. 이 모듈(main.tf)이 그 결합을 접는다(AWS 원본
 # krew_requires_kubectl과 동일 근거). 이 케이스가 없으면 "kubectl 없이 krew PATH만
 # 잡힌" 형상이 조용히 만들어진다.
 run "login_profile_krew_path_requires_kubectl" {
@@ -418,7 +418,7 @@ run "login_profile_krew_path_requires_kubectl" {
 
   assert {
     condition     = !strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "export KREW_ROOT=")
-    error_message = "kubectl이 없는데 krew PATH가 계획됐다 — 플러그인을 실행할 kubectl이 없다."
+    error_message = "kubectl이 없는데 krew PATH가 계획됐다. 플러그인을 실행할 kubectl이 없다."
   }
 }
 
@@ -470,25 +470,23 @@ run "nullable_false_falls_back_to_default" {
   }
 }
 
-# 2026-09-09 실측 회귀 방지 — apt-daily.timer/apt-daily-upgrade.timer가 부팅 15초
-# 만에 자체 apt-get update를 돌려 /var/lib/apt/lists/lock을 잡고, 이 스크립트의
-# 두 번째 apt-get update(azure-cli repo 추가 후)와 경합해 az CLI 설치가 실패하는
-# 걸 aks-reference-infra dev workbench 재배포에서 실측했다. DPkg::Lock::Timeout은
-# 이 축(update 경로의 lists lock)에는 재시도를 안 걸어 그 옵션만으로는 못 막는다는
-# 것까지 같은 세션에서 실측 확인 — apt-get 호출 전에 그 타이머를 mask하는 게 실제
-# 방어선이다. 변수 조합과 무관하게 항상 렌더돼야 한다(기본 변수만으로 실행).
+# 회귀 방지: apt-daily.timer/apt-daily-upgrade.timer는 부팅 직후 자체 apt-get update를
+# 돌려 /var/lib/apt/lists/lock을 잡는다. 이 스크립트의 두 번째 apt-get update(azure-cli
+# repo 추가 후)와 경합하면 az CLI 설치가 실패한다. DPkg::Lock::Timeout은 update 경로의
+# lists lock에는 재시도를 걸지 않아 그 옵션만으로는 못 막는다. apt-get 호출 전에 그
+# 타이머를 mask하는 것이 실제 방어선이다. 변수 조합과 무관하게 항상 렌더돼야 한다.
 run "apt_daily_timer_masked_before_apt_calls" {
   command = plan
 
   assert {
     condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "systemctl mask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer")
-    error_message = "apt-daily.timer/apt-daily-upgrade.timer를 mask하는 명령이 빠졌다 — 부팅 초기 백그라운드 apt-get과 경합해 az CLI 설치가 실패할 수 있다(2026-09-09 실측)."
+    error_message = "apt-daily.timer/apt-daily-upgrade.timer를 mask하는 명령이 빠졌다. 부팅 초기 백그라운드 apt-get과 경합해 az CLI 설치가 실패할 수 있다."
   }
 
   assert {
-    # mask 시퀀스가 반드시 첫 apt-get 호출보다 앞서야 한다 — 순서가 뒤바뀌면 경쟁자를
+    # mask 시퀀스가 첫 apt-get 호출보다 앞서야 한다. 순서가 뒤바뀌면 경쟁자를
     # 이미 만난 뒤에 죽이는 꼴이라 무의미하다. index(split("\n", ...))는 줄 경계·공백에
-    # 취약해(실측 실패) 대신 각 마커의 첫 등장 위치(앞부분 길이)를 비교한다.
+    # 취약해 대신 각 마커의 첫 등장 위치(앞부분 길이)를 비교한다.
     condition = length(split(
       "systemctl mask apt-daily.service apt-daily-upgrade.service apt-daily.timer apt-daily-upgrade.timer",
       base64decode(azurerm_linux_virtual_machine.this[0].custom_data)
@@ -496,14 +494,14 @@ run "apt_daily_timer_masked_before_apt_calls" {
       "apt-get $APT_OPTS update -y",
       base64decode(azurerm_linux_virtual_machine.this[0].custom_data)
     )[0])
-    error_message = "apt-daily mask 시퀀스가 첫 apt-get update보다 뒤에 렌더됐다 — 부팅 초기 경쟁자를 없애기 전에 이미 apt-get을 호출하면 이 수정이 무의미하다."
+    error_message = "apt-daily mask 시퀀스가 첫 apt-get update보다 뒤에 렌더됐다. 부팅 초기 경쟁자를 없애기 전에 이미 apt-get을 호출하면 이 수정이 무의미하다."
   }
 }
 
-# 2026-09-09 실측 회귀 방지 — cloud-init(systemd cloud-final.service)이 root로 이
+# 회귀 방지: cloud-init(systemd cloud-final.service)이 root로 이
 # 스크립트를 실행할 때 $HOME이 "/"로 잡혀(/root가 아님), --kubeconfig 없이는
 # kubelogin이 존재하지 않는 /.kube/config를 대상으로 잡아 변환할 게 없어 조용히
-# 성공(exit 0)해버린다 — az aks get-credentials가 실제로 쓴 /root/.kube/config는
+# 성공(exit 0)해버린다. az aks get-credentials가 실제로 쓴 /root/.kube/config는
 # 전혀 안 건드려져 devicecode 그대로 남고, kubectl이 대화형 로그인을 요구하며
 # 멈춘다. --kubeconfig /root/.kube/config를 명시해 이 환경 의존을 없앴다.
 run "kubelogin_convert_targets_root_kubeconfig_explicitly" {
@@ -520,6 +518,6 @@ run "kubelogin_convert_targets_root_kubeconfig_explicitly" {
 
   assert {
     condition     = strcontains(base64decode(azurerm_linux_virtual_machine.this[0].custom_data), "kubelogin convert-kubeconfig -l msi --client-id \"11111111-1111-1111-1111-111111111111\" --kubeconfig /root/.kube/config")
-    error_message = "kubelogin convert-kubeconfig 호출에 --kubeconfig /root/.kube/config가 없다 — cloud-init 실행 환경의 $HOME이 \"/\"로 잡혀(2026-09-09 실측) 이 플래그 없이는 존재하지 않는 파일을 조용히 변환한 척(exit 0)하고 실제 kubeconfig는 devicecode로 남는다."
+    error_message = "kubelogin convert-kubeconfig 호출에 --kubeconfig /root/.kube/config가 없다. cloud-init 실행 환경의 $HOME이 \"/\"로 잡혀 이 플래그 없이는 존재하지 않는 파일을 조용히 변환한 척(exit 0)하고 실제 kubeconfig는 devicecode로 남는다."
   }
 }

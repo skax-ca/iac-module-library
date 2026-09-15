@@ -2,7 +2,7 @@
 # workbench 부팅 스크립트 (user_data)
 #
 # AL2023은 SSM Agent가 기본 탑재라 별도 설치가 없다. 이 스크립트가 하는 일은 도구 설치와
-# kubeconfig 생성뿐이며, 둘 다 실패해도 **SSM 접속 자체는 살아 있어야 한다** — 그래야 들어가서
+# kubeconfig 생성뿐이며, 둘 다 실패해도 **SSM 접속 자체는 살아 있어야 한다**: 그래야 들어가서
 # 진단할 수 있다. 그래서 `set -e`를 쓰지 않는다(부팅 중단이 곧 진단 불가다).
 set -uo pipefail
 
@@ -19,30 +19,30 @@ mkdir -p "$DL_DIR"
 
 # ── git ──────────────────────────────────────────────────────────────────────
 #
-# 이 블록에만 조건 분기가 없다. git 은 변수 없이 항상 설치한다 — kubectl·helm 이 nullable 핀인
+# 이 블록에만 조건 분기가 없다. git 은 변수 없이 항상 설치한다. kubectl·helm 이 nullable 핀인
 # 이유는 버전이 클러스터·차트에 결합되기 때문인데, git 은 배포판 패키지라 소비자가 고를 값이 없다.
 # ⚠️ GitOps 부트스트랩은 workbench 가 저장소를 클론하는 것을 전제한다. git 이 없으면 거기서 멈춘다.
 #    수동 설치로 넘기면 인스턴스 교체와 함께 사라진다.
-# git-core 는 최소 구성 패키지다 — clone/fetch 에 필요한 것이 전부 들어 있다.
+# git-core 는 최소 구성 패키지다. clone/fetch 에 필요한 것이 전부 들어 있다.
 # 아키텍처와 무관하고 $CURL 도 쓰지 않으므로 바이너리 다운로드보다 앞에 둔다.
 echo "[workbench] git-core 설치"
 if dnf install -y git-core; then
   git --version || true
 else
   # 다른 도구와 같은 규약: 실패해도 부팅을 멈추지 않는다. SSM 으로 들어가 진단할 수 있어야 한다.
-  echo "[workbench] ⚠️ git-core 설치 실패 — SSM 으로 접속해 수동 설치한다"
+  echo "[workbench] ⚠️ git-core 설치 실패. SSM 으로 접속해 수동 설치한다"
 fi
 
 ARCH_RAW="$(uname -m)"
 case "$ARCH_RAW" in
   aarch64) ARCH=arm64 ;;
   x86_64)  ARCH=amd64 ;;
-  *) echo "[workbench] 지원하지 않는 아키텍처: $ARCH_RAW — 도구 설치를 건너뛴다"; ARCH= ;;
+  *) echo "[workbench] 지원하지 않는 아키텍처: $ARCH_RAW. 도구 설치를 건너뛴다"; ARCH= ;;
 esac
 
 # curl --retry 는 연결 실패만 재시도하고 HTTP 오류·DNS 실패는 재시도하지 않는다.
 # --retry-all-errors 가 부팅 초기의 일시적 네트워크 실패를 흡수한다.
-# ⚠️ 이것은 위 tmpfs 문제의 해법이 아니다 — 그 해법은 /var/tmp 경로다.
+# ⚠️ 이것은 위 tmpfs 문제의 해법이 아니다. 그 해법은 /var/tmp 경로다.
 CURL="curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors"
 
 %{ if kubectl_version != null ~}
@@ -50,10 +50,10 @@ if [ -n "$ARCH" ]; then
   echo "[workbench] kubectl ${kubectl_version} ($ARCH) 설치"
   if $CURL -o "$DL_DIR/kubectl" "https://dl.k8s.io/release/${kubectl_version}/bin/linux/$ARCH/kubectl"; then
     install -m 0755 "$DL_DIR/kubectl" /usr/local/bin/kubectl
-    rm -f "$DL_DIR/kubectl"   # 원본을 즉시 지운다 — 다음 다운로드의 여유를 남긴다
+    rm -f "$DL_DIR/kubectl"   # 원본을 즉시 지운다. 다음 다운로드의 여유를 남긴다
     kubectl version --client || true
   else
-    echo "[workbench] ⚠️ kubectl 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+    echo "[workbench] ⚠️ kubectl 다운로드 실패. SSM 으로 접속해 수동 설치한다"
   fi
 fi
 %{ endif ~}
@@ -67,15 +67,15 @@ if [ -n "$ARCH" ]; then
     rm -rf "$DL_DIR/helm.tar.gz" "$DL_DIR/linux-$ARCH"
     helm version --short || true
   else
-    echo "[workbench] ⚠️ helm 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+    echo "[workbench] ⚠️ helm 다운로드 실패. SSM 으로 접속해 수동 설치한다"
   fi
 fi
 %{ endif ~}
 
 %{ if argocd_version != null ~}
-# ⛔ 위 helm 블록을 복사하지 말 것 — argocd 는 tarball 이 아니라 단일 바이너리다.
-#    해제도, 중간 디렉토리 정리도 없다. 세 도구의 배포 형태가 전부 달라 블록을 합치지 않는다 —
-#    맵으로 묶으면 tarball 분기가 템플릿 안으로 숨을 뿐이다.
+# ⛔ 위 helm 블록을 복사하지 말 것. argocd 는 tarball 이 아니라 단일 바이너리다.
+#    해제도, 중간 디렉토리 정리도 없다. 세 도구의 배포 형태가 전부 달라 블록을 합치지 않는다.
+#    맵으로 묶으면 tarball 분기가 템플릿 안으로 숨는다.
 if [ -n "$ARCH" ]; then
   echo "[workbench] argocd ${argocd_version} ($ARCH) 설치"
   if $CURL -o "$DL_DIR/argocd" "https://github.com/argoproj/argo-cd/releases/download/${argocd_version}/argocd-linux-$ARCH"; then
@@ -83,10 +83,10 @@ if [ -n "$ARCH" ]; then
     rm -f "$DL_DIR/argocd"
     # ⚠️ HOME 을 붙이는 이유: cloud-init 환경에는 $HOME 이 없어 argocd 가
     #    `level=fatal msg="$HOME is not defined"` 로 죽는다.
-    #    설치는 성공한 상태인데 **로그만 보면 실패로 오독한다** — 그 오독을 없애는 것이 목적이다.
+    #    설치는 성공한 상태인데 **로그만 보면 실패로 오독한다**: 그 오독을 없애는 것이 목적이다.
     HOME=/root argocd version --client || true
   else
-    echo "[workbench] ⚠️ argocd 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+    echo "[workbench] ⚠️ argocd 다운로드 실패. SSM 으로 접속해 수동 설치한다"
   fi
 fi
 %{ endif ~}
@@ -94,7 +94,7 @@ fi
 %{ if eks_node_viewer_version != null ~}
 # ── eks-node-viewer ──────────────────────────────────────────────────────────
 #
-# ⛔ 위 세 블록을 복사하지 말 것 — 아키텍처 이름이 다르다.
+# ⛔ 위 세 블록을 복사하지 말 것. 아키텍처 이름이 다르다.
 #    이 릴리스의 자산은 `_Linux_arm64` / `_Linux_x86_64` 이고 x86 쪽이 `amd64` 가 아니다.
 #    ⇒ $ARCH(arm64|amd64) 를 그대로 쓰면 x86 에서 404 가 난다. 전용 매핑을 둔다.
 if [ -n "$ARCH" ]; then
@@ -111,7 +111,7 @@ if [ -n "$ARCH" ]; then
       rm -f "$DL_DIR/eks-node-viewer"
       eks-node-viewer --version || true
     else
-      echo "[workbench] ⚠️ eks-node-viewer 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+      echo "[workbench] ⚠️ eks-node-viewer 다운로드 실패. SSM 으로 접속해 수동 설치한다"
     fi
   fi
 fi
@@ -120,34 +120,34 @@ fi
 %{ if krew_version != null ~}
 # ── krew + 플러그인 ──────────────────────────────────────────────────────────
 #
-# ⚠️ `KREW_ROOT` 를 반드시 지정한다. krew 의 기본 설치 위치는 `$HOME/.krew` 이고 이 스크립트는
+# ⚠️ `KREW_ROOT` 를 지정한다. krew 의 기본 설치 위치는 `$HOME/.krew` 이고 이 스크립트는
 #    root 로 도니 그대로 두면 /root/.krew 에 갇힌다.
 #    플러그인은 상태가 아니라 바이너리라, 사용자별 사본을 두는 kubeconfig 와 반대로 공유가 옳다.
-# ⚠️ 이 블록은 kubectl 이 있을 때만 렌더된다 — 조건은 모듈(main.tf)에서 접었다.
+# ⚠️ 이 블록은 kubectl 이 있을 때만 렌더된다. 조건은 모듈(main.tf)에서 접었다.
 if [ -n "$ARCH" ]; then
   echo "[workbench] krew ${krew_version} ($ARCH) 설치"
   export KREW_ROOT=/usr/local/krew
   if $CURL -o "$DL_DIR/krew.tar.gz" \
        "https://github.com/kubernetes-sigs/krew/releases/download/${krew_version}/krew-linux_$ARCH.tar.gz"; then
     tar -xzf "$DL_DIR/krew.tar.gz" -C "$DL_DIR"
-    # 부팅 중에는 PATH 를 쓰지 않고 바이너리를 직접 부른다 —
+    # 부팅 중에는 PATH 를 쓰지 않고 바이너리를 직접 부른다.
     # `kubectl krew` 는 PATH 탐색에 의존하는데 그 PATH 는 아래 프로파일이 만들고, 아직 없다.
     if "$DL_DIR/krew-linux_$ARCH" install krew; then
       for _plugin in ${join(" ", krew_plugins)}; do
         echo "[workbench] krew plugin: $_plugin"
-        # 하나가 실패해도 나머지는 계속한다 — user_data 는 부팅을 멈추지 않는다.
+        # 하나가 실패해도 나머지는 계속한다. user_data 는 부팅을 멈추지 않는다.
         "$KREW_ROOT/bin/kubectl-krew" install "$_plugin" \
           || echo "[workbench] ⚠️ krew plugin 설치 실패: $_plugin"
       done
-      # 모든 사용자가 읽고 실행할 수 있게 하되, 쓰기는 root 만 — 추가 설치는
+      # 모든 사용자가 읽고 실행할 수 있게 하되, 쓰기는 root 만: 추가 설치는
       #   sudo KREW_ROOT=/usr/local/krew kubectl krew install <x>
       chmod -R a+rX "$KREW_ROOT"
     else
-      echo "[workbench] ⚠️ krew 자기 설치 실패 — 플러그인도 건너뛴다"
+      echo "[workbench] ⚠️ krew 자기 설치 실패. 플러그인도 건너뛴다"
     fi
     rm -rf "$DL_DIR/krew.tar.gz" "$DL_DIR/krew-linux_$ARCH" "$DL_DIR/LICENSE"
   else
-    echo "[workbench] ⚠️ krew 다운로드 실패 — SSM 으로 접속해 수동 설치한다"
+    echo "[workbench] ⚠️ krew 다운로드 실패. SSM 으로 접속해 수동 설치한다"
   fi
 fi
 %{ endif ~}
@@ -157,7 +157,7 @@ fi
 #
 # ⚠️ IAM 전파 race: 인라인 정책 생성 직후 인스턴스가 부팅하면 eks:DescribeCluster 가 아직
 #    전파되지 않아 실패할 수 있다. Terraform 쪽에 time_sleep 을 넣기보다 **부팅 스크립트가 스스로
-#    견디게** 한다 — 인스턴스는 재생성될 때마다 이 상황을 다시 만나기 때문이다.
+#    견디게** 한다. 인스턴스는 재생성될 때마다 이 상황을 다시 만나기 때문이다.
 KUBECONFIG_PATH=/etc/kubernetes/kubeconfig
 mkdir -p "$(dirname "$KUBECONFIG_PATH")"
 
@@ -169,10 +169,10 @@ for attempt in 1 2 3 4 5; do
        --kubeconfig "$KUBECONFIG_PATH"; then
     # ⚠️ 정본을 읽기 전용으로 잠근다. kubeconfig 는 `users[].user.exec` 로 임의 명령을
     #    지정할 수 있으므로(EKS 는 `aws eks get-token` 을 쓴다), world-writable kubeconfig 는
-    #    편의 문제가 아니라 로컬 권한 상승 경로다.
+    #    로컬 권한 상승 경로가 된다.
     chmod 0444 "$KUBECONFIG_PATH"
 
-    # ⚠️ `/etc/skel` 이 이 배포 방식의 핵심이다 — `ssm-user` 는 지금 존재하지 않는다.
+    # ⚠️ `/etc/skel` 이 이 배포 방식의 핵심이다. `ssm-user` 는 지금 존재하지 않는다.
     #    SSM Agent 가 첫 세션에서 `useradd -m` 으로 만들기 때문에 부팅보다 몇 시간 뒤일 수 있다.
     #    ⇒ user_data 는 "그 사용자의 홈"에 아무것도 놓을 수 없다.
     #    `/etc/skel` 은 아직 없는 사용자에게 파일을 넘기는 표준 장치다.
@@ -180,7 +180,7 @@ for attempt in 1 2 3 4 5; do
     install -m 0600 "$KUBECONFIG_PATH" /etc/skel/.kube/config
 
     # 이미 존재하는 홈에는 직접 넣는다(skel 은 **앞으로 만들어질** 사용자에게만 적용된다).
-    # ⚠️ 사용자마다 **자기 사본**을 갖는 것이 요점이다 — `kubectl config set-context` 가
+    # ⚠️ 사용자마다 **자기 사본**을 갖는 것이 요점이다. `kubectl config set-context` 가
     #    남의 세션에 영향을 주지 않는다. 심볼릭 링크로 바꾸면 전역 오염이 그대로 돌아온다.
     for _home_user in root ec2-user; do
       _home="$(getent passwd "$_home_user" | cut -d: -f6)"
@@ -199,7 +199,7 @@ for attempt in 1 2 3 4 5; do
     echo "[workbench] kubeconfig 생성 완료 (정본 0444 · skel 상속 · 사용자별 사본)"
     break
   fi
-  echo "[workbench] 실패 — IAM 전파 대기 후 재시도"
+  echo "[workbench] 실패. IAM 전파 대기 후 재시도"
   sleep $((attempt * 10))
 done
 %{ endif ~}
@@ -207,25 +207,25 @@ done
 # ── 로그인 프로파일 ──────────────────────────────────────────────────────────
 #
 # 위 kubeconfig 가 전역 환경변수를 피한 것과 모순이 아니다. 가르는 기준은
-# 전역이냐가 아니라 상태냐 설정이냐다:
+# 그것이 상태인가 설정인가다:
 # · **상태**(kubeconfig)는 사용자가 바꾸므로 **사용자별 사본**. 전역 KUBECONFIG 는 그 사본을
 #        **덮어써서 무력화**하기 때문에 금지된다.
 # · **설정**(alias·PATH·KREW_ROOT·AWS_DEFAULT_REGION)은 사용자가 바꿀 이유가 없고, 사용자별로
 #        두면 갱신 지점만 늘어난다 ⇒ 전역이 옳다.
 #    ⛔ 그러므로 이 파일에 **KUBECONFIG 를 넣지 않는다.**
 #
-# ⛔ 리전을 하드코딩하지 않는다 — data.aws_region 이 주입한 값을 쓴다(리전 이식성이 계약이다).
+# ⛔ 리전을 하드코딩하지 않는다. data.aws_region 이 주입한 값을 쓴다(리전 이식성이 계약이다).
 PROFILE=/etc/profile.d/workbench.sh
 {
-  echo "# workbench 로그인 프로파일 (user_data 생성 — 직접 고치면 인스턴스 교체 시 사라진다)"
-  echo "# ⛔ KUBECONFIG 를 여기 넣지 말 것 — 사용자별 사본(\$HOME/.kube/config)을 무력화한다."
+  echo "# workbench 로그인 프로파일 (user_data 생성: 직접 고치면 인스턴스 교체 시 사라진다)"
+  echo "# ⛔ KUBECONFIG 를 여기 넣지 말 것. 사용자별 사본(\$HOME/.kube/config)을 무력화한다."
   echo "export AWS_DEFAULT_REGION=${region}"
 %{ if krew_version != null ~}
   echo 'export KREW_ROOT=/usr/local/krew'
   echo 'export PATH="$PATH:$KREW_ROOT/bin"'
 %{ endif ~}
 %{ if eks_node_viewer_version != null ~}
-  # 도구가 실제로 깔렸을 때만 alias 를 건다 — 다운로드가 실패해도 로그인이 지저분해지지 않는다.
+  # 도구가 실제로 깔렸을 때만 alias 를 건다. 다운로드가 실패해도 로그인이 지저분해지지 않는다.
   echo 'command -v eks-node-viewer >/dev/null 2>&1 && alias nv='"'"'eks-node-viewer --resources cpu,memory'"'"''
 %{ endif ~}
 %{ if kubectl_version != null ~}

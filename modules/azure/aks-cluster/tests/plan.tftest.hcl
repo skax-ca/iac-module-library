@@ -3,7 +3,7 @@
 # ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 validate가 아니라 plan
 #    시점에 평가되므로, examples를 validate까지만 도는 규약으로는 계약 위반이 잡히지 않는다.
 #
-# mock_provider로 azurerm 전체를 모킹한다 — 이 repo는 배포하지 않아 CI에 Azure 자격증명이
+# mock_provider로 azurerm 전체를 모킹한다. 이 repo는 배포하지 않아 CI에 Azure 자격증명이
 # 없다. 모킹에서는 computed 속성(id·oidc_issuer_url 등)이 plan 시점에 unknown이다. 따라서
 # assertion은 설정값(tags·name·vm_size 등)과 인스턴스 개수·키 집합만 본다
 # (modules/azure/vnet/tests/plan.tftest.hcl과 같은 제약).
@@ -23,7 +23,7 @@ mock_provider "azurerm" {
   }
 }
 
-# ⚠️ 기본 variables 블록은 cni_mode 기본값(overlay, 0.3.0부터)과 호환되는 조합이다 —
+# ⚠️ 기본 variables 블록은 cni_mode 기본값(overlay)과 호환되는 조합이다.
 #    pod_subnet_id는 null, pod_cidr는 값이 있다. pod_subnet·node_subnet 모드를 테스트하는
 #    run은 이 두 값을 명시적으로 뒤집어야 한다(아래 각 run 참조).
 variables {
@@ -45,7 +45,7 @@ variables {
   }
 }
 
-# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
+# ── 네이밍 규약: 릴리스 게이트 필수 항목 ───────────────────────────────────────
 run "naming_contract" {
   command = plan
 
@@ -70,7 +70,7 @@ run "naming_contract" {
   }
 }
 
-# ── 시스템 노드 풀 — 필수, 서브넷·태그가 배선된다 ───────────────────────────────
+# ── 시스템 노드 풀: 필수, 서브넷·태그가 배선된다 ───────────────────────────────
 run "system_node_pool_required_and_wired" {
   command = plan
 
@@ -81,14 +81,14 @@ run "system_node_pool_required_and_wired" {
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
       # 0.5.0 회귀 방지: upgrade_settings.max_surge를 Azure 기본값(10%)으로 명시
       # 고정한다. 생략하면 Azure가 매 조회마다 같은 기본값을 채워 넣어 plan이
-      # 영원히 수렴하지 않는다(aks-reference-infra 첫 실배포에서 세 번 연속 실측).
+      # 영원히 수렴하지 않는다.
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].upgrade_settings[0].max_surge == "10%",
     ])
     error_message = "시스템 노드 풀 설정이 var.system_node_pool·node_subnet_id·upgrade_settings와 어긋난다."
   }
 }
 
-# ── 신원 — identity_id를 입력으로만 받는다, identity·role assignment를 만들지 않는다 ──
+# ── 신원: identity_id를 입력으로만 받는다, identity·role assignment를 만들지 않는다 ──
 run "identity_input_only_no_creation" {
   command = plan
 
@@ -102,10 +102,10 @@ run "identity_input_only_no_creation" {
 
   # 이 모듈이 azurerm_user_assigned_identity·azurerm_role_assignment를 만들지 않는다는 것은
   # main.tf에 그 리소스 타입 자체가 없다는 사실로 보장된다(음성 조건은 플랜 그래프가 아니라
-  # 코드 리뷰·grep으로 검증한다 — tftest는 존재하는 리소스만 assert할 수 있다).
+  # 코드 리뷰·grep으로 검증한다. tftest는 존재하는 리소스만 assert할 수 있다).
 }
 
-# ── 네트워킹 — cni_mode 기본값(overlay, 0.3.0부터), NAT는 만들지 않는다 ────────
+# ── 네트워킹: cni_mode 기본값(overlay), NAT는 만들지 않는다 ──────────────────
 run "network_profile_overlay_is_default" {
   command = plan
 
@@ -114,12 +114,12 @@ run "network_profile_overlay_is_default" {
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin == "azure",
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_plugin_mode == "overlay",
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_data_plane == "cilium",
-      # 0.4.0 회귀 방지: network_data_plane = cilium이면 network_policy도 반드시 cilium
-      # 이어야 한다(provider 문서 "must be set to cilium", ARM도 어기면 거부 — main.tf
+      # 회귀 방지: network_data_plane = cilium이면 network_policy도 cilium
+      # 이어야 한다(provider 문서 "must be set to cilium", ARM도 어기면 거부: main.tf
       # network_policy 주석 참고). "azure"로 두면 apply가 실패하므로 여기서 고정 검사한다.
       azurerm_kubernetes_cluster.this[0].network_profile[0].network_policy == "cilium",
       # ⚠️ pod_cidr는 provider 스키마상 Optional+Computed라 mock에서는 명시적 값을 줘도
-      # plan 시점 unknown(임의 mock 문자열)으로 나올 수 있다 — 이 파일 상단 주석의 "computed
+      # plan 시점 unknown(임의 mock 문자열)으로 나올 수 있다. 이 파일 상단 주석의 "computed
       # 속성은 assertion 대상에서 뺀다" 제약과 같은 케이스라 여기서는 검사하지 않는다.
       azurerm_kubernetes_cluster.this[0].network_profile[0].outbound_type == "userAssignedNATGateway",
       azurerm_kubernetes_cluster.this[0].network_profile[0].load_balancer_sku == "standard",
@@ -129,7 +129,7 @@ run "network_profile_overlay_is_default" {
   }
 }
 
-# ── cni_mode = "pod_subnet" — 명시적으로 켜야 전용 서브넷을 쓴다(0.2.0까지의 기본값) ──
+# ── cni_mode = "pod_subnet": 명시적으로 켜야 전용 서브넷을 쓴다 ─────────────────
 run "cni_mode_pod_subnet_explicit_wires_dedicated_subnet" {
   command = plan
 
@@ -150,7 +150,7 @@ run "cni_mode_pod_subnet_explicit_wires_dedicated_subnet" {
   }
 }
 
-# ── cni_mode = "node_subnet" — pod_subnet_id 없이 node_subnet_id만 쓴다 ────────
+# ── cni_mode = "node_subnet": pod_subnet_id 없이 node_subnet_id만 쓴다 ────────
 run "cni_mode_node_subnet_no_pod_subnet" {
   command = plan
 
@@ -170,7 +170,7 @@ run "cni_mode_node_subnet_no_pod_subnet" {
   }
 }
 
-# ── cni_mode = "overlay" — pod_cidr 필수, network_plugin_mode·data_plane 켜짐(기본값과 동일 조합을 명시적으로도 검증) ──
+# ── cni_mode = "overlay": pod_cidr 필수, network_plugin_mode·data_plane 켜짐(기본값과 동일 조합을 명시적으로도 검증) ──
 run "cni_mode_overlay_wires_pod_cidr_and_cilium" {
   command = plan
 
@@ -191,7 +191,7 @@ run "cni_mode_overlay_wires_pod_cidr_and_cilium" {
   }
 }
 
-# ── cni_mode 교차변수 validation — plan에서 차단된다 ────────────────────────────
+# ── cni_mode 교차변수 validation: plan에서 차단된다 ────────────────────────────
 run "reject_invalid_cni_mode" {
   command = plan
 
@@ -253,7 +253,7 @@ run "reject_overlay_without_pod_cidr" {
   expect_failures = [var.pod_cidr]
 }
 
-# ── node_provisioning_profile — 항상 존재, enable_karpenter 기본값(false)이면 Manual ──
+# ── node_provisioning_profile: 항상 존재, enable_karpenter 기본값(false)이면 Manual ──
 run "node_provisioning_profile_defaults_to_manual" {
   command = plan
 
@@ -264,7 +264,7 @@ run "node_provisioning_profile_defaults_to_manual" {
 
   assert {
     condition     = azurerm_kubernetes_cluster.this[0].node_provisioning_profile[0].default_node_pools == "None"
-    error_message = "default_node_pools가 None으로 고정되지 않았다 — GitOps가 NodePool을 전량 소유하지 못한다."
+    error_message = "default_node_pools가 None으로 고정되지 않았다. GitOps가 NodePool을 전량 소유하지 못한다."
   }
 
   assert {
@@ -273,7 +273,7 @@ run "node_provisioning_profile_defaults_to_manual" {
   }
 }
 
-# ── workload_autoscaler_profile(KEDA) — 항상 존재, enable_keda 기본값(false)이면 꺼짐 ──
+# ── workload_autoscaler_profile(KEDA): 항상 존재, enable_keda 기본값(false)이면 꺼짐 ──
 run "workload_autoscaler_profile_defaults_to_disabled" {
   command = plan
 
@@ -302,7 +302,7 @@ run "node_provisioning_profile_auto_with_default_overlay" {
 
   variables {
     enable_karpenter = true
-    # cni_mode·pod_cidr는 기본값(overlay + "10.244.0.0/16") 그대로 — 이미 NAP과 호환된다.
+    # cni_mode·pod_cidr는 기본값(overlay + "10.244.0.0/16") 그대로: 이미 NAP과 호환된다.
   }
 
   assert {
@@ -326,7 +326,7 @@ run "node_provisioning_profile_auto_with_node_subnet" {
   }
 }
 
-# ── enable_karpenter × cni_mode 교차변수 validation — plan에서 차단된다 ────────
+# ── enable_karpenter × cni_mode 교차변수 validation: plan에서 차단된다 ────────
 run "reject_karpenter_with_pod_subnet_mode" {
   command = plan
 
@@ -336,13 +336,13 @@ run "reject_karpenter_with_pod_subnet_mode" {
     pod_cidr         = null
     enable_karpenter = true
     # cni_mode = pod_subnet과 enable_karpenter = true는 karpenter-provider-azure#1352가
-    # 지원하지 않는 조합이라 반드시 차단돼야 한다.
+    # 지원하지 않는 조합이라 차단돼야 한다.
   }
 
   expect_failures = [var.enable_karpenter]
 }
 
-# ── Entra RBAC — 옵트인, 기본은 블록 자체가 없다(G2 확정) ───────────────────────
+# ── Entra RBAC: 옵트인, 기본은 블록 자체가 없다(G2 확정) ───────────────────────
 run "entra_rbac_optin_default_off" {
   command = plan
 
@@ -374,7 +374,7 @@ run "entra_rbac_enabled_when_admin_groups_given" {
   }
 }
 
-# entra_integration_enabled — admin 그룹 없이도 독립적으로 Entra 통합을 켠다(0-8).
+# entra_integration_enabled: admin 그룹 없이도 독립적으로 Entra 통합을 켠다(0-8).
 run "entra_rbac_enabled_via_independent_toggle" {
   command = plan
 
@@ -392,7 +392,7 @@ run "entra_rbac_enabled_via_independent_toggle" {
   }
 }
 
-# ── local_account_disabled 잠금 위험 — plan에서 차단된다(0-8) ───────────────────
+# ── local_account_disabled 잠금 위험: plan에서 차단된다(0-8) ───────────────────
 run "reject_local_account_disabled_without_admin_group" {
   command = plan
 
@@ -417,7 +417,7 @@ run "local_account_disabled_allowed_with_admin_group" {
   }
 }
 
-# local_account_disabled 완화(0-8) — entra_integration_enabled만으로도 잠금 조건을 만족한다.
+# local_account_disabled 완화(0-8). entra_integration_enabled만으로도 잠금 조건을 만족한다.
 run "local_account_disabled_allowed_with_independent_toggle" {
   command = plan
 
@@ -432,7 +432,7 @@ run "local_account_disabled_allowed_with_independent_toggle" {
   }
 }
 
-# ── API 서버 접근 제한 — 옵트인 ──────────────────────────────────────────────────
+# ── API 서버 접근 제한: 옵트인 ──────────────────────────────────────────────────
 run "api_server_access_profile_optin" {
   command = plan
 
@@ -455,7 +455,7 @@ run "api_server_access_profile_set_when_ranges_given" {
   }
 }
 
-# ── App Routing(web_app_routing) — 옵트인, azurerm이 아는 하위 필드만 선언한다 ───
+# ── App Routing(web_app_routing): 옵트인, azurerm이 아는 하위 필드만 선언한다 ───
 run "web_app_routing_optin_default_off" {
   command = plan
 
@@ -479,7 +479,7 @@ run "web_app_routing_enabled_with_values" {
     condition = alltrue([
       length(azurerm_kubernetes_cluster.this[0].web_app_routing) == 1,
       # ⚠️ 빈 리스트끼리의 == 비교는 tolist([])/toset([]) 어느 쪽으로 캐스팅해도 타입
-      # 불일치로 항상 false다(실측 확인) — length로 비교한다.
+      # 불일치로 항상 false다. length로 비교한다.
       length(azurerm_kubernetes_cluster.this[0].web_app_routing[0].dns_zone_ids) == 0,
       azurerm_kubernetes_cluster.this[0].web_app_routing[0].default_nginx_controller == "None",
     ])
@@ -491,7 +491,7 @@ run "web_app_routing_dns_zone_ids_default_empty" {
   command = plan
 
   variables {
-    # default_nginx_controller만 넘기고 dns_zone_ids는 생략 — optional(list(string), [])
+    # default_nginx_controller만 넘기고 dns_zone_ids는 생략: optional(list(string), [])
     # 기본값이 적용되는지 확인한다.
     web_app_routing = {
       default_nginx_controller = "Internal"
@@ -516,7 +516,7 @@ run "reject_web_app_routing_invalid_nginx_controller" {
   expect_failures = [var.web_app_routing]
 }
 
-# ── private_cluster_public_fqdn_enabled — 기본 false, 옵트인 시 그대로 전달 ─────
+# ── private_cluster_public_fqdn_enabled: 기본 false, 옵트인 시 그대로 전달 ─────
 run "private_cluster_public_fqdn_optin_default_off" {
   command = plan
 
@@ -567,7 +567,7 @@ run "service_cidr_and_dns_service_ip_together_ok" {
   }
 }
 
-# ── 추가 노드 풀 — for_each, np<키> 이름, 순환 예산 ─────────────────────────────
+# ── 추가 노드 풀: for_each, np<키> 이름, 순환 예산 ─────────────────────────────
 run "additional_node_pools_named_and_wired" {
   command = plan
 
@@ -605,7 +605,7 @@ run "additional_node_pools_named_and_wired" {
   }
 }
 
-# ── node_pools 키 제약 — 8자 초과·대문자·숫자 시작은 plan에서 차단된다 ──────────
+# ── node_pools 키 제약: 8자 초과·대문자·숫자 시작은 plan에서 차단된다 ──────────
 run "reject_node_pool_key_too_long" {
   command = plan
 

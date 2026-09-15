@@ -1,10 +1,10 @@
-# workbench IAM — EKS 접근 1층(주체의 권한)
+# workbench IAM: EKS 접근 1층(주체의 권한)
 #
 # ⛔ 2층(Access Entry)·3층(cluster SG ingress)은 여기서 만들지 않는다. 그 둘은
-#    "클러스터가 누구를 받아들이는가"라서 eks-cluster 모듈이 소유한다 — 허용 소스는
+#    "클러스터가 누구를 받아들이는가"라서 eks-cluster 모듈이 소유한다. 허용 소스는
 #    소유 모듈이 변수로 파라미터화한다.
 #
-# ⚠️ 정책 문서를 data.aws_iam_policy_document 가 아니라 jsonencode 로 만든다 — eks-cluster와 다르다.
+# ⚠️ 정책 문서를 data.aws_iam_policy_document 가 아니라 jsonencode 로 만든다. eks-cluster와 다르다.
 #    이유는 테스트 가시성이다: mock_provider 아래서 그 data source는 `json` 속성이 통째로 대체되어
 #    **정책 내용을 검증할 수 없다**(eks-cluster tests가 실제로 내용을 보지 못하는 이유).
 #    이 모듈에서 "권한이 그 클러스터 ARN으로만 한정되는가"는 보안 계약의 핵심이라 가려지면 안 된다.
@@ -31,7 +31,7 @@ resource "aws_iam_role" "this" {
 }
 
 # SSM Session Manager의 전제. Agent가 아웃바운드로 제어 평면에 연결하는 데 필요한 최소 권한이고
-# AWS 관리형이다 — 이 계열 정책을 self-author하면 churn을 우리가 떠안는다.
+# AWS 관리형이다. 이 계열 정책을 self-author하면 churn을 우리가 떠안는다.
 resource "aws_iam_role_policy_attachment" "ssm_core" {
   count = local.enabled ? 1 : 0
 
@@ -39,7 +39,7 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# 파티션을 하드코딩하지 않는다 — GovCloud·중국 리전에서 ARN 접두가 다르다(aws-us-gov·aws-cn).
+# 파티션을 하드코딩하지 않는다. GovCloud·중국 리전에서 ARN 접두가 다르다(aws-us-gov·aws-cn).
 data "aws_partition" "current" {}
 
 # ── eks:DescribeCluster ───────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ resource "aws_iam_role_policy" "eks_describe" {
   count = local.eks_integration_enabled ? 1 : 0
 
   # 종속 객체는 약어를 신설하지 않고 부모 이름을 상속한다(약어 카탈로그 규약).
-  # ⚠️ inline 정책은 tags를 지원하지 않는다 — 이 이름이 Name 태그가 아니라 식별자 자체다.
+  # ⚠️ inline 정책은 tags를 지원하지 않는다. 이 이름이 Name 태그가 아니라 식별자 자체다.
   name = "${local.role_name}-eks-policy"
   role = aws_iam_role.this[0].id
 
@@ -65,12 +65,12 @@ resource "aws_iam_role_policy" "eks_describe" {
   })
 }
 
-# ── 가격 조회 — eks-node-viewer의 spot/on-demand 가격 표시 ───────────────────────
+# ── 가격 조회: eks-node-viewer의 spot/on-demand 가격 표시 ───────────────────────
 #
-# ⚠️ 위 eks_describe와 달리 클러스터 ARN 같은 스코프 대상이 없다 — **AWS 자체 제약**이다(추정
-#    아님, IAM Policy Generator 데이터셋 실측 2026-08-20):
-#    · ec2:DescribeSpotPriceHistory — Resource types 컬럼이 비어 있다.
-#    · pricing:GetProducts — `AWS Price List` 서비스 전체가 `HasResource: false`. 이 서비스
+# ⚠️ 위 eks_describe와 달리 클러스터 ARN 같은 스코프 대상이 없다. **AWS 자체 제약**이다
+#    (IAM Policy Generator 데이터셋 기준):
+#    · ec2:DescribeSpotPriceHistory: Resource types 컬럼이 비어 있다.
+#    · pricing:GetProducts: `AWS Price List` 서비스 전체가 `HasResource: false`. 이 서비스
 #      안의 어떤 액션도 리소스 레벨 권한을 지원하지 않는다.
 #    ⇒ `Resource = "*"`가 AWS가 정한 상한선이지, 이 모듈이 스코프를 게을리한 게 아니다.
 #    둘 다 읽기전용이고 반환 데이터(spot 가격 이력·상품 가격표)가 계정 경계 없이 공개된

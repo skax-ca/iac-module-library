@@ -2,7 +2,7 @@
 #
 # 이 파일이 푸는 문제는 하나다: **OpenTofu 변수 default는 전체 대체**라는 것.
 # 소비자가 addon 하나를 추가하려고 맵을 넘기면 기본 addon이 통째로 사라지고, 누락분은 in-place
-# 삭제된다(coredns 삭제 = DNS 중단). 그래서 baseline을 모듈이 소유하고 소비자 입력과 merge한다 —
+# 삭제된다(coredns 삭제 = DNS 중단). 그래서 baseline을 모듈이 소유하고 소비자 입력과 merge한다.
 # **누락 != 삭제**이고, 제거는 enabled = false 명시로만 일어난다.
 
 # ── AZ 해석 (custom networking용) ─────────────────────────────────────────────
@@ -26,12 +26,12 @@ locals {
   # ── baseline addon ─────────────────────────────────────────────────────────
   #
   # core 4종은 비활성화가 차단된다(variables.tf validation). eks-pod-identity-agent가 core인 것은
-  # Karpenter·EBS/EFS CSI의 association 생존 전제이기 때문이다 — 빠지면 IAM에는 role이 있는데
+  # Karpenter·EBS/EFS CSI의 association 생존 전제이기 때문이다. 빠지면 IAM에는 role이 있는데
   # Pod가 자격증명을 못 받는 **조용한 파손**이 된다.
   #
-  # ⚠️ aws-ebs-csi-driver는 baseline이 아니다(2026-08-14 opt-in 전환). RWX/블록 스토리지 CSI는
+  # ⚠️ aws-ebs-csi-driver는 baseline이 아니다(AWS가 opt-in으로 돌렸다). RWX/블록 스토리지 CSI는
   # "새 클러스터가 나오자마자 모든 워크로드가 기대하는 최소 기능"이 아니라 워크로드 선택이라
-  # EFS CSI와 같은 규칙을 쓴다 — 소비자가 cluster_addons에 명시해야만 addon·IAM role이 생긴다.
+  # EFS CSI와 같은 규칙을 쓴다. 소비자가 cluster_addons에 명시해야만 addon·IAM role이 생긴다.
   # 향후 S3 Mountpoint CSI 등 다른 스토리지 addon도 이 규칙을 따른다.
   baseline_addon_names = [
     "vpc-cni",
@@ -50,16 +50,16 @@ locals {
   # in-place 업데이트"하는 동작을 없앤다.
   #
   # **버전 값은 소비 루트가 소유한다**(`cluster_addons`의 `addon_version`).
-  #   ① 경계 — addon 상향은 워크로드 운영 주기에 속한다. 공통 모듈이 값을 들면 고객사 A의
+  #   ① 경계: addon 상향은 워크로드 운영 주기에 속한다. 공통 모듈이 값을 들면 고객사 A의
   #      kube-proxy 상향이 모듈 릴리스를 요구하고 그 릴리스가 B·C에게도 간다(CLAUDE.md의
   #      "upstream cadence와 소비자 cadence를 분리한다"를 모듈이 스스로 깨는 구조).
-  #   ② 정의역 — addon 버전은 상수가 아니라 f(kubernetes_version, region)이고 두 인자 모두
+  #   ② 정의역: addon 버전은 상수가 아니라 f(kubernetes_version, region)이고 두 인자 모두
   #      소비자가 정한다. 두 축 모두 실제 파손이 확인됐다:
-  #        k8s  — 1.35 기준 핀을 1.34/1.33에 쓰면 coredns·kube-proxy·metrics-server가 버전 없음
-  #        리전 — cert-manager가 an2엔 eksbuild.3, us-east-1·eu-west-1엔 eksbuild.2만 존재
+  #        k8s: 1.35 기준 핀을 1.34/1.33에 쓰면 coredns·kube-proxy·metrics-server가 버전 없음
+  #        리전: cert-manager가 an2엔 eksbuild.3, us-east-1·eu-west-1엔 eksbuild.2만 존재
   #
   # 소비자가 값을 안 주면 upstream이 data.aws_eks_addon_version(most_recent = false)로 **그
-  # 클러스터의 k8s·리전에 맞는 AWS 기본 버전**을 해석한다(upstream main.tf:759-778 실측).
+  # 클러스터의 k8s·리전에 맞는 AWS 기본 버전**을 해석한다(upstream 서브모듈 소스).
   # 안전한 기본값이고, 위 두 축 어디에서도 깨지지 않는다.
   #
   # 소비 루트에서 값을 얻는 법은 modules/aws/eks-cluster/examples/enterprise/README.md 참조.
@@ -78,22 +78,22 @@ locals {
     }
   }
 
-  # ── 2) merge — 소비자가 이긴다. 누락은 삭제가 아니다 ────────────────────────
+  # ── 2) merge: 소비자가 이긴다. 누락은 삭제가 아니다 ────────────────────────
   merged_addons = merge(local.baseline_addons, var.cluster_addons)
 
-  # ebs-csi·efs-csi 둘 다 opt-in이다 — cluster_addons에 명시해야만 true가 된다(baseline이
+  # ebs-csi·efs-csi 둘 다 opt-in이다. cluster_addons에 명시해야만 true가 된다(baseline이
   # 아니므로 merged_addons에 아예 없으면 try()가 false로 떨어진다). iam.tf가 이 값을 쓴다.
   ebs_csi_enabled = local.enabled && try(local.merged_addons["aws-ebs-csi-driver"].enabled, false)
   efs_csi_enabled = local.enabled && try(local.merged_addons["aws-efs-csi-driver"].enabled, false)
 
   # ── 3) custom networking configuration  ───────────────────────────────
   #
-  # ENIConfig를 addon의 configuration_values 안에서 만들면 kubernetes_manifest 없이 끝난다 —
+  # ENIConfig를 addon의 configuration_values 안에서 만들면 kubernetes_manifest 없이 끝난다.
   # 즉 "helm/manifest는 GitOps" 경계를 넘지 않는다. 이것이 이 경로를 택한 이유다.
   #
   # ⚠️ securityGroups를 의도적으로 지정하지 않는다. 초기 설계는 "노드 SG 재사용"이었지만
   #    module.eks.node_security_group_id를 module.eks의 입력(addons)에 넣으면 **순환 참조**다.
-  #    지정하지 않으면 vpc-cni가 primary ENI의 SG를 상속하는데, 그게 곧 노드 SG다 —
+  #    지정하지 않으면 vpc-cni가 primary ENI의 SG를 상속하는데, 그게 곧 노드 SG다.
   #    설계 의도가 생략으로 달성된다. 별도 SG 요구가 생기면 그때 변수를 연다.
   vpc_cni_configuration = local.custom_networking_enabled ? jsonencode({
     env = {
@@ -104,7 +104,7 @@ locals {
     }
     eniConfig = {
       create = true
-      # provider 6.x에서 aws_region의 name·id는 deprecated다 — region 속성을 쓴다.
+      # provider 6.x에서 aws_region의 name·id는 deprecated다. region 속성을 쓴다.
       region = data.aws_region.this[0].region
       subnets = {
         for id, subnet in data.aws_subnet.pod : subnet.availability_zone => { id = id }
@@ -126,12 +126,12 @@ locals {
 
         # 버전 **값**은 소비 루트 소유다(위 "버전 소유 경계" 주석).
         # null이면 upstream이 most_recent = false 기준으로 그 클러스터의 k8s·리전에 맞는
-        # AWS 기본 버전을 해석한다 — 모듈이 상수를 들 때와 달리 어떤 조합에서도 깨지지 않는다.
+        # AWS 기본 버전을 해석한다. 모듈이 상수를 들 때와 달리 어떤 조합에서도 깨지지 않는다.
         addon_version        = cfg.addon_version
         configuration_values = cfg.configuration
         before_compute       = contains(local.before_compute_addons, name)
 
-        # 소비자 주입 경로 — role 생성은 소비자 소관이다.
+        # 소비자 주입 경로: role 생성은 소비자 소관이다.
         pod_identity_association = cfg.pod_identity != null ? [cfg.pod_identity] : null
       },
 
@@ -150,7 +150,7 @@ locals {
       }
       : {},
 
-      # 재주입 ③: EFS CSI도 같은 패턴 — 모듈이 만든 role을 가리킨다.
+      # 재주입 ③: EFS CSI도 같은 패턴. 모듈이 만든 role을 가리킨다.
       name == "aws-efs-csi-driver" && local.efs_csi_enabled
       ? {
         pod_identity_association = [{

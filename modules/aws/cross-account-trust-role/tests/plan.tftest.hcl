@@ -7,7 +7,7 @@
 #    여기서 증명하는 것은 "계획이 계약대로 나오는가"까지다.
 #
 # provider 모킹: command = plan도 provider 초기화(리전 조회 등)를 실제로 시도한다. 이 repo는
-# CI에 자격증명이 없으므로 모킹 없이는 plan이 죽는다 — workbench와 같은 이유로 같은 블록을 쓴다.
+# CI에 자격증명이 없으므로 모킹 없이는 plan이 죽는다. workbench와 같은 이유로 같은 블록을 쓴다.
 
 mock_provider "aws" {
   mock_data "aws_region" {
@@ -34,7 +34,7 @@ variables {
   trusted_principal_arns = ["arn:aws:iam::999988887777:role/iamr-hub-prd-an2-argocd-hub"]
 }
 
-# ── naming_contract — Name 태그 규약 ────────────────────────────────────────
+# ── naming_contract: Name 태그 규약 ────────────────────────────────────────
 #
 # CLAUDE.md 「강제 방식 5」: Name 태그 assertion을 tftest에 포함해 plan 단계에서 네이밍 위반을 잡는다.
 # 약어는 카탈로그 SSOT를 따른다: iamr.
@@ -57,7 +57,7 @@ run "naming_contract" {
   }
 }
 
-# ── kill_switch — enabled = false면 전 리소스·출력이 비어야 한다 ──────────────
+# ── kill_switch: enabled = false면 전 리소스·출력이 비어야 한다 ──────────────
 run "kill_switch_disables_everything" {
   command = plan
 
@@ -73,7 +73,7 @@ run "kill_switch_disables_everything" {
 
   assert {
     condition     = output.role_arn == null && output.role_name == null
-    error_message = "kill switch 상태에서 출력이 null이 아니다 — 소비 루트의 조립이 깨진다."
+    error_message = "kill switch 상태에서 출력이 null이 아니다. 소비 루트의 조립이 깨진다."
   }
 }
 
@@ -105,7 +105,7 @@ run "nullable_false_falls_back_to_default" {
   }
 }
 
-# ── reject_root_arn — 계정 root 위임 금지 ────────────────────────────────────
+# ── reject_root_arn: 계정 root 위임 금지 ────────────────────────────────────
 run "reject_root_arn" {
   command = plan
 
@@ -116,7 +116,7 @@ run "reject_root_arn" {
   expect_failures = [var.trusted_principal_arns]
 }
 
-# ── reject_wildcard_arn — 와일드카드 경로 금지 ───────────────────────────────
+# ── reject_wildcard_arn: 와일드카드 경로 금지 ───────────────────────────────
 run "reject_wildcard_arn" {
   command = plan
 
@@ -127,7 +127,7 @@ run "reject_wildcard_arn" {
   expect_failures = [var.trusted_principal_arns]
 }
 
-# ── reject_empty_when_enabled — enabled = true인데 빈 리스트는 무의미 ─────────
+# ── reject_empty_when_enabled: enabled = true인데 빈 리스트는 무의미 ─────────
 run "reject_empty_when_enabled" {
   command = plan
 

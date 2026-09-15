@@ -1,18 +1,16 @@
 #!/bin/bash
-# cloud-init 표준 user-data 스크립트 — 실행 로그는 자동으로 /var/log/cloud-init-output.log에
+# cloud-init 표준 user-data 스크립트: 실행 로그는 자동으로 /var/log/cloud-init-output.log에
 # 남는다(README「부팅 후 확인」절 참조, 이 파일이 별도로 로그를 만들지 않는다).
 set -x
 
 export DEBIAN_FRONTEND=noninteractive
 
 # Ubuntu의 apt-daily.timer/apt-daily-upgrade.timer는 부팅 후 수십 초 안에 자체
-# apt-get update/unattended-upgrade를 돌려 /var/lib/apt/lists/lock을 잡는다(실측:
-# 2026-09-09 aks-reference-infra dev workbench 재배포 — 부팅 15초 만에
-# apt-daily-upgrade.timer가 트리거돼, 이 스크립트가 azure-cli repo 추가 뒤 두 번째로
-# 부르는 apt-get update와 충돌해 "E: Could not get lock /var/lib/apt/lists/lock"으로
-# 실패 → az CLI 설치·az login·az aks get-credentials·kubelogin 변환까지 연쇄 실패).
-# 이 스크립트가 apt/dpkg 락을 쓰기 전에 그 경쟁자 자체를 없앤다 — 이미 실행 중이었을
-# 수 있어 kill까지 하고, 재부팅 시 다시 뜨지 않도록 mask한다.
+# apt-get update/unattended-upgrade를 돌려 /var/lib/apt/lists/lock을 잡는다. 이 스크립트가
+# azure-cli repo 추가 뒤 부르는 apt-get update와 충돌하면 "E: Could not get lock
+# /var/lib/apt/lists/lock"으로 실패하고, az CLI 설치·az login·az aks get-credentials·
+# kubelogin 변환까지 연쇄로 무너진다. 그래서 apt/dpkg 락을 쓰기 전에 경쟁자 자체를
+# 없앤다. 이미 실행 중일 수 있어 kill까지 하고, 재부팅 시 다시 뜨지 않도록 mask한다.
 systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
 systemctl stop apt-daily.service apt-daily-upgrade.service 2>/dev/null || true
 systemctl kill --kill-who=all apt-daily.service 2>/dev/null || true
@@ -28,12 +26,10 @@ for _lock in /var/lib/dpkg/lock-frontend /var/lib/apt/lists/lock; do
 done
 
 # ⚠️ 아래 DPkg::Lock::Timeout(APT 1.9.11+, Ubuntu 24.04 기본 apt가 지원)은 dpkg
-# 프론트엔드 락(apt-get install 경로, 2026-09-04 최초 발견 당시 실패 지점)만 재시도
-# 한다 — 2026-09-09 실측(apt 2.8.3, Ubuntu 24.04 noble): 이 옵션을 건 채로 실제
-# apt-get update 프로세스 2개를 동시에 띄워 재현한 결과, /var/lib/apt/lists/lock
-# 경합(update 경로)에는 재시도를 전혀 걸지 않고 즉시 실패했다. 그래서 이 옵션 하나로는
-# 이번 클래스(apt-daily와의 경합)를 못 막고, 위 apt-daily 무력화가 실제 방어선이다 —
-# 이 옵션은 dpkg 프론트엔드 락에는 여전히 유효해 방어 종심으로 남긴다.
+# 프론트엔드 락(apt-get install 경로)만 재시도한다. /var/lib/apt/lists/lock 경합
+# (apt-get update 경로)에는 재시도를 걸지 않고 즉시 실패한다(apt 2.8.3, Ubuntu 24.04
+# noble 기준). 그래서 이 옵션 하나로는 apt-daily와의 경합을 못 막고, 위 apt-daily
+# 무력화가 실제 방어선이다. 이 옵션은 dpkg 프론트엔드 락에는 유효해 방어 종심으로 남긴다.
 APT_OPTS="-o DPkg::Lock::Timeout=600"
 apt-get $APT_OPTS update -y
 apt-get $APT_OPTS install -y ca-certificates curl gnupg lsb-release unzip git jq
@@ -55,23 +51,21 @@ KUBECONFIG_OK=1
 az aks get-credentials --resource-group "${aks_resource_group_name}" --name "${aks_cluster_name}" --overwrite-existing || KUBECONFIG_OK=0
 
 %{ if aks_entra_rbac_enabled }
-# kubelogin은 apt 패키지가 아니라 GitHub 릴리스 zip이다(Azure/kubelogin) — az CLI
-# 확장이나 apt 저장소로 받을 수 없다. 이 설치 단계가 전에는 아예 없어서
-# `kubelogin convert-kubeconfig`가 "command not found"로 실패했는데, 스크립트에
-# set -e가 없어 조용히 넘어가고 변환 안 된 stale kubeconfig가 그대로 배포되던 버그였다
-# (2026-09-04 aks-reference-infra 실배포 code-review로 발견 — 아래 KUBECONFIG_OK
-# 가드가 그 "조용한 전파"를 막는다).
+# kubelogin은 apt 패키지가 아니라 GitHub 릴리스 zip이다(Azure/kubelogin). az CLI
+# 확장이나 apt 저장소로 받을 수 없다. ⚠️ 이 설치가 빠지면 `kubelogin convert-kubeconfig`가
+# "command not found"로 죽는데, 이 스크립트에는 set -e가 없어 조용히 넘어가고 변환 안 된
+# stale kubeconfig가 그대로 배포된다. 아래 KUBECONFIG_OK 가드가 그 조용한 전파를 막는다.
 KUBELOGIN_ARCH="$(dpkg --print-architecture)"
 if curl -sSLo /tmp/kubelogin.zip "https://github.com/Azure/kubelogin/releases/download/${kubelogin_version}/kubelogin-linux-$${KUBELOGIN_ARCH}.zip"; then
   unzip -oq /tmp/kubelogin.zip -d /tmp/kubelogin
   install -m 0755 "/tmp/kubelogin/bin/linux_$${KUBELOGIN_ARCH}/kubelogin" /usr/local/bin/kubelogin
   rm -rf /tmp/kubelogin.zip /tmp/kubelogin
-  # ⚠️ --kubeconfig를 반드시 명시한다 — 2026-09-09 실측: cloud-init(systemd
+  # ⚠️ --kubeconfig를 명시한다. cloud-init(systemd
   # cloud-final.service)이 이 스크립트를 root로 실행할 때 $HOME이 "/"로 잡힌다
   # (`/root`가 아님, `/proc/1/environ`으로 확인). az aks get-credentials는 이 값과
   # 무관하게 /root/.kube/config에 정확히 쓰는데, kubelogin은 기본 경로를
   # $HOME/.kube/config로 잡아 "/.kube/config"(존재하지 않는 파일)를 대상으로 잡고
-  # 변환할 게 없어 조용히 성공(exit 0)해버린다 — KUBECONFIG_OK 가드로도 못 잡는
+  # 변환할 게 없어 조용히 성공(exit 0)해버린다. KUBECONFIG_OK 가드로도 못 잡는
   # "성공했다고 나오는데 실제로는 아무것도 안 한" 유형의 실패였다(빈 /.kube 디렉토리만
   # 부산물로 남는 게 유일한 흔적). az가 실제로 쓴 경로를 명시해 이 환경 의존을
   # 완전히 없앤다.
@@ -82,36 +76,36 @@ fi
 %{ endif }
 
 if [ "$KUBECONFIG_OK" = "1" ]; then
-  # custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다 — 그런데
+  # custom_data는 root로 실행돼 위 kubeconfig가 /root/.kube/config에만 생긴다. 그런데
   # 이 VM에 실제로 로그인하는 사람은 root가 아니다.
   #
   # ⛔ AWS workbench 모듈의 /etc/skel 배포 패턴(modules/aws/workbench/user-data.sh.tftpl)을
-  # 그대로 이식하지 않는다 — 이전 커밋에서 그렇게 했다가 code-review로 잡힌 보안 회귀다.
+  # 그대로 이식하지 않는다. 이 모듈에서는 보안 회귀가 된다.
   # AWS는 SSM 접근이 IAM 정책 하나로만 통제돼(2단계 OS 로그인 역할 구분이 없다) skel로
   # "누구든 로그인하면 사본을 받는다"가 안전하지만, 이 모듈의 README「전제 role
   # assignment」표는 Azure에 Virtual Machine Administrator Login(sudo)·Virtual Machine
   # User Login(비-sudo) 두 단계를 명시해 뒀다. skel은 Entra SSH로 "로그인 시점에야
-  # 동적으로 생기는 계정"에 무조건 적용되므로, User Login만 받은 사람도 sudo 없이
-  # 이 VM의 공유 identity_id 권한(kubeconfig)을 자동으로 물려받게 된다 — 그 두 역할을
+  # 동적으로 생기는 계정"에 적용되므로, User Login만 받은 사람도 sudo 없이
+  # 이 VM의 공유 identity_id 권한(kubeconfig)을 자동으로 물려받게 된다. 그 두 역할을
   # 가르는 경계 자체가 무너진다.
   #
   # 그래서 사본은 root와 admin_username(부팅 시점에 이미 존재가 보장되는 유일한 로컬
   # 계정, 모듈 자신이 "브레이크글래스" 용도로 규정한 값)에만 직접 넣는다. Entra SSH로
   # 로그인하는 사람(Administrator Login이든 User Login이든)에게는 아무것도 자동으로
-  # 안 준다 — Administrator Login을 가진 사람은 이미 sudo가 있어
+  # 안 준다. Administrator Login을 가진 사람은 이미 sudo가 있어
   # `sudo cp /root/.kube/config ~/.kube/config`로 스스로 가져갈 수 있고, User Login만
   # 가진 사람은 애초에 이 모듈이 AKS 접근권을 주기로 한 대상이 아니다(README 참조).
   # root 자신은 이미 /root/.kube/config를 갖고 있다(위 az aks get-credentials가 만든
-  # 정본) — 대상은 admin_username 하나뿐이라 루프 없이 직접 처리한다.
+  # 정본). 대상은 admin_username 하나뿐이라 루프 없이 직접 처리한다.
   # admin_username은 variables.tf의 validation으로 영숫자·밑줄·하이픈만 허용해 뒀다
-  # (Linux 계정명 관례와 동일 — 셸 메타문자가 이 스크립트에 그대로 보간되므로 필수).
+  # (Linux 계정명 관례와 동일: 셸 메타문자가 이 스크립트에 그대로 보간되므로 필수).
   _admin_home="$(getent passwd "${admin_username}" | cut -d: -f6)"
   if [ -n "$_admin_home" ] && [ -d "$_admin_home" ]; then
     install -d -m 0700 -o "${admin_username}" -g "$(id -gn "${admin_username}")" "$_admin_home/.kube"
     install -m 0600 -o "${admin_username}" -g "$(id -gn "${admin_username}")" /root/.kube/config "$_admin_home/.kube/config"
   fi
 else
-  echo "aks-workbench: kubeconfig 부트스트랩 실패 — /var/log/cloud-init-output.log에서 az aks get-credentials/kubelogin 실패 원인 확인 필요" >&2
+  echo "aks-workbench: kubeconfig 부트스트랩 실패. /var/log/cloud-init-output.log에서 az aks get-credentials/kubelogin 실패 원인 확인 필요" >&2
 fi
 %{ endif }
 %{ endif }
@@ -135,11 +129,9 @@ chmod 0755 /usr/local/bin/argocd
 %{ endif }
 
 %{ if kubectl_version != null && krew_version != null }
-# 2026-09-07 실측 발견: krew 바이너리의 install 서브커맨드는 --krew-root 플래그를
-# 지원하지 않는다("unknown flag: --krew-root", 첫 실사용 실배포에서 실측 —
-# 이전까지 이 root가 krew_version을 넘긴 적이 없어 이 코드 경로 자체가 한 번도
-# 실행된 적 없었다). 공식 설치 문서(krew.sigs.k8s.io/docs/user-guide/setup/install)의
-# 명령도 `./krew-<os>_<arch> install krew`뿐 — KREW_ROOT 환경변수(아래 export)만으로
+# ⚠️ krew 바이너리의 install 서브커맨드는 --krew-root 플래그를 지원하지 않는다
+# ("unknown flag: --krew-root"). 공식 설치 문서(krew.sigs.k8s.io/docs/user-guide/setup/install)의
+# 명령도 `./krew-<os>_<arch> install krew`뿐: KREW_ROOT 환경변수(아래 export)만으로
 # 설치 위치가 정해진다. kubectl-krew(플러그인 설치)도 마찬가지로 환경변수만 본다.
 export KREW_ROOT=/usr/local/krew
 KREW_ARCH="$(dpkg --print-architecture)"
@@ -153,8 +145,8 @@ tar -xzf "/tmp/$${KREW_TARBALL}" -C /tmp
 %{ endif }
 
 %{ if aks_node_viewer_version != null }
-# alpha 단계(2024-11 이후 갱신 없음, README 참조) — 설치 실패는 부팅을 막지 않는다(|| true).
-# ⚠️ 자산 이름 매핑은 eks-node-viewer(upstream) 관행을 승계한 추정이다 — 아직 실측 확인 안 됨.
+# alpha 단계(2024-11 이후 갱신 없음, README 참조). 설치 실패는 부팅을 막지 않는다(|| true).
+# ⚠️ 자산 이름 매핑은 eks-node-viewer(upstream) 관행에서 유추한 것이고, 확인되지 않았다.
 case "$(dpkg --print-architecture)" in
   amd64) NODEVIEWER_ARCH="x86_64" ;;
   arm64) NODEVIEWER_ARCH="arm64" ;;
@@ -166,19 +158,19 @@ chmod 0755 /usr/local/bin/aks-node-viewer || true
 
 # ── 로그인 프로파일 ──────────────────────────────────────────────────────────
 #
-# 2026-09-07 실측 발견: 이 블록이 아예 없어 kubectl·helm·argocd는 /usr/local/bin이
-# 기본 PATH라 동작했지만, k alias·completion·krew PATH가 하나도 안 잡혀 있었다
-# (AWS 원본 modules/aws/workbench/user-data.sh.tftpl의 "로그인 프로파일" 절과 대조해
-# 발견). AWS와 같은 이유로 전역이 옳다 — alias·completion·KREW_ROOT+PATH는 사용자가
+# ⚠️ 이 블록이 없으면 kubectl·helm·argocd는 /usr/local/bin이 기본 PATH라 동작하지만
+# k alias·completion·krew PATH가 하나도 잡히지 않는다. AWS 원본
+# (modules/aws/workbench/user-data.sh.tftpl의 「로그인 프로파일」 절)과 같은 이유로
+# 전역이 옳다. alias·completion·KREW_ROOT+PATH는 사용자가
 # 바꿀 이유가 없는 "설정"이라 사용자별 사본을 두면 갱신 지점만 늘어난다(kubeconfig가
-# admin_username 전용 사본인 것과는 반대 축 — 그건 "상태"라 사용자별이 옳다).
+# admin_username 전용 사본인 것과는 반대 축: 그건 "상태"라 사용자별이 옳다).
 #
-# ⛔ KUBECONFIG를 여기 넣지 않는다 — admin_username 전용 kubeconfig 사본(위 블록)을
+# ⛔ KUBECONFIG를 여기 넣지 않는다. admin_username 전용 kubeconfig 사본(위 블록)을
 # 무력화한다(AWS 원본과 동일 근거, 그쪽은 사용자별 kubeconfig 사본 대비 같은 금지).
 PROFILE=/etc/profile.d/aks-workbench.sh
 {
-  echo "# aks-workbench 로그인 프로파일 (cloud-init 생성 — 직접 고치면 VM 재생성 시 사라진다)"
-  echo "# 이 KUBECONFIG를 여기 넣지 말 것 — admin_username 전용 kubeconfig 사본을 무력화한다."
+  echo "# aks-workbench 로그인 프로파일 (cloud-init 생성: 직접 고치면 VM 재생성 시 사라진다)"
+  echo "# 이 KUBECONFIG를 여기 넣지 말 것. admin_username 전용 kubeconfig 사본을 무력화한다."
 %{ if kubectl_version != null && krew_version != null }
   echo 'export KREW_ROOT=/usr/local/krew'
   echo 'export PATH="$PATH:$KREW_ROOT/bin"'
@@ -187,7 +179,7 @@ PROFILE=/etc/profile.d/aks-workbench.sh
   echo 'command -v aks-node-viewer >/dev/null 2>&1 && alias nv="aks-node-viewer --resources cpu,memory"'
 %{ endif }
 %{ if kubectl_version != null }
-  # ⚠️ `complete -F __start_kubectl`는 그 함수가 먼저 정의돼 있어야 동작한다 — 정의하는
+  # ⚠️ `complete -F __start_kubectl`는 그 함수가 먼저 정의돼 있어야 동작한다. 정의하는
   # 것은 `kubectl completion bash`다(AWS 원본과 동일 순서 의존, 두 줄을 한 묶음으로 둔다).
   echo 'if [ -n "$BASH_VERSION" ] && command -v kubectl >/dev/null 2>&1; then'
   echo '  alias k=kubectl'

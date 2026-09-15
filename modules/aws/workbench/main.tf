@@ -1,4 +1,4 @@
-# workbench 코어 리소스 — 보안 그룹 · 인스턴스
+# workbench 코어 리소스: 보안 그룹 · 인스턴스
 #
 # 모든 리소스가 var.workbench_enabled 게이트를 지난다. IAM은 iam.tf가 소유한다.
 #
@@ -17,7 +17,7 @@ locals {
   volume_name   = "vol-${local.name_mid}-${local.name_tail}"
 
   # EKS 연동은 두 변수가 **함께** 있을 때만 성립한다(variables.tf의 교차변수 가드가 강제).
-  # 여기서 둘 다 검사하는 것은 방어가 아니라 의도 표현이다 — 한쪽만으로는 층이 반쪽이다.
+  # 둘 다 검사해 두 층이 함께 있어야 한다는 의도를 코드에 드러낸다. 한쪽만으로는 층이 반쪽이다.
   eks_integration_enabled = local.enabled && var.eks_cluster_name != null && var.eks_cluster_arn != null
 
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
@@ -27,22 +27,22 @@ locals {
 
     # 진단·조작 도구
     eks_node_viewer_version = var.eks_node_viewer_version
-    # krew 는 kubectl 없이는 의미가 없다 — 조건을 여기서 접어 템플릿 분기를 하나로 줄인다.
+    # krew 는 kubectl 없이는 의미가 없다. 조건을 여기서 접어 템플릿 분기를 하나로 줄인다.
     krew_version = var.kubectl_version != null ? var.krew_version : null
     krew_plugins = var.krew_plugins
-    # kubeconfig 생성 조건을 로컬과 일치시킨다 — 권한 없이 kubeconfig만 만들지 않는다.
+    # kubeconfig 생성 조건을 로컬과 일치시킨다. 권한 없이 kubeconfig만 만들지 않는다.
     eks_cluster_name = local.eks_integration_enabled ? var.eks_cluster_name : null
     region           = data.aws_region.current.region
   })
 }
 
-# 리전을 하드코딩하지 않는다 — update-kubeconfig가 리전을 요구하고, 이 모듈은 리전 이식성이 계약이다.
+# 리전을 하드코딩하지 않는다. update-kubeconfig가 리전을 요구하고, 이 모듈은 리전 이식성이 계약이다.
 data "aws_region" "current" {}
 
 # ── 보안 그룹 ───────────────────────────────────────────────────────────────────
 #
 # ingress 규칙이 하나도 없다. SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방향으로
-# 흐르므로 인바운드가 원천적으로 불필요하다 — SSH 키·22번 노출·감사 공백이 함께 사라진다.
+# 흐르므로 인바운드가 원천적으로 불필요하다. SSH 키·22번 노출·감사 공백이 함께 사라진다.
 #
 # ⛔ inline ingress/egress 블록을 쓰지 않는다. rule은 별도 리소스로만 만든다.
 resource "aws_security_group" "this" {
@@ -56,7 +56,7 @@ resource "aws_security_group" "this" {
     Name = local.sg_name
   })
 
-  # SG는 rule 없이 먼저 생성되고 rule이 나중에 ID를 참조한다 — 순환을 이렇게 끊는다.
+  # SG는 rule 없이 먼저 생성되고 rule이 나중에 ID를 참조한다. 순환을 이렇게 끊는다.
   lifecycle {
     create_before_destroy = true
   }
@@ -90,7 +90,7 @@ resource "aws_instance" "this" {
   vpc_security_group_ids = [aws_security_group.this[0].id]
   iam_instance_profile   = aws_iam_instance_profile.this[0].name
 
-  # ── 하드닝 — 변수로 열지 않는다 ────────────────────────────────────────────
+  # ── 하드닝: 변수로 열지 않는다 ────────────────────────────────────────────
   #
   # key_name·associate_public_ip_address를 지정하지 않는 것도 계약의 일부다.
   # 서브넷이 private이면 공인 IP는 애초에 붙지 않고, 키페어가 없으면 SSH 경로가 존재하지 않는다.
@@ -100,7 +100,7 @@ resource "aws_instance" "this" {
     # IMDSv2 강제. trivy AVD-AWS-0028이 검사하는 항목이다.
     http_tokens = "required"
     # ⚠️ hop limit 1은 컨테이너에서 IMDS에 닿지 못한다는 뜻이다. workbench는 도구를 호스트에서
-    #    직접 실행하는 지점이라 지금 요구에는 맞다 — 컨테이너 요구가 생기면 그때 변수를 연다.
+    #    직접 실행하는 지점이라 지금 요구에는 맞다. 컨테이너 요구가 생기면 그때 변수를 연다.
     http_put_response_hop_limit = 1
   }
 

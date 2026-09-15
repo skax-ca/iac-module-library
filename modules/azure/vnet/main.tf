@@ -19,7 +19,7 @@ locals {
   nsg_group_names = sort([for name, group in var.subnet_groups : name if group.nsg_enabled])
   rt_group_names  = sort([for name, group in var.subnet_groups : name if group.route_table_enabled])
 
-  # nat_routed 그룹이 0개면 NAT를 만들지 않는다 — 걸어줄 서브넷이 없고 유휴로도 과금된다.
+  # nat_routed 그룹이 0개면 NAT를 만들지 않는다. 걸어줄 서브넷이 없고 유휴로도 과금된다.
   # precondition을 걸지 않는다: 기본값 조합(subnet_groups = {})에서도 plan이 깨지면 안 된다.
   nat_enabled = local.enabled && var.nat_gateway_enabled && length(local.nat_group_names) > 0
 }
@@ -67,7 +67,7 @@ resource "azurerm_subnet" "this" {
     }
   }
 
-  # azurerm_subnet은 tags 인자를 지원하지 않는다 — 공통 규약 "모든 리소스에 태그를 단다"가
+  # azurerm_subnet은 tags 인자를 지원하지 않는다. 공통 규약 "모든 리소스에 태그를 단다"가
   # 서브넷에서는 구조적으로 달성 불가하다(docs/conventions.md Azure 강제 방식 3번).
 }
 
@@ -113,7 +113,7 @@ resource "azurerm_subnet_route_table_association" "this" {
   route_table_id = azurerm_route_table.this[each.key].id
 }
 
-# ── NAT — vnet당 1개(존이 아니라 SKU가 이중화를 결정한다) ──────────────────────
+# ── NAT: vnet당 1개(존이 아니라 SKU가 이중화를 결정한다) ──────────────────────
 
 resource "azurerm_public_ip" "nat" {
   count = local.nat_enabled ? 1 : 0

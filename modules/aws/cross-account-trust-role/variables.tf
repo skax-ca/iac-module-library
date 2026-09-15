@@ -24,7 +24,7 @@ variable "purpose" {
   description = <<-EOT
     Name 태그의 purpose 토큰. 기본값이 없다 = 필수 입력이다.
 
-    ⚠️ 이 모듈은 workbench와 달리 고정 용도(예: "workbench")로 좁히지 않는다 — 여러 목적의
+    ⚠️ 이 모듈은 workbench와 달리 고정 용도(예: "workbench")로 좁히지 않는다. 여러 목적의
     크로스 계정 신뢰 경계를 만드는 데 재사용되므로 소비자가 매번 명시한다(예: "argocd-hub").
   EOT
   type        = string
@@ -60,7 +60,7 @@ variable "trusted_principal_arns" {
   description = <<-EOT
     이 Role을 assume할 수 있는 IAM Role/User ARN 목록(trust policy의 Principal).
 
-    ⛔ 계정 root(`:root`)나 와일드카드(`*`)는 허용하지 않는다 — 정확히 어느 principal이
+    ⛔ 계정 root(`:root`)나 와일드카드(`*`)는 허용하지 않는다. 정확히 어느 principal이
     이 신뢰 경계를 넘는지 ARN 단위로 못박는 것이 이 모듈의 존재 이유다(아래 validation).
   EOT
   type        = list(string)
@@ -75,11 +75,11 @@ variable "trusted_principal_arns" {
   }
 
   validation {
-    # enabled = true인데 아무도 못 믿는 Role은 무의미하다 — 단, 파기 경로(enabled = false)에서는
+    # enabled = true인데 아무도 못 믿는 Role은 무의미하다. 단, 파기 경로(enabled = false)에서는
     # 빈 리스트여도 통과해야 한다. workbench의 eks_cluster_arn 가드와 같은 이유로 같은 형태다:
     # 막으면 "끌 수는 있으나 끈 상태를 유지할 수 없는" 반쪽 kill switch가 된다.
     condition     = length(var.trusted_principal_arns) > 0 || !var.enabled
-    error_message = "trusted_principal_arns가 비어 있다 — enabled = true인 상태에서 아무도 assume할 수 없는 Role은 무의미하다."
+    error_message = "trusted_principal_arns가 비어 있다. enabled = true인 상태에서 아무도 assume할 수 없는 Role은 무의미하다."
   }
 }
 

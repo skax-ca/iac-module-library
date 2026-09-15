@@ -16,9 +16,9 @@
 | **관측·감사** | `enabled_log_types` + VPC Flow Logs | trivy AVD-AWS-0038 |
 | **삭제 보호** | `deletion_protection = true` | AWS API 차원의 보호 |
 | **가용성** | `single_nat_gateway = false` | AZ 장애가 다른 AZ 아웃바운드를 끊지 않게 |
-| ⭐ **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-catalog.md`](../../../../../docs/module-catalog.md)(private 클러스터를 조작할 유일한 지점) |
+| 🔑 **도달 지점** | `module.workbench` + **EKS 접근 3층 연결** | 설계 [`module-catalog.md`](../../../../../docs/module-catalog.md)(private 클러스터를 조작할 유일한 지점) |
 
-### ⭐ EKS 접근 3층: 이 예제의 핵심 연결
+### 🔑 EKS 접근 3층: 이 예제의 핵심 연결
 
 `endpoint_public_access = false`인 클러스터에 kubectl이 닿으려면 **세 층이 모두** 있어야 한다.
 소유가 두 모듈로 갈리는 기준은 **주체냐 대상이냐**다.
@@ -29,8 +29,8 @@
 | ② Access Entry | 클러스터 **안에서** 무엇을 하는가 | `401 Unauthorized` | `module.eks` (`access_entries`) |
 | ③ cluster SG ingress 443 | apiserver에 **네트워크로 닿는가** | **`dial tcp …: i/o timeout`** | `module.eks` (`cluster_security_group_additional_rules`) |
 
-> 🔑 **증상의 계층이 다르다는 것이 진단의 단서다.** PoC는 ①②만 갖추고 timeout을 만났는데,
-> 인증 오류가 아니라 **타임아웃**이었다는 것이 "인증 계층에 닿지도 못했다"를 뜻했다.
+> 🔑 **증상의 계층이 다르다는 것이 진단의 단서다.** ①②를 갖췄는데 인증 오류가 아니라
+> **타임아웃**이 나면, 요청이 인증 계층에 닿지도 못한 것이다. ③이 빠졌다.
 >
 > ⚠️ **`local.cluster_arn`을 지우지 말 것.** workbench는 클러스터 ARN을 받고 eks는 workbench role ARN을
 > 받아 **양방향 참조**가 된다. ARN을 루트에서 합성해 끊는다:
@@ -96,7 +96,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/wo
 ⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../../docs/conventions.md)).
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
 
-## ⚠️ 착수 전 반드시 바꿀 것
+## ⚠️ 착수 전 바꿀 것
 
 이 예제는 **계정에 붙지 않으므로** 실계정 값이 필요한 자리를 비워 두었다. 그대로 apply하지 않는다.
 
@@ -105,7 +105,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/wo
 | 🔴 **`workbench_ami_id`** | **자리표시자 `ami-00000000000000000`** | **조회한 실제 AMI ID.** 아래 **"workbench AMI"** 절. 그대로 apply하면 즉시 실패한다(의도된 것) |
 | `external_dns_hosted_zone_arns` | 예제가 만든 `aws_route53_zone.internal.arn` | **운영 중인 zone의 ARN**. 아래 **"external-dns"** 절 참조 |
 | `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다 |
-| `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 실측 값을 박는다. 아래 **"addon 버전 고정"** 절. ⚠️ 모듈은 버전을 **갖지 않는다** |
+| `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 조회한 값을 박는다. 아래 **"addon 버전 고정"** 절. ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
 
 ## workbench AMI: 핀의 소유자는 소비 루트다
@@ -119,7 +119,7 @@ aws ssm get-parameter --region ap-northeast-2 \
   --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64 \
   --query Parameter.Value --output text
 
-# x86 을 쓸 경우 — instance_type 도 함께 바꾼다
+# x86 을 쓸 경우: instance_type 도 함께 바꾼다
 #   --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 ```
 
@@ -138,7 +138,7 @@ bump하는 **명시적 커밋**으로만 하고, plan diff에서 재생성이 �
 ## workbench 접속
 
 ```bash
-# 인바운드 규칙 0개로 셸에 진입한다 — IAM 인증만으로 성립한다
+# 인바운드 규칙 0개로 셸에 진입한다. IAM 인증만으로 성립한다
 aws ssm start-session --target $(tofu output -raw workbench_instance_id) --region ap-northeast-2
 
 # 접속 후 (kubeconfig 는 user_data 가 /etc/kubernetes 에 전역 생성)
@@ -187,8 +187,8 @@ enable_external_dns_iam       = true
 external_dns_hosted_zone_arns = [data.aws_route53_zone.this.arn]
 ```
 
-> 🔑 그때 이 validation이 **되켜는 사람을 보호한다**. zone ARN을 빠뜨리면 2026-08-04와 같은
-> apply 실패를 반복하는데, 이제는 몇 초 만에 plan에서 잡힌다.
+> 🔑 그때 이 validation이 **되켜는 사람을 보호한다**. zone ARN을 빠뜨리면 apply가 실패하는데,
+> 이 validation이 그것을 plan에서 몇 초 만에 잡는다.
 
 ### `force_destroy = true`는 예제에서만
 
@@ -204,7 +204,7 @@ VPC 내부(workbench·VPN·Direct Connect)에서만 도달한다. 이걸 정하�
 
 **teardown은 2단계다.** `deletion_protection = true`인 상태에서는 파기되지 않는다:
 `deletion_protection = false`로 apply한 뒤 `cluster_enabled = false`로 파기한다.
-이는 결함이 아니라 보호의 정의다. 모듈의 교차변수 `validation`이 이 순서를 plan 시점에 강제한다.
+보호를 켠 채로는 한 번에 파기할 수 없다. 모듈의 교차변수 `validation`이 이 순서를 plan 시점에 강제한다.
 
 **시스템 노드그룹은 없앨 수 없다.** Karpenter 자신이 뜰 곳이 필요하기 때문이다.
 Karpenter chart의 affinity가 `karpenter.sh/nodepool DoesNotExist`를 요구해서, Karpenter가 만든 노드에는
@@ -222,12 +222,12 @@ Karpenter가 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
 프로덕션에서 완전히 결정적으로 고정하려면 값을 조회해 `cluster_addons`에 박는다:
 
 ```bash
-# 이 클러스터의 k8s 버전·리전 기준으로 조회한다 — 둘 다 값에 영향을 준다
+# 이 클러스터의 k8s 버전·리전 기준으로 조회한다. 둘 다 값에 영향을 준다
 aws eks describe-addon-versions \
   --kubernetes-version 1.35 --region ap-northeast-2 --addon-name coredns \
   --query 'addons[].addonVersions[].addonVersion' --output text | tr '\t' '\n' | head -5
 
-# ⭐ **AWS 기본 버전만** 뽑는다 — 위 명령의 첫 줄은 기본이 아니라 '최신'이다(둘은 다르다)
+# AWS 기본 버전만 뽑는다. 위 명령의 첫 줄은 기본이 아니라 '최신'이다(둘은 다르다)
 aws eks describe-addon-versions \
   --kubernetes-version 1.35 --region ap-northeast-2 --addon-name coredns \
   --query 'addons[0].addonVersions[?compatibilities[0].defaultVersion==`true`].addonVersion | [0]' \
@@ -244,9 +244,9 @@ cluster_addons = {
 > 🔑 **최신이 아니라 기본(default) 버전을 박는다.** 기본 버전을 박으면 **핀 전후 동작이 같다**:
 > 핀은 "지금 상태를 고정"하는 일이다. 최신을 박으면 "핀을 추가한다"는 작업에 **업그레이드 결정이
 > 섞여 들어간다.** 상향은 값을 올리는 **별도 커밋**이어야 plan diff 로 리뷰된다.
-> 실측(1.35 · an2, 2026-08-04): `coredns` 기본 `v1.13.2-eksbuild.11` ≠ 최신 `v1.14.3-eksbuild.3`.
+> 예(1.35 · an2): `coredns` 기본 `v1.13.2-eksbuild.11` ≠ 최신 `v1.14.3-eksbuild.3`.
 >
-> ℹ️ `addon_version`만 적어도 **모듈 소유 필드는 살아남는다**: vpc-cni 의 custom networking 구성과
+> `addon_version`만 적어도 **모듈 소유 필드는 살아남는다**: vpc-cni 의 custom networking 구성과
 > ebs-csi 의 pod identity association 은 merge **뒤에** 재주입된다(`addons.tf`의 "4) 최종 변환" 블록).
 > shallow merge 로 엔트리가 통째로 교체되는 문제는 모듈이 이미 처리했다.
 
@@ -255,8 +255,8 @@ cluster_addons = {
 1. ⚠️ **`kubernetes_version`을 올리면 고정한 버전도 같이 올린다.** addon 버전은
    `f(k8s 버전, 리전)`이라 k8s만 올리면 *"그 버전 없음"* 으로 apply가 죽는다.
    특히 `kube-proxy`는 **정의상** k8s 마이너를 따라간다(`v1.35.3` ↔ k8s 1.35).
-2. ⚠️ **리전마다 가용 버전이 다르다.** 2026-08-03 실측: `cert-manager`가 ap-northeast-2에는
-   `v1.21.0-eksbuild.3`, us-east-1·eu-west-1에는 `eksbuild.2`까지만 있었다.
+2. ⚠️ **리전마다 가용 버전이 다르다.** 예: `cert-manager`가 ap-northeast-2에는
+   `v1.21.0-eksbuild.3`, us-east-1·eu-west-1에는 `eksbuild.2`까지만 있다.
    멀티리전 배포에서 버전 문자열을 공유하려면 **리전 공통으로 가용한 값**을 쓴다.
 
 고정하지 않아도 **리뷰 없는 자동 업데이트는 일어나지 않는다**: 모듈이 `most_recent = false`를

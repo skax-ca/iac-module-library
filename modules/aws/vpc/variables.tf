@@ -52,8 +52,8 @@ variable "vpc_enabled" {
 variable "deletion_protection" {
   description = <<-EOT
     삭제 보호(보호 방향). true면 aws_vpc에 prevent_destroy가 걸려 파괴 계획 자체가 차단된다.
-    보호를 켠 상태의 파기는 2단계다 — deletion_protection = false로 apply한 뒤 vpc_enabled = false.
-    이는 결함이 아니라 보호의 정의다.
+    보호를 켠 상태의 파기는 2단계다. deletion_protection = false로 apply한 뒤 vpc_enabled = false.
+    보호를 켠 채로는 한 번에 파기할 수 없다.
 
     기본값이 false인 이유: 파기가 기본 동작이어야 한다. 보호는 opt-in이다.
     소비자 사용 예: deletion_protection = var.env == "prd"
@@ -110,7 +110,7 @@ variable "az_selection" {
 
   validation {
     # az_count를 참조하는 교차 변수 validation은 OpenTofu 1.9+ 기능이다.
-    # required_version 1.12.0의 근거는 이것이 아니다(versions.tf 참조) — 여기는 사용처일 뿐이다.
+    # required_version 1.12.0의 근거는 이것이 아니다(versions.tf 참조). 여기는 사용처다.
     condition     = var.az_selection == null || length(coalesce(var.az_selection, [])) == var.az_count
     error_message = "az_selection을 지정하면 그 길이가 az_count와 같아야 한다."
   }
@@ -143,7 +143,7 @@ variable "subnet_groups" {
 
   validation {
     # eks_role 미지정(null)도 허용값이다. contains()에 null을 넘기지 않으려고
-    # sentinel "-"로 치환해 비교한다 — 조건식 단락 평가에 기대지 않기 위함이다.
+    # sentinel "-"로 치환해 비교한다. 조건식 단락 평가에 기대지 않기 위함이다.
     condition = alltrue([
       for g in var.subnet_groups :
       contains(["elb", "internal-elb", "-"], coalesce(g.eks_role, "-"))
@@ -152,7 +152,7 @@ variable "subnet_groups" {
   }
 }
 
-# ── 환경 프로파일 — 소비자가 조건 분기를 짜지 않게 한다 ──────────────────────
+# ── 환경 프로파일: 소비자가 조건 분기를 짜지 않게 한다 ──────────────────────
 
 variable "enable_nat_gateway" {
   description = <<-EOT
@@ -167,8 +167,8 @@ variable "enable_nat_gateway" {
 
 variable "single_nat_gateway" {
   description = <<-EOT
-    true면 NAT Gateway 1개를 전 AZ가 공유한다(dev — 비용 우선).
-    false면 AZ별로 1개씩 만든다(prd — 가용성 우선).
+    true면 NAT Gateway 1개를 전 AZ가 공유한다(dev: 비용 우선).
+    false면 AZ별로 1개씩 만든다(prd: 가용성 우선).
   EOT
   type        = bool
   default     = false
@@ -203,7 +203,7 @@ variable "flow_logs_retention_days" {
   nullable    = false
 
   validation {
-    # aws provider가 허용하는 값 전체다 — 임의로 늘리거나 줄이지 않는다.
+    # aws provider가 허용하는 값 전체다. 임의로 늘리거나 줄이지 않는다.
     condition = contains(
       [0, 1, 3, 5, 7, 14, 30, 60, 90, 120, 150, 180, 365, 400, 545, 731, 1096, 1827, 2192, 2557, 2922, 3288, 3653],
       var.flow_logs_retention_days

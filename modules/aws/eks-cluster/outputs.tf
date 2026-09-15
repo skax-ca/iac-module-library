@@ -9,7 +9,7 @@
 #
 # ⚠️ upstream 출력의 fallback이 일관되지 않다:
 #    대부분 try(…, null) 인데 **cluster_name·cluster_id 만 try(…, "")** 로 빈 문자열을 돌려준다.
-#    여기서 null로 정규화하는 이유는 그것이 facade의 일이기 때문이다 — 정규화하지 않으면 소비자가
+#    여기서 null로 정규화하는 이유는 그것이 facade의 일이기 때문이다. 정규화하지 않으면 소비자가
 #    `X == null`이 아니라 `X == ""`를 알아야 하고, 그건 upstream 구현 디테일이 우리 계약으로 새는 것이다.
 
 locals {
@@ -27,7 +27,7 @@ output "cluster_name" {
 output "cluster_arn" {
   description = <<-EOT
     EKS 클러스터 ARN.
-    GitOps 쪽 클러스터 등록이 API URL이 아니라 **ARN**을 요구하므로 계약에 둔다 —
+    GitOps 쪽 클러스터 등록이 API URL이 아니라 **ARN**을 요구하므로 계약에 둔다.
     부트스트랩 seam이 어떻게 재결정되든(design/21) ARN은 어느 경로에서도 필요하다.
   EOT
   value       = module.eks.cluster_arn
@@ -63,11 +63,11 @@ output "oidc_provider_arn" {
 output "cluster_security_group_id" {
   description = <<-EOT
     **upstream 모듈이 만든** cluster SG ID. vpc_config.security_group_ids 로 클러스터에 붙어
-    apiserver ENI 에 적용된다 — cluster_security_group_additional_rules 가 규칙을 붙이는 대상이다.
+    apiserver ENI 에 적용된다. cluster_security_group_additional_rules 가 규칙을 붙이는 대상이다.
 
     ⚠️ **EKS 서비스가 자동 생성하는 primary cluster SG 와 다르다**(그쪽은 upstream 출력
     `cluster_primary_security_group_id` 이며 이 모듈은 노출하지 않는다).
-    ⛔ 이것을 "EKS가 만든 클러스터 보안 그룹"이라고 부르지 말 것 — primary SG 와 구분되지 않아
+    ⛔ 이것을 "EKS가 만든 클러스터 보안 그룹"이라고 부르지 말 것. primary SG 와 구분되지 않아
        workbench 규칙을 어디에 붙일지 판단할 때 오도한다.
   EOT
   value       = module.eks.cluster_security_group_id
@@ -132,7 +132,7 @@ output "cluster_autoscaler_iam_role_arn" {
   description = <<-EOT
     Cluster Autoscaler Pod Identity role ARN. GitOps helm values의 서비스 어카운트 annotation이
     아니라 Pod Identity association으로 이미 바인딩되어 있다(namespace=kube-system,
-    service_account=cluster-autoscaler — 이 모듈이 고정한다).
+    service_account=cluster-autoscaler: 이 모듈이 고정한다).
   EOT
   value       = try(module.cluster_autoscaler_pod_identity.iam_role_arn, null)
 }
@@ -143,11 +143,11 @@ output "effective_addon_names" {
   description = <<-EOT
     최종적으로 설치되는 addon 이름 목록(baseline merge + enabled 필터 결과).
 
-    소비자가 "내가 넘긴 cluster_addons가 baseline과 어떻게 합쳐졌는가"를 확인하는 지점이다 —
+    소비자가 "내가 넘긴 cluster_addons가 baseline과 어떻게 합쳐졌는가"를 확인하는 지점이다.
     merge 규약(누락 != 삭제)은 코드를 읽지 않으면 결과를 예측하기 어렵기 때문이다.
 
     ⚠️ 이 출력은 **계약 검증의 관측점이기도 하다**. facade 모듈은 계산 결과를 하위 모듈의
-    입력으로 넘기는데 `tofu test`는 하위 모듈에 들어간 값을 볼 수 없다 — 노출하지 않으면
+    입력으로 넘기는데 `tofu test`는 하위 모듈에 들어간 값을 볼 수 없다. 노출하지 않으면
     baseline 상속·opt-out 동작을 config-time에 검증할 방법이 없다.
   EOT
   value       = local.enabled ? sort(keys(local.addons_final)) : []

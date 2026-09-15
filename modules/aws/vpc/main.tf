@@ -1,7 +1,7 @@
 # VPC · 서브넷 · 게이트웨이 · 라우팅
 #
 # 리소스 순서는 의존 순서다: data → vpc → secondary CIDR → subnet → gateway → RT → route → association.
-# 모든 리소스가 var.vpc_enabled 게이트를 지난다. data source까지 포함한다 —
+# 모든 리소스가 var.vpc_enabled 게이트를 지난다. data source까지 포함한다.
 # 게이트 규칙이 모듈마다 다르면 릴리스 게이트가 판정할 수 없다.
 #
 # 계약: docs/module-catalog.md
@@ -37,7 +37,7 @@ locals {
   az_names = [for suffix in local.az_suffixes : lookup(local.az_name_by_suffix, suffix, null)]
 
   # ── 서브넷 정의 (그룹 × AZ) ─────────────────────────────────────────────────
-  # 키는 "<group>-<az suffix>" — Name의 purpose 토큰과 같은 형태라 tftest에서 대조가 쉽다.
+  # 키는 "<group>-<az suffix>": Name의 purpose 토큰과 같은 형태라 tftest에서 대조가 쉽다.
   subnet_defs = local.enabled ? {
     for def in flatten([
       for group_name, group in var.subnet_groups : [
@@ -66,7 +66,7 @@ locals {
   # NAT는 type이 public인 첫 번째 그룹(맵 키 정렬 기준)의 서브넷에 놓는다.
   nat_group = length(local.public_group_names) > 0 ? local.public_group_names[0] : null
 
-  # private 그룹이 없으면 NAT를 만들지 않는다 — 걸어줄 경로가 없고 유휴로도 과금된다.
+  # private 그룹이 없으면 NAT를 만들지 않는다. 걸어줄 경로가 없고 유휴로도 과금된다.
   nat_enabled = local.enabled && var.enable_nat_gateway && local.nat_group != null && length(local.private_group_names) > 0
 
   # NAT 호스트 그룹이 커버하는 AZ suffix. subnet_defs의 맵 순서(사전순)가 아니라
@@ -83,7 +83,7 @@ locals {
     : local.nat_host_suffixes
   ) : []
 
-  # precondition용 — private 그룹 중 가장 넓은 AZ 폭.
+  # precondition용: private 그룹 중 가장 넓은 AZ 폭.
   max_private_az_count = length(local.private_group_names) > 0 ? max([
     for name in local.private_group_names : length(var.subnet_groups[name].cidrs)
   ]...) : 0
@@ -122,7 +122,7 @@ resource "aws_vpc" "this" {
     # ⚠️ Terraform 비호환 지점이다.
     prevent_destroy = var.deletion_protection
 
-    # 계약 검증은 전부 여기 모은다 — 단일 인스턴스 리소스이므로 조건이 한 번만 평가된다.
+    # 계약 검증은 전부 여기 모은다. 단일 인스턴스 리소스이므로 조건이 한 번만 평가된다.
     # count = 0(파기 방향)이면 precondition도 평가되지 않는다. 파기가 막히지 않으려면 필요한 동작이다.
     precondition {
       condition     = var.az_count <= length(local.az_names_available)
@@ -184,13 +184,13 @@ resource "aws_subnet" "this" {
       # 현행 필수 태그. 값은 "1"이 공식이다(EKS 네트워킹 요구사항 문서).
       { "kubernetes.io/role/${each.value.eks_role}" = "1" },
       # cluster 태그는 레거시다. AWS는 신규 클러스터에 더 이상 붙이지 않고
-      # Load Balancer Controller 2.1.1 이하만 요구한다 — 그래서 opt-in(기본값 null)이다.
+      # Load Balancer Controller 2.1.1 이하만 요구한다. 그래서 opt-in(기본값 null)이다.
       var.eks_cluster_name == null ? {} : { "kubernetes.io/cluster/${var.eks_cluster_name}" = "shared" }
     ),
     # 기계가 조회하는 키. 하류 루트(eks-cluster 등)가 data.aws_subnets로 그룹 단위 조회를 한다.
     # Name은 사람이 읽는 식별자이고 그 포맷은 거버넌스가 바꿀 수 있어, 기계 조회가 Name을
     # 와일드카드로 파싱하면 네이밍 개정이 곧 하류 장애가 된다.
-    # ⚠️ 조회 실패는 에러가 아니라 빈 결과다 — 조용히 잘못 동작하므로 opt-in으로 두지 않는다.
+    # ⚠️ 조회 실패는 에러가 아니라 빈 결과다. 조용히 잘못 동작하므로 opt-in으로 두지 않는다.
     { SubnetGroup = each.value.group },
     { Name = "snet-${local.name_mid}-${each.key}" }
   )
@@ -220,7 +220,7 @@ resource "aws_eip" "nat" {
     Name = "eip-${local.name_mid}-nat-${each.key}"
   })
 
-  # provider 문서 권고 — EIP는 IGW가 먼저 존재해야 할 수 있다.
+  # provider 문서 권고: EIP는 IGW가 먼저 존재해야 할 수 있다.
   depends_on = [aws_internet_gateway.this]
 }
 
@@ -234,18 +234,18 @@ resource "aws_nat_gateway" "this" {
     Name = "ngw-${local.name_mid}-${local.nat_group}-${each.key}"
   })
 
-  # provider 문서 권고 — 순서를 보장하려면 IGW에 명시적 의존을 둔다.
+  # provider 문서 권고: 순서를 보장하려면 IGW에 명시적 의존을 둔다.
   depends_on = [aws_internet_gateway.this]
 }
 
-# public·isolated 그룹의 공유 RT. isolated는 여기서 끝이다 — 0.0.0.0/0 경로를 만들지 않는다.
+# public·isolated 그룹의 공유 RT. isolated는 여기서 끝이다. 0.0.0.0/0 경로를 만들지 않는다.
 # (secondary CIDR 연결 시 local 경로는 AWS가 자동 추가한다.)
 resource "aws_route_table" "shared" {
   for_each = toset(local.enabled ? local.shared_rt_group_names : [])
 
   vpc_id = aws_vpc.this[0].id
 
-  # extra_tags는 서브넷에만 부착한다 — RT는 서브넷과 1:1이 아니다.
+  # extra_tags는 서브넷에만 부착한다. RT는 서브넷과 1:1이 아니다.
   tags = merge(var.tags, {
     Name = "rtb-${local.name_mid}-${each.key}"
   })

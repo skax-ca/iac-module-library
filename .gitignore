@@ -37,9 +37,3 @@ __pycache__/
 # 발표 슬라이드에서 생성한 PowerPoint. 3MB 바이너리라 갱신할 때마다 저장소가 통째로
 # 커진다. 산출물 대신 레시피를 남긴다 — scripts/build-deck-pptx.py 로 재생성한다.
 *.pptx
-
-# 개인 AI 어시스턴트 런타임 상태. 이 저장소의 산출물이 아니라 로컬 세션 메모리라
-# 커밋하지 않는다(팀원과 공유하지 않는 개인 도구 설정).
-.omc/
-.opencode/
-opencode.jsonc

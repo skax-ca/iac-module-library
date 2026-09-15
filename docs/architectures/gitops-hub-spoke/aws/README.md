@@ -149,10 +149,8 @@ AWS에서만 정해지는 것은 둘이다.
 
 | 항목 | 규칙 |
 |------|------|
-| 자격증명 | GitHub OIDC → 입구 Role → 실행 Role(2단 체인). 정적 키 금지 |
+| 자격증명 | GitHub OIDC → 입구 Role → 실행 Role(2단 체인). 정적 키 금지. 실행 Role은 **입구 Role만** 신뢰한다(계정 루트를 신뢰하면 그 계정의 아무 주체나 체인을 탈 수 있다) |
 | state | S3 + `use_lockfile = true` (DynamoDB 불필요) |
-
-인증 체인 상세는 [`team-access.md`](../../../team-access.md)를 본다.
 
 ```mermaid
 flowchart TB

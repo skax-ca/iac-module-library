@@ -51,21 +51,3 @@ GitHub organization은 **초대 전용**이다. 검색이나 자기소개로 스
 2. 초대받은 사람이 이메일의 링크를 클릭해 수락한다(7일 내. 미수락 시 초대 만료)
 3. Team(`iac`)에 추가한다: 초대 시점에 지정하거나, 가입 후 People에서 추가
 4. Team에 붙은 모든 저장소에 `maintain` 권한이 그대로 생긴다
-
----
-
-## 4. GitHub ↔ AWS 인증: 패턴 개요
-
-고객 프로젝트의 배포 저장소는 **장기 AWS 키를 쓰지 않는다.** GitHub Actions의
-OIDC 토큰으로 AWS Role을 2단계로 assume한다.
-
-```
-GitHub Actions job
-  │  OIDC 토큰 (sub = repo:<org>@<org_id>/<repo>@<repo_id>:environment:<env>)
-  ▼
-입구 Role   — 신뢰: OIDC. 권한: 실행 Role로 AssumeRole 하나뿐
-  ▼
-실행 Role   — 신뢰: 입구 Role만 (계정 루트 아님)
-  ▼
-실제 plan / apply
-```

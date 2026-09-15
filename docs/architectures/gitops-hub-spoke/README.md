@@ -121,8 +121,6 @@ iac-module-library         모듈(.tf) + 패턴 문서.        어느 계층도 
 > 숫자 org/repo ID를 쓴다: `repo:<org>@<org_id>/<repo>@<repo_id>:environment:dev`.
 > 신뢰 정책 작성 전 실제 토큰의 `sub`를 확인할 것.
 
-인증 체인 전체 그림은 [`team-access.md`](../../team-access.md)를 본다.
-
 ---
 
 ## 7. 문서 지도

@@ -17,8 +17,6 @@
 | [architectures/gitops-hub-spoke/azure/README.md](architectures/gitops-hub-spoke/azure/README.md) | AKS 구성 |
 | 각 모듈 README | 그 모듈이 무엇을 만들지 않는지와 그 이유 |
 
-정리 전 전문은 태그 `docs-archive-20260911`에 있다.
-
 ---
 
 ## 엔진과 provider

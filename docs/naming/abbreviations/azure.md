@@ -41,7 +41,7 @@
    소문자 · 카운트 정합.
 4. **길이**: 2~5자 권장, L2 리소스 구분에 필요하면 6자까지, **7자 초과는 등재하지 않는다.**
 5. **등재 시 3곳을 함께 고친다**: ① 섹션 헤더 ② 상단 총계 ③ 카운트 요약 표 (스크립트가 검증).
-6. **개정 이력 표에 날짜와 근거를 남긴다.**
+6. **등재 근거 표에 왜 이 약어인지 남긴다.** 기각한 후보가 있으면 함께 적는다.
 
 ### 종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다
 
@@ -54,21 +54,21 @@
 | `azurerm_subnet_network_security_group_association` | 별도 이름 없음(서브넷·NSG 이름으로 식별) | 해당 없음 |
 | `azurerm_subnet_route_table_association` | 별도 이름 없음(서브넷·라우팅 테이블 이름으로 식별) | 해당 없음 |
 
-### 개정 이력 (초판 등재 이후 추가된 약어)
+### 등재 근거
 
-`aws.md`와 같은 형식이다. 초판 6종 이후 추가분이 생기면 이 표에 행을 더한다.
+`aws.md`와 같은 형식이다. 여기 없는 약어는 카탈로그 표에만 있다.
 
-| 날짜 | 약어 | 리소스 | 근거 |
-|------|------|--------|------|
-| 2026-08-27 | `rg` | 리소스 그룹 (`azurerm_resource_group`, `Microsoft.Resources/resourceGroups`) | `aks-reference-infra`의 `bootstrap/`(자격증명 계층)이 실제 Azure 실행 검증 중 필요해 등재. CAF 표에 정확히 `rg`로 등재돼 있어 그대로 채택 |
-| 2026-08-27 | `st` | Storage Account (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`) | 위와 같은 세션, state 저장소 계층에 필요. CAF 표에 정확히 `st`로 등재돼 있어 그대로 채택. ⚠️ Storage Account 이름은 하이픈을 전혀 쓸 수 없는 Azure 물리 제약(3~24자, 소문자+숫자만)이 있어, A.3 표의 "Name 예시"는 토큰 순서만 보여주는 것이고 실제 이름은 하이픈 없이 이어붙인다 |
-| 2026-08-27 | `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | 위와 같은 세션, GitHub Actions OIDC 신원에 필요. **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 Microsoft Graph 객체라 그 표의 대상이 아니다. 이 카탈로그의 첫 non-ARM 등재 사례다. 후보로 `app`(Azure Web App/`Microsoft.Web/sites`이 이미 CAF에서 이 약어를 쓰므로 향후 등재 시 충돌 예약, 기각), `aadapp`(레거시 이름 Azure AD 기반, 기각. Microsoft가 Entra ID로 명칭을 통일)을 검토했고, "Entra + Application"의 `entapp`(6자, 등재 규칙 4의 길이 한도 이내)을 채택했다. Service Principal은 `az ad sp create --id <appId>`로 App Registration의 displayName을 그대로 물려받아 별도 이름 인자가 없으므로, 위 "종속 객체" 규약과 같은 이유로 새 약어를 만들지 않는다 |
-| 2026-08-28 | `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | 두 번째 Azure 모듈 `aks-cluster` 설계 확정(`modules/azure/aks-cluster/README.md`). CAF 표에 정확히 `aks`로 등재돼 있어 그대로 채택. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF가 권장하는 시스템 노드 풀 약어(8자)와 사용자 노드 풀 약어(`np`)가 하이픈 금지 + 길이 초과로 이 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 rc=1로 막는다. 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
-| 2026-08-28 | `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | `aks-cluster` 모듈은 컨트롤 플레인 신원을 만들지 않고 입력으로만 받기로 확정(축3, 모듈이 identity·role assignment를 만들면 소비 repo의 CI 신원 권한 경계가 무너진다). 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. 등재 근거는 `rg`·`st`·`entapp`과 같은 선례(소비 repo가 이름 지어 만들 리소스) |
-| 2026-08-28 | `vwan` | Virtual WAN (`azurerm_virtual_wan`, `Microsoft.Network/virtualWans`) | 소비 repo `aks-reference-infra`가 hub-spoke 네트워킹의 TGW 대응으로 vWAN을 설계 중(`live/hub/vwan`, raw 리소스 소비. 이 저장소는 vwan 모듈을 만들지 않는다). CAF 표에 정확히 `vwan`으로 등재돼 있어 그대로 채택 |
-| 2026-08-28 | `vhub` | Virtual WAN Hub (`azurerm_virtual_hub`, `Microsoft.Network/virtualHubs`) | 위와 같은 세션, 같은 소비 repo가 필요. CAF 표에 정확히 `vhub`로 등재돼 있어 그대로 채택. ⚠️ hub에 붙는 연결(`azurerm_virtual_hub_connection`)과 정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 별도 약어를 등재하지 않는다(위 "종속 객체는 약어를 새로 만들지 않고 부모 이름을 상속한다" 규약, CAF 표에도 이 둘의 독립 항목이 없어 정합) |
-| 2026-09-04 | `nic` | 네트워크 인터페이스 (`azurerm_network_interface`, `Microsoft.Network/networkInterfaces`) | 세 번째 Azure 모듈 `aks-workbench` 설계 확정(`modules/azure/aks-workbench/README.md`). CAF 표에 정확히 `nic`으로 등재돼 있어 그대로 채택 |
-| 2026-09-04 | `vm` | Linux 가상 머신 (`azurerm_linux_virtual_machine`, `Microsoft.Compute/virtualMachines`) | 위와 같은 세션. CAF 표에 정확히 `vm`으로 등재돼 있어 그대로 채택. ⚠️ 기존 5개 카테고리(Network·Management/governance·Storage·Identity·Containers) 어디에도 Compute 리소스가 없어 **신규 카테고리(A.6 Compute)**를 신설한다 |
+| 약어 | 리소스 | 근거 |
+|------|--------|------|
+| `rg` | 리소스 그룹 (`azurerm_resource_group`, `Microsoft.Resources/resourceGroups`) | CAF 표의 `rg`를 그대로 쓴다 |
+| `st` | Storage Account (`azurerm_storage_account`, `Microsoft.Storage/storageAccounts`) | CAF 표의 `st`를 그대로 쓴다. ⚠️ Storage Account 이름은 하이픈을 쓸 수 없다(3~24자, 소문자+숫자만). A.3 표의 "Name 예시"는 토큰 순서만 보여주는 것이고, 실제 이름은 하이픈 없이 이어붙인다 |
+| `entapp` | 앱 등록 (`azuread_application`, Microsoft Entra ID/Graph 객체) | **CAF 리소스 약어표에 이 항목이 없다.** 그 표는 `Microsoft.*` ARM provider namespace가 있는 리소스만 다루는데, App Registration은 Microsoft Graph 객체라 대상이 아니다. 이 카탈로그의 첫 non-ARM 등재다. "Entra + Application"을 줄인 `entapp`(6자, 등재 규칙 4 한도 이내)을 쓴다. 기각: `app`(Azure Web App/`Microsoft.Web/sites`이 CAF에서 이미 쓰고 있어 향후 충돌) · `aadapp`(Microsoft가 Azure AD를 Entra ID로 통일했다). Service Principal은 `az ad sp create --id <appId>`가 App Registration의 displayName을 물려받아 별도 이름 인자가 없으므로 「종속 객체」 규약대로 새 약어를 만들지 않는다 |
+| `aks` | AKS 클러스터 (`azurerm_kubernetes_cluster`, `Microsoft.ContainerService/managedClusters`) | CAF 표의 `aks`를 그대로 쓴다. ⚠️ 노드 풀(`Microsoft.ContainerService/managedClusters/agentPools`)은 등재하지 않는다. CAF 권장 약어(시스템 노드 풀 8자·사용자 노드 풀 `np`)가 하이픈 금지와 길이 초과로 등재 규칙 4(7자 상한)와 예시 형식 검사(`^<약어>-`)를 동시에 위반해 `scripts/validate-abbreviations.py`가 막는다. 노드 풀 이름 계약은 `docs/conventions.md`가 소유한다 |
+| `id` | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`, `Microsoft.ManagedIdentity/userAssignedIdentities`) | 모듈은 identity·role assignment를 만들지 않으므로(`docs/decisions.md`의 「모듈 경계」) 소비 repo의 bootstrap 계층이 이 리소스를 이름 지어 만든다. `rg`·`st`·`entapp`과 같은 이유로 등재한다 |
+| `vwan` | Virtual WAN (`azurerm_virtual_wan`, `Microsoft.Network/virtualWans`) | CAF 표의 `vwan`을 그대로 쓴다. 이 저장소는 vWAN 모듈을 만들지 않는다. 소비 repo가 raw 리소스로 쓴다 |
+| `vhub` | Virtual WAN Hub (`azurerm_virtual_hub`, `Microsoft.Network/virtualHubs`) | CAF 표의 `vhub`를 그대로 쓴다. ⚠️ 허브에 붙는 연결(`azurerm_virtual_hub_connection`)과 정적 라우트(`azurerm_virtual_hub_route_table_route`)는 vHub에 종속된 하위 객체라 등재하지 않는다(「종속 객체」 규약. CAF 표에도 독립 항목이 없다) |
+| `nic` | 네트워크 인터페이스 (`azurerm_network_interface`, `Microsoft.Network/networkInterfaces`) | CAF 표의 `nic`을 그대로 쓴다 |
+| `vm` | Linux 가상 머신 (`azurerm_linux_virtual_machine`, `Microsoft.Compute/virtualMachines`) | CAF 표의 `vm`을 그대로 쓴다. ⚠️ Network·Management/governance·Storage·Identity·Containers 어디에도 맞지 않아 **A.6 Compute**에 둔다 |
 
 ## A.1 Network (9)
 
@@ -88,7 +88,7 @@
 서브넷 그룹 키를 `purpose` 자리에 쓴다(예: `app`). `snet`은 AWS 카탈로그에도 있으나, 약어
 고유성은 파일 안에서만 판정하므로 클라우드 간 재사용은 허용된다.
 
-⚠️ **`nsg`의 `purpose` 의미론은 두 갈래다(2026-09-04 확장)**: 서브넷 레벨 NSG(`vnet`
+⚠️ **`nsg`의 `purpose` 의미론은 두 갈래다**: 서브넷 레벨 NSG(`vnet`
 모듈이 `subnet_groups`로 만드는 것)는 위 규칙대로 서브넷 그룹 키를 쓴다(예: `app`). NIC
 레벨 NSG(예: `aks-workbench`처럼 VM 하나에 직접 붙는 것)는 애초에 서브넷 그룹 키가 없다.
 이 경우 `nsg`는 **그 모듈 자신의 purpose 토큰**을 그대로 쓴다(다른 리소스와 동일 규칙으로
@@ -119,11 +119,9 @@
 | Microsoft Entra ID | 앱 등록 (`azuread_application`) | `entapp` | entapp-demo-prd-krc-gha-01 |
 | Managed Identity | 사용자 할당 관리 ID (`azurerm_user_assigned_identity`) | `id` | id-demo-prd-krc-aks-01 |
 
-⚠️ `entapp`은 **CAF 리소스 약어표에 없다**(그 표는 ARM provider namespace가 있는 리소스만
-다루는데, 앱 등록은 Microsoft Graph 객체라 ARM 리소스가 아니다). 이 카탈로그에서 CAF 표를
-그대로 못 따른 첫 사례이며, 후보 검토와 채택 근거는 아래 개정 이력 표 참고. Service
-Principal은 App Registration의 `displayName`을 그대로 물려받는 종속 객체라 별도 약어가
-없다(위 "종속 객체" 규약).
+⚠️ `entapp`은 **CAF 리소스 약어표에 없다.** 이 카탈로그에서 CAF를 그대로 못 따른 유일한
+약어이고, 그 이유와 기각한 후보는 위 「등재 근거」 표가 갖는다. Service Principal은 App
+Registration의 `displayName`을 그대로 물려받는 종속 객체라 별도 약어가 없다(위 「종속 객체」 규약).
 
 ⚠️ `id`는 이 저장소의 모듈이 만들지 않는다. `aks-cluster` 모듈은 identity도 role
 assignment도 만들지 않고 리소스 ID를 입력으로만 받는다(`docs/decisions.md`의 「모듈 경계」와

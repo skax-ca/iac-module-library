@@ -2,7 +2,7 @@
 
 **읽는 사람**: 배포 루트에서 모듈을 호출하려는 사람.
 
-모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 등재된 것은 AWS 4개이고 Azure는 2개다.
+모듈은 `modules/<provider>/<모듈명>/`에 둔다. 아래에 모듈마다 절이 하나씩 있다.
 
 핵심 세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
 크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인 밖에 있고
@@ -23,7 +23,7 @@
 | `naming` | `{workload, env, region_code}` | `Name` 태그를 모듈이 조합한다. 소비자가 약어를 쓰지 않는다 |
 | `purpose` | `string` | 이름의 용도 부분 (`main` · `web` · `worker`) |
 | `tags` | `map(string)` | 거버넌스 태그는 provider `default_tags`로 넣는다. 여기엔 추가분만 |
-| `<component>_enabled` | `bool` | kill switch. `false`면 아무것도 만들지 않는다 |
+| 킬 스위치 | `bool` | `false`면 그 모듈이 아무것도 만들지 않는다. 변수명은 모듈마다 다르다(`vpc_enabled` · `cluster_enabled` · `enabled`). 정확한 이름은 모듈 README |
 
 **이름 포맷**: `(리소스약어)-(workload)-(env)-(리전코드)-(purpose)-(일련번호)`
 예: `vpc-demo-prd-an2-main` · `eks-demo-prd-an2-main-01`

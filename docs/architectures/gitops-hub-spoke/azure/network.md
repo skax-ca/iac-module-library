@@ -23,15 +23,16 @@ AWS는 RAM으로 허브가 Transit Gateway를 공유하면 스포크가 자기 �
 
 | 방향 | 역할 | 스코프 | 무엇을 할 수 있나 |
 |---|---|---|---|
-| 허브 → 스포크 | `spoke-peer` | 스포크 워크로드 리소스 그룹 | VNet `peer/action`과 read, 클러스터 read, role assignment read·write·delete |
+| 허브 → 스포크 | `spoke-peer` | 스포크 워크로드 리소스 그룹 | VNet `peer/action`과 read. **role assignment 권한은 주지 않는다**(아래 ⛔) |
 | 스포크 → 허브 | `hub-peer` | 허브 워크로드 리소스 그룹 | **read 전용**. 스포크가 허브의 ArgoCD 신원을 조회한다 |
 
 ⚠️ **스코프가 VNet이 아니라 리소스 그룹이다.** 부트스트랩은 VNet apply보다 먼저 실행되므로 그
 시점에 좁힐 대상 리소스가 아직 없다(닭과 달걀). 대가는 허브 신원이 그 리소스 그룹에 나중에 생길
 리소스에도 같은 액션을 갖는다는 것이다.
 
-⚠️ **role assignment 권한은 리소스 read와 별개 축이다.** 클러스터를 조회할 권한만으로는 그
-클러스터 스코프에 role assignment를 만들지 못한다. plan은 통과하고 apply가 403으로 실패한다.
+⛔ **허브 신원에 스포크 리소스 그룹의 role assignment 쓰기 권한을 주지 않는다.** 그 권한이면 허브
+CI가 그 리소스 그룹에서 자신에게 어떤 역할이든 부여할 수 있다. 허브 ArgoCD의 스포크 클러스터
+권한은 스포크가 만든다([README.md](README.md) 「클러스터 등록」).
 
 ---
 
@@ -85,7 +86,7 @@ Subnet을 지원하지 않는다. 가시성 손실은 ACNS로 메울 수 있고,
 
 ## 5. 스포크 API 서버에 도달하기
 
-허브의 ArgoCD가 스포크 클러스터를 읽으려면 IAM 경계(1절의 role assignment)만으로는 부족하다.
+허브의 ArgoCD가 스포크 클러스터를 읽으려면 권한([README.md](README.md) 「클러스터 등록」의 role assignment)만으로는 부족하다.
 **패킷이 닿아야 한다.** private 클러스터의 API 서버 주소는 private DNS zone이 풀어 주는데, 그
 zone은 노드 VNet에만 링크돼 있어 허브에서는 이름이 풀리지 않는다.
 

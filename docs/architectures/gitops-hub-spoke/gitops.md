@@ -88,7 +88,8 @@ selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 
 ### 정책 셋
 
-addon마다 하나를 고른다. 조합하지 않는다.
+하나를 고른다. 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **각각 따로** 고른다
+(Karpenter가 그렇다). `targetRevision`이 `main`인 CR은 승격할 버전이 없어 staged를 고를 수 없다.
 
 | 정책 | 무엇으로 고르나 | 버전 |
 |------|----------|------|
@@ -102,11 +103,24 @@ addon마다 하나를 고른다. 조합하지 않는다.
 | 인프라를 직접 움직이는 컨트롤러인가 | **staged** | 노드를 만들고 트래픽을 받는다. 비운영에서 먼저 확인하고 승격한다 |
 | 팀이 필요할 때만 켜는 기능인가 | **opt-in** | 쓰는 클러스터가 정해져 있어 승격 단계를 나눌 대상이 적다 |
 
-| addon | 정책 |
-|-------|------|
-| `kyverno` · `kyverno-policies` · `kyverno-custom-policies` | uniform |
-| `karpenter` · `aws-load-balancer-controller` · `gateway-api-crds` | staged |
-| `keda` · `cluster-autoscaler` | opt-in |
+기준은 하나지만 **답은 클라우드마다 갈린다.** 관리형으로 받은 기능은 GitOps 계층에 없어 정책을
+고를 일이 없기 때문이다.
+
+| addon | AWS(EKS) | Azure(AKS) |
+|---|---|---|
+| Kyverno 3종(엔진·PSS 정책·커스텀 정책) | uniform | uniform |
+| 공유 Gateway CR | uniform | uniform |
+| Karpenter 컨트롤러 | **staged** | 없음(NAP가 배포·관리) |
+| Karpenter NodePool CR | uniform | **opt-in** |
+| ALB Controller | **staged** | 없음(App Routing) |
+| Gateway API 표준 CRD | **staged** | 없음(AKS 관리형) |
+| KEDA | **opt-in** | 없음(관리형 add-on) |
+| Cluster Autoscaler | **opt-in** | 없음(NAP를 쓴다) |
+
+**Azure에 staged가 하나도 없는 이유**는 인프라 컨트롤러를 전부 관리형으로 받기 때문이다.
+NAP·App Routing·관리형 KEDA가 컨트롤러를 가져갔고, 버전 승격도 AKS가 클러스터 업그레이드에
+맞춰 한다. GitOps로 조립한 것이 CR과 정책뿐이라 **티어로 나눌 대상 자체가 없다.** 관리형이 없는
+기능을 조립하게 되면 그때 selector를 건다. `tier` 라벨은 양 저장소에 이미 붙어 있다.
 
 ### uniform: 전 클러스터가 같은 버전
 

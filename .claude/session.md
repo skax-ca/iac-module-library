@@ -1,24 +1,14 @@
 # Session — iac-module-library
 
 ## 지난 세션 (2026-09-15)
-OMC 종속성을 걷어냈다. 이 저장소는 `.omc` 11개(899파일, 추적 0)를 `~/archive/`에 압축한 뒤 지웠고,
-로컬 유일본 `open-questions.md` 6건 중 기록이 없던 vnet `*_wo` 기각만 `vnet/main.tf` 주석으로,
-`.trivyignore.yaml`의 끊긴 설계 참조(ralplan v4)는 걷어냈다(`7de7df8`), `.gitignore`의
-`.omc`·opencode 규칙도 뺐다(`2657e1c`). 전역은 dotfiles에서 CLAUDE.md 18줄 축소(`88bb574`),
-bootstrap 9단계 OMC 잔재 정리(`abed034`, `36dd4f7`), opencode 동기화 제거(`39499f7`), audit hook
-제거(`3b7e901`), 스킬 3개(session-start·end, stop-slop)·hook 1개(permission-request)만 남김(`e006a3a`).
-에이전트 6개(OMC 5.4.0 복사본)와 insane-search 플러그인·gptaku 마켓플레이스도 지웠다.
+버전 한정 표현을 걷어냈다(`70243ce`). 할 일에 적힌 4곳을 전수 검색했더니 같은 성격이 3곳 더
+나왔다(cni_mode 표의 기본값 이력 2곳, aks-cluster `main.tf`의 끊긴 참조 "0.5.0 정정 주석").
+Windows 노드 풀·Flow Logs는 최신 태그에서도 지원하지 않아 "지원하지 않는다"로 썼다. description·
+주석만 바뀌어 main 직접 커밋했고 태그는 컷하지 않는다. 할 일에서 원격 Mac 정리와 다른 저장소 `.omc`
+정리는 이 저장소 소관이 아니라 뺐다. 전역 session-start·end 스킬이 `다음 할 일`에 번호를 붙여
+보여주게 고쳤다(dotfiles). `3cc5c6a`·`af98957`은 같은 작업 디렉토리의 다른 세션 커밋이다.
 
 ## 다음 할 일
-- [ ] 원격 Mac 세션 시작 시 bootstrap 9단계 출력(`[cleanup]`·`[warn]`) 확인. 플러그인은 머신별이라
-      `claude plugin uninstall insane-search@gptaku-plugins --scope user` ·
-      `claude plugin marketplace remove gptaku-plugins`를 직접 실행하고, `~/.claude/skills` 아래
-      링크가 아닌 디렉토리·`~/.config/opencode`도 직접 지운다
-- [ ] ⚠️ 다른 저장소 `.omc` 정리 — `aks-reference-infra`의 `hub-argocd-rbac-direction-flip.md`·
-      `dev-gitops-registration.md`는 gitignore된 유일본인데 `.tf` 주석·docs·`aks-platform-gitops`가
-      근거로 가리킨다. `eks-reference-infra` plans 2개도 유일본. curo는 팀 저장소라 따로 판단
-- [ ] `0.1.0` 버전 한정 표현 4곳 정리(writing-style 규칙 2): `module-catalog.md:130·247`,
-      `conventions.md:125`, `aks-cluster/variables.tf` node_pools
 - [ ] EKS·AKS 재구축 후 cluster Secret 등록 — ⚠️ teardown이 매칭 라벨을 **먼저 떼고** 파일을
       지웠다. git 이력에서 되살리면 라벨이 빠진 껍데기이고 그 상태로는 Application이 하나도
       안 생긴다. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·`karpenterNodeRole`,

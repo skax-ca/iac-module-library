@@ -89,7 +89,15 @@ selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 ### 정책 셋
 
 하나를 고른다. 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **각각 따로** 고른다
-(Karpenter가 그렇다). `targetRevision`이 `main`인 CR은 승격할 버전이 없어 staged를 고를 수 없다.
+(Karpenter·Kyverno가 그렇다). `targetRevision`이 `main`인 CR은 승격할 버전이 없어 staged를 고를
+수 없다.
+
+⚠️ **이 세 이름은 이 저장소가 붙인 것이다.** ArgoCD 용어도 업계 표준도 아니다. 비슷한 개념을
+업계에서는 ring 배포·staged rollout이라 부른다. 특히 ArgoCD ApplicationSet의
+[Progressive Syncs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Progressive-Syncs/)와
+혼동하지 않는다. 그것은 **같은 버전**을 그룹 순서대로 적용하는 기능이고(순서를 제어한다),
+여기 staged는 **버전 자체**를 티어마다 다르게 준다. 승격 판단이 런타임이 아니라 커밋에 있다는
+것이 이 방식의 요점이다. 두 저장소 모두 Progressive Syncs를 쓰지 않는다.
 
 | 정책 | 무엇으로 고르나 | 버전 |
 |------|----------|------|
@@ -97,30 +105,44 @@ selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 | **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 |
 | **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 |
 
-| 이 addon이 | 정책 | 이유 |
+판정 단위는 **addon이 아니라 ApplicationSet**이다. 한 addon이 컨트롤러와 CR로 나뉘면 각각 답이
+다를 수 있다.
+
+| 이 ApplicationSet이 | 정책 | 이유 |
 |-----------|------|------|
-| 앱팀을 제약하는 가드레일인가 | **uniform** | 클러스터마다 정책 버전이 다르면 통과 기준이 갈린다. 차이 자체가 위험이다 |
-| 인프라를 직접 움직이는 컨트롤러인가 | **staged** | 노드를 만들고 트래픽을 받는다. 비운영에서 먼저 확인하고 승격한다 |
+| 인프라를 직접 움직이는 **컨트롤러**인가 | **staged** | 노드를 만들고 트래픽을 받는다. 깨지면 클러스터가 망가지므로 비운영에서 먼저 확인하고 승격한다 |
+| 컨트롤러와 **버전이 묶인** 업스트림 차트인가 | **컨트롤러를 따라간다** | 짝을 깨면 업스트림이 릴리스하지 않는 조합이 된다 |
 | 팀이 필요할 때만 켜는 기능인가 | **opt-in** | 쓰는 클러스터가 정해져 있어 승격 단계를 나눌 대상이 적다 |
+| 그 밖(주로 이 저장소가 소유한 CR·정책) | **uniform** | `main` 핀이라 승격할 버전이 없다. 클러스터 간 차이 자체가 위험이기도 하다 |
+
+⚠️ *"가드레일이니 uniform"* 은 **정책 내용**에만 해당한다. 정책 **엔진**은 가드레일이면서 동시에
+admission webhook 컨트롤러라 깨지면 그 클러스터의 모든 배포가 막힌다. 폭발 반경으로 보면 노드
+프로비저너보다 크다. 그래서 Kyverno는 엔진과 PSS 정책이 staged이고, 우리가 만든 커스텀 정책만
+uniform이다.
 
 기준은 하나지만 **답은 클라우드마다 갈린다.** 관리형으로 받은 기능은 GitOps 계층에 없어 정책을
 고를 일이 없기 때문이다.
 
-| addon | AWS(EKS) | Azure(AKS) |
-|---|---|---|
-| Kyverno 3종(엔진·PSS 정책·커스텀 정책) | uniform | uniform |
-| 공유 Gateway CR | uniform | uniform |
-| Karpenter 컨트롤러 | **staged** | 없음(NAP가 배포·관리) |
-| Karpenter NodePool CR | uniform | **opt-in** |
-| ALB Controller | **staged** | 없음(App Routing) |
-| Gateway API 표준 CRD | **staged** | 없음(AKS 관리형) |
-| KEDA | **opt-in** | 없음(관리형 add-on) |
-| Cluster Autoscaler | **opt-in** | 없음(NAP를 쓴다) |
+| ApplicationSet | `targetRevision` | AWS(EKS) | Azure(AKS) |
+|---|---|---|---|
+| Kyverno 엔진 | 버전 핀 | **staged** | uniform |
+| Kyverno PSS 정책(업스트림 차트) | 버전 핀(엔진과 동일) | **staged** | uniform |
+| Kyverno 커스텀 정책 | `main` | uniform | uniform |
+| 공유 Gateway CR | `main` | uniform | uniform |
+| Karpenter 컨트롤러 | 버전 핀 | **staged** | 없음(NAP가 배포·관리) |
+| Karpenter NodePool CR | `main` | uniform | **opt-in** |
+| ALB Controller | 버전 핀 | **staged** | 없음(App Routing) |
+| Gateway API 표준 CRD | 버전 핀 | **staged** | 없음(AKS 관리형) |
+| KEDA | 버전 핀 | **opt-in** | 없음(관리형 add-on) |
+| Cluster Autoscaler | 버전 핀 | **opt-in** | 없음(NAP를 쓴다) |
 
-**Azure에 staged가 하나도 없는 이유**는 인프라 컨트롤러를 전부 관리형으로 받기 때문이다.
-NAP·App Routing·관리형 KEDA가 컨트롤러를 가져갔고, 버전 승격도 AKS가 클러스터 업그레이드에
-맞춰 한다. GitOps로 조립한 것이 CR과 정책뿐이라 **티어로 나눌 대상 자체가 없다.** 관리형이 없는
-기능을 조립하게 되면 그때 selector를 건다. `tier` 라벨은 양 저장소에 이미 붙어 있다.
+`targetRevision` 열이 답의 절반을 정한다. `main` 핀은 승격할 버전이 없어 staged를 고를 수 없고,
+버전 핀을 가진 것만 티어로 나눌지 판단한다.
+
+**Azure 열에 "없음"이 많은 이유**는 노드와 트래픽을 다루는 컨트롤러를 전부 관리형으로 받기
+때문이다. NAP·App Routing·관리형 KEDA가 그것을 가져갔고, 버전 승격도 AKS가 클러스터
+업그레이드에 맞춰 한다. 그 축에서는 GitOps로 조립할 것이 없으니 티어로 나눌 대상도 없다.
+관리형이 없는 기능을 조립하게 되면 그때 selector를 건다. `tier` 라벨은 양 저장소에 이미 붙어 있다.
 
 ### uniform: 전 클러스터가 같은 버전
 

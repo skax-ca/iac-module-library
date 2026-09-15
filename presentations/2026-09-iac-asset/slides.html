@@ -860,14 +860,14 @@ ref=<span class="hl">vpc-v0.5.0</span></div>
         <span class="tag" style="color:var(--ok)">uniform · 전 클러스터</span>
         <h3>같은 버전을 모두에게</h3>
         <p>라벨의 <strong>존재 여부만</strong> 봅니다. 클러스터를 하나 등록하는 행위 자체가 곧 배포가 됩니다.</p>
-        <div class="pre"><span class="c"># kyverno.yaml</span>
+        <div class="pre"><span class="c"># gateway.yaml</span>
 generators:
   - clusters:
       <span class="hl">selector</span>:
         matchExpressions:
           - key: environment
             operator: <span class="hl">Exists</span></div>
-        <p >정책 엔진이 여기입니다. 클러스터마다 버전이 다르면 <strong>통과 기준도 달라집니다.</strong></p>
+        <p >우리가 소유한 CR·정책이 여기입니다. 버전이 <code>main</code> 하나라 <strong>나눌 것이 없습니다.</strong></p>
       </div>
       <div class="card card--ui">
         <span class="tag tag--ui">staged · 티어별 승격</span>
@@ -883,7 +883,7 @@ targetRevision: 1.15.0
       <span class="hl">selector</span>:
         matchLabels: {tier: <span class="hl">prd</span>}
 targetRevision: 1.14.0</div>
-        <p >노드를 만들고 트래픽을 받는 컨트롤러와 그 CRD가 여기입니다. Karpenter, ALB Controller, Gateway API CRD.</p>
+        <p >깨지면 클러스터가 망가지는 것이 여기입니다. Karpenter, ALB Controller, Gateway API CRD, 그리고 <strong>Kyverno 엔진</strong>(웹훅이 죽으면 모든 배포가 막힙니다).</p>
       </div>
       <div class="card card--flat">
         <span class="tag tag--dim">opt-in · 라벨 구독</span>

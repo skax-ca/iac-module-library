@@ -160,7 +160,7 @@ flowchart TB
 직접 Git을 당겨오기(pull) 때문이다. Kyverno 버전을 올리는 일은 `platform-gitops`에 커밋 한
 번이고, 대상 클러스터가 자동으로 맞춰진다.
 
-eks-platform-gitops의 baseline ApplicationSet(kyverno.yaml)은 라벨의 존재 여부만 본다.
+eks-platform-gitops의 baseline ApplicationSet 중 `gateway.yaml`은 라벨의 존재 여부만 본다.
 
 ```yaml
 generators:
@@ -176,14 +176,20 @@ generators:
 
 | 정책 | selector | 버전 | 쓰는 곳 |
 |---|---|---|---|
-| uniform | `environment` 존재 여부 | 전 클러스터 하나 | 정책·가드레일(Kyverno). 클러스터 간 차이가 곧 위험이다 |
-| staged | `tier` 값별로 ApplicationSet 분리 | 티어마다 하나 | 컨트롤러와 그 CRD(Karpenter·ALB Controller·Gateway API CRD). 검증 후 승격한다 |
+| uniform | `environment` 존재 여부 | 전 클러스터 하나 | 우리가 소유한 CR·정책(공유 Gateway, NodePool, 커스텀 ClusterPolicy). `main` 핀이라 나눌 버전이 없다 |
+| staged | `tier` 값별로 ApplicationSet 분리 | 티어마다 하나 | 깨지면 클러스터가 망가지는 것(Karpenter·ALB Controller·Gateway API CRD·Kyverno 엔진). 검증 후 승격한다 |
 | opt-in | `addon-<name>` 라벨 값 | 구독 클러스터 하나 | 카탈로그(KEDA). 팀이 필요할 때 켠다 |
 
 staged는 같은 addon 파일 안에 **버전 핀을 가진** ApplicationSet을 티어 수만큼 두고 각각에
 버전을 단다. `targetRevision`이 `main`인 블록은 나누지 않는다. 저장소 최신을 따라가는 참조라
 두 벌로 쪼개도 값이 항상 같아 승격이 기록되지 않기 때문이다. Karpenter의 NodePool CR이
 여기 해당한다.
+
+정책 엔진이 staged인 것이 얼핏 어긋나 보인다. 정책 **내용**은 클러스터 간 차이가 곧 통과
+기준의 차이라 uniform이 맞다. 그러나 **엔진**은 admission webhook이라 깨지면 그 클러스터의
+모든 배포가 막힌다. 폭발 반경으로는 노드 프로비저너보다 크다. 그래서 엔진과 PSS 정책 차트를
+staged로 두고(둘은 같은 번호로만 릴리스되어 짝으로 움직인다), 우리가 직접 만든 커스텀 정책만
+uniform으로 남긴다. 판정 단위가 addon이 아니라 ApplicationSet인 이유가 이것이다.
 
 nonprd를 먼저 올려 검증하고, 통과하면 prd를 같은 값으로 올린다. 두 `targetRevision`의
 차이가 승격이 어디까지 갔는지를 저장소에 기록한다. 파일에 적힌 차이만 의도한 것이고,

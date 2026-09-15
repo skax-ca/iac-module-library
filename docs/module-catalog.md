@@ -5,7 +5,7 @@
 모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 등재된 것은 AWS 4개이고 Azure는 2개다.
 
 핵심 세 모듈이 있고, 순서대로 의존한다. `vpc` -> `eks-cluster` -> `workbench`.
-크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인과 독립적으로 존재하며
+크로스 계정 시나리오에서만 쓰는 `cross-account-trust-role`은 이 체인 밖에 있고
 `eks-cluster`의 `access_entries`에 출력을 연결한다.
 
 각 모듈의 입력·출력·리소스 전체 목록은 그 모듈의 README(terraform-docs 자동 생성, CI가 drift를
@@ -58,9 +58,9 @@ EKS 클러스터 · 노드그룹 · managed addon · IAM · Access Entry.
 허브 계정에서만 켠다. 스포크 쪽은 `cross-account-trust-role` 모듈이 소유한다.
 변수·출력 전체는 위 README 링크를 본다.
 
-⚠️ 이 변수들은 **IAM 경계만** 만든다. private-only 엔드포인트에서 허브가 스포크에 실제로
+⚠️ 이 변수들은 **IAM 경계만** 만든다. private-only 엔드포인트에서 허브의 패킷이 스포크에
 도달하려면 Transit Gateway가 **별도로** 필요하다(VPC Peering은 CIDR 3계층의 pod-dup 대역
-재사용 설계와 구조적으로 충돌해 쓸 수 없다).
+재사용 설계와 충돌해 쓸 수 없다).
 [network.md](architectures/gitops-hub-spoke/aws/network.md)의 「네트워크 경로」 절 참조.
 이 모듈은 그 리소스를 만들지 않는다(재사용 모듈로 두지 않기로 한 이유도 그 절에 있다).
 
@@ -73,7 +73,7 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 
 전체 계약(입력·출력·리소스·부여되는 IAM 권한·부팅 후 상태) → [`modules/aws/workbench/README.md`](../modules/aws/workbench/README.md)
 
-### 클러스터 접근 3층: 누가 무엇을 소유하는가
+### 클러스터 접근 3층의 소유 모듈
 
 | 층 | 무엇 | 소유 모듈 |
 |:--:|------|----------|
@@ -92,9 +92,9 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 ## `cross-account-trust-role`
 
 스포크 계정이 소유하는 크로스 계정 IAM 신뢰 Role 하나만 만드는 얇은 모듈. 허브의 특정 IAM
-Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이지 않는다. 실제 Kubernetes
-권한은 스포크의 `eks-cluster` 모듈 `access_entries`가 결정한다(아래 「K8s 권한 부여 방식」
-참조). `vpc`/`eks-cluster`/`workbench` 체인과는 독립적이며, 크로스 계정 시나리오
+Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 붙이지 않는다. Kubernetes 권한은
+스포크의 `eks-cluster` 모듈 `access_entries`가 결정한다(아래 「K8s 권한 부여 방식」 참조).
+`vpc`/`eks-cluster`/`workbench` 체인 밖에 있으며, 크로스 계정 시나리오
 ([network.md](architectures/gitops-hub-spoke/aws/network.md)에서 허브 분리를 택한 경우)에서만 쓴다.
 
 전체 계약(입력·출력) → [`modules/aws/cross-account-trust-role/README.md`](../modules/aws/cross-account-trust-role/README.md)
@@ -115,8 +115,8 @@ Role만 `sts:AssumeRole`을 허용하고, 그 밖의 AWS 권한은 전혀 붙이
 | `kubernetes_groups` + K8s RBAC | `kubernetes_groups` | 네 정책 어느 것도 못 주는 세밀한 범위(특정 네임스페이스 조합·커스텀 verb 등)가 필요한 경우만. `ClusterRole`/`ClusterRoleBinding`은 이 모듈도 `eks-cluster`도 만들지 않는다. GitOps 저장소(`eks-platform-gitops`)가 소유한다 |
 
 ⚠️ access policy로 준 권한은 `kubectl auth can-i --list`에 나타나지 않는다. AWS 전용 API
-(`aws eks list-associated-access-policies`)로만 조회된다. K8s 네이티브 도구로 권한을 감사해야
-하는 클러스터라면 이 제약을 감안해 `kubernetes_groups`를 택한다.
+(`aws eks list-associated-access-policies`)로만 조회할 수 있다. K8s 네이티브 도구로 권한을
+감사해야 하는 클러스터라면 이 제약을 감안해 `kubernetes_groups`를 택한다.
 
 ---
 
@@ -136,8 +136,8 @@ Azure 예약 이름 서브넷(`AzureBastionSubnet` · `GatewaySubnet` · `AzureF
 
 ### `vpc`와의 출력 비대칭
 
-Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나다. 이 차이가 출력 타입에
-그대로 반영된다.
+Azure 서브넷은 존(zone)에 속하지 않고 vnet당 NAT Gateway가 하나다. 출력 타입이 이 차이를
+그대로 따른다.
 
 | 출력 | `modules/aws/vpc` | `vnet` | 사유 |
 |---|---|---|---|
@@ -159,9 +159,9 @@ Auto Provisioning, 옵트인, 기본 꺼짐). `modules/azure/aks-cluster/`에 �
 | 항목 | 내용 |
 |---|---|
 | 노드 서브넷 | `vnet`의 `subnet_ids_by_group["aks-node"]` → `node_subnet_id` |
-| Pod 서브넷 | `cni_mode`에 따라 완전히 달라진다. 상세는 아래 「Pod 네트워킹, `cni_mode`별 VNet 구조」 절 참조 |
+| Pod 서브넷 | `cni_mode`에 따라 달라진다. 상세는 아래 「Pod 네트워킹, `cni_mode`별 VNet 구조」 절 참조 |
 | 아웃바운드 | `vnet`의 `nat_gateway_enabled` + `nat_routed = true` ↔ `outbound_type = "userAssignedNATGateway"`. ⚠️ 완전한 요구사항과 Pod 서브넷에도 `nat_routed`가 필요한지는 규정하지 않는다(구현 라운드에서 실측) |
-| 라우팅 테이블 | 불필요하다. UDR 요구는 kubenet 전용이고 Azure CNI에는 적용되지 않는다. `vnet`의 `route_table_enabled`는 AKS 때문이 아니라 운영 라우트(UDR 오버라이드)가 별도로 필요할 때만 켠다 |
+| 라우팅 테이블 | 불필요하다. UDR 요구는 kubenet 전용이고 Azure CNI에는 적용되지 않는다. `vnet`의 `route_table_enabled`는 운영 라우트(UDR 오버라이드)가 따로 필요할 때만 켠다 |
 | 서브넷 위임 | ⛔ AKS 노드 풀 서브넷은 위임된 서브넷일 수 없다. `vnet`의 `subnet_groups`에서 그 그룹에 `delegations`를 쓰지 않는다 |
 | NSG | `vnet`의 `nsg_enabled`로 만드는 빈 NSG는 안전하다. AKS는 서브넷 NSG를 만들지도 수정하지도 않으며, 규칙을 얹을 때 노드 CIDR 내부 트래픽 허용을 보장하는 것은 소비자 책임이다 |
 | 예약 CIDR | pod/service/VNet 대역에 `169.254.0.0/16` · `192.0.2.0/24` · `172.30.0.0/16` · `172.31.0.0/16`를 쓸 수 없다 |
@@ -175,10 +175,9 @@ Auto Provisioning, 옵트인, 기본 꺼짐). `modules/azure/aks-cluster/`에 �
 ②를 건너뛰면 ③은 성공하고 노드만 조용히 실패한다. role assignment가 모듈 밖에 있어 plan
 시점에 이 실패를 잡을 수 없다.
 
-ℹ️ `identity_id`가 받는 권한은 이 `Network Contributor`(소비자가 명시적으로 부여) 외에
-하나 더 있다(노드 리소스 그룹 `Contributor`, ingress Load Balancer·CSI 드라이버 등 관리
-용도). 이 권한은 클러스터 생성 시 Azure가 자동으로 부여해 별도 조치가 필요 없다. 두 권한의 스코프·
-용도 비교는 [`modules/azure/aks-cluster/README.md`](../modules/azure/aks-cluster/README.md)
+`identity_id`가 받는 권한은 이 `Network Contributor`(소비자가 부여) 외에 하나 더 있다(노드
+리소스 그룹 `Contributor`, ingress Load Balancer·CSI 드라이버 등 관리 용도). 이 권한은 클러스터
+생성 시 Azure가 부여하므로 소비자가 할 일이 없다. 두 권한의 스코프·용도 비교는 [`modules/azure/aks-cluster/README.md`](../modules/azure/aks-cluster/README.md)
 「`identity_id`가 받는 권한은 두 종류다」 절을 본다.
 
 **만들지 않는 것**: 리소스 그룹 · VNet · 모든 서브넷(Pod 서브넷 포함) · user-assigned
@@ -186,9 +185,8 @@ identity · role assignment · private DNS zone · 애드온 · 크로스 구독
 
 ### Pod 네트워킹, `cni_mode`별 VNet 구조
 
-`aks-cluster`의 `cni_mode`(`pod_subnet`·`node_subnet`·`overlay`)는 클러스터 리소스의 필드
-하나가 아니라, 그 값을 소비하는 `vnet` 루트의 **주소 공간 설계 자체**를 바꾼다. 세 모드가
-요구하는 VNet 구조는 다음과 같이 서로 다르다.
+`aks-cluster`의 `cni_mode`(`pod_subnet`·`node_subnet`·`overlay`)는 그 값을 소비하는 `vnet`
+루트의 **주소 공간 설계**까지 바꾼다. 세 모드가 요구하는 VNet 구조는 서로 다르다.
 
 | `cni_mode` | VNet `address_space` | `subnet_groups` | `aks-node` 사이징 |
 |---|---|---|---|
@@ -218,21 +216,20 @@ identity를 SNAT 이전 지점에서 캡처해 이 손실을 다른 방식으로
 개별 Pod IP 대신 워크로드·네임스페이스 단위로 뭉친다). 전체 근거는
 `modules/azure/aks-cluster/README.md`「네트워킹」절을 본다.
 
-⚠️ **이 표는 소비자 root(`aks-reference-infra`)의 설계 문제이지 `vnet` 모듈의 계약 문제가
-아니다.** `vnet`의 `address_space`(`list(string)`)·`subnet_groups`(`map(object)`)는 CNI를
-전혀 모르고 개수·키 이름에 아무 제약이 없다(모듈 소스에 관련 `validation` 블록 자체가 없음,
-실측 확인). 즉 `cni_mode`를 바꾸는 작업은 **소비 root(`live/hub/networking`·
-`live/dev/networking`·`live/hub/aks`)만 고치면 된다**. `iac-module-library`의 `vnet` 모듈
-자체는 태그를 새로 낼 이유가 없다.
+⚠️ **이 표는 소비자 root(`aks-reference-infra`)의 설계 문제다.** `vnet`의
+`address_space`(`list(string)`)·`subnet_groups`(`map(object)`)는 CNI를 모르고 개수·키 이름에
+제약이 없다(모듈 소스에 관련 `validation` 블록이 없다). `cni_mode`를 바꾸는 작업은
+**소비 root(`live/hub/networking`·`live/dev/networking`·`live/hub/aks`)만 고치면 된다**.
+`iac-module-library`의 `vnet` 모듈은 태그를 새로 낼 이유가 없다.
 
 ⚠️ **`aks-reference-infra`의 hub·dev는 아직 옛 기본값(`pod_subnet`) 전제로 배선돼 있다.**
 `live/hub/networking`·`live/dev/networking`이 이미 secondary `address_space`(hub
 `100.64.0.0/16`, dev `100.65.0.0/16`)를 VNet에 붙여둔 상태다(`aks-pod` 서브넷 자체는
 아직 안 만듦). `cni_mode` 기본값이 `"overlay"`로 바뀐 지금 이 secondary CIDR은 죽은
-대역이 된다(지우지 않아도 안전하다, 아무 서브넷도 참조 안 함). 새로 `live/hub/aks`를
-설계할 때 굳이 `cni_mode = "pod_subnet"`으로 명시해서 이 CIDR을 쓸 이유가 없다면 기본값
-(`"overlay"`)을 그대로 두고 이 secondary CIDR 자체를 정리(제거)할지 남겨둘지(향후 Pod
-Subnet 재검토 대비)는 그 repo 세션에서 판단할 문제다.
+대역이 된다(아무 서브넷도 참조하지 않으므로 지우지 않아도 안전하다). 새로 `live/hub/aks`를
+설계할 때 `cni_mode = "pod_subnet"`을 명시해 이 CIDR을 쓸 이유가 없다면 기본값
+(`"overlay"`)을 그대로 두고, 이 secondary CIDR을 제거할지 남겨둘지(향후 Pod Subnet 재검토
+대비)는 그 저장소에서 정한다.
 
 ### `eks-cluster`와의 비대칭
 
@@ -243,8 +240,8 @@ Subnet 재검토 대비)는 그 repo 세션에서 판단할 문제다.
 | 애드온 | baseline 맵 + merge + 버전 핀 | 없음 | AKS는 애드온이 맵이 아니라 개별 블록이라 대응 문제 자체가 없다 |
 | 삭제 보호 | AWS 네이티브 | `prevent_destroy` | AKS에는 네이티브 삭제 보호 인자가 없다 |
 | API 엔드포인트 | public·private 독립 토글 | `private_cluster_enabled` 하나(변경 시 재생성) | AKS는 공개·비공개를 값 하나로 토글한다 |
-| 크로스 계정/구독 | 있음 | 없음(스코프 밖) | 본질적으로 role assignment라 이 모듈이 만들 수 없다 |
-| IAM/role 리소스 | 실제로 만든다(role·attachment·pod-identity) | 하나도 만들지 않는다 | 위 「신원」 행과 같은 이유(권한 봉투) |
+| 크로스 계정/구독 | 있음 | 없음(스코프 밖) | role assignment라 이 모듈이 만들 수 없다 |
+| IAM/role 리소스 | 만든다(role·attachment·pod-identity) | 하나도 만들지 않는다 | 위 「신원」 행과 같은 이유(권한 봉투) |
 | Pod 네트워킹 | `pod_subnet_ids` 입력(custom networking) | `cni_mode`로 선택(`overlay`·`pod_subnet`·`node_subnet`, 기본 `overlay`) | Microsoft 공식 권고가 Overlay를 일반 기본으로 명시한다(plan-pod-networking·AKS baseline). `pod_subnet`은 NAP 자체가 미지원(karpenter-provider-azure#1352)이라 기본에서 제외했다 |
 | 노드 그룹 키 문자집합 | 제약 없음 | 소문자+숫자만, 8자 이하, 숫자로 시작 불가 | 노드 풀 이름 물리 제약 |
 | Windows 노드 | 지원 | `0.1.0` 스코프 밖 | 이름 한도 6자 |
@@ -292,6 +289,6 @@ private DNS zone link · AKS 클러스터 자체.
 
 → [`modules/aws/eks-cluster/examples/enterprise/`](../modules/aws/eks-cluster/examples/enterprise/)
 
-배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은 이 저장소가 아니라
+배포 CI/CD 규칙(plan/apply·승인 게이트·자격증명)은
 [gitops-hub-spoke/README.md](architectures/gitops-hub-spoke/README.md)의 「실행 기반」 절이 소유한다
 (클라우드별 자격증명·state는 그 아래 클라우드 문서가 갖는다).

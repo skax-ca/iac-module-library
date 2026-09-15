@@ -58,12 +58,12 @@
 | `aws_lb_listener` (ALB 리스너) | `<alb 이름>-listener` | `alb-demo-prd-an2-ext-01-listener` |
 | `aws_lb_listener_rule` (리스너 규칙) | `<alb 이름>-rule` | `alb-demo-prd-an2-ext-01-rule` |
 
-- **왜 상속인가**: 종속 객체는 부모 없이 존재할 수 없고 콘솔·API에서도 부모 하위에 표시된다.
+- **상속하는 이유**: 종속 객체는 부모 없이 존재할 수 없고 콘솔·API에서도 부모 하위에 표시된다.
   IAM inline 정책, ALB 리스너·규칙(둘 다 `name` 인자가 없어 `Name` 태그로만 구분된다)이 그 예다.
   독립 약어를 주면 이름만으로 부모를 알 수 없어 오히려 추적성이 떨어진다.
 - ⚠️ **관리형 정책(`aws_iam_policy`)은 독립 자원이므로 `iamp`를 쓴다.** 여러 role에 붙고 자체 ARN을 갖는다.
-- ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 따라서 이 이름은 `Name` 태그가 아니라
-  리소스의 `name` 인자 자체이고, 그것이 곧 식별자다(제약 리소스 취급: [conventions.md](../../conventions.md)).
+- ⚠️ inline 정책은 **`tags`를 지원하지 않는다.** 이 이름은 리소스의 `name` 인자 자체이고,
+  그것이 곧 식별자다(제약 리소스 취급: [conventions.md](../../conventions.md)).
 
 ### 개정 이력 (승계 이후 추가된 약어)
 

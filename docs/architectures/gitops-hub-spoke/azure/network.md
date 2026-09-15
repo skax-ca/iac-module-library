@@ -1,6 +1,6 @@
 # 허브-스포크 연결과 Pod 네트워킹 (Azure)
 
-**읽는 사람**: 허브와 스포크를 실제로 잇고, Pod 대역을 정하는 사람.
+**읽는 사람**: 허브와 스포크를 잇고, Pod 대역을 정하는 사람.
 
 AWS의 대응 문서는 [../aws/network.md](../aws/network.md)다. 허브를 어디에 둘지 판정하는 기준은
 그 문서와 같고(워크로드가 여러 구독에 걸치는가·격리 요건·장애 반경), 여기서는 **연결 수단이
@@ -16,10 +16,10 @@ AWS는 RAM으로 허브가 Transit Gateway를 공유하면 스포크가 자기 �
 
 반대 방향(스포크 CI가 연결을 소유)도 검토했으나 기각했다. 그러려면 스포크 CI가 허브의 공유 컨트롤
 플레인에 쓰기 권한(`hubVirtualNetworkConnections/write`)을 가져야 해서, 허브가 스포크 VNet에
-`peer/action`을 갖는 것보다 훨씬 위험하다.
+`peer/action`을 갖는 것보다 더 위험하다.
 
-**대가**: 스포크를 추가할 때마다 부트스트랩을 한 번 더 돌려 권한을 부여해야 한다. 자동으로
-상속되지 않는다.
+**대가**: 스포크를 추가할 때마다 부트스트랩을 한 번 더 돌려 권한을 부여해야 한다. 권한이 새
+스포크로 상속되지 않는다.
 
 | 방향 | 역할 | 스코프 | 무엇을 할 수 있나 |
 |---|---|---|---|
@@ -51,13 +51,13 @@ AWS는 RAM으로 허브가 Transit Gateway를 공유하면 스포크가 자기 �
 크로스 구독이면 **대상 구독을 향한 별칭 provider**로 같은 태그 조회를 한다.
 
 `azurerm_resources`는 대상이 없으면 에러가 아니라 **빈 리스트**를 반환한다. 그래서 스포크가 아직
-없어도 허브 apply는 연결 0개로 정상 종료하고, 스포크가 생긴 뒤 허브를 한 번 더 apply하면 자동으로
+없어도 허브 apply는 연결 0개로 정상 종료하고, 스포크가 생긴 뒤 허브를 한 번 더 apply하면
 발견한다. AWS에서 허브가 복수형 데이터 소스로 attachment를 전부 나열하는 것과 같은 성질이다.
 
-⛔ **CI 변수로 스포크 값을 주입하지 않는다.** 초기에는 스포크 VNet ID를 `workflow_dispatch` 입력으로
-넣었는데, push로 도는 plan이나 입력을 빠뜨린 dispatch에서 그 값이 비어 **연결이 destroy로 잘못
-계획되는** 위험이 있었다. 태그 조회로 바꿔 그 경로 자체를 없앴다. 필요한 것은 스포크 구독의
-`virtualNetworks/read` 하나뿐이다.
+⛔ **CI 변수로 스포크 값을 주입하지 않는다.** 스포크 VNet ID를 `workflow_dispatch` 입력으로
+받으면, push로 도는 plan이나 입력을 빠뜨린 dispatch에서 그 값이 비어 **연결이 destroy로 잘못
+계획된다.** 태그 조회에는 그 경로 자체가 없다. 필요한 것은 스포크 구독의 `virtualNetworks/read`
+하나뿐이다.
 
 ---
 
@@ -69,18 +69,17 @@ Pod IP는 **VNet 밖 오버레이 대역**에서 뜬다. VNet에 Pod 전용 seco
 | 항목 | 내용 |
 |---|---|
 | 클러스터 간 중복 | **허용된다.** 오버레이가 클러스터마다 독립이라 허브와 스포크가 같은 Pod CIDR을 써도 된다(Microsoft 공식). AWS에서 pod-dup 대역을 모든 VPC가 재사용하는 것과 목적이 같다 |
-| 라우팅 노출 | 없다. Pod 트래픽은 클러스터 밖으로 나갈 때 노드 IP로 SNAT된다. 그래서 vWAN 라우팅에서 Pod 대역을 고려할 필요가 없다 |
+| 라우팅 노출 | 없다. 클러스터 밖으로 나가는 Pod 트래픽은 노드 IP를 달고 나간다(SNAT). 그래서 vWAN 라우팅에서 Pod 대역을 고려할 필요가 없다 |
 | 대가 | 그 SNAT 때문에 NSG 플로우 로그에서 Pod를 식별할 수 없다. AKS 유료 기능(ACNS의 Container Network Observability, `--enable-acns`로 켜는 클러스터 기능)이 eBPF로 SNAT 이전 지점에서 잡아 다른 방식으로 메운다 |
 | service CIDR | 지정하지 않으면 provider 기본값을 쓴다. 클러스터 로컬 값이라 중복이 무해하다. 다만 이 축도 ForceNew라 나중에 명시하려면 클러스터 재생성이다 |
 
-⛔ **AWS의 Pod 대역 설계를 그대로 옮기지 않는다.** 이 저장소는 한때 Azure CNI Pod Subnet(플랫,
-SNAT 없음)을 골라 VNet에 Pod 전용 secondary 대역을 예약했다. Pod 단위 NSG 플로우 로그 가시성을
-지키려는 목적이었고, AWS custom networking과 모양을 맞춘 선택이기도 했다. NAP이 Pod Subnet을
-지원하지 않는다는 것이 확정되면서 Overlay로 되돌렸다. 가시성 손실은 실재하지만 ACNS로 메울 수
-있고, NAP 호환과 서브넷 IP 절약이 그 손실을 상쇄한다고 판단했다.
+⛔ **AWS의 Pod 대역 설계를 그대로 옮기지 않는다.** Azure CNI Pod Subnet(플랫, SNAT 없음)은
+Pod 단위 NSG 플로우 로그 가시성을 지키고 AWS custom networking과 모양이 맞지만, NAP이 Pod
+Subnet을 지원하지 않는다. 가시성 손실은 ACNS로 메울 수 있고, NAP 호환과 서브넷 IP 절약이 그
+손실보다 크다.
 
 🔴 `cni_mode`·`pod_cidr`·`private_cluster_enabled`는 `network_profile` 블록 전체가 ForceNew다.
-**첫 apply가 사실상 최종 선택이다.**
+**첫 apply가 최종 선택이다.**
 
 ---
 
@@ -95,7 +94,7 @@ zone은 노드 VNet에만 링크돼 있어 허브에서는 이름이 풀리지 �
 | 방법 | 내용 |
 |---|---|
 | private DNS zone을 허브 VNet에도 링크 | zone 링크를 스포크마다 만들어야 한다 |
-| **공개 FQDN을 켠다**(`private_cluster_public_fqdn_enabled`) | 공개 DNS가 **private IP를 그대로 반환**한다. 이름만 공개고 주소는 사설이라, 실제 도달은 vWAN 라우팅이 있는 쪽에서만 된다. zone 링크가 필요 없다 |
+| **공개 FQDN을 켠다**(`private_cluster_public_fqdn_enabled`) | 공개 DNS가 **private IP를 그대로 반환**한다. 이름만 공개고 주소는 사설이라, 도달은 vWAN 라우팅이 있는 쪽에서만 된다. zone 링크가 필요 없다 |
 
-이 저장소는 두 번째를 쓴다. 공개 FQDN은 **이름 해석만 공개**이지 엔드포인트를 공개로 바꾸지
-않는다. 클러스터를 재생성하면 FQDN의 무작위 접미사가 바뀌므로 등록 Secret을 갱신해야 한다.
+이 저장소는 두 번째를 쓴다. 공개 FQDN은 **이름 해석만 공개**한다. 엔드포인트는 사설로 남는다.
+클러스터를 재생성하면 FQDN의 무작위 접미사가 바뀌므로 등록 Secret을 갱신해야 한다.

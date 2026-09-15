@@ -4,11 +4,11 @@
 
 ---
 
-## 1. 이 문서 집합이 무엇인가: 레퍼런스이지 실제 배포가 아니다
+## 1. 이 저장소는 배포하지 않는다
 
 이 저장소(`iac-module-library`)는 **모듈과 설계의 SSOT**(Single Source of Truth, 단일 진실 공급원)다. `.tf` 코드와 `docs/`의 나머지 문서는
-고객사 프로젝트가 인프라를 세울 때 따르는 **패턴**을 담을 뿐, 우리 팀이 실제로 운영 중인
-계정·저장소 그 자체가 아니다. 이 저장소는 배포하지 않는다.
+고객사 프로젝트가 인프라를 세울 때 따르는 **패턴**이다. 우리 팀이 운영 중인 계정·저장소는
+여기 없다.
 
 전체 그림은 [`architectures/gitops-hub-spoke/README.md`](architectures/gitops-hub-spoke/README.md), repo 간 역할 분담은 `CLAUDE.md`를 본다.
 
@@ -22,8 +22,8 @@
 | Team | `iac` (slug `iac`, privacy **closed**) |
 | 이 저장소의 Team 내 권한 | `maintain` |
 
-**"프로젝트 묶음"이라는 별도 계층은 GitHub에 없다.** org > 프로젝트 > repo처럼 중첩된 구조는
-지원되지 않는다. 관련 저장소를 묶는 실체는 **Team**(`iac`)이다.
+**GitHub에는 org > 프로젝트 > repo 같은 "프로젝트 묶음" 계층이 없다.** 관련 저장소를 묶는
+실체는 **Team**(`iac`)이다.
 
 org 기본 권한(`default_repository_permission`)이 `read`라 org 멤버는 Team 없이도 저장소를
 읽는다. Team이 주는 것은 `maintain`(push·브랜치 관리)이다.

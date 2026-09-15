@@ -8,10 +8,10 @@
 
 명령은 `terraform`이 아니라 **`tofu`**다. 로컬 · CI · 문서 · lock 전부 하나로 일원화한다.
 
-Terraform 호환성은 **계약이 아니라 부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다.
+Terraform 호환성은 **부산물**이다. 보장하지 않지만 이유 없이 깨뜨리지도 않는다.
 OpenTofu 고유 기능(`encryption` 블록 · `.tofu` 확장자 · `language {}`)을 쓸 때는 설계에 이유를 남긴다.
 
-왜 OpenTofu인가는 [`decisions.md`](decisions.md)가 소유한다.
+OpenTofu 채택 근거는 [`decisions.md`](decisions.md)가 소유한다.
 
 ---
 
@@ -93,7 +93,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
    상속은 Azure Policy를 할당해야 얻는 별도 기능이며, 내장 정책 `Inherit a tag from the resource group`
    (효과 `modify`)이 그 역할을 한다([Policy definitions for tagging
    resources](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/tag-policies)).
-   즉 태그 상속은 provider 기능이 아니라 플랫폼 구성이고, 이 저장소의 모듈이 제공하는 것이 아니다.
+   태그 상속은 플랫폼(Azure Policy) 구성이라 이 저장소의 모듈이 제공하지 않는다.
 3. **태그 자체의 한도**(위 「Use tags」 문서): 리소스당 최대 50쌍, 태그 이름 512자·값 256자
    (스토리지 계정은 이름 128자). 일부 리소스(Automation · CDN · DNS 영역 등)는 15개까지만.
    태그 이름에 `< > % & \ ? /` 를 쓸 수 없고, 태그를 아예 지원하지 않는 리소스 타입이 있다.
@@ -140,7 +140,8 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 - *"이 변경이 마이너인가 메이저인가"* 를 **판정하지 않는다.** 전부 마이너다.
 - `1.0.0`은 **모듈별로** 컷한다. 전 모듈 일괄 컷은 하지 않는다.
 - 신규 모듈은 `0.1.0`에서 시작한다.
-- 버전 혼재(`vpc-v0.3.0` + `workbench-v0.6.0`)는 결함이 아니라 **정보**다.
+- 버전 혼재(`vpc-v0.3.0` + `workbench-v0.6.0`)는 정상이다. 컴포넌트마다 바뀌는 속도가
+  다르다는 사실을 그대로 보여준다.
 
 ### 릴리스된 태그를 옮기지 않는다
 
@@ -194,7 +195,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 
 ### 주석
 
-주석의 기준은 길이가 아니라 **자립**이다. 바깥을 보지 않고 읽혀야 한다.
+주석의 기준은 **자립**이다. 독자가 바깥을 보지 않고 읽을 수 있어야 한다.
 
 **세 질문 중 하나에만 답한다.**
 
@@ -229,8 +230,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 # 계약: docs/module-catalog.md
 ```
 
-**섹션 구분선**(`# ── 절 이름 ──`)은 **길이가 그것을 필요로 할 때만** 쓴다. 기준은 100줄 이상에
-블록 5개 이상이다. 짧은 파일에서는 블록이 이미 눈에 구분되므로 구분선은 장식이다.
+**섹션 구분선**(`# ── 절 이름 ──`)은 **100줄 이상에 블록 5개 이상인 파일**에만 쓴다. 짧은 파일에서는 블록이 이미 눈에 구분되므로 구분선은 장식이다.
 
 **지우기 전에**: *"이 줄이 없으면 다음 사람이 무엇을 틀리나"* 에 답한다.
 답할 수 없으면 지운다. 답할 수 있으면 **짧게 다시 쓴다. 지우지 않는다.**
@@ -262,7 +262,7 @@ git config core.hooksPath .githooks
 
 > `tflint`의 `terraform_unused_declarations`는 선언만 하고 쓰지 않은 변수를 잡는다.
 > 따라서 `variables.tf`만 있고 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다.**
-> 실제 커밋 단위는 "변수가 전부 소비되는 시점"이다.
+> 커밋 단위는 "변수가 전부 소비되는 시점"이다.
 
 ### CI (`.github/workflows/verify.yml`)
 
@@ -280,7 +280,7 @@ git config core.hooksPath .githooks
 
 **계약 테스트가 없는 모듈은 릴리스하지 않는다.** 게이트 4가 강제한다.
 
-이 저장소는 배포하지 않으므로 **apply 워크플로가 없다.** 누락이 아니라 설계다.
+이 저장소는 배포하지 않으므로 **apply 워크플로가 없다.**
 
 > CI는 읽기 전용이라 `cancel-in-progress: true`다.
 > **배포 루트의 apply는 반대여야 한다.** apply 중단은 state 잠금과 부분 적용을 남긴다.

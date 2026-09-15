@@ -12,7 +12,7 @@
 
 컨트롤러는 계층 1, 그 컨트롤러가 읽는 설정 CR은 계층 2다. 설정 CR은 계층 2(플랫폼)와 계층
 3(앱, 범위 밖)으로 다시 갈린다. *"cluster-scoped면 플랫폼, namespace-scoped면 앱"* 은
-**성립하지 않는다.** 반례가 실재한다. 스코프가 아니라 아래 두 질문이 정한다.
+**성립하지 않는다**(아래 표의 굵은 두 행). 아래 두 질문이 정한다.
 
 **판별 1: 인프라 정체성을 담는가?**
 권한 · 비용 · 용량 · 발급 신뢰를 인코딩하면 **계층 2**다. 스코프와 무관하다.
@@ -54,8 +54,8 @@ Application 이름을 `{{name}}-<addon>`으로 짓는다. 하나의 ArgoCD가 �
 `{{ .Release.Name }}-{{ .Chart.Name }}` 형태로 리소스 이름을 만든다. 접두사가 두 번 겹친다.
 
 ⚠️ 가독성만의 문제가 아니다. Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있어, 접두사가
-길수록 서로 다른 리소스가 63자 지점에서 같은 이름으로 잘려 충돌한다(`cluster-autoscaler`에서
-실제로 발생했다).
+길수록 서로 다른 리소스가 63자 지점에서 같은 이름으로 잘려 충돌한다(`cluster-autoscaler`가
+그 예다).
 
 **결정**: release 이름이 리소스 이름에 그대로 쓰이는 addon은 `spec.source.helm.releaseName`을
 짧게 명시한다. Application 이름은 그대로 둔다. 콘솔 식별과 리소스 이름은 서로 다른 축이고,
@@ -79,8 +79,7 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 ApplicationSet의 cluster generator selector는 팬아웃 대상을 고른다. 버전은 고르지 않는다.
 `targetRevision`이 리터럴 한 개라, **한 ApplicationSet에 걸린 클러스터는 전부 같은 버전을 받는다.**
 
-버전을 갈라 받으려면 selector가 아니라 **ApplicationSet 자체를 나눠야** 한다. 아래 세 정책 중
-staged만 그렇게 한다.
+버전을 갈라 받으려면 **ApplicationSet 자체를 나눠야** 한다. 아래 세 정책 중 staged만 그렇게 한다.
 
 두 라벨의 역할이 다르다. `environment`는 **존재**가 uniform selector이고 **값**은 리소스 이름을
 만드는 데 쓴다(AWS의 공유 Gateway가 그 값으로 ALB 이름과 태그를 짓는다). `tier`는 값이 staged
@@ -96,8 +95,8 @@ selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 업계에서는 ring 배포·staged rollout이라 부른다. 특히 ArgoCD ApplicationSet의
 [Progressive Syncs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Progressive-Syncs/)와
 혼동하지 않는다. 그것은 **같은 버전**을 그룹 순서대로 적용하는 기능이고(순서를 제어한다),
-여기 staged는 **버전 자체**를 티어마다 다르게 준다. 승격 판단이 런타임이 아니라 커밋에 있다는
-것이 이 방식의 요점이다. 두 저장소 모두 Progressive Syncs를 쓰지 않는다.
+여기 staged는 **버전 자체**를 티어마다 다르게 준다. 승격 판단이 커밋에 있다는 것이 이 방식의
+요점이다. 두 저장소 모두 Progressive Syncs를 쓰지 않는다.
 
 | 정책 | 무엇으로 고르나 | 버전 |
 |------|----------|------|
@@ -105,8 +104,7 @@ selector로만 쓰인다. 어느 쪽도 버전을 고르지 않는다.
 | **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 |
 | **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 |
 
-판정 단위는 **addon이 아니라 ApplicationSet**이다. 한 addon이 컨트롤러와 CR로 나뉘면 각각 답이
-다를 수 있다.
+판정 단위는 **ApplicationSet**이다. 한 addon이 컨트롤러와 CR로 나뉘면 각각 답이 다를 수 있다.
 
 | 이 ApplicationSet이 | 정책 | 이유 |
 |-----------|------|------|
@@ -144,8 +142,7 @@ uniform이다.
 업그레이드에 맞춰 한다. 그 축에서는 GitOps로 조립할 것이 없으니 티어로 나눌 대상도 없다.
 
 그래서 **Azure에서 staged인 것은 Kyverno뿐이다.** 조립한 것 중 버전 핀을 가진 것이 엔진과 PSS
-정책 둘뿐이라, 판정 기준을 적용할 대상 자체가 그 둘이다. 두 클라우드가 정책 셋을 같은 기준으로
-쓰되 답이 갈리는 모습이 이 표다.
+정책 둘뿐이라, 판정 기준을 적용할 대상 자체가 그 둘이다.
 
 ### uniform: 전 클러스터가 같은 버전
 
@@ -178,8 +175,8 @@ CRD를 쓰는 CR이 뒤에 와야 해서 sync-wave로 둘을 가른다. 티어�
 | 컨트롤러 helm(업스트림 차트 버전 핀) | `1.14.0` | ✅ |
 | CR(이 저장소의 로컬 차트) | `main` | ❌ |
 
-`main`은 저장소 최신을 따라가는 참조지 고정된 버전이 아니다. 두 블록으로 나눠도 값이 항상
-같아 승격이 기록되지 않는다. 블록만 늘고 읽을 정보가 없다.
+`main`은 저장소 최신을 따라가는 참조다. 두 블록으로 나눠도 두 값이 같을 수밖에 없어 승격이
+기록되지 않는다. 블록만 늘고 읽을 정보가 없다.
 
 ApplicationSet 이름은 `<addon>-<티어>`로 짓는다. 나누지 않는 블록은 접미사 대신 역할로 짓는다
 (`karpenter-nodepool`). ⛔ 이 이름은 **한 번 배포되면 계약**이다(「하지 않는 것」).
@@ -230,7 +227,7 @@ spec:
 ⚠️ **1~3 사이에는 CR이 두 버전 모두에서 유효해야 한다.** 티어로 나누지 않은 CR ApplicationSet은
 양 티어가 같은 차트를 본다. 그 구간에는 nonprd가 새 CRD를, prd가 옛 CRD를 갖고 있으므로, 새
 버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
-커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있는 셈이다.
+커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있다.
 
 ### opt-in: 구독한 클러스터에만
 
@@ -243,11 +240,11 @@ generators:
           addon-keda: enabled
 ```
 
-라벨의 **값**을 본다. cluster Secret에 그 라벨을 단 클러스터에만 팬아웃된다. 라벨을 붙이고 떼는
-것이 곧 구독과 해지다. 파일은 `addons/catalog/` 아래 둔다.
+라벨의 **값**을 본다. ArgoCD는 cluster Secret에 그 라벨을 단 클러스터에만 팬아웃한다. 라벨을
+붙이고 떼는 것이 곧 구독과 해지다. 파일은 `addons/catalog/` 아래 둔다.
 
-⚠️ 라벨을 빠뜨린 채 클러스터를 등록하면 그 addon이 **조용히 빠진 채** 배포된다. ArgoCD는 대상이
-0개인 팬아웃을 오류로 보고하지 않는다.
+⚠️ 라벨을 빠뜨린 채 클러스터를 등록하면 그 addon이 **빠진 채** 배포된다. ArgoCD는 대상이 0개인
+팬아웃을 오류로 보고하지 않는다.
 
 ApplicationSet이 하나라 버전도 하나다. 구독한 클러스터가 여럿이면 함께 올라간다. 티어별 승격이
 필요해질 만큼 대상이 늘면 그 addon을 staged로 옮긴다.
@@ -269,30 +266,29 @@ addon 하나가 컨트롤러·CR·정책으로 나뉘면 **파일도 나눈다.*
 맥락이 흩어진다.
 
 ArgoCD는 파일 구성에 관여하지 않는다. root App이 저장소를 재귀 스캔하고 `sync-wave`는 리소스
-애노테이션이라 파일 경계와 무관하다. 공식 문서에도 이 층위의 가이드가 없다. 그러므로 이 규칙은
-동작이 아니라 **사람이 읽는 방식**에 대한 것이다.
+애노테이션이라 파일 경계와 무관하다. 공식 문서에도 이 층위의 가이드가 없다. 이 규칙은
+**사람이 읽는 방식**에 대한 것이다.
 
 ### `tier` 라벨 어휘
 
 staged는 cluster Secret의 `tier` 라벨을 소비한다. 값은 **`nonprd`와 `prd` 둘뿐이다.** 클러스터를
-등록할 때 둘 중 하나를 반드시 붙인다.
+등록할 때 둘 중 하나를 붙인다.
 
 | 값 | 무엇 |
 |---|---|
 | `prd` | 운영. 재구축 대상이 아닌 것도 여기 든다(ArgoCD가 사는 hub가 그렇다) |
 | `nonprd` | 그 밖의 전부. 승격을 먼저 받는 쪽이다 |
 
-⚠️ 값이 갈린 채로 selector를 걸면 어느 쪽에도 안 걸리는 클러스터가 조용히 생긴다. ArgoCD는
+⚠️ 값이 갈린 채로 selector를 걸면 어느 쪽에도 안 걸리는 클러스터가 생긴다. ArgoCD는
 대상이 0개인 팬아웃을 오류로 보고하지 않는다. `environment`의 어휘(`dev`·`hub`)를 그대로 쓰면
-바로 이 상태가 된다.
+이 상태가 된다.
 
-대상이 0개인 것 자체는 사고가 아니다. 그 티어의 클러스터가 아직 없으면 **빈 슬롯**으로 남고,
-클러스터가 등록되는 순간 팬아웃된다. 사고는 클러스터가 **있는데** 어휘가 갈려 안 걸리는 경우다.
-둘은 등록된 cluster Secret의 `tier` 값을 세어 구분한다. 어느 쪽 값도 아닌 클러스터가 있으면
-사고다.
+사고는 클러스터가 **있는데** 어휘가 갈려 안 걸리는 경우다. 그 티어의 클러스터가 아직 없어
+대상이 0개인 것은 **빈 슬롯**이고, 클러스터가 등록되는 순간 팬아웃된다. 둘은 등록된 cluster
+Secret의 `tier` 값을 세어 구분한다. 어느 쪽 값도 아닌 클러스터가 있으면 사고다.
 
-`environment`가 아니라 `tier`를 쓰는 이유는 값의 개수다. `environment`는 클러스터가 늘면 값이
-함께 늘고, `tier`는 둘로 고정된다.
+`tier`를 쓰는 이유는 값의 개수다. `environment`는 클러스터가 늘면 값이 함께 늘고, `tier`는
+둘로 고정된다.
 
 ---
 
@@ -309,14 +305,14 @@ staged는 cluster Secret의 `tier` 라벨을 소비한다. 값은 **`nonprd`와 
 
 ---
 
-## 6. L7 진입: Ingress가 아니라 Gateway API
+## 6. L7 진입: Gateway API
 
 양 클라우드 공통이다. Azure는 옮겨야 하고 AWS는 옮기지 않아도 되지만, 둘 다 Gateway API로 받는다.
 
 | 클라우드 | 강제인가 | 근거 |
 |---|:---:|---|
 | Azure(AKS) | **그렇다** | App Routing add-on이 ingress-nginx 기반이다. 업스트림 ingress-nginx는 지원이 끝나 릴리스·버그 수정·보안 패치가 없고, AKS 관리형 NGINX도 2026-11까지만 중요 보안 패치를 받는다. Microsoft는 App Routing의 Gateway API 구현을 후속으로 권고한다 |
-| AWS(EKS) | **아니다** | ALB Controller는 ingress-nginx 위에서 돌지 않아 이 지원 종료의 영향을 받지 않는다. Ingress API도 frozen일 뿐 제거 계획이 없다(Kubernetes 공식 문서). 그대로 써도 된다 |
+| AWS(EKS) | **아니다** | ALB Controller는 ingress-nginx 위에서 돌지 않아 이 지원 종료의 영향을 받지 않는다. Ingress API는 frozen이고 제거 계획이 없다(Kubernetes 공식 문서). 그대로 써도 된다 |
 
 **그런데도 AWS까지 옮기는 이유**는 앱팀 매니페스트다. Ingress는 라우팅 규칙과 인프라 설정을
 리소스 하나에 담고 세부 동작을 구현체별 annotation으로 확장한다. 구현체가 다르면 같은 라우팅에
@@ -353,5 +349,5 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 
 | 근거 | 무엇이 반증했나 |
 |---|---|
-| *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 진짜 원인은 **CRD 스키마 defaulting**이다 |
+| *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 원인은 **CRD 스키마 defaulting**이다 |
 | *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃이 Secret의 라벨과 이름을 읽는다** |

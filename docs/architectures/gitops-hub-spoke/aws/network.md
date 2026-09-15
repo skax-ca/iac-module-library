@@ -1,6 +1,6 @@
 # 허브 위치와 크로스 계정 네트워크 (AWS)
 
-**읽는 사람**: 허브를 어느 계정에 둘지 정하고, 허브와 스포크를 실제로 잇는 사람.
+**읽는 사람**: 허브를 어느 계정에 둘지 정하고, 허브와 스포크를 잇는 사람.
 
 **self-managed에서만 해당한다.** 관리형 Capability는 이미 클러스터 밖에서 도니 이 질문 자체가
 없다([README.md](README.md)의 「어느 ArgoCD인가」 1·3번 갈림점).
@@ -50,11 +50,11 @@
 
 ## 2. 네트워크 경로: IAM 경계와 별개다
 
-위 IAM 경계(신뢰 Role · Access Entry)는 "누가 인증되는가"만 답한다. **패킷이 실제로 도달하는가**는
+위 IAM 경계(신뢰 Role · Access Entry)는 "누가 인증되는가"만 답한다. **패킷이 도달하는가**는
 다른 질문이고, 워크벤치 설계의 기본값(`endpoint_public_access = false`, private-only)을 스포크에도
-그대로 쓰면 **답은 기본적으로 "아니오"다**. 허브와 스포크는 서로 다른 계정의 서로 다른 VPC라
-연결이 저절로 생기지 않는다. 실전에서 이 공백을 IAM 경계만 만들고 놓치기 쉽다(원인이 아니라 증상만
-보인다. apply는 성공하는데 허브 ArgoCD가 `dial tcp … i/o timeout`으로 스포크를 못 읽는다).
+그대로 쓰면 **답은 "아니오"다**. 허브와 스포크는 서로 다른 계정의 서로 다른 VPC라 연결이
+저절로 생기지 않는다. 이 공백은 IAM 경계만 만들고 놓치기 쉽다. apply는 성공하는데 허브 ArgoCD가
+`dial tcp … i/o timeout`으로 스포크를 못 읽는다.
 
 **기본은 Transit Gateway다.** 스포크가 1개뿐이어도 VPC Peering은 **선택지가 아니다**.
 
@@ -67,8 +67,8 @@ blocks」)가 명시한다: **"CIDR 블록이 여러 개면, 실제로 라우팅
 겹치면 peering 자체를 생성할 수 없다."**
 
 `vpc` 모듈의 CIDR 3계층 규약은 **pod-dup 대역(`100.64.0.0/16`, RFC 6598)을 모든 VPC가 그대로
-재사용**하도록 설계돼 있다. 비라우팅 대역이라 스포크마다 조율할 필요가 없게 하려는 의도다(그래서
-"dup"다). 이 설계 의도 자체가 Peering과 양립하지 않는다. 실제 라우팅 대상은 uniq 대역(예: hub
+재사용**한다. 비라우팅 대역이라 스포크마다 조율할 필요가 없게 하려는 의도다(그래서
+"dup"다). 이 설계가 Peering과 양립하지 않는다. 라우팅 대상은 uniq 대역(예: hub
 `10.53.0.0/16`·spoke `10.51.0.0/16`, 서로 겹치지 않는다)뿐인데도, 양쪽 VPC가 공유하는 dup 대역
 때문에 AWS가 peering 생성 자체를 거부한다.
 
@@ -85,12 +85,12 @@ TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가). Pee
 | # | 요소 | 값 |
 |---|------|-----|
 | 1 | 소유 계정 | **허브**: 허브가 유일한 공통 상대이므로 TGW도 허브가 영구 소유한다 |
-| 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위** 공유. 조직 전체 공유가 아니라 정확한 계정만. IAM 신뢰와 같은 "정확한 대상만" 원칙 |
+| 2 | 공유 방식 | RAM(`aws_ram_resource_share`)으로 **스포크 계정 ID 단위**로만 공유한다. IAM 신뢰와 같은 "정확한 대상만" 원칙 |
 | 3 | 라우팅 | **자동 전파(propagation)를 쓰지 않는다.** 자동 전파는 VPC의 전 CIDR(uniq+dup)을 그대로 전파해 peering과 똑같은 dup 대역 충돌이 TGW 라우트테이블 안에서 재현된다. 대신 uniq 대역만 정적 라우트로 명시한다 |
 | 4 | attachment 수락 | `auto_accept_shared_attachments = "enable"`: RAM 공유가 이미 계정을 좁혔으므로 수락을 자동화해도 신뢰 경계가 넓어지지 않는다 |
 | 5 | `allow_external_principals` | **`true`.** 조직 내부 공유(`enable-sharing-with-aws-organization`)는 조직 **관리 계정**에서만 켤 수 있는데 배포 계정은 멤버 계정이라 그 권한이 없다. `true`로 두면 표준 계정 간 공유(초대)로 동작하고, 스포크가 초대를 수락하는 단계가 하나 늘어난다(6절) |
 | 6 | 라우트테이블 소유 | **`default_route_table_association`/`_propagation` 모두 `disable`, `aws_ec2_transit_gateway_route_table`을 명시적으로 만들어 연결한다**(이유 → [conventions.md](../../../conventions.md)의 「AWS 강제 방식」). 스포크의 attachment는 RAM으로 받은 쪽이라 `transit_gateway_default_route_table_association` 인자를 못 쓰므로(AWS 공식 문서) 허브가 `aws_ec2_transit_gateway_route_table_association` + `replace_existing_association = true`로 끌어와야 한다 |
-| 7 | 값 전달 | **repo 변수 수동 복사가 아니라 `data` 소스로 발견한다**: 7절 |
+| 7 | 값 전달 | **`data` 소스로 발견한다**: 7절 |
 
 필요한 리소스는 소유가 두 갈래로 갈린다. TGW 자체와 그 라우트테이블은 **허브 소유**(TGW owner만
 자기 라우트테이블에 라우트를 넣을 수 있다는 AWS 제약), VPC 쪽 라우트테이블은 **각자 소유**다.
@@ -110,24 +110,24 @@ TGW는 스포크가 늘어도 구조를 안 바꾼다(attachment만 추가). Pee
 
 ---
 
-## 5. `for_each` key는 attachment ID가 아니라 안정값으로
+## 5. `for_each` key는 안정값으로
 
 6번(VPC 쪽 라우트)의 `for_each` key에 8번처럼 attachment ID를 섞어 쓰면 안 된다. 스포크를 재배포할
 때마다 새 ID가 발급돼, key가 바뀔 때마다 그 리소스가 destroy+create로 강제 교체된다(Terraform 공식
-문서가 피하라는 패턴). 실제로 이 destroy가 API 응답 지연으로 삭제 타임아웃에 걸려 apply가 실패했고,
-재시도가 "변경 없음"으로 잘못 판단해 라우트가 며칠간 빠진 채 hub-spoke가 단절된 적이 있다.
+문서가 피하라는 패턴). 이 destroy는 API 응답 지연으로 삭제 타임아웃에 걸려 apply를 실패시킬 수
+있고, 재시도가 "변경 없음"으로 잘못 판단하면 라우트가 빠진 채 hub-spoke가 단절된다.
 
-6번의 실제 인자는 attachment ID와 무관하므로 key를 **`spoke_account_id`**(설정값, 불변)로 바꾸면
+6번의 인자는 attachment ID와 무관하므로 key를 **`spoke_account_id`**(설정값, 불변)로 바꾸면
 스포크를 몇 번 갈아엎어도 유지된다. **8번은 다르다**: `transit_gateway_attachment_id` 자체가
-attachment ID에 의존하므로 key도 attachment ID가 맞다. 리소스의 실제 인자가 그 값에 의존하는지로
+attachment ID에 의존하므로 key도 attachment ID가 맞다. 리소스의 인자가 그 값에 의존하는지로
 key를 고른다.
 
 ---
 
-## 6. RAM 초대 수락: Terraform 리소스가 아니라 CI 단계다
+## 6. RAM 초대 수락은 CI 단계다
 
 `aws_ram_resource_share_accepter`를 스포크 root의 평범한 Terraform 리소스로 두지 않는다. 두 가지가
-구조적으로 성립하지 않기 때문이다.
+성립하지 않기 때문이다.
 
 1. 그 리소스의 delete가 `DisassociateResourceShare`를 직접 호출해, 스포크를 파기할 때마다 허브의
    RAM 연결이 허브 state 모르게 실물에서 풀린다.
@@ -145,7 +145,7 @@ key를 고른다.
   연결을 조용히 깨뜨리는 경로 자체가 사라진다. 기존에 이 리소스가 state에 있는 root만 필요하다.
 
 이 설계로 teardown·재배포·완전 신규 배포 셋 다 사람 개입 없이 CI가 끝까지 처리한다. 자동화의
-주체가 Terraform 리소스 그래프가 아니라 **CI 파이프라인의 한 단계**다.
+주체는 **CI 파이프라인의 한 단계**다.
 
 ---
 
@@ -153,21 +153,21 @@ key를 고른다.
 
 TGW ID·attachment ID는 AWS 무작위 부여라 결정적 합성이 불가능하지만, **그 값을 담고 있는 리소스의
 이름은 결정적**이다(`ram-<workload>-hub-<region>-tgw-share`처럼 이 저장소의 네이밍 규약 그대로
-조합된다). 그래서 값 자체가 아니라 **이름으로 찾아 값을 읽는다**. "하류가 다른 배포 루트라면 remote
+조합된다). 그래서 **이름으로 찾아 값을 읽는다**. "하류가 다른 배포 루트라면 remote
 state 참조보다 Name 태그 data source 조회를 쓴다"는 계정 내부 원칙을 계정 경계 너머로 확장한 것이다.
 
 ⛔ **태그로는 값을 실어 나를 수 없다.** AWS 태그는 종류를 가리지 않고 계정 경계를 넘지 않는다
-(`describe-tags`·`DescribeTransitGatewayVpcAttachments`·RAM 데이터소스의 `tags` 전부 실측: 빈 값
-또는 `null`). RAM이 명시적으로 공유하는 리소스 ARN 자체와 EC2 API가 고유 속성으로 노출하는 값
+(`describe-tags`·`DescribeTransitGatewayVpcAttachments`·RAM 데이터소스의 `tags` 모두 빈 값
+또는 `null`을 돌려준다). RAM이 공유하는 리소스 ARN 자체와 EC2 API가 고유 속성으로 노출하는 값
 (`vpc_owner_id` 등)만 계정 경계를 넘는다.
 
 | 필요한 값 | 발견 방법 |
 |-----------|----------|
 | 허브의 TGW ID | 스포크가 `data.aws_ram_resource_share`(이름, `resource_owner = "OTHER-ACCOUNTS"`)의 `resource_arns`에서 TGW ARN을 파싱: RAM의 본래 목적이라 계정 경계를 넘는다 |
-| 스포크의 attachment ID·개수 | 허브가 `data.aws_ec2_transit_gateway_vpc_attachments`(복수형)로 자기 TGW에 붙은 것 전부 나열: **스포크가 0개여도 에러가 아니라 빈 리스트**라 허브 apply는 스포크 존재 여부와 무관하게 항상 성공한다 |
-| 어느 attachment가 어느 스포크인가 | `data.aws_ec2_transit_gateway_vpc_attachment`(단수)의 `vpc_owner_id`: 태그가 아니라 EC2 API 고유 속성이라 계정 경계를 넘는다 |
+| 스포크의 attachment ID·개수 | 허브가 `data.aws_ec2_transit_gateway_vpc_attachments`(복수형)로 자기 TGW에 붙은 것 전부 나열: **스포크가 0개여도 에러가 아니라 빈 리스트**라 허브 apply는 스포크 존재 여부와 무관하게 성공한다 |
+| 어느 attachment가 어느 스포크인가 | `data.aws_ec2_transit_gateway_vpc_attachment`(단수)의 `vpc_owner_id`: EC2 API 고유 속성이라 계정 경계를 넘는다 |
 | 허브→스포크 방향 CIDR(허브 자신의 uniq) | **관리형 접두사 목록(`aws_ec2_managed_prefix_list`)으로 발견한다.** 허브가 자기 uniq CIDR을 담은 프리픽스 리스트를 만들어 RAM 공유에 함께 실어 보낸다. 스포크는 `resource_arns`에서 `:prefix-list/`를 포함한 ARN을 파싱해 **ID만** 얻고, `aws_route`의 `destination_prefix_list_id`·SG 규칙의 `prefix_list_ids`로 직접 참조한다. 근거: [Share customer-managed prefix lists](https://docs.aws.amazon.com/vpc/latest/userguide/sharing-managed-prefix-lists.html) |
-| 스포크→허브 방향 CIDR(스포크 자신의 uniq) | **여전히 하드코딩한다.** 허브는 `spoke_account_id`를 사람에게 안내받아야 하므로 같은 자리에서 CIDR도 함께 받는다(새 수동 단계가 아니라 기존 단계의 확장). 프리픽스 리스트가 자연스러운 쪽은 **1:N 발행자가 자기 값을 공표하는 방향**뿐이다. N:1로 여러 스포크의 값을 허브가 모으는 이 방향은 발행자가 여럿이라 같은 구조가 성립하지 않는다 |
+| 스포크→허브 방향 CIDR(스포크 자신의 uniq) | **여전히 하드코딩한다.** 허브는 `spoke_account_id`를 사람에게 안내받아야 하므로 같은 자리에서 CIDR도 함께 받는다(기존 수동 단계의 확장). 프리픽스 리스트가 자연스러운 쪽은 **1:N 발행자가 자기 값을 공표하는 방향**뿐이다. N:1로 여러 스포크의 값을 허브가 모으는 이 방향은 발행자가 여럿이라 같은 구조가 성립하지 않는다 |
 
 ⚠️ **예외: 스포크 계정 ID(와 그 CIDR)는 여전히 사람이 알려줘야 한다.** RAM `principal_association`은
 공유 대상 계정을 알아야 초대를 보낼 수 있는데, 허브는 스포크가 존재하는지조차 모르는 상태에서
@@ -175,4 +175,4 @@ state 참조보다 Name 태그 data source 조회를 쓴다"는 계정 내부 �
 
 ⚠️ **순서 제약은 하나 남는다**: 허브가 스포크보다 먼저 존재해야 한다(스포크가 이름으로 찾을 대상이
 있어야 하므로). 단수형 `data.aws_ram_resource_share`는 대상이 없으면 **에러로 실패**하므로 이 순서를
-거꾸로 하면 스포크 쪽에서 명확한 실패로 즉시 드러난다.
+거꾸로 하면 스포크 쪽 plan이 에러로 실패한다.

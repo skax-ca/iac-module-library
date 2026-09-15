@@ -30,7 +30,7 @@ AWS 계정
 EKS 엔드포인트는 **private**이다. 그래서 클러스터에 명령을 넣을 지점이 계정 안에 필요하고,
 그것이 `workbench`다. 노트북에서 `kubectl`이 직접 닿지 않는다.
 
-`eks-reference-infra`가 이 패턴을 실제로 세우는 레퍼런스 배포 저장소이고, `argocd-seed.sh`는
+`eks-reference-infra`가 이 패턴을 세우는 레퍼런스 배포 저장소이고, `argocd-seed.sh`는
 그 저장소가 클러스터 안에 ArgoCD를 설치하는 부트스트랩 스크립트다.
 
 ---
@@ -45,7 +45,7 @@ EKS 엔드포인트는 **private**이다. 그래서 클러스터에 명령을 �
 | 2 | 미지원 기능 중 **필수인 것**이 있다 | 아래 목록과 대조한다 |
 | 3 | **Application 수 기준 과금**이 수용 불가 | 예상 Application 수 x 단가를 **계산해서** 판정한다 |
 
-**탈출 조건은 취향이 아니라 사실 세 개다.** 셋 다 아니면 관리형이다.
+**탈출 조건은 위 세 가지 사실뿐이다.** 셋 다 아니면 관리형이다.
 *"직접 운영하는 게 편하다"* 는 조건이 아니다.
 
 ### 관리형 미지원 기능 (탈출 조건 2의 판정 근거)
@@ -81,8 +81,8 @@ CLI 제약도 함께 본다: `argocd login` 미지원(토큰만) · `argocd admi
 | **업그레이드·HA·패치** | **AWS 소유** | **우리 소유**: 여기가 전담 인력을 요구한다 |
 | **private 도달성** | AWS 소유 (peering 불필요) | 우리 설계: workbench 경유 port-forward |
 
-> 두 경로는 **같은 층에 있지 않다.** 관리형은 `.tf`를 낳고 self-managed는 helm 실행 절차를 낳는다.
-> 문서 분량이 대칭이 아닌 것이 정상이다. **self-managed ArgoCD는 이 저장소의 모듈이 아니다.**
+> 관리형은 `.tf` 리소스이고 self-managed는 helm 실행 절차다. 두 경로의 문서 분량이 대칭이
+> 아닌 것이 정상이다. **self-managed ArgoCD는 이 저장소의 모듈이 아니다.**
 
 ### 단가 확인
 
@@ -97,8 +97,7 @@ aws pricing get-products --region us-east-1 \
 
 ## 3. addon을 어디에 두나: EKS의 분류
 
-계층 판정 원칙은 [../gitops.md](../gitops.md)가 소유한다. EKS에서 그 원칙이 만나는 실물 분류는
-이렇다.
+계층 판정 원칙은 [../gitops.md](../gitops.md)가 소유한다. EKS에서 그 원칙을 적용한 분류다.
 
 | 분류 | 어디 | 예 |
 |------|------|-----|
@@ -121,12 +120,11 @@ aws pricing get-products --region us-east-1 \
 |-------|-------------|------|
 | **Karpenter** | `kube-system` | APF FlowSchema(`kube-apiserver`의 API Priority and Fairness 요청 분류 규칙)가 이 네임스페이스를 전제한다 |
 | **AWS Load Balancer Controller** | `kube-system` | 공식 문서 + Pod Identity association |
-| **Cluster Autoscaler** | `kube-system` | ⚠️ **관례일 뿐, 원칙이 요구하는 바를 충족하지 못한다**. 알면서 택했다(공식 요구사항도 official 문서 근거도 없음) |
+| **Cluster Autoscaler** | `kube-system` | ⚠️ **관례다. 원칙이 요구하는 근거가 없다**. 알면서 택했다(공식 요구사항도 official 문서 근거도 없음) |
 
 > 예외를 늘리려면 **위 두 근거(Karpenter·ALBC)에 준하는 것**을 대야 한다.
-> **Cluster Autoscaler는 정확히 이 바를 통과하지 못한 채로 예외에 들어갔다.** 근거가 약하다는
-> 것을 알고도 관례를 택한 결정이라는 뜻이고, 그래서 여기 정직하게 적어둔다. 더 강한 근거 없이
-> 이 전례를 들어 새 예외를 또 늘리지 않는다.
+> **Cluster Autoscaler는 이 바를 통과하지 못한 채로 예외에 들어갔다.** 근거가 약한 것을 알고
+> 관례를 택했다. 더 강한 근거 없이 이 전례를 들어 새 예외를 늘리지 않는다.
 
 ---
 
@@ -208,7 +206,7 @@ flowchart TB
 
 | 하지 말 것 | 이유 |
 |---|---|
-| **EKS Auto Mode** 채택 | 「관리형 기능 채택 기준」([`decisions.md`](../../../decisions.md))의 기준(패턴 충돌)에 걸린다. Auto Mode 내장 로드밸런서 컨트롤러가 Gateway API를 지원하지 않고(이 패턴이 Gateway API로 받는 이유는 [`gitops.md`](../gitops.md)의 「L7 진입: Ingress가 아니라 Gateway API」), self-managed ALBC가 만든 로드밸런서를 Auto Mode 관리로 옮기는 경로도 AWS가 지원하지 않는다. Auto Mode 노드에는 VPC CNI의 `ENIConfig` custom networking을 쓸 수 없어 `eks-cluster`의 Pod 비라우팅 대역 배선을 NodeClass로 다시 설계해야 한다. EC2 요금에 더해 인스턴스 유형별 관리 수수료도 붙지만, 기각은 이 두 충돌로 정했다. 재평가 트리거: Auto Mode 로드밸런서 컨트롤러가 Gateway API를 지원하게 되면 |
+| **EKS Auto Mode** 채택 | 「관리형 기능 채택 기준」([`decisions.md`](../../../decisions.md))의 기준(패턴 충돌)에 걸린다. Auto Mode 내장 로드밸런서 컨트롤러가 Gateway API를 지원하지 않고(이 패턴이 Gateway API로 받는 이유는 [`gitops.md`](../gitops.md)의 「L7 진입: Gateway API」), self-managed ALBC가 만든 로드밸런서를 Auto Mode 관리로 옮기는 경로도 AWS가 지원하지 않는다. Auto Mode 노드에는 VPC CNI의 `ENIConfig` custom networking을 쓸 수 없어 `eks-cluster`의 Pod 비라우팅 대역 배선을 NodeClass로 다시 설계해야 한다. EC2 요금에 더해 인스턴스 유형별 관리 수수료도 붙지만, 기각은 이 두 충돌로 정했다. 재평가 트리거: Auto Mode 로드밸런서 컨트롤러가 Gateway API를 지원하게 되면 |
 | 매니페스트에 **AWS가 발급한 ID**(VPC ID · 해시 붙은 role 이름) 적기 | 환경을 다시 세우면 값이 바뀌어 없는 자원을 가리킨다. 계층 1이 **이름을 결정적으로** 만들고 계층 2는 이름을 참조한다 |
 | ALBC를 위해 노드 **IMDS hop limit을 2로** | 그 노드의 모든 파드가 노드 IAM role을 탈취할 수 있다. VPC는 `--aws-vpc-tags`로 찾는다 |
 | **eksctl** 도입 | IaC 소유 경계를 깬다 |

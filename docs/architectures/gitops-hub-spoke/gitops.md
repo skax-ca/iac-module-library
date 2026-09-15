@@ -125,8 +125,8 @@ uniform이다.
 
 | ApplicationSet | `targetRevision` | AWS(EKS) | Azure(AKS) |
 |---|---|---|---|
-| Kyverno 엔진 | 버전 핀 | **staged** | uniform |
-| Kyverno PSS 정책(업스트림 차트) | 버전 핀(엔진과 동일) | **staged** | uniform |
+| Kyverno 엔진 | 버전 핀 | **staged** | **staged** |
+| Kyverno PSS 정책(업스트림 차트) | 버전 핀(엔진과 동일) | **staged** | **staged** |
 | Kyverno 커스텀 정책 | `main` | uniform | uniform |
 | 공유 Gateway CR | `main` | uniform | uniform |
 | Karpenter 컨트롤러 | 버전 핀 | **staged** | 없음(NAP가 배포·관리) |
@@ -142,7 +142,10 @@ uniform이다.
 **Azure 열에 "없음"이 많은 이유**는 노드와 트래픽을 다루는 컨트롤러를 전부 관리형으로 받기
 때문이다. NAP·App Routing·관리형 KEDA가 그것을 가져갔고, 버전 승격도 AKS가 클러스터
 업그레이드에 맞춰 한다. 그 축에서는 GitOps로 조립할 것이 없으니 티어로 나눌 대상도 없다.
-관리형이 없는 기능을 조립하게 되면 그때 selector를 건다. `tier` 라벨은 양 저장소에 이미 붙어 있다.
+
+그래서 **Azure에서 staged인 것은 Kyverno뿐이다.** 조립한 것 중 버전 핀을 가진 것이 엔진과 PSS
+정책 둘뿐이라, 판정 기준을 적용할 대상 자체가 그 둘이다. 두 클라우드가 정책 셋을 같은 기준으로
+쓰되 답이 갈리는 모습이 이 표다.
 
 ### uniform: 전 클러스터가 같은 버전
 

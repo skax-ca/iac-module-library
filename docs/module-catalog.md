@@ -127,7 +127,7 @@ Azure 가상 네트워크 · 서브넷 그룹 · NAT · 옵트인 NSG · 옵트�
 
 전체 계약(입력·출력·리소스) → [`modules/azure/vnet/README.md`](../modules/azure/vnet/README.md)
 
-**만들지 않는 것**: 리소스 그룹(주입) · NSG 룰(소비자가 얹는다) · Flow Logs(`0.1.0` 미포함) ·
+**만들지 않는 것**: 리소스 그룹(주입) · NSG 룰(소비자가 얹는다) · Flow Logs ·
 예약 이름 서브넷.
 
 Azure 예약 이름 서브넷(`AzureBastionSubnet` · `GatewaySubnet` · `AzureFirewallSubnet`,
@@ -190,8 +190,8 @@ identity · role assignment · private DNS zone · 애드온 · 크로스 구독
 
 | `cni_mode` | VNet `address_space` | `subnet_groups` | `aks-node` 사이징 |
 |---|---|---|---|
-| `"overlay"`(기본, 0.3.0부터) | primary 1개면 충분, secondary 불필요 | `aks-node`만 필요. Pod CIDR은 `aks-cluster`의 `pod_cidr` 변수로 직접 넘긴다(VNet 주소 공간과 무관) | 노드 수만 고려 |
-| `"pod_subnet"`(0.1.0~0.2.0의 기본값) | primary + **secondary**(Pod 전용, RFC 6598 권장) 2개 필요 | `aks-node` + `aks-pod` 둘 다 필요 | 노드 수만 고려 |
+| `"overlay"`(기본) | primary 1개면 충분, secondary 불필요 | `aks-node`만 필요. Pod CIDR은 `aks-cluster`의 `pod_cidr` 변수로 직접 넘긴다(VNet 주소 공간과 무관) | 노드 수만 고려 |
+| `"pod_subnet"` | primary + **secondary**(Pod 전용, RFC 6598 권장) 2개 필요 | `aks-node` + `aks-pod` 둘 다 필요 | 노드 수만 고려 |
 | `"node_subnet"` | primary 1개면 충분, secondary 불필요 | `aks-node` 하나로 노드+Pod를 겸한다 | 노드 수 + Pod 수까지 고려(아래 계산식) |
 
 **`node_subnet` 사이징 공식**(공식 문서,
@@ -244,7 +244,7 @@ identity를 SNAT 이전 지점에서 캡처해 이 손실을 다른 방식으로
 | IAM/role 리소스 | 만든다(role·attachment·pod-identity) | 하나도 만들지 않는다 | 위 「신원」 행과 같은 이유(권한 봉투) |
 | Pod 네트워킹 | `pod_subnet_ids` 입력(custom networking) | `cni_mode`로 선택(`overlay`·`pod_subnet`·`node_subnet`, 기본 `overlay`) | Microsoft 공식 권고가 Overlay를 일반 기본으로 명시한다(plan-pod-networking·AKS baseline). `pod_subnet`은 NAP 자체가 미지원(karpenter-provider-azure#1352)이라 기본에서 제외했다 |
 | 노드 그룹 키 문자집합 | 제약 없음 | 소문자+숫자만, 8자 이하, 숫자로 시작 불가 | 노드 풀 이름 물리 제약 |
-| Windows 노드 | 지원 | `0.1.0` 스코프 밖 | 이름 한도 6자 |
+| Windows 노드 | 지원 | 지원하지 않음 | 이름 한도 6자 |
 | 서브넷 교체 | 노드그룹 롤링 교체 | cordon/drain 없는 풀 순환 | AKS 노드 풀 순환의 동작 |
 
 ---

@@ -350,7 +350,7 @@ variable "node_pools" {
     node_labels          - Kubernetes 노드 라벨
     node_taints          - Kubernetes 노드 taint("key=value:Effect" 형태 문자열 목록)
 
-    ⛔ Windows 노드 풀은 0.1.0 스코프 밖이다. 이름 한도가 6자라 위 키 제약이 성립하지
+    ⛔ Windows 노드 풀은 지원하지 않는다. 이름 한도가 6자라 위 키 제약이 성립하지
     않는다(기술적 불가가 아니라 스코프 결정).
   EOT
   type = map(object({

@@ -122,7 +122,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
    | 물리 제약 | 1~12자(Linux) · 소문자+숫자만 · 숫자로 시작 불가([Naming rules and restrictions](https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/resource-name-rules)의 `managedClusters/agentPools` 행) |
    | 길이 예산 | 그룹 키는 **8자 이하**(`np` + 8 = 10자). `temporary_name_for_rotation`(속성 변경 시 순환에 쓰는 임시 노드 풀 이름)이 같은 12자 한도를 쓰므로, 그 이름이 들어갈 자리를 남겨 둔다 |
    | 출처 | Microsoft CAF 권장 약어 `npsystem`·`np`. ⚠️ 약어 카탈로그(`azure.md`)에는 등재하지 않는다(하이픈 금지·길이 초과가 카탈로그의 등재 규칙 4(7자 상한)와 예시 형식 검사를 동시에 위반한다) |
-   | Windows | ⛔ Windows 노드 풀은 이름 한도가 6자라 위 규칙이 성립하지 않는다. `0.1.0` 지원 범위 밖이다 |
+   | Windows | ⛔ Windows 노드 풀은 이름 한도가 6자라 위 규칙이 성립하지 않는다. 지원하지 않는다 |
 
 7. ⚠️ **아래 한 가지는 규정하지 않는다. 실측 수단이 생기면 정한다.**
    - Azure Policy가 `modify`로 태그를 덧붙이는 환경에서 OpenTofu 상태와 어떻게 상호작용하는지

@@ -216,7 +216,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
 
   temporary_name_for_rotation = "${local.node_pool_names[each.key]}t"
 
-  # default_node_pool과 같은 이유(0.5.0 정정 주석 참조). 이 리소스는 max_surge가
+  # default_node_pool의 upgrade_settings 주석과 같은 이유다. 이 리소스는 max_surge가
   # Optional이라 생략해도 plan은 안 깨지지만, 생략하면 같은 perpetual diff가 생긴다.
   # 일관되게 Azure 기본값을 명시한다.
   upgrade_settings {

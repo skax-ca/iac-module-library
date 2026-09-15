@@ -7,6 +7,8 @@ Windows 노드 풀·Flow Logs는 최신 태그에서도 지원하지 않아 "지
 주석만 바뀌어 main 직접 커밋했고 태그는 컷하지 않는다. 할 일에서 원격 Mac 정리와 다른 저장소 `.omc`
 정리는 이 저장소 소관이 아니라 뺐다. 전역 session-start·end 스킬이 `다음 할 일`에 번호를 붙여
 보여주게 고쳤다(dotfiles). `3cc5c6a`·`af98957`은 같은 작업 디렉토리의 다른 세션 커밋이다.
+pre-push 훅이 코드가 바뀐 모듈만 test하고 `.tftpl`·`.tftest.hcl`·lock 변경도 잡게 고쳤다(`7b432c8`).
+주석 전용 판정은 description heredoc을 못 걸러 절약이 없어 넣지 않았다.
 
 ## 다음 할 일
 - [ ] EKS·AKS 재구축 후 cluster Secret 등록 — ⚠️ teardown이 매칭 라벨을 **먼저 떼고** 파일을

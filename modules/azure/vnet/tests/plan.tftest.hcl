@@ -3,12 +3,12 @@
 # ⚠️ 이 파일이 계약의 유일한 검출 지점이다. 교차변수 validation은 validate가 아니라 plan
 #    시점에 평가되므로, examples를 validate까지만 도는 규약으로는 계약 위반이 잡히지 않는다.
 #
-# mock_provider로 azurerm 전체를 모킹한다 — 이 repo는 배포하지 않아 CI에 Azure 자격증명이
+# mock_provider로 azurerm 전체를 모킹한다. 이 repo는 배포하지 않아 CI에 Azure 자격증명이
 # 없다. 모킹에서는 computed 속성(id·ip_address 등)이 plan 시점에 unknown이다. 따라서
 # assertion은 설정값(tags·name·address_prefixes·sku·zones)과 인스턴스 개수·키 집합만 본다
 # (modules/aws/vpc/tests/plan.tftest.hcl과 같은 제약).
 
-# mock_resource 는 association 리소스가 소비하는 .id 형식을 맞추기 위해서다 — provider가
+# mock_resource 는 association 리소스가 소비하는 .id 형식을 맞추기 위해서다. provider가
 # plan 시점에도 리소스 ID를 파싱해 세그먼트 형식을 검증한다(모듈 결함이 아니라 모킹의 제약,
 # modules/aws/vpc/tests/plan.tftest.hcl의 ARN 형식 요구와 같은 종류).
 mock_provider "azurerm" {
@@ -64,12 +64,12 @@ variables {
     "data" = {
       address_prefixes = ["10.60.0.64/26"]
       nat_routed       = true
-      # nsg_enabled · route_table_enabled 는 기본값(false) 그대로 — 옵트인 기본 꺼짐 검증용.
+      # nsg_enabled · route_table_enabled 는 기본값(false) 그대로: 옵트인 기본 꺼짐 검증용.
     }
   }
 }
 
-# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
+# ── 네이밍 규약: 릴리스 게이트 필수 항목 ───────────────────────────────────────
 run "naming_contract" {
   command = plan
 
@@ -114,7 +114,7 @@ run "subnet_has_no_tags_argument" {
   }
 }
 
-# ── NSG·RT 옵트인 — 그룹마다 기본은 꺼짐 ────────────────────────────────────────
+# ── NSG·RT 옵트인: 그룹마다 기본은 꺼짐 ────────────────────────────────────────
 run "nsg_rt_optin_defaults_off" {
   command = plan
 
@@ -180,7 +180,7 @@ run "nat_single_gateway_shared_by_all_routed_groups" {
 
   assert {
     condition     = azurerm_public_ip.nat[0].sku == "Standard" && azurerm_public_ip.nat[0].allocation_method == "Static"
-    error_message = "공용 IP SKU가 NAT Gateway SKU(Standard)와 일치하지 않는다 — provider가 이 조합을 거부한다."
+    error_message = "공용 IP SKU가 NAT Gateway SKU(Standard)와 일치하지 않는다. provider가 이 조합을 거부한다."
   }
 }
 
@@ -306,7 +306,7 @@ run "kill_switch_disables_everything" {
     error_message = "vnet_enabled = false인데 리소스가 남아 있다."
   }
 
-  # 출력이 에러 대신 null·빈 값을 준다 — 소비자 plan이 깨지지 않아야 teardown이 성립한다.
+  # 출력이 에러 대신 null·빈 값을 준다. 소비자 plan이 깨지지 않아야 teardown이 성립한다.
   assert {
     condition = alltrue([
       output.vnet_id == null,

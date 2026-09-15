@@ -17,7 +17,7 @@ variable "region_code" {
 }
 
 variable "location" {
-  description = "Azure 리전. region_code와 별개로 관리한다(리전코드는 이름 조합용 약어일 뿐이다)."
+  description = "Azure 리전. region_code와 별개로 관리한다(리전코드는 이름 조합용 약어다)."
   type        = string
   default     = "koreacentral"
 }

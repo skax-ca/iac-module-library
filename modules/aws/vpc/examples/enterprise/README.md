@@ -4,7 +4,7 @@
 이 예제는 **고객사 착수 템플릿**이다: 온프레미스 연동, 용도별 대역 분리, EKS custom networking,
 TGW attachment 전용 서브넷까지 들어 있다.
 
-> ⚠️ **이 예제의 존재 이유는 검증이 아니라 착수 템플릿이다.** isolated 라우팅·secondary CIDR·
+> ⚠️ **이 예제는 착수 템플릿이다.** 계약 검증은 `tests/`가 한다. isolated 라우팅·secondary CIDR·
 > AZ 커버리지 precondition 검증은 `modules/aws/vpc/tests/plan.tftest.hcl`이 담당한다. 이 예제는
 > 프로덕션 구성을 흉내 내는 것이 허용된 자리이고
 > ("최소로 유지" 원칙에 대한 **의도된 예외**다).
@@ -72,7 +72,6 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vp
 
 ⚠️ **`0.y.z`는 개발 단계를 뜻한다**([`docs/conventions.md`](../../../../../docs/conventions.md)).
 이 구간에서는 **마이너 업그레이드도 계약을 바꿀 수 있다.** 태그를 올릴 때 릴리스 메시지를 읽는다.
-(2026-08-05 이전에 발행된 `vpc-v1.x` 태그는 같은 커밋의 `v0.x`로 재매핑됐고 **더 이상 존재하지 않는다**.)
 
 ## 실행
 

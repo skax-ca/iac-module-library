@@ -9,7 +9,7 @@ output "role_arn" {
   description = <<-EOT
     신뢰 Role ARN. 소비 루트가 eks-cluster의 access_entries principal_arn으로 넘긴다.
 
-    ⛔ 이 모듈은 Access Entry를 직접 만들지 않는다 — 모듈이 서로를 직접 참조하지 않는다는
+    ⛔ 이 모듈은 Access Entry를 직접 만들지 않는다. 모듈이 서로를 직접 참조하지 않는다는
     원칙에 따라 배포 루트에서만 연결한다.
   EOT
   value       = try(aws_iam_role.this[0].arn, null)

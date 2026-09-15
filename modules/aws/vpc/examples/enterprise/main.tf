@@ -1,11 +1,11 @@
-# vpc 예제 (배포 루트 형태) — 9그룹 프리셋
+# vpc 예제 (배포 루트 형태). 9그룹 프리셋
 #
-# **이 예제의 목적은 검증이 아니라 소비자 착수 템플릿이다.**
+# **이 예제는 소비자 착수 템플릿이다.** 계약 검증은 tests/가 한다.
 # 설계가 처음 이 예제를 요구한 근거(isolated 라우팅·secondary CIDR·AZ 커버리지 precondition이
 # minimal에서는 실행되지 않는다)는 모듈의 tofu test가 이미 커버한다. 남은 값은
 # 서브넷 그룹 설계를 그대로 옮긴 프리셋이며, 고객사 착수 시간을 가장 크게 줄이는 자산이다.
 #
-# ⛔ 모듈당 예제를 늘리지 않는다. 짝이던 minimal 예제는 폐기했다 — 예제 2벌의 유지 비용이
+# ⛔ 모듈당 예제를 늘리지 않는다. 짝이던 minimal 예제는 폐기했다. 예제 2벌의 유지 비용이
 #    minimal이 주는 값보다 컸다. 계약 검증은 modules/aws/vpc/tests가 하고, 이 예제는 착수를 돕는다.
 #
 # ⚠️ 소싱은 상대경로다. 소비 프로젝트는 git tag를 쓴다(README.md "소비 프로젝트와 다른 점" 참조).
@@ -15,9 +15,9 @@ locals {
   # primary는 인프라 전용 소형으로 최소화하고 워크로드는 secondary에 배치한다.
   # ⚠️ primary가 10.0.0.0/15 범위 안이면 10.0.0.0/16 대역 secondary는 연결 불가하므로
   #    uniq secondary는 10.1.0.0/16을 쓴다. 100.64.0.0/10은 모든 primary와 조합 가능하다.
-  cidr_primary = "10.0.0.0/24"   # uniq 소형 — ep·tgw 전용
-  cidr_uniq    = "10.1.0.0/16"   # uniq — 라우팅 가능(온프레미스 도달)
-  cidr_dup     = "100.64.0.0/16" # dup 허용 — 비라우팅(RFC 6598)
+  cidr_primary = "10.0.0.0/24"   # uniq 소형: ep·tgw 전용
+  cidr_uniq    = "10.1.0.0/16"   # uniq: 라우팅 가능(온프레미스 도달)
+  cidr_dup     = "100.64.0.0/16" # dup 허용: 비라우팅(RFC 6598)
 
   # ── cidrsubnet() 파생  ─────────────────────────────────────────────────
   # 계산의 소유가 모듈이 아니라 **소비자 루트**다. 소비자는 이 locals를 복사해 쓴다.
@@ -28,7 +28,7 @@ locals {
   #   vm-uniq    /20 × 2  10.1.0.0/20      10.1.16.0/20
   #   pub-uniq   /24 × 2  10.1.32.0/24     10.1.33.0/24    ┐
   #   elb-uniq   /24 × 2  10.1.34.0/24     10.1.35.0/24    │ 모두 10.1.32.0/20 안에서
-  #   node-uniq  /24 × 2  10.1.36.0/24     10.1.37.0/24    │ 파생 — 겹치지 않는다
+  #   node-uniq  /24 × 2  10.1.36.0/24     10.1.37.0/24    │ 파생: 겹치지 않는다
   #   data-uniq  /24 × 3  10.1.38.0/24 …   10.1.40.0/24    │
   #   db-uniq    /26 × 2  10.1.41.0/26     10.1.41.64/26   ┘ (/24 하나를 다시 /26으로)
   #   pod-dup    /18 × 2  100.64.0.0/18    100.64.64.0/18
@@ -73,7 +73,7 @@ module "vpc" {
       eks_role = "elb"
     }
 
-    # 온프레미스 연동 방화벽 오픈 단위. 내부 LB ENI는 아웃바운드 개시가 없어 isolated로 둔다 —
+    # 온프레미스 연동 방화벽 오픈 단위. 내부 LB ENI는 아웃바운드 개시가 없어 isolated로 둔다.
     # 온프레미스 왕복 경로는 TGW 운영 라우트가 추가될 때 생긴다.
     "elb-uniq" = {
       type     = "isolated"
@@ -81,13 +81,13 @@ module "vpc" {
       eks_role = "internal-elb"
     }
 
-    # VM 워크로드 — NAT 아웃바운드.
+    # VM 워크로드: NAT 아웃바운드.
     "vm-uniq" = {
       type  = "private"
       cidrs = local.vm_cidrs
     }
 
-    # EKS 노드 — node-SNAT의 소스이자 방화벽 오픈 단위.
+    # EKS 노드: node-SNAT의 소스이자 방화벽 오픈 단위.
     "node-uniq" = {
       type  = "private"
       cidrs = local.node_cidrs
@@ -108,7 +108,7 @@ module "vpc" {
       cidrs = local.db_cidrs
     }
 
-    # MSK·OpenSearch·Redis — 3AZ 공식 권장(quorum). db와 분리하는 이유는 AZ 수 요구와
+    # MSK·OpenSearch·Redis: 3AZ 공식 권장(quorum). db와 분리하는 이유는 AZ 수 요구와
     # IP 소모 프로파일이 다르기 때문이다. 라우팅은 db와 같으므로 분리 근거가 아니다.
     "data-uniq" = {
       type  = "isolated"
@@ -121,7 +121,7 @@ module "vpc" {
       cidrs = local.ep_cidrs
     }
 
-    # TGW attachment 전용(/28 권장). ⚠️ 워크로드가 존재하는 모든 AZ를 커버해야 한다 —
+    # TGW attachment 전용(/28 권장). ⚠️ 워크로드가 존재하는 모든 AZ를 커버해야 한다.
     # attachment 없는 AZ의 리소스는 TGW에 도달하지 못한다(AWS 공식).
     "tgw-uniq" = {
       type  = "isolated"
@@ -130,7 +130,7 @@ module "vpc" {
   }
 
   # eks_role이 지정된 그룹(pub-uniq·elb-uniq)에만 cluster 태그가 함께 붙는다.
-  # ⚠️ cluster 태그는 레거시다 — LB Controller 2.1.1 이하만 요구한다.
+  # ⚠️ cluster 태그는 레거시다. LB Controller 2.1.1 이하만 요구한다.
   eks_cluster_name = "eks-${var.workload}-${var.env}-${var.region_code}-main"
 
   # 예제는 비용 최소. prd는 false(AZ별 NAT)로 두며, 그때는 pub 그룹의 AZ 수가

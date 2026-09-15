@@ -20,7 +20,7 @@ mock_provider "aws" {
 
   # ⚠️ 모킹은 computed 속성에 임의 문자열을 채우는데, aws provider는 plan 시점에 ARN 형식을
   #    검증한다(aws_flow_log의 log_destination·iam_role_arn). 형식이 맞는 값을 주지 않으면
-  #    "invalid ARN: arn: invalid prefix"로 plan이 죽는다 — 모듈 결함이 아니라 모킹의 제약이다.
+  #    "invalid ARN: arn: invalid prefix"로 plan이 죽는다. 모듈 결함이 아니라 모킹의 제약이다.
   mock_resource "aws_cloudwatch_log_group" {
     defaults = {
       arn = "arn:aws:logs:ap-northeast-2:111122223333:log-group:/aws/vpc/flow-log/mock"
@@ -66,7 +66,7 @@ variables {
   }
 }
 
-# ── 네이밍 규약 — 릴리스 게이트 필수 항목 ───────────────────────────────────────
+# ── 네이밍 규약: 릴리스 게이트 필수 항목 ───────────────────────────────────────
 run "naming_contract" {
   command = plan
 
@@ -81,7 +81,7 @@ run "naming_contract" {
   }
 
   # 하류 루트가 data.aws_subnets로 그룹 조회하는 키.
-  # ⚠️ 값은 **그룹 키 그대로**여야 한다(AZ 토큰이 붙지 않는다) — 붙으면 그룹 단위 조회가 깨진다.
+  # ⚠️ 값은 **그룹 키 그대로**여야 한다(AZ 토큰이 붙지 않는다). 붙으면 그룹 단위 조회가 깨진다.
   assert {
     condition     = aws_subnet.this["pub-uniq-a"].tags["SubnetGroup"] == "pub-uniq"
     error_message = "SubnetGroup 태그는 AZ 토큰 없이 그룹 키여야 한다: ${aws_subnet.this["pub-uniq-a"].tags["SubnetGroup"]}"
@@ -211,7 +211,7 @@ run "routing_matrix" {
     error_message = "NAT 경로가 private 서브넷마다 걸리지 않았다: ${join(",", keys(aws_route.private_nat))}"
   }
 
-  # isolated 그룹에는 0.0.0.0/0 경로가 없어야 한다 — 모듈이 만드는 라우트 어디에도 등장하지 않는다.
+  # isolated 그룹에는 0.0.0.0/0 경로가 없어야 한다. 모듈이 만드는 라우트 어디에도 등장하지 않는다.
   assert {
     condition = length([
       for key in concat(keys(aws_route.private_nat), keys(aws_route.public_internet)) :
@@ -237,7 +237,7 @@ run "eks_tags_per_group" {
     error_message = "eks_role = elb 그룹에 role 태그가 붙지 않았다."
   }
 
-  # cluster 태그는 레거시다 — LB Controller 2.1.1 이하만 요구한다.
+  # cluster 태그는 레거시다. LB Controller 2.1.1 이하만 요구한다.
   assert {
     condition     = aws_subnet.this["pub-uniq-a"].tags["kubernetes.io/cluster/eks-demo-dev-an2-main"] == "shared"
     error_message = "eks_cluster_name이 지정됐는데 cluster 태그가 붙지 않았다."
@@ -327,7 +327,7 @@ run "kill_switch_disables_everything" {
     error_message = "vpc_enabled = false인데 Flow Logs 리소스가 남아 있다(vpc_enabled가 상위 게이트다)."
   }
 
-  # 출력이 에러 대신 null·빈 값을 준다 — 소비자 plan이 깨지지 않아야 teardown이 성립한다.
+  # 출력이 에러 대신 null·빈 값을 준다. 소비자 plan이 깨지지 않아야 teardown이 성립한다.
   assert {
     condition = alltrue([
       output.vpc_id == null,
@@ -368,7 +368,7 @@ run "flow_logs_can_be_disabled_alone" {
     error_message = "flow_logs_enabled = false인데 Flow Logs 리소스가 생성됐다."
   }
 
-  # VPC는 그대로 남는다 — 두 스위치는 독립이다.
+  # VPC는 그대로 남는다. 두 스위치는 독립이다.
   assert {
     condition     = length(aws_vpc.this) == 1 && length(aws_subnet.this) == 6
     error_message = "Flow Logs만 껐는데 코어 리소스가 영향을 받았다."
@@ -382,16 +382,16 @@ run "flow_logs_can_be_disabled_alone" {
 
 # ── confused deputy 방어 ────────────────────────────────────────────────────────
 # vpc-flow-logs.amazonaws.com은 전 세계 공용 서비스 principal이라 신뢰 정책에 계정·리소스
-# 조건이 없으면 남의 flow log가 우리 로그 그룹으로 배달된다. 조건의 "존재"만 계약으로 잠근다 —
+# 조건이 없으면 남의 flow log가 우리 로그 그룹으로 배달된다. 조건의 "존재"만 계약으로 잠근다.
 # 조건이 실제 배달을 막는지는 mock으로 증명할 수 없고 실계정 로그 도착으로 판정한다.
 run "flow_logs_trust_policy_guards_confused_deputy" {
   command = plan
 
   # 신뢰 정책은 data source 값으로 조립되고, mock_provider가 data source 값을 채우므로
-  # plan 시점에 known이다 — resource의 arn·id가 unknown인 것과 다르다(이 파일 상단 주석 참조).
+  # plan 시점에 known이다. resource의 arn·id가 unknown인 것과 다르다(이 파일 상단 주석 참조).
   assert {
     condition     = jsondecode(aws_iam_role.flow_logs[0].assume_role_policy).Statement[0].Condition.StringEquals["aws:SourceAccount"] != ""
-    error_message = "flow logs 신뢰 정책에 aws:SourceAccount 조건이 없다 — confused deputy 무방비다."
+    error_message = "flow logs 신뢰 정책에 aws:SourceAccount 조건이 없다. confused deputy 무방비다."
   }
 
   # ID 대신 와일드카드를 쓰되(순환 참조 회피) vpc-flow-log 리소스 구간으로 한정돼야 한다.

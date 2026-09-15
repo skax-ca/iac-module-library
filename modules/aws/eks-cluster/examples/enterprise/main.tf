@@ -1,6 +1,6 @@
 # eks-cluster + workbench 예제 (배포 루트 형태)
 #
-# ⚠️ **이 예제의 목적은 검증이 아니라 "고객사 착수 템플릿"이다.**
+# ⚠️ **이 예제는 고객사 착수 템플릿이다.** 계약 검증은 tests/가 한다.
 #    계약 검증은 modules/aws/eks-cluster/tests/ 가 이미 커버한다("최소로 유지"
 #    원칙에 대한 **의도된 예외**). modules/aws/vpc/examples/enterprise 와 같은 위치다.
 #    따라서 여기서는 "왜 이 값인가"를 주석으로 남기는 것이 코드 자체만큼 중요하다.
@@ -12,15 +12,15 @@ data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
 locals {
-  # 최소 예제와 같은 패턴 — 클러스터 이름을 한 번 정의해 두 모듈에 넘긴다.
+  # 최소 예제와 같은 패턴: 클러스터 이름을 한 번 정의해 두 모듈에 넘긴다.
   cluster_purpose = "main"
   cluster_serial  = "01"
   cluster_name    = "eks-${var.workload}-${var.env}-${var.region_code}-${local.cluster_purpose}-${local.cluster_serial}"
 
   # 이 한 줄이 workbench ↔ eks 순환을 끊는다.
-  #    workbench 은 eks_cluster_arn 을 받고, eks 는 access_entries 에 workbench role ARN 을 받는다 —
+  #    workbench 은 eks_cluster_arn 을 받고, eks 는 access_entries 에 workbench role ARN 을 받는다.
   #    양쪽이 서로의 출력을 참조하면 순환이다. 클러스터 ARN 은 이름·리전·계정으로 **유도되므로**
-  #    루트가 결정적 네이밍으로 직접 합성한다 — 모듈 간 결합이 생기지 않는다.
+  #    루트가 결정적 네이밍으로 직접 합성한다. 모듈 간 결합이 생기지 않는다.
   #    ⇒ workbench 은 local 만 참조하고, eks 만 module.workbench 을 참조한다. 단방향.
   cluster_arn = "arn:${data.aws_partition.current.partition}:eks:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${local.cluster_name}"
 }
@@ -37,7 +37,7 @@ module "vpc" {
 
   cidr_block = "10.0.0.0/16"
 
-  # custom networking의 전제 — Pod가 소모할 비라우팅 대역을 secondary CIDR로 붙인다.
+  # custom networking의 전제: Pod가 소모할 비라우팅 대역을 secondary CIDR로 붙인다.
   #    100.64.0.0/10(RFC 6598)은 온프레미스로 라우팅되지 않으므로 Pod IP를 대량으로 써도
   #    사내 IP 계획을 잠식하지 않는다. 노드는 아래 node-uniq의 unique 대역 IP로 SNAT된다.
   secondary_cidr_blocks = ["100.64.0.0/16"]
@@ -57,14 +57,14 @@ module "vpc" {
       eks_role = "internal-elb"
 
       # Karpenter discovery의 subnet 절반. SG 절반은 eks-cluster 모듈이 붙인다.
-      #    ⚠️ 한쪽만 붙으면 selector가 빈 결과를 내고 프로비저닝이 조용히 실패한다 —
+      #    ⚠️ 한쪽만 붙으면 selector가 빈 결과를 내고 프로비저닝이 조용히 실패한다.
       #       PoC에서 SG 쪽을 빠뜨려 실제로 겪은 사고다.
       extra_tags = {
         "karpenter.sh/discovery" = local.cluster_name
       }
     }
 
-    # Pod ENI(ENIConfig) 전용. /18 둘이면 AZ당 16,382개 IP다 — Pod 밀도를 위해 넉넉히 잡는다.
+    # Pod ENI(ENIConfig) 전용. /18 둘이면 AZ당 16,382개 IP다. Pod 밀도를 위해 넉넉히 잡는다.
     # Karpenter 대상이 아니므로 discovery 태그를 붙이지 않는다(노드가 여기 뜨지 않는다).
     "pod-dup" = {
       type  = "private"
@@ -75,7 +75,7 @@ module "vpc" {
     #   ① node-uniq 에는 karpenter.sh/discovery 태그가 있어 Karpenter 가 그 대역에 노드를 띄운다.
     #      workbench 을 섞으면 "이 대역은 무엇의 것인가"가 흐려진다.
     #   ② 온프레미스 방화벽·보안 그룹 정책을 대역 단위로 쓰는 조직에서 관리 접근을 분리해 기술한다.
-    # /24 하나면 workbench 1대에 충분하다 — 넓게 잡을 이유가 없다.
+    # /24 하나면 workbench 1대에 충분하다. 넓게 잡을 이유가 없다.
     "vm-uniq" = {
       type  = "private"
       cidrs = ["10.0.20.0/24", "10.0.21.0/24"]
@@ -85,7 +85,7 @@ module "vpc" {
   eks_cluster_name = local.cluster_name
 
   # prd는 AZ별 NAT로 가용성을 택한다(AZ 장애가 다른 AZ의 아웃바운드를 끊지 않게).
-  # ⚠️ NAT는 개당 월 ~$43이 과금된다 — dev는 single_nat_gateway = true 로 비용을 택한다.
+  # ⚠️ NAT는 개당 월 ~$43이 과금된다. dev는 single_nat_gateway = true 로 비용을 택한다.
   single_nat_gateway = false
 
   # VPC Flow Logs. 클러스터 트래픽의 감사 근거가 된다.
@@ -95,7 +95,7 @@ module "vpc" {
 # ── external-dns가 레코드를 쓸 대상 zone ──────────────────────────────────────
 # 예제가 zone까지 만드는 이유: enable_external_dns_iam = true는 zone ARN 없이 성립하지
 #    않는다. 더미 ARN을 적어 두는 선택지도 있었으나, 고객사가 그대로 복사해
-#    apply하면 **존재하지 않는 zone을 가리키는 IAM role이 조용히 만들어진다** — apply가 성공하기
+#    apply하면 **존재하지 않는 zone을 가리키는 IAM role이 조용히 만들어진다**: apply가 성공하기
 #    때문에 아무도 지적하지 않은 채 굳는 형태다.
 #
 # private zone인 이유: 예제가 만든 VPC 안에서만 해석되면 되므로 도메인 소유·위임이 필요 없다.
@@ -110,7 +110,7 @@ resource "aws_route53_zone" "internal" {
   }
 
   # ⚠️ external-dns는 클러스터 안에서 돌며 **IaC 밖에서** 레코드를 쓴다. 그 레코드가 남아 있으면
-  #    zone 삭제가 실패해 예제 teardown이 막힌다. **예제라서 켠다** — 실제 프로젝트에서는 켜지 않는다
+  #    zone 삭제가 실패해 예제 teardown이 막힌다. **예제라서 켠다**: 실제 프로젝트에서는 켜지 않는다
   #    (IaC가 모르는 레코드를 말없이 지우는 스위치다).
   force_destroy = true
 
@@ -119,12 +119,12 @@ resource "aws_route53_zone" "internal" {
   }
 }
 
-# ── workbench — private 클러스터의 도달 지점 ──────────────────────────────────
+# ── workbench: private 클러스터의 도달 지점 ──────────────────────────────────
 #
 # endpoint_public_access = false 인 클러스터에는 조작 지점이 따로 필요하다.
 # 그것을 함께 세우지 않으면 apply 후 클러스터를 만질 수단이 없다.
 #
-# ⚠️ workbench 은 eks 모듈의 출력을 참조하지 않는다 — 위에서 합성한 local.cluster_arn 만 쓴다.
+# ⚠️ workbench 은 eks 모듈의 출력을 참조하지 않는다. 위에서 합성한 local.cluster_arn 만 쓴다.
 module "workbench" {
   source = "../../../workbench"
 
@@ -144,7 +144,7 @@ module "workbench" {
 
   # 도구는 명시 핀. kubectl 은 클러스터 마이너와 맞춘다(1.35 → v1.35.x).
   kubectl_version = "v1.35.7"
-  # ⚠️ helm 은 프로파일 B 전용이 아니다 — self-managed ArgoCD 를 쓰면 seed 가
+  # ⚠️ helm 은 프로파일 B 전용이 아니다. self-managed ArgoCD 를 쓰면 seed 가
   #    workbench 에서 `helm install` 로 돌기 때문에 필수다. 핀은 차트에 결합돼 있어
   #    argo-cd 10.3.0 과 짝이 되는 것은 helm v3 다(v4 아님).
   helm_version = "v3.21.3"
@@ -153,11 +153,11 @@ module "workbench" {
   argocd_version = "v3.5.0"
 
   # ── 진단·조작 도구  ─────────────────────────
-  # 노드별 CPU/메모리 할당과 비용을 한 화면에서 본다 — Karpenter 가 만든 노드가 실제로
+  # 노드별 CPU/메모리 할당과 비용을 한 화면에서 본다. Karpenter 가 만든 노드가 실제로
   # 어떻게 채워졌는지 보는 용도다.
   eks_node_viewer_version = "v0.7.4"
   # krew 는 KREW_ROOT=/usr/local/krew 로 **시스템 설치**된다(모듈이 처리). 플러그인 목록은
-  # 모듈 기본값(ctx·ns·neat·rbac-tool·view-secret·whoami)을 그대로 받는다 —
+  # 모듈 기본값(ctx·ns·neat·rbac-tool·view-secret·whoami)을 그대로 받는다.
   # ⛔ 기본값과 같은 값을 여기 다시 적지 않는다(중복은 곧 drift다).
   krew_version = "v0.5.0"
 
@@ -185,7 +185,7 @@ module "eks" {
   enable_custom_networking = true
   pod_subnet_ids           = module.vpc.subnet_ids_by_group["pod-dup"]
 
-  # ── 엔드포인트 — GitOps(pull) 전제이므로 private ────────────────────────────
+  # ── 엔드포인트: GitOps(pull) 전제이므로 private ────────────────────────────
   # ⚠️ private 클러스터의 kubectl은 VPC 내부(workbench·VPN·DX)에서만 도달한다.
   #    조작 지점을 먼저 설계하지 않으면 apply 후 클러스터를 만질 수 없다.
   #    ✅ 위 module.workbench 이 그 지점이다(설계 40). 아래 3층 배선이 도달을 완성한다.
@@ -203,7 +203,7 @@ module "eks" {
   #      3층 없음 → dial tcp …: i/o timeout   ← 인증 계층에 닿지도 못했다는 뜻
   #    PoC 는 앞의 두 층만 갖추고 timeout 을 만났다.
 
-  # 2층 — 클러스터 안에서 무엇을 할 수 있는가.
+  # 2층: 클러스터 안에서 무엇을 할 수 있는가.
   # ⚠️ ClusterAdmin 은 넓다. SSM 접근 통제가 곧 클러스터 보안이 된다.
   #    프로파일 B 의 helm 이 실제로 요구하는 최소 권한은 첫 수행 후 좁힌다.
   access_entries = {
@@ -218,7 +218,7 @@ module "eks" {
     }
   }
 
-  # 3층 — apiserver 에 네트워크로 닿는가.
+  # 3층: apiserver 에 네트워크로 닿는가.
   cluster_security_group_additional_rules = {
     workbench_kubectl = {
       from_port                = 443
@@ -235,14 +235,14 @@ module "eks" {
 
   # ── 삭제 보호  ──────────────────────────────────────────────
   # AWS API 차원 보호라 콘솔에서도 지워지지 않는다.
-  # ⚠️ teardown은 2단계다 — deletion_protection = false 로 apply한 뒤 cluster_enabled = false.
-  #    이는 결함이 아니라 보호의 정의다.
+  # ⚠️ teardown은 2단계다. deletion_protection = false 로 apply한 뒤 cluster_enabled = false.
+  #    보호를 켠 채로는 한 번에 파기할 수 없다.
   deletion_protection = true
 
   # ── 노드 ───────────────────────────────────────────────────────────────────
   managed_node_groups = {
     # 시스템·컨트롤러 계층. 앱·버스트 워크로드는 Karpenter가 맡는다.
-    # ⚠️ Karpenter 자신도 여기 떠야 한다 — chart affinity가 karpenter.sh/nodepool DoesNotExist를
+    # ⚠️ Karpenter 자신도 여기 떠야 한다. chart affinity가 karpenter.sh/nodepool DoesNotExist를
     #    요구하므로 Karpenter가 만든 노드에는 뜰 수 없다(자기 자신을 부트스트랩할 수 없다).
     system = {
       instance_types = ["m6i.large"]
@@ -254,7 +254,7 @@ module "eks" {
       #    **노브가 있다는 것을 템플릿에서 보이게** 명시한다.
       #    ⚠️ graviton(t4g·m7g·c7g…)으로 바꾸려면 **두 줄을 함께** 고친다:
       #         instance_types = ["m7g.large"] · ami_type = "AL2023_ARM_64_STANDARD"
-      #       한쪽만 바꾸면 AMI 와 CPU 가 어긋나 **노드가 부팅되지 않는다** — plan 은 통과한다.
+      #       한쪽만 바꾸면 AMI 와 CPU 가 어긋나 **노드가 부팅되지 않는다**: plan 은 통과한다.
       #       ami_release_version 도 아키텍처별로 값이 다르다(arm SSM 경로에서 다시 얻는다).
       ami_type = "AL2023_x86_64_STANDARD"
 
@@ -268,12 +268,12 @@ module "eks" {
   # ── addon ─────────────────────────────────────────────────────────────────
   # 빈 맵이면 baseline 6종을 상속한다. 아래는 baseline 6종의 **버전을 override** 하고
   # community tier 2종을 **opt-in으로 추가**한 형태다.
-  # ⚠️ **누락 != 삭제**다 — baseline은 merge되므로 여기 안 적어도 사라지지 않는다.
+  # ⚠️ **누락 != 삭제**다. baseline은 merge되므로 여기 안 적어도 사라지지 않는다.
   #    제거는 enabled = false 명시로만 한다. core 4종은 그것도 차단된다.
-  # ℹ️ addon_version만 적어도 모듈 소유 필드(vpc-cni의 custom networking 구성, ebs-csi의 pod
+  #    addon_version만 적어도 모듈 소유 필드(vpc-cni의 custom networking 구성, ebs-csi의 pod
   #    identity association)는 merge 뒤에 재주입되므로 사라지지 않는다.
   #
-  # 버전 값은 소비 루트가 소유한다. 모듈은 버전을 들지 않는다 —
+  # 버전 값은 소비 루트가 소유한다. 모듈은 버전을 들지 않는다.
   #    업그레이드 주기가 워크로드마다 다르기 때문이다.
   #
   # ⛔ 아래 값을 그대로 복사하지 말 것. addon 버전은 `f(kubernetes_version, region)`이다.
@@ -282,7 +282,7 @@ module "eks" {
   #    값 얻는 법과 갱신 규칙은 README "addon 버전 고정" 절.
   #
   # 왜 최신이 아니라 기본(default) 버전을 박았나: 기본 버전을 박으면 핀 전후 동작이
-  #    같다(무변경). 최신을 박으면 "핀을 추가한다"는 작업에 **업그레이드 결정이 섞여 들어간다** —
+  #    같다(무변경). 최신을 박으면 "핀을 추가한다"는 작업에 **업그레이드 결정이 섞여 들어간다**.
   #    상향은 값을 올리는 별도 커밋이어야 plan diff로 리뷰된다.
   cluster_addons = {
     # ── baseline 6종 (버전만 override) ──────────────────────────────────────
@@ -308,6 +308,6 @@ module "eks" {
 
   enable_external_dns_iam = true
   # ⛔ 이 목록은 **비울 수 없다**. 비우면 upstream이 Resource = "*" 정책을 만들고
-  #    AWS가 400 MalformedPolicyDocument로 거부한다 — 모듈의 교차변수 validation이 plan에서 먼저 막는다.
+  #    AWS가 400 MalformedPolicyDocument로 거부한다. 모듈의 교차변수 validation이 plan에서 먼저 막는다.
   external_dns_hosted_zone_arns = [aws_route53_zone.internal.arn]
 }

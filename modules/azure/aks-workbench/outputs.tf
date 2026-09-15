@@ -30,7 +30,7 @@ output "workbench_nsg_id" {
 
 output "workbench_system_identity_principal_id" {
   description = <<-EOT
-    VM의 system-assigned 신원 Principal ID(감사용) — identity 블록은 항상
+    VM의 system-assigned 신원 Principal ID(감사용). identity 블록은 항상
     "SystemAssigned, UserAssigned"이므로 entra_ssh_login_enabled 값과 무관하게 존재한다.
     workbench_enabled = false면 null이다.
   EOT

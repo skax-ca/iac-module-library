@@ -1,5 +1,5 @@
 # 출력 계약이 실제로 소비되는지 보이는 곳.
-# GitOps seam(design/21)과 부트스트랩 스크립트가 이 값들을 받는다 — seam이 어떤 방식으로
+# GitOps seam(design/21)과 부트스트랩 스크립트가 이 값들을 받는다. seam이 어떤 방식으로
 # 재결정되든 필요한 것들이라, 여기 있는 목록이 곧 "모듈이 밖에 지는 의무"다.
 
 output "cluster_name" {
@@ -32,7 +32,7 @@ output "node_security_group_id" {
 output "karpenter_discovery_tag" {
   description = <<-EOT
     Karpenter discovery 태그. NodeClass의 subnetSelectorTerms·securityGroupSelectorTerms가 쓴다.
-    이 예제는 **양쪽(subnet · SG)에 모두** 이 값을 붙였다 — 한쪽만 붙으면 조용히 실패한다.
+    이 예제는 **양쪽(subnet · SG)에 모두** 이 값을 붙였다. 한쪽만 붙으면 조용히 실패한다.
   EOT
   value       = module.eks.karpenter_discovery_tag
 }

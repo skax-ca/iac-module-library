@@ -1,7 +1,7 @@
-# private AKS 클러스터의 운영 지점 — NIC · NSG(명시적 Deny) · Linux VM · Entra SSH 확장.
+# private AKS 클러스터의 운영 지점: NIC · NSG(명시적 Deny) · Linux VM · Entra SSH 확장.
 #
 # 이 모듈은 identity·role assignment·서브넷·리소스 그룹을 만들지 않는다(aks-cluster와 같은
-# 경계 원칙). SSH가 일상 운영 경로이고 Run Command(이 모듈이 리소스를 만들지 않는다 — VM
+# 경계 원칙). SSH가 일상 운영 경로이고 Run Command(이 모듈이 리소스를 만들지 않는다. VM
 # Agent 기본 활성)는 그 경로가 없을 때의 브레이크글래스 진단 수단이다.
 #
 # 계약: docs/module-catalog.md
@@ -15,7 +15,7 @@ locals {
 
   vm_name  = "vm-${local.name_mid}-${local.name_suffix}"
   nic_name = "nic-${local.name_mid}-${local.name_suffix}"
-  # nsg는 서브넷 그룹 키가 아니라 이 모듈 자신의 purpose 토큰을 쓴다 — NIC 레벨 NSG라
+  # nsg는 서브넷 그룹 키가 아니라 이 모듈 자신의 purpose 토큰을 쓴다. NIC 레벨 NSG라
   # 서브넷 그룹 키가 없기 때문이다(docs/naming/abbreviations/azure.md의 nsg 의미론 확장 참조).
   nsg_name = "nsg-${local.name_mid}-${local.name_suffix}"
   pip_name = "pip-${local.name_mid}-${local.name_suffix}"
@@ -61,11 +61,11 @@ resource "azurerm_network_security_group" "this" {
 }
 
 # 규칙 우선순위(낮을수록 먼저 평가, provider 허용 범위 100~4096):
-#   100  : ssh_ingress_cidrs 허용(source_address_prefixes에 목록 전달 — CIDR 편집이
+#   100  : ssh_ingress_cidrs 허용(source_address_prefixes에 목록 전달. CIDR 편집이
 #          이 규칙 하나의 속성만 갱신하고 다른 리소스를 재생성하지 않는다)
-#   4096 : 인바운드 전체 차단 — 플랫폼 기본 AllowVNetInBound(65000)를 실제로 덮는다.
+#   4096 : 인바운드 전체 차단. 플랫폼 기본 AllowVNetInBound(65000)를 실제로 덮는다.
 #          이 Deny는 플랫폼 인프라 통신(DHCP·DNS·IMDS·health, 168.63.129.16·
-#          169.254.169.254)은 막지 않는다 — 그 통신은 서비스 태그를 명시하지 않는 한
+#          169.254.169.254)은 막지 않는다. 그 통신은 서비스 태그를 명시하지 않는 한
 #          NSG 적용 대상 밖이다(MS Learn). Run Command·VM Agent·boot diagnostics는
 #          이 Deny와 무관하게 동작한다.
 resource "azurerm_network_security_rule" "ssh_allow" {
@@ -100,7 +100,7 @@ resource "azurerm_network_security_rule" "deny_all_inbound" {
   network_security_group_name = azurerm_network_security_group.this[0].name
 }
 
-# azurerm 3.0+는 network_interface에 network_security_group_id 인자가 없다 — 이 연결
+# azurerm 3.0+는 network_interface에 network_security_group_id 인자가 없다. 이 연결
 # 리소스가 유일한 부착 수단이다(vnet 모듈의 subnet_network_security_group_association과
 # 같은 패턴). 이게 없으면 위 NSG·규칙을 아무리 정교하게 만들어도 NIC에 실제로 안 붙는다.
 resource "azurerm_network_interface_security_group_association" "this" {
@@ -139,7 +139,7 @@ resource "azurerm_linux_virtual_machine" "this" {
     version   = var.source_image_reference.version
   }
 
-  # system-assigned 절반은 AADSSHLoginForLinux 확장이 강제한다(exit code 22, MS Learn) —
+  # system-assigned 절반은 AADSSHLoginForLinux 확장이 강제한다(exit code 22, MS Learn).
   # entra_ssh_login_enabled = false로 확장 자체를 끄지 않는 한 항상 필요하다. 그 확장을
   # 끈 배포에서는 쓰이지 않는 신원이 하나 더 만들어질 뿐이라 무해하다.
   identity {
@@ -147,7 +147,7 @@ resource "azurerm_linux_virtual_machine" "this" {
     identity_ids = [var.identity_id]
   }
 
-  # ForceNew — 부팅 실패 시 유일한 복구 경로는 VM 재생성이다(README「부팅 후 확인」 참조).
+  # ForceNew: 부팅 실패 시 유일한 복구 경로는 VM 재생성이다(README「부팅 후 확인」 참조).
   custom_data = base64encode(templatefile("${path.module}/templates/cloud-init.sh.tftpl", {
     identity_id             = var.identity_id
     identity_client_id      = var.identity_client_id
@@ -182,7 +182,7 @@ resource "azurerm_virtual_machine_extension" "aad_ssh_login" {
   publisher          = "Microsoft.Azure.ActiveDirectory"
   type               = "AADSSHLoginForLinux"
   # 핀 정책: source_image_reference·az_cli_version과 같은 "핀의 소유자는 소비 루트"
-  # 계약을 여기 적용하지 않는다 — 이 확장은 MS가 관리형으로 굴리는 것이라(aks-cluster의
+  # 계약을 여기 적용하지 않는다. 이 확장은 MS가 관리형으로 굴리는 것이라(aks-cluster의
   # managed addon과 같은 성격) 최신 마이너를 자동 추종하는 편이 안전 패치를 놓치지 않는다.
   type_handler_version       = "1.0"
   auto_upgrade_minor_version = true

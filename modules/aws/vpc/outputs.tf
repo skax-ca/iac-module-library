@@ -1,10 +1,10 @@
 # 출력 계약
 #
-#  - map 출력의 키는 소비자가 넘긴 subnet_groups 키 그대로다 — 모듈이 키를 변형하지 않는다.
+#  - map 출력의 키는 소비자가 넘긴 subnet_groups 키 그대로다. 모듈이 키를 변형하지 않는다.
 #  - ⚠️ null-safe: vpc_enabled = false면 스칼라는 null, map·list는 빈 값이다.
 #    참조 대상이 사라진 뒤에도 소비자 plan이 통과해야 파기가 성립한다.
 #  - ⚠️ 리스트 순서는 az_selection 순서다. 맵 순회는 키 사전순이라
-#    az_selection = ["a", "c", "b"]가 a·b·c로 뒤집힌다 — 순서가 필요한 출력은
+#    az_selection = ["a", "c", "b"]가 a·b·c로 뒤집힌다. 순서가 필요한 출력은
 #    local.az_suffixes를 바깥 루프로 두고 조립한다.
 #
 # 계약: docs/module-catalog.md
@@ -28,7 +28,7 @@ output "subnet_ids_by_group" {
   description = <<-EOT
     그룹 키 → 서브넷 ID 리스트(AZ 순서). 키는 소비자가 넘긴 subnet_groups 키 그대로다.
     하류(eks-cluster 등)는 이 출력을 직접 넘겨받거나, 루트가 다르면 Name 태그로
-    data.aws_subnets를 조회한다 — 네이밍이 결정적이라 성립하는 방식이다.
+    data.aws_subnets를 조회한다. 네이밍이 결정적이라 성립하는 방식이다.
   EOT
   value = local.enabled ? {
     for group_name in keys(var.subnet_groups) : group_name => [
@@ -43,7 +43,7 @@ output "route_table_ids_by_group" {
   description = <<-EOT
     그룹 키 → 라우팅 테이블 ID 리스트. 운영 라우트(온프레미스→TGW 등)를 얹는 앵커다.
     public·isolated 그룹은 RT를 공유하므로 원소가 1개, private 그룹은 AZ별 RT라 AZ 순서 리스트다.
-    앵커에 무엇을 거는지는 모듈이 제약하지 않는다 — 목적지(CIDR·prefix list)와
+    앵커에 무엇을 거는지는 모듈이 제약하지 않는다. 목적지(CIDR·prefix list)와
     타깃(TGW·VGW·peering·ENI 등) 조합이 자유롭다.
   EOT
   value = local.enabled ? {

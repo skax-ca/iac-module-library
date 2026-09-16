@@ -7,43 +7,46 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). `scripts/README.md`는 GitHub App 발급·private key 배달 절차만 갖는다 |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. 주석 규칙 게이트(`scripts/validate-comment-conventions.py` + `.githooks/pre-commit`) 설치됨, 위반 0건. clone마다 `git config core.hooksPath .githooks` 필요 |
-| aks-reference-infra | main = origin | 전부 철거 상태. 원본 이식 항목(runbooks·게이트·teardown-verify) 완료. 변수 48건 `nullable = false` 적용 완료 |
-| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ⚠️ 주석 규칙 게이트 미설치(위반 41건 측정됨) |
+| eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit에 셸 게이트(`bash -n` + `shellcheck -x`) 있음. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
+| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. pre-commit에 주석 규칙 + 셸 게이트, 위반 0건. README 「로컬 게이트」 절이 활성화 방법을 갖는다 |
+| aks-reference-infra | main = origin | 전부 철거 상태. 원본 이식 항목 완료. 변수 48건 `nullable = false`. pre-commit에 셸 게이트 있음. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
+| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. 주석 규칙 게이트 + 셸 게이트 설치 완료, 위반 0건 |
+
+⚠️ 로컬 전제: 훅이 `shellcheck`를 **하드 요구**한다(없으면 즉시 실패). clone마다
+`git config core.hooksPath .githooks`와 `brew install shellcheck`가 필요하다. 이 Mac에는
+0.11.0이 설치돼 있다.
 
 ## 지난 세션 (2026-09-16)
 
-aks 배포 루트 변수 48건에 `nullable = false`를 적용해 두 배포 루트를 같은 계약 위에 올렸다
-(PR #50, `df7ae8b`). `default = null` 예외는 0건이었고, `ssh_ingress_cidrs` 두 곳이 `validation`
-블록을 가져 `type` 줄 뒤를 앵커로 잡아 회피했다. main plan 실패 5건은 철거 상태의 `data` 조회
-실패이고 `must not be null`은 0건이다.
+`aks-platform-gitops`에 주석 규칙 게이트를 이식했다(`d3af114`). `eks-platform-gitops`의
+검사기·훅을 바이트 동일로 가져왔고 glob 범위가 파일 전부를 덮어 레이아웃 조정이 없었다.
+좌표 41건을 걷어냈고, YAML 블록 스칼라 안에 숨어 검사기가 못 보던 2건도 손으로 정리했다.
+`.omc/plans/` 7건과 `alb-controller` 8건은 가리키는 대상이 사라진 끊긴 포인터였다.
+`eks-platform-gitops`에는 README 「로컬 게이트」 절을 신설하고 `.pyc` 추적을 끊었다(`ebeb8ce`).
 
-Kyverno 엔진·정책의 짝 규칙을 차트 번호에서 **마이너 라인**으로 바꿨다(`a74a5b8` + GitOps 2곳).
-helm index 전수로 3.x 정식은 kyverno 59개·kyverno-policies 51개, 정책 단독 0개, 엔진 단독 8개다.
-8개는 전부 유지보수 라인(3.0·3.2·3.3·3.4)의 꼬리라 옛 규칙은 그 라인에 동결된 채 보안 백포트가
-오면 그것을 막는다. 두 차트에 helm `dependencies`가 없고 차트 README가 요구하는 것은 app 버전
-하한이다. EKS에 없던 3.9 `policyType` 경고(`ClusterPolicy` → `ValidatingPolicy`)도 채웠다.
+`.sh` 문법을 아무도 검사하지 않던 구멍을 4개 저장소 pre-commit으로 닫았다(`858f994`·`135d698`·
+`16d98ef`·`b59553c`). CI가 아니라 훅에 둔 이유: 배포 워크플로는 루트별 트리거라 `.sh`만 바뀐
+커밋은 아무 워크플로도 돌리지 않고, GitOps 저장소에는 워크플로 자체가 없어 `argocd-seed.sh`를
+못 덮는다. shellcheck 지적 49건 중 34건은 의도된 패턴이라 사유를 적은 `disable` 지시자로
+남겼다(`--tags $(tag_args_iam …)`의 비인용은 인용하면 aws CLI가 거부한다). `-x`가 `source`를
+따라가 SC1091 4건이 사라졌다.
 
-`writing-style.md` 2절이 작업에 실리지 않던 원인 셋을 닫았다(PR #55, `c04efe9`). 진입점 부재가
-핵심이었다: 이 문서를 가리키는 곳이 전부 자동 로드되지 않는 파일이었고 `CLAUDE.md`에 참조가
-없었다. 1절(구조)은 저장소 문서, 2절(문체)은 산문 전부로 범위를 갈랐다. em-dash 금지 규칙은
-넓혔다가 **전면 폐기**했다(vendored 파일 훼손·절 제목 참조 파손·358줄 중 25줄 콜론 중복).
+동작이 바뀌는 수정 셋을 넣었다. `cd "$(dirname …)" || exit 1` 4곳은 `set -euo`가 `config.sh`에
+있고 `cd`가 그 전에 돌아 실패 시 엉뚱한 디렉토리를 읽던 자리다. AKS `GH_ORG_ID`·`GH_REPO_ID`는
+`readonly`의 종료코드가 `gh api` 실패를 덮어 빈 ID가 `GH_ORG_REPO_SUBJECT`를 망가뜨릴 수
+있었다. jq 주석의 작은따옴표는 셸 문자열을 끊고 있었다(동작은 했다. 공백 하나만 더 들어가면
+인자가 쪼개지는 구조였다). 철거 상태라 실행 검증은 못 했고 정적 검사로만 확인했다.
 
-`argocd-seed.sh`의 vendoring 구조를 걷어내고 SSOT를 각 GitOps 저장소로 옮겼다(4개 저장소).
-원본을 아무도 실행하지 않았고(workbench는 GitOps 저장소만 클론한다), 드리프트 검사를 사람이
-기억해야 해서 문체 정리 한 번에 갈렸다. AKS 사본은 삭제된 `iac-module-library/scripts/`를
-가리키는 끊긴 포인터였다. `eks-reference-infra`의 중복 문서 100줄을 걷어내고(`b7241c9`),
-`hub-lifecycle.md`가 적던 잘못된 실행 경로도 고쳤다.
+두 배포 루트의 `validate-doc-conventions.py`가 폐기된 em-dash 금지를 아직 강제하고 있었다.
+`writing-style.md`에 그 항목이 없고 지금 「문체 규칙 6」은 전혀 다른 규칙이다. 걷어내고 기각
+근거를 검사기 헤더에 남겼다. 지난 세션에 걷어낸 것은 *주석* 게이트였고 *문서* 게이트가 남아
+있었다.
 
 ## 다음 할 일
-- [ ] [aks-gitops] 주석 규칙 게이트를 이식한다 — `eks-platform-gitops`의
-      `scripts/validate-comment-conventions.py` + `.githooks/pre-commit`을 복사하고 적용 범위를
-      이 저장소 레이아웃에 맞춘다. 현재 위반 41건(전부 좌표)을 함께 정리해야 게이트가 깨끗이 선다.
-      ⚠️ `.yaml`을 새로 만들지 않는다(root App이 `path: .` + `recurse: true`라 흡수한다)
-- [ ] [*-ref] `.sh` 셸 문법 게이트 검토 — 주석 규칙은 게이트가 보지만 문법은 아무도 안 본다.
-      배포 워크플로에 `bash -n`(가능하면 `shellcheck`) 스텝 추가.
-      `eks-reference-infra` `scripts/README.md` 「열린 항목」이 이 건을 갖는다
+- [ ] [*-ref] [*-gitops] 훅 파일 자신(`.githooks/pre-commit`·`pre-push`)은 셸인데 어느 게이트도
+      보지 않는다 — 셸 게이트의 `sh_staged` 패턴이 `.githooks/`를 안 잡는다. 이번 세션에
+      손으로 `bash -n`·`shellcheck` 0건을 확인했을 뿐이라 다음 편집 때 깨져도 안 걸린다.
+      ⚠️ 패턴에 `^\.githooks/`를 넣으면 훅이 자기 자신을 검사하게 되니 그 순환을 먼저 판단한다
 - [ ] [*-gitops] EKS·AKS 재구축 후 cluster Secret 등록 — ⚠️ teardown이 매칭 라벨을 **먼저 떼고**
       파일을 지웠다. git 이력에서 되살리면 라벨이 빠진 껍데기이고 그 상태로는 Application이 하나도
       안 생긴다. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·`karpenterNodeRole`,

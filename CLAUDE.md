@@ -1,6 +1,7 @@
 # CLAUDE.md: 프로젝트 규칙
 
-**읽는 사람**: 이 저장소에 코드를 쓰거나 설계를 검토하는 사람.
+**읽는 사람**: 이 저장소에 코드를 쓰거나 설계를 검토하는 사람, 그리고 이 저장소의 모듈을 소비하는
+배포 루트에서 작업하는 사람.
 
 우리 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 모듈 자산 라이브러리.
 프로젝트마다 아키텍처를 새로 그리는 건 당연하다. 문제는 그때 내린 **설계 판단이 남지 않아
@@ -9,7 +10,7 @@
 **스택**: **OpenTofu**(MPL-2.0) + GitHub Actions(OIDC) + S3 backend(`use_lockfile`) + OPA/Conftest
 
 **`.tf` 작업 규칙**(네이밍·아키텍처·검증·모듈 설계 원칙)은 `.claude/rules/terraform.md`가 소유한다
-(`.tf` 파일을 열 때 자동 로드된다). 이 파일은 리포 전역 규칙만 갖는다.
+(`.tf` 파일을 열 때 자동 로드된다). 이 파일은 리포 전역 규칙과 「배포 루트 공통」 규칙만 갖는다.
 
 ## 엔진: OpenTofu 단독
 
@@ -52,6 +53,25 @@ module "vpc" {
 않는다, 전부 마이너다). `1.0.0`은 전 모듈 일괄이 아니라 **모듈별로** 컷한다. 신규 모듈은 `0.1.0`에서
 시작한다. 버전 혼재(`vpc-v0.3.0` + `workbench-v0.6.0`)는 결함이 아니라 **정보**다.
 
+## 배포 루트 공통
+
+`eks-reference-infra`·`aks-reference-infra`에서 작업할 때 적용한다. 두 repo의 `CLAUDE.md`는 그 repo에서만
+참인 값(루트 목록·변수명·리전 약어·훅 활성화)과 문서 좌표만 갖고, 규칙은 이 절이 소유한다.
+
+| 항목 | 규칙 |
+|------|------|
+| 역할 | 이 repo의 모듈을 태그로 소비해 세우고 걷어낸다. 모듈 내부는 고치지 않는다. 고칠 것이 있으면 여기서 고치고 태그를 올린다 |
+| state | 배포 루트마다 별도 state, key는 `<env>/<component>.tfstate`. 루트 간 결합은 `terraform_remote_state`가 아니라 Name·태그 기반 `data` 조회다. 예외(크로스 구독 등)는 그 repo 값 표가 적는다 |
+| plan → apply | push가 plan을 돌리고, `workflow_dispatch`를 누르는 것이 apply 승인이다. `pull_request` 트리거는 두지 않는다 |
+| 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 승인한 것과 다른 plan을 만든다 |
+| 로컬 | `tofu init`·`validate`까지. apply·destroy는 각 repo의 가드(실행 Role 신뢰 관계, `ci_run` 검사)가 막는다 |
+| 네이밍 | 약어 SSOT는 `docs/naming/abbreviations/{aws,azure}.md`. 배포 루트는 약어를 직접 조합하지 않고 모듈에 `naming` 객체를 넘긴다 |
+| 로컬 게이트 | pre-commit(문서·주석 규칙 → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). CI는 이 게이트를 돌리지 않으므로 훅이 유일한 강제 지점이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
+| 모듈 계약 | 루트 `main.tf`가 넘기는 변수와 참조하는 출력은 추정하지 않는다. `live/*/.terraform/modules/`의 실물이나 이 repo 소스로 확인한다 |
+| 설계 근거의 자리 | 배포 루트에 설계 문서 계층(ADR 등)을 두지 않는다. 패턴 갈림길은 이 repo `docs/architectures/`, 그 repo 고유 판단은 적용된 `.tf`/`.sh`의 인라인 주석, 운영 절차는 그 repo `docs/hub-lifecycle.md`·`spoke-lifecycle.md`·`runbooks.md` |
+| 좌표 금지 | 주석·문서에 날짜·절 번호·PR 번호·사건 서술을 쓰지 않는다(`docs/conventions.md`). 주석은 "왜 이 값인가"와 "바꾸면 무엇이 깨지는가"에만 답한다 |
+| 세션 메모 | 에이전트 세션 메모는 저장소 지식이 아니다. 절차·gotcha는 운영 절차 문서나 인라인 주석에 반영한다 |
+
 ---
 
 ## 설계·검토 우선 규칙 (최우선, 필수 준수)
@@ -61,6 +81,8 @@ module "vpc" {
 - 코드(`.tf`) 작성/변경 전에 관련 설계가 `docs/`에 존재하고 승인·검토되었는지 확인한다.
   모듈 자체의 입력·출력 계약은 각 모듈의 README(terraform-docs 자동 생성)가, 모듈 간 연동은
   `docs/module-catalog.md`가, 규약은 `docs/conventions.md`가 소유한다.
+- 배포 루트에서는 설계 문서가 그 repo의 `docs/hub-lifecycle.md`·`spoke-lifecycle.md`·`runbooks.md`와
+  `.tf`/`.sh` 인라인 주석이다. 작업 전에 해당 절차 문서를 먼저 읽는다.
 - 설계가 없거나 불완전하면 **구현을 멈추고** 먼저 설계 문서(설계 → 검토 → 승인)를 작성/보완한다.
 - "간단해 보인다"는 이유로 이 단계를 건너뛰지 않는다. 새 모듈·아키텍처 변경·인터페이스 변경은 예외 없음.
 - 순서: **설계 문서화 → 검토/승인 → 구현 → 검증(fmt/validate/test)**.
@@ -79,8 +101,8 @@ module "vpc" {
 | **`.tf` · `.github/workflows/`** | **브랜치 → PR** |
 | **문서 전용** | **`main` 직접 커밋** |
 
-- 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. `verify.yml`은 **`push: branches: [main]`에도 돌므로**
-  "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에 들어가기 전에 걸리느냐**뿐이다.
-  문서에는 main을 깨뜨릴 산출물이 없다.
+- 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 이 repo의 `verify.yml`도, 배포 루트의 각 워크플로도
+  **`push: branches: [main]`에서 돌므로** "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에
+  들어가기 전에 걸리느냐**뿐이다. 문서에는 main을 깨뜨릴 산출물이 없다.
 - ⛔ **문서 전용 변경에 PR을 쓰지 않는다.** 이 repo는 사실상 1인 작업이라 리뷰는 self-merge = 형식이고,
   커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다. 형식만 남은 절차는 비용만 낸다.

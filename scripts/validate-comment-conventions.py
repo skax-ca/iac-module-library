@@ -17,7 +17,7 @@
 #  ".tf 를 찾아라" 조건에서 빠져 있었다. scripts/*.py 는 대상이 아니다 — 이 파일이 금지 문자를
 #  검출하려고 리터럴로 담고 있어 자기 자신을 잡는다. 그 예외를 두는 것보다 범위를 좁게 둔다.
 #
-#  실행 (repo 루트에서): python3 scripts/validate-tf-comments.py [파일...]
+#  실행 (repo 루트에서): python3 scripts/validate-comment-conventions.py [파일...]
 #  인자를 안 주면 적용 범위 전체를 스캔한다.
 
 import glob

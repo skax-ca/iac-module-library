@@ -242,7 +242,7 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 범위를 좁게 둔다.
 
 ```bash
-python3 scripts/validate-tf-comments.py
+python3 scripts/validate-comment-conventions.py
 ```
 
 기계로 잡는 것은 절 번호 인용 기호·결정 식별자(`D-...`)·날짜 3개다. 주석뿐 아니라

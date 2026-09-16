@@ -71,7 +71,7 @@ module "vpc" {
 | 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 승인한 것과 다른 plan을 만든다 |
 | 로컬 | `tofu init`·`validate`까지. apply·destroy는 각 repo의 가드(실행 Role 신뢰 관계, `ci_run` 검사)가 막는다 |
 | 네이밍 | 약어 SSOT는 `docs/naming/abbreviations/{aws,azure}.md`. 배포 루트는 약어를 직접 조합하지 않고 모듈에 `naming` 객체를 넘긴다 |
-| 로컬 게이트 | pre-commit(문서·주석 규칙 → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). CI는 이 게이트를 돌리지 않으므로 훅이 유일한 강제 지점이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
+| 로컬 게이트 | pre-commit(문서·주석 규칙 → 셸 `bash -n`·`shellcheck -x` → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). CI는 이 게이트를 돌리지 않으므로 훅이 유일한 강제 지점이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
 | 모듈 계약 | 루트 `main.tf`가 넘기는 변수와 참조하는 출력은 추정하지 않는다. `live/*/.terraform/modules/`의 실물이나 이 repo 소스로 확인한다 |
 | `.tf` 작성 | 배포 루트도 리소스와 변수를 직접 선언한다. 그 코드에도 `docs/conventions.md` 「코드 규약」(보안 규칙은 inline이 아닌 별도 리소스, 워크스페이스 간 데이터는 `data` 조회, 새 리소스·인자는 문서로 확인하고 추정하지 않는다)과 `docs/decisions.md` 「변수 계약 (nullable)」, `docs/writing-style.md` 2절(문체)이 그대로 적용된다. ⚠️ 이 repo의 `.claude/rules/terraform.md`는 **배포 루트에 실리지 않는다**(`paths` 규칙은 작업 디렉토리 기준이다). 그 파일은 모듈 전용이고, 배포 루트의 진입점은 이 행이다 |
 | 설계 근거의 자리 | 배포 루트에 설계 문서 계층(ADR 등)을 두지 않는다. 패턴 갈림길은 이 repo `docs/architectures/`, 그 repo 고유 판단은 적용된 `.tf`/`.sh`의 인라인 주석, 운영 절차는 그 repo `docs/hub-lifecycle.md`·`spoke-lifecycle.md`·`runbooks.md` |

@@ -196,14 +196,15 @@ jobs:
       - name: "게이트 — §N 인용·비표준 이모지·400줄 제한"
         run: python3 scripts/validate-doc-conventions.py
 
-  # 주석·description 의 좌표 금지(docs/conventions.md 코드 규약 절)의 기계 판정 가능한
-  # 3개(절 번호 인용 기호·결정 식별자·날짜). 로컬 게이트는 .githooks/pre-commit(대상이 staged
-  # 됐을 때만). 한쪽을 바꾸면 다른 쪽도 바꾼다. CI는 전체 저장소를 본다(로컬은 staged 파일만.
-  # 속도 차이다). 대상 목록의 SSOT는 스크립트의 default_targets() 이고 여기서 인자를 주지 않는다.
+  # 주석·description 의 주석 규칙(docs/conventions.md 코드 규약 절) 중 기계 판정 가능한 3개.
+  # 외부 참조 2종(절 번호 인용 기호·결정 식별자)과 이력 서술 1종(날짜). 로컬 게이트는
+  # .githooks/pre-commit(대상이 staged 됐을 때만). 한쪽을 바꾸면 다른 쪽도 바꾼다. CI는 전체
+  # 저장소를 본다(로컬은 staged 파일만. 속도 차이다). 대상 목록의 SSOT는 스크립트의
+  # default_targets() 이고 여기서 인자를 주지 않는다.
   comment-conventions:
-    name: 주석 좌표 검사
+    name: 주석 규칙 검사
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: "게이트: 절 번호 인용 기호·결정 식별자·날짜"
+      - name: "게이트: 외부 참조·이력 서술"
         run: python3 scripts/validate-comment-conventions.py

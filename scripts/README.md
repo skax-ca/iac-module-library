@@ -11,5 +11,5 @@
 |---|---|---|
 | `validate-abbreviations.py` | 약어 카탈로그(`docs/naming/abbreviations/*.md`) SSOT 일관성 검사 | `.githooks/pre-commit`(카탈로그 staged 시)와 CI가 실행 |
 | `validate-doc-conventions.py` | 문서 구조 규칙(`writing-style.md` 1절) 중 기계로 판정 가능한 항목 검사 | `.githooks/pre-commit`(문서 staged 시)와 CI가 실행 |
-| `validate-comment-conventions.py` | `modules/**` 의 `.tf`·`.tftest.hcl`과 훅 2개(`.githooks/pre-commit`·`pre-push`)의 주석·`description` 산문에서 좌표 3종(절 번호 인용 기호·결정 식별자·날짜) 검사 | `.githooks/pre-commit`(해당 파일 staged 시)와 CI가 실행 |
+| `validate-comment-conventions.py` | `modules/**` 의 `.tf`·`.tftest.hcl`과 훅 2개(`.githooks/pre-commit`·`pre-push`)의 주석·`description` 산문에서 외부 참조 2종(절 번호 인용 기호·결정 식별자)과 이력 서술 1종(날짜) 검사 | `.githooks/pre-commit`(해당 파일 staged 시)와 CI가 실행 |
 | `build-deck-pptx.py` | 발표자료 HTML을 pptx로 굽는다 | 사람이 직접 실행 |

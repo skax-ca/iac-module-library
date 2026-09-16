@@ -235,11 +235,16 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 **지우기 전에**: *"이 줄이 없으면 다음 사람이 무엇을 틀리나"* 에 답한다.
 답할 수 없으면 지운다. 답할 수 있으면 **짧게 다시 쓴다. 지우지 않는다.**
 
-판정:
+판정은 게이트가 한다. `.githooks/pre-commit`(staged된 `modules/**` 의 `.tf`·`.tftest.hcl`)과
+CI가 같은 스크립트를 돌린다.
 
 ```bash
-grep -rn "§\|D-[A-Z]\|20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" --include='*.tf' --include='*.tftest.hcl' modules examples
+python3 scripts/validate-tf-comments.py
 ```
+
+기계로 잡는 것은 절 번호 인용 기호·결정 식별자(`D-...`)·날짜 3개다. 주석뿐 아니라
+`description` 산문도 본다.
+*"실측했다"* 류 사건 서술은 문맥 판단이라 자동화하지 않는다: 그 판정은 사람이 한다.
 
 ---
 

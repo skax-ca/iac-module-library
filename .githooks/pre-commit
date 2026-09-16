@@ -52,17 +52,18 @@ if [ -n "$md_staged" ]; then
   fi
 fi
 
-# 주석 좌표 금지(docs/conventions.md 코드 규약 절) — 절 번호 인용 기호·결정 식별자·날짜를
-# 기계로 잡는다. CI(.github/workflows/verify.yml tf-comments)와 같은 스크립트를 실행한다.
+# 주석 규칙(docs/conventions.md 코드 규약 절) — 외부 참조 2종(절 번호 인용 기호·결정 식별자)과
+# 이력 서술 1종(날짜)을 기계로 잡는다.
+# CI(.github/workflows/verify.yml comment-conventions)와 같은 스크립트를 실행한다.
 # 한쪽을 바꾸면 다른 쪽도 바꾼다. 여기는 staged된 것만, CI는 전체를 본다(속도 차이).
 # 훅 파일도 대상이다. 규약은 산문이 실리는 면을 확장자로 가르지 않는데, 훅 주석은 그 면이면서
 # 검사에서 빠져 있었다. 대상 목록의 SSOT는 스크립트의 default_targets()다.
 coord_staged=$(printf '%s\n' "$changed" | grep -v '/\.terraform/' |
   grep -E '^modules/.*\.(tf|tftest\.hcl)$|^\.githooks/pre-(commit|push)$' || true)
 if [ -n "$coord_staged" ]; then
-  echo "[pre-commit] 코드 변경 감지 — 주석 좌표 검사"
+  echo "[pre-commit] 코드 변경 감지 — 주석 규칙 검사"
   # shellcheck disable=SC2086
-  python3 scripts/validate-tf-comments.py $coord_staged
+  python3 scripts/validate-comment-conventions.py $coord_staged
 fi
 
 # 셸 게이트. bash -n 은 문법만 보고, shellcheck 는 인용·확장·종료코드 실수를 본다.

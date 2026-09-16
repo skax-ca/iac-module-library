@@ -61,7 +61,7 @@ module "vpc" {
 ## 배포 루트 공통
 
 `eks-reference-infra`·`aks-reference-infra`에서 작업할 때 적용한다. 두 repo의 `CLAUDE.md`는 그 repo에서만
-참인 값(루트 목록·변수명·리전 약어·훅 활성화)과 문서 좌표만 갖고, 규칙은 이 절이 소유한다.
+참인 값(루트 목록·변수명·리전 약어·훅 활성화)과 문서 위치만 갖고, 규칙은 이 절이 소유한다.
 
 | 항목 | 규칙 |
 |------|------|
@@ -75,7 +75,7 @@ module "vpc" {
 | 모듈 계약 | 루트 `main.tf`가 넘기는 변수와 참조하는 출력은 추정하지 않는다. `live/*/.terraform/modules/`의 실물이나 이 repo 소스로 확인한다 |
 | `.tf` 작성 | 배포 루트도 리소스와 변수를 직접 선언한다. 그 코드에도 `docs/conventions.md` 「코드 규약」(보안 규칙은 inline이 아닌 별도 리소스, 워크스페이스 간 데이터는 `data` 조회, 새 리소스·인자는 문서로 확인하고 추정하지 않는다)과 `docs/decisions.md` 「변수 계약 (nullable)」, `docs/writing-style.md` 2절(문체)이 그대로 적용된다. ⚠️ 이 repo의 `.claude/rules/terraform.md`는 **배포 루트에 실리지 않는다**(`paths` 규칙은 작업 디렉토리 기준이다). 그 파일은 모듈 전용이고, 배포 루트의 진입점은 이 행이다 |
 | 설계 근거의 자리 | 배포 루트에 설계 문서 계층(ADR 등)을 두지 않는다. 패턴 갈림길은 이 repo `docs/architectures/`, 그 repo 고유 판단은 적용된 `.tf`/`.sh`의 인라인 주석, 운영 절차는 그 repo `docs/hub-lifecycle.md`·`spoke-lifecycle.md`·`runbooks.md` |
-| 좌표 금지 | 주석·문서에 날짜·절 번호·PR 번호·사건 서술을 쓰지 않는다(`docs/conventions.md`). 주석은 "왜 이 값인가"와 "바꾸면 무엇이 깨지는가"에만 답한다 |
+| 외부 참조·이력 서술 금지 | 주석·문서에 **외부 참조**(절 번호·결정 식별자·PR 번호)와 **이력 서술**(날짜·사건 서술)을 쓰지 않는다(`docs/conventions.md`). 주석은 "왜 이 값인가"와 "바꾸면 무엇이 깨지는가"에만 답한다 |
 | 세션 메모 | 에이전트 세션 메모는 저장소 지식이 아니다. 절차·gotcha는 운영 절차 문서나 인라인 주석에 반영한다 |
 
 ---

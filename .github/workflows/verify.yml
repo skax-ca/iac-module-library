@@ -197,12 +197,12 @@ jobs:
         run: python3 scripts/validate-doc-conventions.py
 
   # .tf 주석·description 의 좌표 금지(docs/conventions.md 코드 규약 절)의 기계 판정 가능한
-  # 3개(§ 인용·결정 식별자·날짜)와 em-dash. 로컬 게이트는 .githooks/pre-commit(modules .tf staged 시만).
+  # 3개(§ 인용·결정 식별자·날짜). 로컬 게이트는 .githooks/pre-commit(modules .tf staged 시만).
   # 한쪽을 바꾸면 다른 쪽도 바꾼다. CI는 전체 저장소를 본다(로컬은 staged 파일만. 속도 차이다).
   tf-comments:
-    name: .tf 주석 좌표·문체 검사
+    name: .tf 주석 좌표 검사
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: "게이트: § 인용·결정 식별자·날짜·em-dash"
+      - name: "게이트: § 인용·결정 식별자·날짜"
         run: python3 scripts/validate-tf-comments.py

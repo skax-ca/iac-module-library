@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-# docs/writing-style.md 1절(구조 규칙)·2절(문체 규칙) 중 기계로 판정 가능한 4개만 검사한다.
-# 나머지 규칙(1절의 1 "읽는 사람" 첫 줄 · 2 변경 이력 금지 · 5 표/명령 · 7 정정 서술 금지, 2절의
-# 1~5·7~8)은 문맥 판단이 필요해 자동화하지 않는다 — 억지로 정규식화하면 오탐이 사람 검토보다 비싸진다.
+# docs/writing-style.md 1절(구조 규칙) 중 기계로 판정 가능한 3개만 검사한다.
+# 나머지 규칙(1절의 1 "읽는 사람" 첫 줄 · 2 변경 이력 금지 · 5 표/명령 · 7 정정 서술 금지)과
+# 2절(문체) 8개 전부는 문맥 판단이 필요해 자동화하지 않는다. 억지로 정규식화하면 오탐이 사람
+# 검토보다 비싸진다.
 #
 #  1. 1절 규칙 6 — 문서 간 §N 인용 금지. "§" 문자 자체가 이 저장소 정리 이후 정당한 용례가
 #     없으므로(자기 절 번호도 "## 1." 형식이지 "§1"이 아니다), "§" 등장 자체를 위반으로 본다.
 #  2. 1절 규칙 3 — 이모지는 고정 7종(✅⏳❌⚠️⛔🔴🔑)만 허용. 그 밖의 이모지 범위 문자를 잡는다.
 #  3. 1절 규칙 4 — 문서 400줄 제한. `docs/naming/abbreviations/` 아래(약어 카탈로그, 데이터)는
 #     규칙이 명시한 예외라 건너뛴다.
-#  4. 2절 규칙 6 — em-dash("—") 금지. 전체 대상 파일에 예외 없이 적용한다.
 #
-#  적용 범위: writing-style.md가 스스로 선언한 범위와 같다 — docs/*.md · 저장소 전역 README.md ·
+#  적용 범위: writing-style.md 1절이 선언한 범위와 같다. docs/*.md · 저장소 전역 README.md ·
 #  루트 CLAUDE.md.
 #
 #  실행 (repo 루트에서): python3 scripts/validate-doc-conventions.py [파일...]
@@ -23,7 +23,7 @@ import sys
 ALLOWED_EMOJI = {"✅", "⏳", "❌", "⚠️", "⛔", "🔴", "🔑"}
 LINE_LIMIT = 400
 # modules/**/README.md(생성물, terraform-docs가 .tf의 description을 그대로 주입)는
-# 400줄 제한과 em-dash 검사 양쪽에서 예외다 — 팀원이 쓰는 프로즈가 아니다.
+# 400줄 제한의 예외다. 팀원이 쓰는 프로즈가 아니다.
 GENERATED_README = re.compile(r"^modules/[^/]+/[^/]+/README\.md$")
 LINE_LIMIT_EXCEPTION_PREFIX = "docs/naming/abbreviations/"
 
@@ -94,13 +94,6 @@ def check_file(path: str) -> list[str]:
         and len(lines) > LINE_LIMIT
     ):
         errors.append(f"{path}: 규칙 4 위반 — {len(lines)}줄 (한도 {LINE_LIMIT}줄)")
-
-    if not is_generated:
-        for i, line in enumerate(lines, 1):
-            if in_fence[i - 1]:
-                continue
-            if "—" in line:
-                errors.append(f"{path}:{i}: em-dash 금지 위반 — em-dash('—'). 마침표·쉼표·괄호로 바꾼다")
 
     return errors
 

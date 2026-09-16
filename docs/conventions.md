@@ -312,4 +312,5 @@ git config core.hooksPath .githooks
 **문서 전용 변경에 PR을 쓰지 않는다.** 사실상 1인 작업이라 리뷰가 형식이 되고,
 커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다.
 
-문서를 쓰거나 고칠 때 지킬 형식·문체 규칙은 [`writing-style.md`](writing-style.md)가 소유한다.
+형식·문체 규칙은 [`writing-style.md`](writing-style.md)가 소유한다. 문체 규칙(2절)은 문서만이
+아니라 주석과 `description` 산문에도 걸린다. 소비자가 읽는 면이면 파일 확장자로 가르지 않는다.

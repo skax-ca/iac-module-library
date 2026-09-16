@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # docs/conventions.md 「코드 규약」의 주석 절이 금지한 좌표 중 기계로 판정 가능한 3개만 검사한다.
-# "실측했다"·"여기만 빠져 있었다" 같은 사건 서술은 문맥 판단이 필요해 자동화하지 않는다 —
+# "실측했다"·"여기만 빠져 있었다" 같은 사건 서술은 문맥 판단이 필요해 자동화하지 않는다.
 # 억지로 정규식화하면 오탐이 사람 검토보다 비싸진다.
 #
-#  1. "§" — 문서 절 번호 인용. 이 저장소에 정당한 용례가 없다(자기 절 번호도 "## 1." 형식이다).
-#  2. 결정 식별자 "D-..." — 단어 경계를 요구한다. 경계가 없으면 trivy 룰 ID(AVD-AWS-0038)가
+#  1. "§": 문서 절 번호 인용. 이 저장소에 정당한 용례가 없다(자기 절 번호도 "## 1." 형식이다).
+#  2. 결정 식별자 "D-...": 단어 경계를 요구한다. 경계가 없으면 trivy 룰 ID(AVD-AWS-0038)가
 #     "D-A"로 걸려 정책을 지적하는 주석마다 오탐이 난다.
-#  3. 날짜 — 사건 서술의 표지. 언제 누가 왜 바꿨는지는 git blame과 커밋 메시지가 답한다.
+#  3. 날짜: 사건 서술의 표지. 언제 누가 왜 바꿨는지는 git blame과 커밋 메시지가 답한다.
 #
 #  적용 범위: modules 아래 *.tf · *.tftest.hcl. .terraform/(다운로드된 upstream 모듈)은 우리
-#  코드가 아니라 제외한다. 주석뿐 아니라 description 산문도 본다 — 소비자가 읽는 면이라 같은
+#  코드가 아니라 제외한다. 주석뿐 아니라 description 산문도 본다: 소비자가 읽는 면이라 같은
 #  기준이고, 대부분이 heredoc이라 주석만 골라내면 그 면이 통째로 빠진다.
 #
 #  실행 (repo 루트에서): python3 scripts/validate-tf-comments.py [파일...]
@@ -55,7 +55,7 @@ def check_file(path: str) -> list[str]:
         scrubbed = IAM_POLICY_VERSION.sub("", line)
         for pattern, message in COORDINATE_CHECKS:
             if pattern.search(scrubbed):
-                errors.append(f"{path}:{i}: 좌표 금지 위반 — {message}")
+                errors.append(f"{path}:{i}: 좌표 금지 위반. {message}")
 
     return errors
 
@@ -76,7 +76,7 @@ def main() -> int:
         print(f"\n.tf 좌표 금지 위반 {len(all_errors)}건")
         return 1
 
-    print(f".tf 주석 좌표 검사 통과 — {len(targets)}개 파일")
+    print(f".tf 주석 좌표 검사 통과: {len(targets)}개 파일")
     return 0
 
 

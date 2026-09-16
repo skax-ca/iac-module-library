@@ -1,6 +1,7 @@
 # 문서 작성 규칙
 
 **읽는 사람**: 저장소 문서(`docs/*.md` · 전역 `README.md` · 루트 `CLAUDE.md`)를 쓰거나 고치는 사람.
+1절(구조)은 그 문서 집합에만 걸린다. 2절(문체)은 **사람이 읽는 산문 전부**에 걸린다. 범위는 2절이 적는다.
 
 ---
 
@@ -28,11 +29,16 @@
 
 ## 2. 문체 규칙
 
-**적용 범위**: 1절과 같다.
+**적용 범위**: 사람이 읽는 산문 전부. 1절의 문서 집합에 더해 **코드·매니페스트의 주석과
+산문형 값**(`.tf` 주석 · `variables.tf` description · GitOps 매니페스트 주석 · `Chart.yaml`
+description · 셸 `echo` 문구)이 들어간다. 소비자가 읽는 면이면 파일 확장자로 가르지 않는다.
+
+⛔ 범위 밖: 커밋 메시지와 태그 메시지. 그쪽은 사건 서술이 본업이라 기준이 다르다.
 
 hardikpandya/stop-slop 스킬의 8개 규칙을 문체 기준으로 채택한다. 규칙 자체는 예외 없이 전면
-채택하고, `scripts/validate-doc-conventions.py`가 적용 범위 전체에서 규칙 6(em-dash 금지)을
-예외 없이 강제한다.
+채택하고, 규칙 6(em-dash 금지)은 저장소마다 스크립트가 강제한다: 문서는
+`scripts/validate-doc-conventions.py`, 모듈 코드는 `scripts/validate-tf-comments.py`, 배포 루트와
+GitOps 저장소는 각 저장소의 `scripts/validate-comment-conventions.py`다.
 
 | # | 규칙 |
 |---|------|

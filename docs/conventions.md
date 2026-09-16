@@ -242,8 +242,9 @@ CI가 같은 스크립트를 돌린다.
 python3 scripts/validate-tf-comments.py
 ```
 
-기계로 잡는 것은 절 번호 인용 기호·결정 식별자(`D-...`)·날짜 3개다. 주석뿐 아니라
-`description` 산문도 본다.
+기계로 잡는 것은 절 번호 인용 기호·결정 식별자(`D-...`)·날짜 3개와 em-dash다. 주석뿐 아니라
+`description` 산문도 본다. em-dash 금지는 `writing-style.md` 2절 규칙 6이고, 좌표 3종과 달리
+주석에 한정하지 않는다.
 *"실측했다"* 류 사건 서술은 문맥 판단이라 자동화하지 않는다: 그 판정은 사람이 한다.
 
 ---
@@ -312,4 +313,5 @@ git config core.hooksPath .githooks
 **문서 전용 변경에 PR을 쓰지 않는다.** 사실상 1인 작업이라 리뷰가 형식이 되고,
 커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다.
 
-문서를 쓰거나 고칠 때 지킬 형식·문체 규칙은 [`writing-style.md`](writing-style.md)가 소유한다.
+형식·문체 규칙은 [`writing-style.md`](writing-style.md)가 소유한다. 문체 규칙(2절)은 문서만이
+아니라 주석과 `description` 산문에도 걸린다. 소비자가 읽는 면이면 파일 확장자로 가르지 않는다.

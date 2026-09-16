@@ -284,9 +284,11 @@ addon 하나가 컨트롤러·CR·정책으로 나뉘면 **파일도 나눈다.*
 각 파일 헤더에 **형제 파일 목록과 나뉜 이유**를 둔다. 나뉜 파일들이 서로를 가리키지 않으면
 맥락이 흩어진다.
 
-ArgoCD는 파일 구성에 관여하지 않는다. root App이 저장소를 재귀 스캔하고 `sync-wave`는 리소스
-애노테이션이라 파일 경계와 무관하다. 공식 문서에도 이 층위의 가이드가 없다. 이 규칙은
-**사람이 읽는 방식**에 대한 것이다.
+ArgoCD는 디렉토리 안의 파일 구성에 관여하지 않는다. root App은 `include`에 적힌 디렉토리를
+재귀 스캔하고 `sync-wave`는 리소스 애노테이션이라 파일 경계와 무관하다. 공식 문서에도 이
+층위의 가이드가 없다. 이 규칙은 **사람이 읽는 방식**에 대한 것이다. 다만 ApplicationSet 파일은
+`include`가 가리키는 디렉토리(`addons/baseline/`·`addons/catalog/`) 안에 있어야 root App이
+읽는다. 로컬 차트 디렉토리는 그 범위 밖이라 무엇을 두든 root App이 보지 않는다.
 
 ### `tier` 라벨 어휘
 
@@ -355,7 +357,7 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 | 돌고 있는 클러스터가 있는데 **ApplicationSet 이름·selector 변경** | 이름이 바뀌면 기존 ApplicationSet이 삭제된 것으로 처리된다. 그것이 만든 Application이 ownerReference를 따라 지워지고 `resources-finalizer.argocd.argoproj.io`가 **클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께 사라진다. selector도 기존 대상이 안 걸리게 바꾸면 같은 경로다. **이름과 selector는 배포된 순간 계약**이고, 바꿀 수 있는 시점은 전면 철거 이후 seed 이전뿐이다. 같은 편집이 클러스터 상태에 따라 무해하기도 파괴적이기도 한데 diff만 봐서는 구분되지 않는다 |
 | `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`(kubectl 대신 API 서버가 patch를 계산하는 적용 방식)보다 우선해 무력화한다 |
 | `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
-| root App 훑기 제외를 **`exclude`** 로 | **자기소멸 데드락**: root App이 자기 자신을 지운다. 마커(`+argocd:skip-file-rendering`)를 쓴다 |
+| root App 스캔 범위를 **`exclude`** 나 **`+argocd:skip-file-rendering` 마커**로(deny-list) | 둘 다 "저장소에 파일이 늘면 root App의 현재 spec이 렌더할 범위가 저절로 넓어지는" 방향이다. `exclude`는 새 차트 디렉토리가 생기면 **아직 적용되지 않은 옛 spec**으로 렌더가 실패해 root App이 자기 갱신을 못 한다(seed의 root Application 단계를 사람이 다시 밟아야 풀린다). 마커는 판정이 파일 전체의 문자열 포함 검사라 마커를 **설명하는 주석**이 있는 파일까지 조용히 빠지고, 마커가 붙은 파일을 Directory 소스로 읽는 전담 Application은 자기 담당 파일까지 걸러 렌더가 비는데 리소스 0개라 `Synced`로 표시된다. root App은 **`include`(allow-list)로 매니페스트 디렉토리만 지정**한다. 범위 밖 파일은 무엇이든 무시되므로 로컬 차트에 마커가 필요 없고, 값이 갈리지 않는 addon을 마커를 피하려고 helm 차트로 만들 이유도 없다 |
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
 | CI용 GitHub App **재사용** · 설치 범위를 **All repositories**로 | 권한 경계가 무너진다. GitOps용을 별도로 만들고 저장소 1개로 한정한다 |
 | `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
@@ -370,3 +372,4 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 |---|---|
 | *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 원인은 **CRD 스키마 defaulting**이다 |
 | *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃이 Secret의 라벨과 이름을 읽는다** |
+| *"마커는 파일 안에 있으니 root App spec을 안 건드려 순서 제약이 없다"* | 마커는 root App만 빼는 것이 아니라 **그 파일을 Directory 소스로 읽는 모든 Application**에서 뺀다. 전담 Application이 자기 담당 파일을 걸러내고, 그것을 피하려면 `Chart.yaml`을 두어 Helm 타입으로 만들어야 한다. 순서 제약을 없앤 대가로 파일 형식 제약이 생긴 것이다 |

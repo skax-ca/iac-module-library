@@ -21,7 +21,7 @@ AWS 계정
   |
   +-- workbench (운영 지점, SSM 전용)            <- modules/aws/workbench
   |
-  +-- ArgoCD                                    <- argocd-seed.sh (eks-reference-infra)
+  +-- ArgoCD                                    <- argocd-seed.sh (eks-platform-gitops)
         |
         +-- 플랫폼 addon (ALBC=AWS Load Balancer Controller · Karpenter · Kyverno · KEDA ...)
               <- eks-platform-gitops 저장소를 pull
@@ -30,8 +30,9 @@ AWS 계정
 EKS 엔드포인트는 **private**이다. 그래서 클러스터에 명령을 넣을 지점이 계정 안에 필요하고,
 그것이 `workbench`다. 노트북에서 `kubectl`이 직접 닿지 않는다.
 
-`eks-reference-infra`가 이 패턴을 세우는 레퍼런스 배포 저장소이고, `argocd-seed.sh`는
-그 저장소가 클러스터 안에 ArgoCD를 설치하는 부트스트랩 스크립트다.
+`eks-reference-infra`가 이 패턴을 세우는 레퍼런스 배포 저장소다. 클러스터 안에 ArgoCD를
+설치하는 부트스트랩 스크립트 `argocd-seed.sh`는 `eks-platform-gitops`의 `bootstrap/`이
+소유한다. workbench가 그 저장소만 클론하기 때문이다.
 
 ---
 

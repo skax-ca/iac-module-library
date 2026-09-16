@@ -10,6 +10,7 @@
 | [decisions.md](decisions.md) | *"왜 X 안 해요?"* 라고 묻고 싶은 사람 (저장소 전역 결정 + 패턴 문서 색인) |
 | [architectures/](architectures/README.md) | 새 고객사 프로젝트의 아키텍처 패턴을 골라야 하는 사람 |
 | [writing-style.md](writing-style.md) | 저장소 문서를 쓰거나 고치는 사람 |
+| [claude-workspace.md](claude-workspace.md) | 이 저장소와 배포·GitOps 저장소 4개를 Claude Code 세션 하나로 다루는 사람 |
 
 ## 데이터
 

@@ -8,14 +8,20 @@
 #     "D-A"로 걸려 정책을 지적하는 주석마다 오탐이 난다.
 #  3. 날짜: 사건 서술의 표지. 언제 누가 왜 바꿨는지는 git blame과 커밋 메시지가 답한다.
 #
-#  적용 범위: modules 아래 *.tf · *.tftest.hcl. .terraform/(다운로드된 upstream 모듈)은 우리
-#  코드가 아니라 제외한다. 주석뿐 아니라 description 산문도 본다: 소비자가 읽는 면이라 같은
-#  기준이고, 대부분이 heredoc이라 주석만 골라내면 그 면이 통째로 빠진다.
+#  적용 범위: modules 아래 *.tf · *.tftest.hcl, 그리고 훅 2개(.githooks/pre-commit·pre-push).
+#  .terraform/(다운로드된 upstream 모듈)은 우리 코드가 아니라 제외한다. 주석뿐 아니라
+#  description 산문도 본다: 소비자가 읽는 면이라 같은 기준이고, 대부분이 heredoc이라 주석만
+#  골라내면 그 면이 통째로 빠진다.
+#
+#  훅이 대상인 이유: 규약은 산문이 실리는 면을 확장자로 가르지 않는다. 훅 주석은 그 면인데
+#  ".tf 를 찾아라" 조건에서 빠져 있었다. scripts/*.py 는 대상이 아니다 — 이 파일이 금지 문자를
+#  검출하려고 리터럴로 담고 있어 자기 자신을 잡는다. 그 예외를 두는 것보다 범위를 좁게 둔다.
 #
 #  실행 (repo 루트에서): python3 scripts/validate-tf-comments.py [파일...]
 #  인자를 안 주면 적용 범위 전체를 스캔한다.
 
 import glob
+import os
 import re
 import sys
 
@@ -36,11 +42,14 @@ IAM_POLICY_VERSION = re.compile(
 )
 
 VENDORED = "/.terraform/"
+HOOKS = (".githooks/pre-commit", ".githooks/pre-push")
 
 
 def default_targets() -> list[str]:
     targets = set(glob.glob("modules/**/*.tf", recursive=True))
     targets |= set(glob.glob("modules/**/*.tftest.hcl", recursive=True))
+    # git 훅은 이름이 규격이라 확장자가 없다. glob 패턴이 아니라 이름으로 적는다.
+    targets |= {h for h in HOOKS if os.path.exists(h)}
     return sorted(t for t in targets if VENDORED not in t)
 
 
@@ -73,10 +82,10 @@ def main() -> int:
     if all_errors:
         for e in all_errors:
             print(f"[ERROR] {e}")
-        print(f"\n.tf 좌표 금지 위반 {len(all_errors)}건")
+        print(f"\n좌표 금지 위반 {len(all_errors)}건")
         return 1
 
-    print(f".tf 주석 좌표 검사 통과: {len(targets)}개 파일")
+    print(f"주석 좌표 검사 통과: {len(targets)}개 파일")
     return 0
 
 

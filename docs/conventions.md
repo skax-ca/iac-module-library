@@ -235,8 +235,11 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 **지우기 전에**: *"이 줄이 없으면 다음 사람이 무엇을 틀리나"* 에 답한다.
 답할 수 없으면 지운다. 답할 수 있으면 **짧게 다시 쓴다. 지우지 않는다.**
 
-판정은 게이트가 한다. `.githooks/pre-commit`(staged된 `modules/**` 의 `.tf`·`.tftest.hcl`)과
-CI가 같은 스크립트를 돌린다.
+판정은 게이트가 한다. `.githooks/pre-commit`(staged된 대상만)과 CI(전체)가 같은 스크립트를
+돌린다. 대상은 `modules/**` 의 `.tf`·`.tftest.hcl`과 훅 2개(`.githooks/pre-commit`·`pre-push`)다.
+훅 주석도 산문이 실리는 면이라 확장자로 가르지 않는다. `scripts/*.py` 는 대상이 아니다.
+검사기 자신이 금지 문자를 리터럴로 담고 있어 자기 자신을 잡기 때문이고, 예외를 두는 것보다
+범위를 좁게 둔다.
 
 ```bash
 python3 scripts/validate-tf-comments.py

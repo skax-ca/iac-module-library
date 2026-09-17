@@ -51,8 +51,8 @@ Application 이름을 `{{name}}-<addon>`으로 짓는다. 하나의 ArgoCD가 �
 ([ArgoCD 공식 문서](https://argo-cd.readthedocs.io/en/stable/user-guide/helm/)), 대부분의 차트는
 `{{ .Release.Name }}-{{ .Chart.Name }}` 형태로 리소스 이름을 만든다. 접두사가 두 번 겹친다.
 
-⚠️ 가독성만의 문제가 아니다. Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있어, 접두사가
-길면 서로 다른 리소스가 63자 지점에서 같은 이름으로 잘려 충돌한다(`cluster-autoscaler`가 그 예다).
+⚠️ Kubernetes 객체 이름은 DNS-1123 규격상 63자 제한이 있어, 접두사가 길면 서로 다른 리소스가
+63자 지점에서 같은 이름으로 잘려 충돌한다(`cluster-autoscaler`가 그 예다).
 
 **결정**: release 이름이 리소스 이름에 그대로 쓰이는 addon은 `spec.source.helm.releaseName`을
 짧게 명시한다. Application 이름은 그대로 둔다. 콘솔 식별과 리소스 이름은 서로 다른 축이고,
@@ -82,8 +82,8 @@ ApplicationSet의 cluster generator selector는 **팬아웃 대상**을 고른�
 | **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 | `applicationsets/baseline/` |
 | **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 | `applicationsets/catalog/` |
 
-하나를 고른다. 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **ApplicationSet마다 따로**
-고른다(Karpenter·Kyverno가 그렇다).
+정책은 하나만 고르고 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **ApplicationSet마다
+따로** 고른다(Karpenter·Kyverno가 그렇다).
 
 세 라벨은 전부 cluster Secret에 붙고, 어느 것도 버전을 고르지 않는다.
 
@@ -97,17 +97,16 @@ ApplicationSet의 cluster generator selector는 **팬아웃 대상**을 고른�
 늘고, `tier`는 둘로 고정된다. ⚠️ `tier`에 다른 값을 쓰면 어느 selector에도 안 걸리는 클러스터가
 생기는데, ArgoCD는 대상 0개인 팬아웃을 오류로 보고하지 않는다.
 
-⚠️ **세 이름은 이 저장소가 붙인 것이다.** ArgoCD 용어도 업계 표준도 아니다. 업계는 비슷한 개념을
-ring 배포·staged rollout이라 부른다. ArgoCD ApplicationSet의
-[Progressive Syncs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Progressive-Syncs/)와는
-다르다. 그것은 **같은 버전**을 그룹 순서대로 적용하는 기능(순서 제어)이고, 여기 staged는 **버전
-자체**를 티어마다 다르게 준다. 승격 판단이 커밋에 남는 것이 이 방식의 요점이다. 두 저장소 모두
-Progressive Syncs를 쓰지 않는다.
+⚠️ **세 이름은 이 저장소가 붙인 것이다.** 업계는 비슷한 개념을 ring 배포·staged rollout이라
+부른다. ArgoCD ApplicationSet의
+[Progressive Syncs](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Progressive-Syncs/)는
+**같은 버전**을 그룹 순서대로 적용하는 기능(순서 제어)이고, 여기 staged는 **버전 자체**를 티어마다
+다르게 주어 승격 판단을 커밋에 남긴다. 두 저장소 모두 Progressive Syncs를 쓰지 않는다.
 
 ### 어느 정책을 고르나
 
-판정 단위는 ApplicationSet이다. `targetRevision`이 답의 절반을 정한다: `main` 핀은 승격할 버전이
-없어 staged가 될 수 없고, 버전 핀을 가진 것만 티어로 나눌지 판단한다.
+판정 단위는 ApplicationSet이다. `main` 핀은 승격할 버전이 없어 staged가 될 수 없다. 버전 핀을
+가진 것만 아래 표로 티어로 나눌지 판단한다.
 
 | 이 ApplicationSet이 | 정책 | 이유 |
 |-----------|------|------|
@@ -120,8 +119,8 @@ Progressive Syncs를 쓰지 않는다.
 컨트롤러라 깨지면 그 클러스터의 모든 배포가 막힌다. 폭발 반경이 노드 프로비저너보다 크다. 그래서
 Kyverno는 엔진과 PSS 정책이 staged이고, 이 저장소가 만든 커스텀 정책만 uniform이다.
 
-기준은 하나지만 **답은 클라우드마다 갈린다.** 관리형으로 받은 기능은 GitOps 계층에 없어 정책을
-고를 일이 없다.
+같은 기준을 적용해도 **답은 클라우드마다 갈린다.** 관리형으로 받은 기능은 GitOps 계층에 없어
+정책을 고를 일이 없기 때문이다.
 
 | ApplicationSet | `targetRevision` | AWS(EKS) | Azure(AKS) |
 |---|---|---|---|
@@ -170,7 +169,7 @@ generators:
 
 라벨의 **존재만** 본다. 클러스터를 등록하는 행위가 곧 배포라, 스포크가 늘어도 addon 파일은
 그대로다. ApplicationSet이 하나라 `targetRevision`도 하나이고, 올리면 등록된 전 클러스터가 함께
-올라간다. 가드레일에는 그것이 맞다. 클러스터마다 정책 버전이 다르면 무엇이 통과하는지가 갈린다.
+올라간다. 클러스터마다 정책 버전이 다르면 무엇이 통과하는지가 갈리므로 가드레일에는 그것이 맞다.
 
 ### staged: 티어별로 승격
 
@@ -185,8 +184,8 @@ CRD를 쓰는 CR이 뒤에 와야 해서 sync-wave로 둘을 가른다. 티어�
 | 컨트롤러 helm(업스트림 차트 버전 핀) | `1.14.0` | ✅ |
 | CR(이 저장소의 로컬 차트) | `main` | ❌ |
 
-`main`은 저장소 최신을 따라가는 참조다. 두 블록으로 나눠도 두 값이 같을 수밖에 없어 승격이
-기록되지 않는다. 블록만 늘고 읽을 정보가 없다.
+`main`은 저장소 최신을 따라가는 참조다. 두 블록으로 나눠도 두 값이 같을 수밖에 없어 승격은
+기록되지 않고 블록만 는다.
 
 ApplicationSet 이름은 `<addon>-<티어>`로 짓는다. 나누지 않는 블록은 접미사 대신 역할로 짓는다
 (`karpenter-nodepool`). ⛔ 이 이름은 **한 번 배포되면 계약**이다(「하지 않는 것」).
@@ -238,7 +237,7 @@ Secret의 `tier` 값을 세어 가른다. 어느 쪽 값도 아닌 클러스터�
 ⚠️ **1~3 사이에는 CR이 두 버전 모두에서 유효해야 한다.** 티어로 나누지 않은 CR ApplicationSet은
 양 티어가 같은 차트를 본다. 그 구간에는 nonprd가 새 CRD를, prd가 옛 CRD를 갖고 있으므로, 새
 버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
-커밋한다. 승격 구간을 짧게 유지할 이유가 하나 더 있다.
+커밋한다. 승격 구간이 길수록 이 제약에 걸리는 커밋이 는다.
 
 ### opt-in: 구독한 클러스터에만
 
@@ -271,7 +270,7 @@ addon 하나가 컨트롤러·CR·정책으로 나뉘면 **파일도 나눈다.*
 없다 — 파일 수가 적고, `include`가 재귀라 동작도 같다. 각 파일 헤더에 **형제 파일 목록과 나뉜
 이유**를 둔다.
 
-두 디렉토리의 역할이 다르다. `applicationsets/`는 root App이 읽는 ApplicationSet만 두고,
+`applicationsets/`는 root App이 읽는 ApplicationSet만 두고,
 `addons/<addon>/`은 그 ApplicationSet의 source가 읽는 내용물(helm values · 로컬 차트 · CR
 매니페스트)만 둔다. ArgoCD는 디렉토리 안의 파일 구성에 관여하지 않는다. root App은 `include`에
 적힌 경로를 재귀 스캔하고 `sync-wave`는 리소스 애노테이션이라 파일 경계와 무관하다. 파일을
@@ -312,8 +311,8 @@ include 범위 밖이다.
 
 ## 5. 관리형으로 받을 것과 조립할 것
 
-기준은 [`decisions.md`](../../decisions.md)의 「관리형 기능 채택 기준」이 소유한다. 기준은 하나지만
-두 클라우드의 제공 형태가 달라 답이 갈린다.
+기준은 [`decisions.md`](../../decisions.md)의 「관리형 기능 채택 기준」이 소유한다. 두 클라우드의
+제공 형태가 달라 같은 기준에서 답이 갈린다.
 
 | 기능 | AWS(EKS, Auto Mode 아님) | Azure(AKS, Automatic 아님) |
 |---|---|---|

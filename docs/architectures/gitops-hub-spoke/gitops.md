@@ -78,9 +78,9 @@ ApplicationSet의 cluster generator selector는 **팬아웃 대상**을 고른�
 
 | 정책 | 무엇으로 고르나 | 버전 | 파일 위치 |
 |------|----------|------|------|
-| **uniform** | `environment` 라벨의 **존재** | 전 클러스터가 한 개 | `addons/baseline/` |
-| **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 | `addons/baseline/` |
-| **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 | `addons/catalog/` |
+| **uniform** | `environment` 라벨의 **존재** | 전 클러스터가 한 개 | `applicationsets/baseline/` |
+| **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 | `applicationsets/baseline/` |
+| **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 | `applicationsets/catalog/` |
 
 하나를 고른다. 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **ApplicationSet마다 따로**
 고른다(Karpenter·Kyverno가 그렇다).
@@ -159,7 +159,7 @@ v1.13.4인데 같은 라인 정책 최신 3.3.6은 app v1.13.6으로 앞선다. 
 ### uniform: 전 클러스터가 같은 버전
 
 ```yaml
-# addons/baseline/kyverno-custom-policies.yaml
+# applicationsets/baseline/kyverno-custom-policies.yaml
 generators:
   - clusters:
       selector:
@@ -192,7 +192,7 @@ ApplicationSet 이름은 `<addon>-<티어>`로 짓는다. 나누지 않는 블�
 (`karpenter-nodepool`). ⛔ 이 이름은 **한 번 배포되면 계약**이다(「하지 않는 것」).
 
 ```yaml
-# addons/baseline/karpenter.yaml — 두 블록은 ← 표시한 세 줄만 다르다
+# applicationsets/baseline/karpenter.yaml — 두 블록은 ← 표시한 세 줄만 다르다
 metadata:
   name: karpenter-nonprd            # ← <addon>-<티어>
 spec:
@@ -243,7 +243,7 @@ Secret의 `tier` 값을 세어 가른다. 어느 쪽 값도 아닌 클러스터�
 ### opt-in: 구독한 클러스터에만
 
 ```yaml
-# addons/catalog/keda.yaml
+# applicationsets/catalog/keda.yaml
 generators:
   - clusters:
       selector:
@@ -267,14 +267,16 @@ addon 하나가 컨트롤러·CR·정책으로 나뉘면 **파일도 나눈다.*
 | 티어(`prd`·`nonprd`) | ❌ | 승격은 두 `targetRevision`을 **비교하는** 행위다. 한 화면에 있어야 저장소만 읽고 판정할 수 있다 |
 
 이름은 주 컴포넌트가 addon 이름을 그대로 쓰고 부속에 접미사를 붙인다(`karpenter.yaml` ·
-`karpenter-nodepool.yaml`). ⛔ 디렉토리로 묶지 않는다. helm 차트 경로(`addons/<addon>/<chart>/`)와
-이름이 겹쳐 둘을 혼동하게 된다. 각 파일 헤더에 **형제 파일 목록과 나뉜 이유**를 둔다.
+`karpenter-nodepool.yaml`). 파일은 평면으로 두고 접미사로 묶는다. 하위 디렉토리를 둘 이유가
+없다 — 파일 수가 적고, `include`가 재귀라 동작도 같다. 각 파일 헤더에 **형제 파일 목록과 나뉜
+이유**를 둔다.
 
-ArgoCD는 디렉토리 안의 파일 구성에 관여하지 않는다. root App은 `include`에 적힌 디렉토리를
-재귀 스캔하고 `sync-wave`는 리소스 애노테이션이라 파일 경계와 무관하다. 이 규칙은 **사람이 읽는
-방식**에 대한 것이다. 다만 ApplicationSet 파일은 `include`가 가리키는 디렉토리(`addons/baseline/`·
-`addons/catalog/`) 안에 있어야 root App이 읽는다. 로컬 차트 디렉토리는 그 범위 밖이라 무엇을
-두든 root App이 보지 않는다.
+두 디렉토리의 역할이 다르다. `applicationsets/`는 root App이 읽는 ApplicationSet만 두고,
+`addons/<addon>/`은 그 ApplicationSet의 source가 읽는 내용물(helm values · 로컬 차트 · CR
+매니페스트)만 둔다. ArgoCD는 디렉토리 안의 파일 구성에 관여하지 않는다. root App은 `include`에
+적힌 경로를 재귀 스캔하고 `sync-wave`는 리소스 애노테이션이라 파일 경계와 무관하다. 파일을
+나누는 규칙은 **사람이 읽는 방식**에 대한 것이다. 다만 ApplicationSet 파일은 `applicationsets/`
+아래에 있어야 root App이 읽는다. `addons/`는 그 범위 밖이라 무엇을 두든 root App이 보지 않는다.
 
 ### helm values는 ApplicationSet 밖 파일에 둔다
 
@@ -302,9 +304,9 @@ sources:
     ref: values                               # 렌더 대상이 아니다. 경로만 빌려준다
 ```
 
-⚠️ values 파일은 `addons/baseline/`·`addons/catalog/` **밖**에 둔다. root App의 `include`가 그 두
-디렉토리를 `*.yaml`로 읽고 그 glob은 `/`를 넘어 매칭하므로, 안에 두면 매니페스트로 읽혀 root
-App의 렌더가 깨진다. `addons/<addon>/`은 include 범위 밖이다.
+⚠️ values 파일은 `applicationsets/` **밖**에 둔다. root App의 `include`가 그 디렉토리를
+`**/*.yaml`로 읽으므로, 안에 두면 매니페스트로 읽혀 root App의 렌더가 깨진다. `addons/<addon>/`은
+include 범위 밖이다.
 
 ---
 

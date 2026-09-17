@@ -74,4 +74,9 @@ imageFamily: Ubuntu` 지적 1건은 카탈로그가 낡은 오탐이다(업스�
          Azure: azurerm_linux_virtual_machine.custom_data 가 ForceNew
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
+- [ ] [module] `verify.yml`에 `paths` 필터를 달지 검토. 지금은 `push: main`에 필터가 없어 `.claude/session.md`·
+      `.mcp.json`만 바뀐 push에도 전체가 돈다. 비용은 읽기 전용 runner 몇 분이고, 필터를 달면 경로 목록이
+      검사기의 대상 목록(`validate-doc-conventions.py`의 `docs/**`·`**/README.md`·`CLAUDE.md`,
+      `validate-comment-conventions.py`의 `modules/**`·훅)과 어긋날 때 검사가 조용히 빠진다. 달려면
+      job별 `paths`가 아니라 검사기 대상과 같은 한 목록으로 두고, `.claude/**`·`.mcp.json`만 빼는 형태가 후보다
 - [ ] [local] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

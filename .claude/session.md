@@ -55,6 +55,48 @@ values" 메커니즘, aks README의 진행 상태 절 2개.
 반복 11곳을 고쳤다(`6e9fe92`·`fd0581d`).
 
 ## 다음 할 일
+- [ ] [질문] aks `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `namespaceSelector`에
+      `control-plane DoesNotExist`를 더한 변경(`0437c27`)의 내용을 다시 설명받는다. 요지: 그 정책은
+      Enforce라 requests/limits 없는 파드를 막는데, AKS가 관리하는 네임스페이스(`aks-istio-system` 등)의
+      파드는 그 값을 선언하지 않아 함께 막힌다. 그래서 제외해야 하고, **무엇으로 제외를 판정하느냐**가
+      쟁점이었다. 기존은 `kubernetes.azure.com/managedby: aks` 하나였는데 공식 문서는 그 라벨을 관리형
+      **컴포넌트**의 것이라 적고, 네임스페이스 마커로는 AKS FAQ가 `control-plane` 라벨을 지목한다
+- [ ] [addon] **차트 버전을 클러스터가 지원하는 최신으로 올린다.** 아래는 실측한 현재/최신이다.
+      클러스터는 EKS 1.35 · AKS 1.35다. 올릴 때마다 `argocd app manifests`로 렌더를 먼저 본다
+
+      | addon | 저장소 | 현재 | 최신 | 비고 |
+      |---|---|---|---|---|
+      | `kyverno`·`kyverno-policies` | eks·aks | 3.8.2 | **3.9.1** | ⚠️ 이것만 단순 버전 올림이 아니다(아래 별도 항목) |
+      | `argo-cd` | eks·aks | 10.3.0 | **10.9.1** | appVersion v3.5.0 → v3.5.3. `kubeVersion >=1.25` 충족 |
+      | `karpenter` | eks | 1.14.0 | **1.14.1** | OCI 태그 = chart = appVersion |
+      | `aws-load-balancer-controller` | eks | 3.5.0 | 3.5.0 | 이미 최신 |
+      | `keda` | eks | 2.20.2 | 2.20.2 | 이미 최신. `kubeVersion >=1.23` |
+      | `cluster-autoscaler` | eks | 9.59.0 | 9.59.0 | 이미 최신. appVersion 1.35.0 = 클러스터 마이너와 일치 |
+      | Gateway API CRD | eks | v1.6.2 | v1.6.2 | 이미 최신 |
+
+      ⚠️ `argo-cd` 올림은 자기 관리 Application이라 순서가 있다. seed가 설치한 핀과 저장소 값이
+      갈리면 흡수가 아니라 업그레이드가 된다(`bootstrap/argocd-app.yaml` 헤더)
+- [ ] [addon] **Kyverno 3.9 전환은 버전 올림이 아니라 kind 이동이다.** 3.9 차트 values 원문이 legacy
+      `kyverno.io` 타입을 deprecated·향후 제거로 표시하고 `policyType` 기본값이 `ValidatingPolicy`(CEL)다.
+      선택지 둘: ① `policyType=ClusterPolicy` 명시로 현행 유지(시한부다) ② whitelist·커스텀 정책을
+      CEL로 함께 이동. **②를 기본으로 잡고 ①은 시간이 없을 때의 후퇴선으로 둔다.**
+      ②를 고르면 함께 움직이는 것: 양쪽 `projects/platform.yaml`의 `clusterResourceWhitelist`
+      (`kyverno.io/ClusterPolicy` → 새 kind), eks `require-karpenter-resources.yaml`,
+      aks `require-nodepool-resources.yaml`
+- [ ] [권고 미부합] **AKS 시스템 풀에 `CriticalAddonsOnly=true:NoSchedule` 도입 검토.** Microsoft는 시스템
+      풀을 앱에서 격리하라고 권고하고 그 집행 수단으로 이 taint를 지목한다. 지금은 따르지 않으며 그 판단은
+      `docs/architectures/gitops-hub-spoke/azure/README.md` 「노드 배치」가 갖는다.
+      ⚠️ 세 저장소가 함께 움직인다 — ① `aks-cluster` 모듈이 `default_node_pool`에 taint 노출(지금은 user
+      풀의 `node_taints`만 있다) ② `aks-reference-infra`가 값 주입 ③ `aks-platform-gitops`의
+      `argocd-values.yaml`에 toleration 추가. ③ 없이 ①②만 하면 seed 시점의 ArgoCD가 갈 곳이 없어 멈춘다
+      (그 파일의 ⛔ "tolerations를 넣지 않는다"가 뒤집혀야 하는 줄이다)
+- [ ] [권고 미부합] **AKS 시스템 풀 크기.** Microsoft 권고는 vCPU 4 이상·노드 3대인데 현재
+      `Standard_D2s_v5`(2 vCPU) 2대다. 강제가 아니라 클러스터는 생성된다. 실 워크로드를 올릴 때 함께
+      올린다. ⛔ B 시리즈는 시스템 풀에 쓸 수 없다. 값과 근거는 `live/{hub,dev}/aks/main.tf` 주석
+- [ ] [권고 미부합] **Karpenter AMI 핀.** EKS Best Practices Guide가 운영 클러스터에 `@latest` 대신 검증한
+      AMI로 핀하라고 강하게 권고한다. 현재 `addons/karpenter/nodepool/values.yaml`이 `al2023@latest`이고
+      hub는 `tier: prd`다. ⚠️ 값을 바꾸면 노드가 교체되므로 인프라가 선 상태에서 판단한다.
+      핀 형식은 `al2023@v<날짜>`
 - [ ] [*-gitops] 재구축 seed 5단계 직후 `argocd app manifests root-app --core`로 include가 의도대로
       동작하는지 확인 — 리소스 수가 aks 9개·eks 14개여야 한다. 평문으로 바꾼 CR 디렉토리
       (aks 3개, eks `kyverno/custom-policies`)의 전담 Application이 Directory 타입으로 렌더되는지도 본다
@@ -67,8 +109,8 @@ values" 메커니즘, aks README의 진행 상태 절 2개.
       AKS dev는 `environment`·`tier: nonprd`·`addon-karpenter`가 필요하다
 - [ ] [*-gitops] nonprd 클러스터가 생기면 `*-nonprd` ApplicationSet 팬아웃 실측 — 지금은 의도된 빈 슬롯이다
 - [ ] [*-gitops] 실제 승격 한 번 돌려보기(nonprd 올림 → 검증 → prd 올림). Kyverno는 엔진·정책 값 4개를
-      짝으로 움직여야 한다. ⚠️ 3.9 라인으로 넘길 때는 `policyType` 결정을 먼저 답한다
-      (②에 `policyType=ClusterPolicy` 명시 vs whitelist·③를 함께 이동)
+      짝으로 움직여야 한다. 3.9 라인으로 넘기는 것 자체는 위 「Kyverno 3.9 전환」 항목이 갖는다 —
+      이 항목은 승격 **절차**가 의도대로 도는지만 본다
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그 메시지에 아래 문구를 싣는다. 지금 태그를
       컷하지 않는다(`6e34dec`는 주석·문서 전용이다). 미릴리스 확인: `6e34dec`가 `workbench-v0.9.0`·
       `aks-workbench-v0.7.0` 양쪽보다 뒤에 있다. 메커니즘도 실물 확인 완료 — AWS는

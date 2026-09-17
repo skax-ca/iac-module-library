@@ -86,8 +86,8 @@ module "vpc" {
 | 항목 | 규칙 |
 |------|------|
 | 브랜치 | 매니페스트도 **main 직접 커밋**. 근거는 문서 전용 규칙과 같다 — 두 repo에 CI가 없고 브랜치 보호도 걸 수 없어 PR이 머지 전에 막을 것이 없다. 형식만 남은 절차는 비용만 낸다 |
-| ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, `workflow_dispatch`가 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`). 커밋이 apply 버튼이다 |
-| 진짜 게이트 | 리뷰가 아니라 **렌더 확인**이다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠지면 렌더가 실패하고 그 실패는 egress 실패와 똑같이 보인다 |
+| ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, `workflow_dispatch`가 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`) |
+| 커밋 전 확인 | 막는 것은 리뷰가 아니라 **렌더**다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠뜨리면 렌더가 0건에 `ComparisonError`가 되는데, 이는 차트를 받아오지 못했을 때와 같은 모양이라 값 문제인지 네트워크 문제인지 구분되지 않는다 |
 | 환경 분리 | ⛔ **브랜치로 나누지 않는다.** 티어는 `applicationsets/`의 prd·nonprd 블록과 cluster Secret의 `tier` 라벨이 나눈다. 두 블록에서 갈려도 되는 값은 `targetRevision` 하나다 |
 | 승격 | 클러스터가 있으면 nonprd → 검증 → prd. **철거 상태에서는 양 티어를 같이 올리고 재구축 때 한 번에 검증한다** — 검증할 대상이 없는 상태에서 커밋을 둘로 쪼개는 것은 절차만 남는다 |
 | 자기 관리 ArgoCD | `bootstrap/argocd-app.yaml`의 `targetRevision`과 `bootstrap/argocd-seed.sh`의 `ARGOCD_CHART_VERSION`은 **항상 같다**. 갈리면 흡수가 업그레이드가 되고, sync 주체가 sync 도중에 재시작한다. 올리는 것은 **클러스터가 철거된 상태에서** 한다 |
@@ -122,7 +122,7 @@ module "vpc" {
 |-----------|------|
 | **`.tf` · `.github/workflows/`** | **브랜치 → PR** |
 | **문서 전용** | **`main` 직접 커밋** |
-| **GitOps 매니페스트** | **`main` 직접 커밋**(「GitOps 저장소 공통」이 소유한다. 같은 기준을 적용한 결과가 다른 것이지 예외가 아니다) |
+| **GitOps 매니페스트** | **`main` 직접 커밋**(「GitOps 저장소 공통」이 소유한다. 기준은 같고 결과만 다르다) |
 
 - 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 이 repo의 `verify.yml`·`verify-docs.yml`도, 배포 루트의 각 워크플로도
   **`push: branches: [main]`에서 돌므로** "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에

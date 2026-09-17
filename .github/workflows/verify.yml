@@ -1,4 +1,4 @@
-# 모듈 검증 CI — docs/conventions.md §6 "검증 게이트" 의 구현.
+# OpenTofu 검증 CI — docs/conventions.md 「검증 게이트」 의 구현. 문서·주석 검사기는 verify-docs.yml.
 #
 # ⚠️ 이 repo는 **배포하지 않는다.** apply 워크플로가 없는 것은 누락이 아니라 설계다(CLAUDE.md).
 #    배포는 소비 repo(eks-reference-infra 등)의 몫이다.
@@ -11,17 +11,21 @@ on:
   pull_request:
   push:
     branches: [main]
-    # 어느 게이트도 보지 않는 경로만 바뀐 push는 돌리지 않는다. 제외 목록(paths-ignore)이지
-    # 허용 목록(paths)이 아닌 이유: 검사기가 대상을 늘릴 때 허용 목록은 같이 고치지 않으면
-    # 조용히 빠지고, 제외 목록은 그 방향의 드리프트가 없다.
-    # ⚠️ 두 검사기의 default_targets()는 python glob('**')라 dot 디렉토리를 보지 않는다.
-    #    검사기에 include_hidden 을 켜거나, 게이트가 보는 파일(*.tf·README.md·lock)을 이 경로들
-    #    아래에 두면 그 파일은 CI 밖에서 바뀐다. 그때는 이 목록부터 다시 본다.
-    #    pull_request 에는 필터를 두지 않는다. PR 은 .tf·워크플로 변경 전용이라 항상 돌아야 한다.
-    paths-ignore:
-      - ".claude/**"
-      - ".mcp.json"
-      - "presentations/**"
+    # 게이트 7개의 입력이 바뀐 push 만 돈다. 허용 목록(paths)인 이유: 입력이 닫힌 집합이다 —
+    # modules/**(.tf·tftest·tftpl·lock·README 는 terraform-docs 대상)와 도구 설정 2개, 그리고 게이트를
+    # 정의하는 이 파일. modules/<provider>/<name>/ 모양은 게이트 4 앞 검사가 강제하므로 글롭이
+    # 어긋날 여지가 없다. 확장자 패턴은 modules/ 밖에 .tf 가 생겼을 때의 가드다(지금은 없다).
+    # ⚠️ 새 게이트가 modules/ 밖 파일을 읽게 되면 그 경로를 여기에 더한다. 빠뜨리면 그 파일만
+    #    바뀐 push 는 CI 없이 main 에 들어간다. pull_request 에는 필터가 없다(PR 은 항상 전체).
+    paths:
+      - "modules/**"
+      - ".tflint.hcl"
+      - ".trivyignore.yaml"
+      - ".github/workflows/verify.yml"
+      - "**.tf"
+      - "**.tftest.hcl"
+      - "**.tftpl"
+      - "**/.terraform.lock.hcl"
   workflow_dispatch:
 
 # CI는 읽기 전용이라 앞선 run을 취소해도 안전하다.
@@ -43,7 +47,7 @@ env:
 
 jobs:
   verify:
-    name: 공통 검증 게이트
+    name: OpenTofu 검증 게이트
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -185,37 +189,3 @@ jobs:
           for dir in modules/*/*/; do
             /tmp/terraform-docs markdown table --output-mode inject --output-check --output-file README.md "$dir"
           done
-
-  # 약어 카탈로그는 데이터 SSOT — 문서 중 유일하게 코드 게이트가 있는 것.
-  # 로컬 게이트는 .githooks/pre-commit (카탈로그 staged 시만). 한쪽을 바꾸면 다른 쪽도 바꾼다.
-  docs-ssot:
-    name: 약어 카탈로그 SSOT 검사
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - name: "게이트 — 약어 카탈로그 SSOT 일관성"
-        run: python3 scripts/validate-abbreviations.py docs/naming/abbreviations/*.md
-
-  # 문서 작성 규칙(docs/conventions.md 문서 작성 규칙 절)의 기계 판정 가능한 3개(§N 인용·
-  # 비표준 이모지·400줄 초과). 로컬 게이트는 .githooks/pre-commit(문서 staged 시만). 한쪽을
-  # 바꾸면 다른 쪽도 바꾼다. CI는 전체 저장소를 본다(로컬은 staged 파일만 — 속도 차이).
-  docs-conventions:
-    name: 문서 작성 규칙 검사
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - name: "게이트 — §N 인용·비표준 이모지·400줄 제한"
-        run: python3 scripts/validate-doc-conventions.py
-
-  # 주석·description 의 주석 규칙(docs/conventions.md 코드 규약 절) 중 기계 판정 가능한 3개.
-  # 외부 참조 2종(절 번호 인용 기호·결정 식별자)과 이력 서술 1종(날짜). 로컬 게이트는
-  # .githooks/pre-commit(대상이 staged 됐을 때만). 한쪽을 바꾸면 다른 쪽도 바꾼다. CI는 전체
-  # 저장소를 본다(로컬은 staged 파일만. 속도 차이다). 대상 목록의 SSOT는 스크립트의
-  # default_targets() 이고 여기서 인자를 주지 않는다.
-  comment-conventions:
-    name: 주석 규칙 검사
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7.0.1
-      - name: "게이트: 외부 참조·이력 서술"
-        run: python3 scripts/validate-comment-conventions.py

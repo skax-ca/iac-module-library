@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# presentations/<버전>/slides.html 을 PowerPoint(.pptx)로 변환한다.
+# presentations/<연월>-<주제>/slides.html 을 PowerPoint(.pptx)로 변환한다.
 #
 # 슬라이드마다 headless Chrome 으로 1920x1080 PNG 를 찍고, 그 이미지를 16:9 슬라이드에
 # 전면 배치한다. 덱이 CSS Grid·SVG·코드 하이라이트를 쓰기 때문에 텍스트를 PowerPoint
@@ -17,7 +17,7 @@
 #   pip install python-pptx
 #
 # 실행 (repo 루트에서):
-#   python3 scripts/build-deck-pptx.py presentations/v1.0/slides.html [출력.pptx]
+#   python3 scripts/build-deck-pptx.py presentations/2026-09-iac-asset/slides.html [출력.pptx]
 #   출력 경로를 안 주면 slides.html 과 같은 디렉토리에 deck.pptx 로 쓴다.
 
 import http.server

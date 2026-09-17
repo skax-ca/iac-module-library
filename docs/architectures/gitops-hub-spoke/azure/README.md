@@ -72,23 +72,42 @@ GitOps는 그 순서를 표현할 수단이 없다.
 | | AWS 원본 | 이 패턴 |
 |---|---|---|
 | 고정 노드 taint | `workload-class=system:NoSchedule` | **없다** |
+| taint 키를 고르는가 | 고른다 | **못 고른다.** AKS는 `CriticalAddonsOnly=true:NoSchedule` 하나만 받고, azurerm도 `only_critical_addons_enabled` bool로만 노출한다 |
 | 앱과 시스템 분리 | taint(밀어내기) + `nodeSelector`(끌어당기기) | 시스템 풀이 차면 NAP이 노드를 띄우는 것뿐이다 |
 | 플랫폼 addon의 toleration | 6곳 전부 필요 | 필요 없다 |
 
 Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고, 집행 수단으로 `CriticalAddonsOnly=true:NoSchedule`
 taint를 지목한다. 노드 풀이 하나뿐인 클러스터에 앱 파드를 올리는 것도 권장하지 않는다고 적는다.
-**이 패턴은 그 권고를 알고 따르지 않는다.**
+**이 패턴은 그 권고를 알고 따르지 않는다.** 이유는 둘이다.
 
-이유는 비용이 아니라 **부트스트랩 순서**다. 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 —
-NAP 노드는 아직 없고(그 `NodePool` CR을 ArgoCD가 배포한다), 시스템 풀은 taint로 막혀 있다. 풀려면
-ArgoCD에도 toleration을 줘야 하고, 그러면 AWS와 같은 모양이 된다. 격리를 얻는 대신 계층 2가 다시
-스케줄링 세부를 알아야 한다.
+**① 부트스트랩 순서.** 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 — NAP 노드는 아직 없고
+(그 `NodePool` CR을 ArgoCD가 배포한다), 시스템 풀은 taint로 막혀 있다. 풀려면 ArgoCD에도 toleration을
+줘야 하고, 그러면 AWS와 같은 모양이 된다. 격리를 얻는 대신 계층 2가 다시 스케줄링 세부를 알아야 한다.
 
-⚠️ **도입 트리거는 하나다**: 시스템 노드에 `kube-system` 밖 파드가 쌓여 addon이 `Pending`이 되는 것.
-확인 절차는 `aks-reference-infra`의 운영 문서가 갖는다.
+**② 관리형 addon에 toleration을 넣을 자리가 없다.** ①은 우리 매니페스트를 고쳐 풀 수 있지만 이쪽은
+그렇지 않다. AKS가 돌리는 addon의 파드 스펙을 우리가 쓰지 않기 때문이다. App Routing의
+`NginxIngressController` CRD가 노출하는 설정에는 `tolerations`도 `nodeSelector`도 없다. azurerm 문서는
+AGIC를 `only_critical_addons_enabled`와 함께 쓰면 그 파드가 "fail to start" 한다고 적고, 이유를 AGIC가
+"non-critical addon"으로 분류되기 때문이라고 밝힌다. 어떤 addon이 같은 분류를 받는지는 공개돼 있지 않다.
 
-도입하면 세 저장소가 함께 움직인다 — `aks-cluster` 모듈이 기본 풀 taint를 노출하고, 배포 루트가 값을
-넣고, GitOps의 ArgoCD values가 toleration을 받는다. 한 저장소만 고치면 클러스터가 seed 단계에서 멈춘다.
+AWS 원본이 이 함정을 먼저 밟았다. cert-manager는 최상위 toleration만으로 부족해 cainjector·webhook이
+각자 받아야 했고, 빠뜨린 동안 Karpenter 노드가 없어 addon 전체가 `DEGRADED`로 멈췄다. 그때 빠져나온
+수단은 EKS managed addon의 `configuration`에 서브컴포넌트별 값을 넣는 것이었다. AKS에는 그 자리가 없다.
+
+⚠️ **도입 트리거는 둘 다 무너져야 한다.**
+- 시스템 노드에 `kube-system` 밖 파드가 쌓여 addon이 `Pending`이 되는 것. 확인 절차는
+  `aks-reference-infra`의 운영 문서가 갖는다
+- 이 클러스터가 켜는 관리형 addon(App Routing 오퍼레이터 · KEDA · Gateway API)이 taint를 견디는 것.
+  문서로는 판정되지 않으니 클러스터에서 본다 — 그 파드들의 `tolerations`에 `CriticalAddonsOnly`가
+  들어 있는지 읽는다
+
+도입하면 세 저장소가 함께 움직인다 — `aks-cluster` 모듈이 `system_node_pool`에
+`only_critical_addons_enabled`를 노출하고, 배포 루트가 값을 넣고, GitOps가 toleration을 받는다. GitOps
+쪽은 ArgoCD values와 Kyverno ApplicationSet 두 곳이고, 두 파일 모두 "대응할 taint가 없다"를 근거로
+tolerations를 넣지 않는다고 ⛔로 적고 있다. 한 저장소만 고치면 클러스터가 seed 단계에서 멈춘다.
+
+⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다. 그 순환은 cordon·drain을 하지 않아 돌던 파드가 그대로
+끊긴다. 클러스터가 철거된 상태에서 바꾼다.
 
 ---
 

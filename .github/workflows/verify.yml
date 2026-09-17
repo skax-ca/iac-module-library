@@ -11,6 +11,17 @@ on:
   pull_request:
   push:
     branches: [main]
+    # 어느 게이트도 보지 않는 경로만 바뀐 push는 돌리지 않는다. 제외 목록(paths-ignore)이지
+    # 허용 목록(paths)이 아닌 이유: 검사기가 대상을 늘릴 때 허용 목록은 같이 고치지 않으면
+    # 조용히 빠지고, 제외 목록은 그 방향의 드리프트가 없다.
+    # ⚠️ 두 검사기의 default_targets()는 python glob('**')라 dot 디렉토리를 보지 않는다.
+    #    검사기에 include_hidden 을 켜거나, 게이트가 보는 파일(*.tf·README.md·lock)을 이 경로들
+    #    아래에 두면 그 파일은 CI 밖에서 바뀐다. 그때는 이 목록부터 다시 본다.
+    #    pull_request 에는 필터를 두지 않는다. PR 은 .tf·워크플로 변경 전용이라 항상 돌아야 한다.
+    paths-ignore:
+      - ".claude/**"
+      - ".mcp.json"
+      - "presentations/**"
   workflow_dispatch:
 
 # CI는 읽기 전용이라 앞선 run을 취소해도 안전하다.

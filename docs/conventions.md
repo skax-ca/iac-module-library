@@ -301,6 +301,12 @@ git config core.hooksPath .githooks
 
 이 저장소는 배포하지 않으므로 **apply 워크플로가 없다.**
 
+`main` push 중 어느 게이트도 보지 않는 경로(`.claude/**`·`.mcp.json`·`presentations/**`)만
+바뀐 것은 CI를 돌리지 않는다. 제외 목록(`paths-ignore`)이고 허용 목록이 아니다. 검사기가
+대상을 늘려도 제외 목록은 손댈 것이 없지만, 허용 목록은 같이 고치지 않으면 새 대상이 조용히
+CI 밖에 남는다. `pull_request`에는 필터가 없다. ⚠️ 게이트가 보는 파일을 제외 경로 아래에
+두면 그 파일은 CI 밖에서 바뀐다. `workflow_dispatch`는 필터와 무관하게 전체를 돈다.
+
 > CI는 읽기 전용이라 `cancel-in-progress: true`다.
 > **배포 루트의 apply는 반대여야 한다.** apply 중단은 state 잠금과 부분 적용을 남긴다.
 

@@ -69,9 +69,6 @@ values" 메커니즘, aks README의 진행 상태 절 2개.
 - [ ] [*-gitops] 실제 승격 한 번 돌려보기(nonprd 올림 → 검증 → prd 올림). Kyverno는 엔진·정책 값 4개를
       짝으로 움직여야 한다. ⚠️ 3.9 라인으로 넘길 때는 `policyType` 결정을 먼저 답한다
       (②에 `policyType=ClusterPolicy` 명시 vs whitelist·③를 함께 이동)
-- [ ] [aks-gitops] README 12-14행 "이 저장소 고유의 설계 판단은 아래 표와 매니페스트 주석이 SSOT"가
-      eks README의 "설계 SSOT는 이 저장소가 아니다"와 어긋난다. App Routing 채택 근거는
-      `gitops-hub-spoke/azure/README.md`가 갖고 있으니 eks와 같은 문장으로 맞춘다
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그 메시지에 아래 문구를 싣는다. 지금 태그를
       컷하지 않는다(`6e34dec`는 주석·문서 전용이다). 미릴리스 확인: `6e34dec`가 `workbench-v0.9.0`·
       `aks-workbench-v0.7.0` 양쪽보다 뒤에 있다. 메커니즘도 실물 확인 완료 — AWS는
@@ -86,11 +83,9 @@ values" 메커니즘, aks README의 진행 상태 절 2개.
          Azure: azurerm_linux_virtual_machine.custom_data 가 ForceNew
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
-- [ ] [module] `verify.yml`에 `paths` 필터를 달지 검토. 지금은 `push: main`에 필터가 없어 `.claude/session.md`·
-      `.mcp.json`만 바뀐 push에도 전체가 돈다. 비용은 읽기 전용 runner 몇 분이고, 필터를 달면 경로 목록이
-      검사기의 대상 목록(`validate-doc-conventions.py`의 `docs/**`·`**/README.md`·`CLAUDE.md`,
-      `validate-comment-conventions.py`의 `modules/**`·훅)과 어긋날 때 검사가 조용히 빠진다. 달려면
-      job별 `paths`가 아니라 검사기 대상과 같은 한 목록으로 두고, `.claude/**`·`.mcp.json`만 빼는 형태가 후보다
+- [ ] [module] 경로 필터 실측 — `gh run list`로 두 가지를 본다. `.claude/session.md`만 바뀐 push는
+      run이 하나도 안 떠야 하고(이 항목을 쓴 커밋이 첫 표본이다), `docs/*.md`만 바뀐 push는
+      `verify-docs`만 약 20초 돌고 `verify`는 안 떠야 한다. 어긋나면 `.github/workflows/`의 필터부터 본다
 - [ ] [local] context7 MCP에 rate limit이 걸리면 context7.com/dashboard에서 키를 받아 로컬 설정에
       `Authorization: Bearer` 헤더로 얹는다(저장소에 넣지 않는다)
 - [ ] [local] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

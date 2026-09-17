@@ -67,47 +67,47 @@ GitOps는 그 순서를 표현할 수단이 없다.
 ⚠️ App Routing을 켤 때 레거시 NGINX IngressClass 자동 생성을 끈다. 생략하면 provider
 기본값이 적용돼 쓰지 않는 NGINX 컨트롤러가 함께 뜬다.
 
-### 노드 배치: 시스템 풀에 taint를 두지 않는다
+### 노드 배치: 시스템 풀을 CriticalAddonsOnly로 잠근다
 
 | | AWS 원본 | 이 패턴 |
 |---|---|---|
-| 고정 노드 taint | `workload-class=system:NoSchedule` | **없다** |
-| taint 키를 고르는가 | 고른다 | **못 고른다.** AKS는 `CriticalAddonsOnly=true:NoSchedule` 하나만 받고, azurerm도 `only_critical_addons_enabled` bool로만 노출한다 |
-| 앱과 시스템 분리 | taint(밀어내기) + `nodeSelector`(끌어당기기) | 시스템 풀이 차면 NAP이 노드를 띄우는 것뿐이다 |
-| 플랫폼 addon의 toleration | 6곳 전부 필요 | 필요 없다 |
+| 고정 노드 taint | `workload-class=system:NoSchedule` | `CriticalAddonsOnly=true:NoSchedule` |
+| taint 키를 고르는가 | 고른다 | **못 고른다.** AKS가 이 키 하나만 받고, azurerm은 `only_critical_addons_enabled` bool로만 노출한다 |
+| 시스템 파드를 끌어당기는 것 | `nodeSelector` | AKS가 시스템 풀 노드에 자동으로 붙이는 `kubernetes.azure.com/mode: system` 라벨 |
+| 플랫폼 addon의 toleration | 6곳 전부 필요 | **ArgoCD 한 곳** |
 
-Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고, 집행 수단으로 `CriticalAddonsOnly=true:NoSchedule`
-taint를 지목한다. 노드 풀이 하나뿐인 클러스터에 앱 파드를 올리는 것도 권장하지 않는다고 적는다.
-**이 패턴은 그 권고를 알고 따르지 않는다.** 이유는 둘이다.
+Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고 이 taint를 집행 수단으로 지목한다. 막으려는 것은
+자원 경합이 아니라 축출이다 — 잘못 설정된 앱 파드가 시스템 파드의 자리를 빼앗는 것. 노드 풀이 하나뿐인
+클러스터에 앱 파드를 올리는 것도 권장하지 않는다고 적는다.
 
-**① 부트스트랩 순서.** 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 — NAP 노드는 아직 없고
-(그 `NodePool` CR을 ArgoCD가 배포한다), 시스템 풀은 taint로 막혀 있다. 풀려면 ArgoCD에도 toleration을
-줘야 하고, 그러면 AWS와 같은 모양이 된다. 격리를 얻는 대신 계층 2가 다시 스케줄링 세부를 알아야 한다.
+**toleration은 ArgoCD에만 준다.** 나머지 플랫폼 addon이 시스템 풀에서 밀려나 NAP 노드로 가는 것이
+격리의 내용이다. 주지 않는 쪽이 기본이고 ArgoCD가 예외다.
 
-**② 관리형 addon에 toleration을 넣을 자리가 없다.** ①은 우리 매니페스트를 고쳐 풀 수 있지만 이쪽은
-그렇지 않다. AKS가 돌리는 addon의 파드 스펙을 우리가 쓰지 않기 때문이다. App Routing의
-`NginxIngressController` CRD가 노출하는 설정에는 `tolerations`도 `nodeSelector`도 없다. azurerm 문서는
-AGIC를 `only_critical_addons_enabled`와 함께 쓰면 그 파드가 "fail to start" 한다고 적고, 이유를 AGIC가
-"non-critical addon"으로 분류되기 때문이라고 밝힌다. 어떤 addon이 같은 분류를 받는지는 공개돼 있지 않다.
+ArgoCD가 예외인 이유는 부트스트랩 순서다. 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 —
+NAP 노드는 아직 없고, 그 `NodePool` CR을 배포하는 것이 ArgoCD 자신이다. ArgoCD가 시스템 풀에 서야
+순환이 끊긴다. 🔑 toleration은 허용이지 선호가 아니라서 ArgoCD는 taint를 건 뒤에도 시스템 풀에 남는다.
+이 패턴이 얻는 격리는 "ArgoCD 외 전부"다.
 
-AWS 원본이 이 함정을 먼저 밟았다. cert-manager는 최상위 toleration만으로 부족해 cainjector·webhook이
-각자 받아야 했고, 빠뜨린 동안 Karpenter 노드가 없어 addon 전체가 `DEGRADED`로 멈췄다. 그때 빠져나온
-수단은 EKS managed addon의 `configuration`에 서브컴포넌트별 값을 넣는 것이었다. AKS에는 그 자리가 없다.
+**관리형 addon의 toleration은 AKS가 넣는다.** App Routing의 Istio 구현체는 이 taint를 견디고, 시스템
+노드를 선호하는 node affinity까지 갖는다. 과거 toleration이 빠져 있던 Azure Policy는 Microsoft가
+고쳤다. cluster extension은 계열이 다르다 — extension-manager와 Flux가 이 taint에서 스케줄되지 못한다는
+보고가 남아 있다. 이 패턴은 extension을 쓰지 않으며, 들일 때는 그 파드의 toleration을 먼저 확인한다.
 
-⚠️ **도입 트리거는 둘 다 무너져야 한다.**
-- 시스템 노드에 `kube-system` 밖 파드가 쌓여 addon이 `Pending`이 되는 것. 확인 절차는
-  `aks-reference-infra`의 운영 문서가 갖는다
-- 이 클러스터가 켜는 관리형 addon(App Routing 오퍼레이터 · KEDA · Gateway API)이 taint를 견디는 것.
-  문서로는 판정되지 않으니 클러스터에서 본다 — 그 파드들의 `tolerations`에 `CriticalAddonsOnly`가
-  들어 있는지 읽는다
+⚠️ KEDA addon은 확인되지 않았다. addon 계열이라 들어 있을 것으로 보지만 공개 문서가 답하지 않는다.
+재구축 뒤 관리형 파드의 toleration을 한 번에 읽어 확인한다.
 
-도입하면 세 저장소가 함께 움직인다 — `aks-cluster` 모듈이 `system_node_pool`에
-`only_critical_addons_enabled`를 노출하고, 배포 루트가 값을 넣고, GitOps가 toleration을 받는다. GitOps
-쪽은 ArgoCD values와 Kyverno ApplicationSet 두 곳이고, 두 파일 모두 "대응할 taint가 없다"를 근거로
-tolerations를 넣지 않는다고 ⛔로 적고 있다. 한 저장소만 고치면 클러스터가 seed 단계에서 멈춘다.
+```bash
+kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS:.spec.tolerations[*].key
+```
+
+빠져 있는 addon은 NAP 노드로 가고, NAP 노드가 없는 구간에서 `Pending`으로 기다린다.
 
 ⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다. 그 순환은 cordon·drain을 하지 않아 돌던 파드가 그대로
 끊긴다. 클러스터가 철거된 상태에서 바꾼다.
+
+세 저장소가 순서대로 움직인다. GitOps가 ArgoCD toleration을 먼저 갖고, `aks-cluster` 모듈이
+`system_node_pool`에 `only_critical_addons_enabled`를 노출해 태그를 컷하고, 배포 루트가 그 태그를
+참조해 값을 켠다. 순서를 뒤집으면 taint가 걸린 클러스터를 toleration 없는 ArgoCD로 seed하게 된다.
 
 ---
 

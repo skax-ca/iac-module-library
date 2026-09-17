@@ -433,6 +433,38 @@ run "local_account_disabled_allowed_with_independent_toggle" {
 }
 
 # ── API 서버 접근 제한: 옵트인 ──────────────────────────────────────────────────
+run "system_pool_taint_optin_default_off" {
+  command = plan
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].default_node_pool[0].only_critical_addons_enabled == false
+    error_message = "only_critical_addons_enabled를 넘기지 않았는데 시스템 풀에 taint가 걸렸다."
+  }
+}
+
+run "system_pool_taint_enabled_when_set" {
+  command = plan
+
+  variables {
+    system_node_pool = {
+      vm_size                      = "Standard_D4s_v5"
+      node_count                   = 2
+      only_critical_addons_enabled = true
+    }
+  }
+
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].default_node_pool[0].only_critical_addons_enabled == true
+    error_message = "only_critical_addons_enabled = true인데 시스템 풀 taint가 꺼져 있다."
+  }
+
+  # 순환 대상 속성을 켜는 plan이라, 임시 이름이 함께 없으면 이 plan 자체가 서지 않는다.
+  assert {
+    condition     = azurerm_kubernetes_cluster.this[0].default_node_pool[0].temporary_name_for_rotation == "npsystemt"
+    error_message = "taint를 켜는 plan에 temporary_name_for_rotation이 붙지 않았다."
+  }
+}
+
 run "api_server_access_profile_optin" {
   command = plan
 

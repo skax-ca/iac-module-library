@@ -197,6 +197,29 @@ apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 �
         예외가 0 이 된다. ⚠️ 두 GitOps 저장소만 public 이면 되는 일이라 전환 범위를 저장소별로
         가를 수 있다
       - Actions 사용량: public 저장소의 표준 러너 한도를 확인한다(현재 무료 private 은 월 2,000분)
+
+      ④ 배포 루트 CI 를 손보는 김에 함께 (⚠️ public 과 기술적 의존이 없다 — 지금도 할 수 있고,
+         ③ 이 어차피 워크플로를 건드리므로 묶는다)
+      - **문서 전용 변경은 이미 안 돈다.** `paths` 가 허용 목록(`live/<root>/**` + 자기 워크플로
+        파일)이라 `docs/**` 가 애초에 없다. 실측: aks `a8db0428`(runbooks 만) → run 0건.
+        `iac-module-library` 가 워크플로를 둘로 가른 것과 같은 결과를 배포 루트는 허용 목록
+        하나로 이미 얻고 있다. ⇒ **이 축은 할 일이 아니다.**
+      - **`.tf` 주석만 바뀐 push 는 plan 을 돌린다.** `paths` 는 파일 단위라 diff 내용을 못 본다.
+        실측: aks `d484623`·`1cb393a`(둘 다 주석만)이 plan 2개를 돌렸다. 루트 규칙이 동작 변경
+        없는 주석 수정을 main 직접 커밋으로 허용하므로 이 경로는 계속 생긴다.
+        ⚠️ 비주석 diff 를 세어 건너뛰는 사전 job 은 **오판이 조용하다** — heredoc·문자열 안의
+        `#` 를 주석으로 세면 진짜 코드 변경에서 plan 을 건너뛴다. 그 오판은 plan 이 안 돈 것과
+        구분되지 않는다. 정규식으로 가르지 않으려면 커밋 메시지 `[skip ci]` 규약이 오판 0 이다
+        (대신 사람이 빠뜨릴 수 있고, 그 워크플로만이 아니라 전부를 건너뛴다).
+      - **철거 상태에서 plan 이 항상 실패한다.** 원인은 의존 root 가 아직 없어 `data` 조회가
+        깨지는 것이고 코드 결함이 아니다. aks 는 `Error: Subnet (...) Resource Group Name:
+        "rg-demo-hub-krc-workload-01"`(`data.azurerm_subnet.aks_node`), eks 는
+        `no matching RAM Resource Share found` 다. 에러 문구가
+        `OpenTofu planned the following actions, but then encountered a problem` 이라 plan 그래프
+        자체는 서 있다.
+        ⛔ `continue-on-error` 로 덮지 않는다. 진짜 실패와 구분이 사라진다.
+        방향은 plan 앞에 의존 리소스의 존재를 확인해 없으면 건너뛰고 run Summary 에 "철거 상태"
+        를 적는 것이다. ⚠️ 그 확인이 CI 신원의 read 권한에 기대므로 권한 축소와 같이 움직인다.
 - [ ] [local] context7 MCP에 rate limit이 걸리면 context7.com/dashboard에서 키를 받아 로컬 설정에
       `Authorization: Bearer` 헤더로 얹는다(저장소에 넣지 않는다)
 - [ ] [local] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

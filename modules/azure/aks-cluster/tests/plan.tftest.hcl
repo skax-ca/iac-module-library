@@ -40,7 +40,7 @@ variables {
   pod_cidr            = "10.244.0.0/16"
 
   system_node_pool = {
-    vm_size    = "Standard_D2s_v5"
+    vm_size    = "Standard_D4s_v5"
     node_count = 2
   }
 }
@@ -76,7 +76,7 @@ run "system_node_pool_required_and_wired" {
 
   assert {
     condition = alltrue([
-      azurerm_kubernetes_cluster.this[0].default_node_pool[0].vm_size == "Standard_D2s_v5",
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].vm_size == "Standard_D4s_v5",
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].node_count == 2,
       azurerm_kubernetes_cluster.this[0].default_node_pool[0].vnet_subnet_id == var.node_subnet_id,
       # 0.5.0 회귀 방지: upgrade_settings.max_surge를 Azure 기본값(10%)으로 명시
@@ -636,7 +636,7 @@ run "reject_autoscaling_without_min_max" {
 
   variables {
     system_node_pool = {
-      vm_size              = "Standard_D2s_v5"
+      vm_size              = "Standard_D4s_v5"
       auto_scaling_enabled = true
     }
   }

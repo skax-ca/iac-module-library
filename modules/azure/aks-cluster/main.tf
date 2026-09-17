@@ -58,6 +58,10 @@ resource "azurerm_kubernetes_cluster" "this" {
     pod_subnet_id               = local.pod_subnet_id_by_mode
     temporary_name_for_rotation = local.system_pool_temp_name
 
+    # 이 인자가 요구하는 것이 위 temporary_name_for_rotation 이다. max_pods·vm_size 와 같은
+    # 순환 대상 목록에 있어, 이름이 없으면 값을 바꾸는 plan 자체가 서지 않는다.
+    only_critical_addons_enabled = var.system_node_pool.only_critical_addons_enabled
+
     # ⛔ 이 블록을 생략하면 Azure가 노드 풀 생성 시 upgrade_settings를 max_surge="10%"로
     # 채워 반환하는데, HCL에 선언이 없어 OpenTofu는 그것을 "제거 대상"으로 매 plan마다
     # 다시 표시한다. apply해도 Azure가 같은 기본값을 또 채워 넣어 수렴하지 않는

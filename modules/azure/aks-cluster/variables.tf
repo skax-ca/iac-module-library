@@ -310,16 +310,24 @@ variable "system_node_pool" {
     os_disk_size_gb      - OS 디스크 크기(GB). 생략하면 provider 기본값
     max_pods             - 노드당 최대 파드 수. 생략하면 provider 기본값
     zones                - 가용 영역 목록. 생략하면 무존 배치
+
+    only_critical_addons_enabled - 시스템 풀에 CriticalAddonsOnly=true:NoSchedule taint를 건다.
+      AKS는 이 키만 받는다(임의 taint는 시스템 풀에 걸 수 없다). 이 taint를 견디지 않는 파드는
+      시스템 풀에 서지 못하므로, 그것들을 받을 다른 노드 풀이 먼저 있어야 한다. 클러스터를
+      부트스트랩하는 컨트롤러(ArgoCD 등)에는 toleration을 줘야 첫 파드가 설 자리가 생긴다.
+      ⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다. 그 순환은 cordon·drain을 하지 않아 돌던
+      파드가 그대로 끊긴다.
   EOT
   type = object({
-    vm_size              = string
-    node_count           = optional(number, 1)
-    auto_scaling_enabled = optional(bool, false)
-    min_count            = optional(number)
-    max_count            = optional(number)
-    os_disk_size_gb      = optional(number)
-    max_pods             = optional(number)
-    zones                = optional(list(string))
+    vm_size                      = string
+    node_count                   = optional(number, 1)
+    auto_scaling_enabled         = optional(bool, false)
+    min_count                    = optional(number)
+    max_count                    = optional(number)
+    os_disk_size_gb              = optional(number)
+    max_pods                     = optional(number)
+    zones                        = optional(list(string))
+    only_critical_addons_enabled = optional(bool, false)
   })
   nullable = false
 

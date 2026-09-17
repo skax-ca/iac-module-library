@@ -61,12 +61,6 @@ kyverno 3.9 legacy 타입 deprecation 누락.
 순서(시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다)이고, 도입 시 세 저장소가 함께 움직인다.
 
 ## 다음 할 일
-- [ ] [질문] aks `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `namespaceSelector`에
-      `control-plane DoesNotExist`를 더한 변경(`0437c27`)의 내용을 다시 설명받는다. 요지: 그 정책은
-      Enforce라 requests/limits 없는 파드를 막는데, AKS가 관리하는 네임스페이스(`aks-istio-system` 등)의
-      파드는 그 값을 선언하지 않아 함께 막힌다. 그래서 제외해야 하고, **무엇으로 제외를 판정하느냐**가
-      쟁점이었다. 기존은 `kubernetes.azure.com/managedby: aks` 하나였는데 공식 문서는 그 라벨을 관리형
-      **컴포넌트**의 것이라 적고, 네임스페이스 마커로는 AKS FAQ가 `control-plane` 라벨을 지목한다
 - [ ] [addon] **차트 버전을 클러스터가 지원하는 최신으로 올린다.** 아래는 실측한 현재/최신이다.
       클러스터는 EKS 1.35 · AKS 1.35다. 올릴 때마다 `argocd app manifests`로 렌더를 먼저 본다
 
@@ -103,6 +97,24 @@ kyverno 3.9 legacy 타입 deprecation 누락.
       AMI로 핀하라고 강하게 권고한다. 현재 `addons/karpenter/nodepool/values.yaml`이 `al2023@latest`이고
       hub는 `tier: prd`다. ⚠️ 값을 바꾸면 노드가 교체되므로 인프라가 선 상태에서 판단한다.
       핀 형식은 `al2023@v<날짜>`
+- [ ] [aks-gitops] **관리형 네임스페이스의 실제 라벨을 찍고, 안 쓰는 조건을 지운다.**
+      `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `match` 쪽 `namespaceSelector`가
+      라벨 두 개를 AND로 건다. `control-plane DoesNotExist`는 AKS FAQ가 admission webhook 제외용으로
+      직접 지목하고 selector 예시를 그대로 싣는다. `kubernetes.azure.com/managedby NotIn [aks]`는 공식
+      문서가 관리형 **컴포넌트**의 라벨이라 적을 뿐 네임스페이스에도 붙는지가 확정되지 않았다.
+      근거가 약한 쪽을 실물로 판정한다.
+      절차: `kubectl get ns --show-labels`로 Azure가 만든 네임스페이스(`aks-istio-system`·
+      `app-routing-system`·`gatekeeper-system` 등) 전부의 라벨을 본다.
+      판정: 그것들이 `control-plane` 하나로 **전부** 잡히면 `managedby` 조건은 죽은 조건이니 지우고,
+      주석에서 그 불확실성을 적은 줄도 함께 걷는다. `control-plane`이 없는데 `managedby`만 붙은 것이
+      하나라도 있으면 둘 다 남기고 주석에 그 네임스페이스 이름을 적는다.
+      ⚠️ `match` 안이라 `matchExpressions`는 AND다 — 조건을 지우면 정책 사정권이 **넓어진다**.
+         제외가 줄어드는 방향이라 전수 확인 전에는 지우지 않는다. 이 정책은 Enforce고 실패해도
+         에러가 Kyverno 로그에만 남는다
+      ⚠️ 이 파일은 「Kyverno 3.9 전환」 항목이 CEL로 다시 쓰는 대상이다. 3.9 이동을 먼저 하면
+         실측 결과를 새 kind 위에 반영한다
+      참고: AKS FAQ는 `kube-system`과 AKS 내부 네임스페이스를 자동 제외하는 admissions enforcer도
+      함께 적지만, 그러면서 `control-plane` 제외를 여전히 권고한다. 자동 장치에 기대지 않는다
 - [ ] [*-gitops] 재구축 seed 5단계 직후 `argocd app manifests root-app --core`로 include가 의도대로
       동작하는지 확인 — 리소스 수가 aks 9개·eks 14개여야 한다. 평문으로 바꾼 CR 디렉토리
       (aks 3개, eks `kyverno/custom-policies`)의 전담 Application이 Directory 타입으로 렌더되는지도 본다
@@ -131,6 +143,43 @@ kyverno 3.9 legacy 타입 deprecation 누락.
          Azure: azurerm_linux_virtual_machine.custom_data 가 ForceNew
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
+- [ ] [전체] **5개 저장소를 private → public 으로 전환한다.** 무료 플랜 + private 조합이 막고 있는
+      GitHub 기능을 열어 지금 우회로 버티는 것들을 없앤다. 순서는 **① 공개해도 되는 상태로 조치 →
+      ② 전환 → ③ 열린 기능으로 개선**이고, ①을 끝내기 전에 ②로 넘어가지 않는다.
+
+      실측한 제약(5개 저장소 전부 private·무료):
+      `gh api repos/<org>/<repo>/branches/main/protection` 과 `/rulesets` 가 둘 다 403 이고, 메시지가
+      `Upgrade to GitHub Pro or make this repository public to enable this feature` 다. GitHub 공식
+      문서도 무료 플랜은 환경(Environment)을 **public 저장소에만** 구성할 수 있다고 적고,
+      `Deployment protection rules for public repositories` 를 무료 항목으로 싣는다.
+
+      ① 전환 전 조치 (전환은 되돌려도 이미 클론된 것은 못 되돌린다)
+      - ⚠️ **git 이력 전수 스캔.** HEAD 만 보지 않는다. 계정 ID·구독 ID·테넌트 ID·Role ARN·
+        App Registration client ID·state 버킷/스토리지 계정 이름·CIDR·private endpoint FQDN
+      - ⚠️ **`aks-reference-infra` 의 FIC subject 가 최우선이다.** 그 repo 의 유일한 방어선이
+        `subject` 하나로 좁힌 도달 경로인데, public 이 되면 fork·PR 경로가 새로 생긴다.
+        `pull_request_target` 이 없음을 확인하고, fork 워크플로 실행 정책을 먼저 잠근다
+      - GitOps 매니페스트가 공개되면 클러스터 구성(네임스페이스·정책·NodePool selector·IAM role 이름)이
+        읽힌다. 공개해도 되는지 항목별로 판정한다
+      - `.trivyignore`·`backend.hcl` 류 로컬 파일이 추적되고 있지 않은지 확인
+
+      ② 전환
+
+      ③ 열리는 것 (전환 후 실제 목록은 그때 리서치한다. 아래는 이미 걸려본 것)
+      - **배포 루트 CI**: `environment:` 를 지금은 OIDC `sub` 클레임 때문에만 쓰고 보호 규칙을
+        못 건다. public 이면 **required reviewers 를 apply job 에 걸 수 있다** — `workflow_dispatch`
+        를 누르는 것이 승인인 현재 모델을 GitHub 이 강제하는 승인으로 바꾼다
+      - **브랜치 보호·ruleset**: 지금은 아무 저장소에도 못 건다. 루트 `CLAUDE.md` 「GitOps 저장소
+        공통」의 ⛔ 재검토 트리거가 `저장소가 public 이 되면` 을 포함한다 — PR 판정이 뒤집힌다
+      - **GitOps CI 신설**: 렌더 검증 CI + 그 CI 가 도는 PR. 지금은 CI 가 없어 PR 이 형식만 남는다
+      - **ArgoCD 의 저장소 credential 제거.** `bootstrap/argocd-seed.sh` 2단계가 GitHub App
+        private key 를 `argocd-repo-gitops` repository Secret 으로 넣는다. 스크립트 자신이 그것을
+        **「자기소멸 원칙의 유일한 예외」**라 부르고, 삭제되면 모든 sync 가 멈춘다고 경고한다.
+        GitOps 저장소가 public 이면 ArgoCD 는 익명으로 읽을 수 있다 ⇒ 그 Secret 도, GitHub App 도,
+        private key 를 SSM SecureString 으로 나르는 절차도 통째로 사라진다. seed 단계가 하나 줄고
+        예외가 0 이 된다. ⚠️ 두 GitOps 저장소만 public 이면 되는 일이라 전환 범위를 저장소별로
+        가를 수 있다
+      - Actions 사용량: public 저장소의 표준 러너 한도를 확인한다(현재 무료 private 은 월 2,000분)
 - [ ] [local] context7 MCP에 rate limit이 걸리면 context7.com/dashboard에서 키를 받아 로컬 설정에
       `Authorization: Bearer` 헤더로 얹는다(저장소에 넣지 않는다)
 - [ ] [local] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

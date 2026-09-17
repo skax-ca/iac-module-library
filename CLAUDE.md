@@ -78,6 +78,22 @@ module "vpc" {
 | 외부 참조·이력 서술 금지 | 주석·문서에 **외부 참조**(절 번호·결정 식별자·PR 번호)와 **이력 서술**(날짜·사건 서술)을 쓰지 않는다(`docs/conventions.md`). 주석은 "왜 이 값인가"와 "바꾸면 무엇이 깨지는가"에만 답한다 |
 | 세션 메모 | 에이전트 세션 메모는 저장소 지식이 아니다. 절차·gotcha는 운영 절차 문서나 인라인 주석에 반영한다 |
 
+## GitOps 저장소 공통
+
+`eks-platform-gitops`·`aks-platform-gitops`에서 작업할 때 적용한다. 두 repo는 `CLAUDE.md`를 두지 않는다
+(세션을 이 repo에서 열고 `--add-dir`로 붙이므로 이 절이 닿는다). 규약은 각 repo의 `README.md`가 갖는다.
+
+| 항목 | 규칙 |
+|------|------|
+| 브랜치 | 매니페스트도 **main 직접 커밋**. 근거는 문서 전용 규칙과 같다 — 두 repo에 CI가 없고 브랜치 보호도 걸 수 없어 PR이 머지 전에 막을 것이 없다. 형식만 남은 절차는 비용만 낸다 |
+| ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, `workflow_dispatch`가 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`). 커밋이 apply 버튼이다 |
+| 진짜 게이트 | 리뷰가 아니라 **렌더 확인**이다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠지면 렌더가 실패하고 그 실패는 egress 실패와 똑같이 보인다 |
+| 환경 분리 | ⛔ **브랜치로 나누지 않는다.** 티어는 `applicationsets/`의 prd·nonprd 블록과 cluster Secret의 `tier` 라벨이 나눈다. 두 블록에서 갈려도 되는 값은 `targetRevision` 하나다 |
+| 승격 | 클러스터가 있으면 nonprd → 검증 → prd. **철거 상태에서는 양 티어를 같이 올리고 재구축 때 한 번에 검증한다** — 검증할 대상이 없는 상태에서 커밋을 둘로 쪼개는 것은 절차만 남는다 |
+| 자기 관리 ArgoCD | `bootstrap/argocd-app.yaml`의 `targetRevision`과 `bootstrap/argocd-seed.sh`의 `ARGOCD_CHART_VERSION`은 **항상 같다**. 갈리면 흡수가 업그레이드가 되고, sync 주체가 sync 도중에 재시작한다. 올리는 것은 **클러스터가 철거된 상태에서** 한다 |
+| 버전 핀의 자리 | 한 차트 버전이 여러 곳에 박힌다(`eks-platform-gitops`는 `README.md`의 addon 표가 버전을 중복 보유한다 — 자동 생성이 아니라 손으로 쓴 표다). 올린 뒤 `grep -rn '<옛버전>'`으로 0건을 확인한다 |
+| ⛔ 재검토 트리거 | **클러스터를 상시 가동으로 바꾸거나, 작업자가 2인 이상이 되거나, 저장소가 public이 되면** 이 절을 다시 연다. 그때는 렌더 검증 CI를 만들고 그 CI가 도는 PR을 요구하는 것이 값한다 — "CI가 없으니 PR은 형식"이라는 판정이 그때 뒤집힌다 |
+
 ---
 
 ## 설계·검토 우선 규칙 (최우선, 필수 준수)
@@ -106,6 +122,7 @@ module "vpc" {
 |-----------|------|
 | **`.tf` · `.github/workflows/`** | **브랜치 → PR** |
 | **문서 전용** | **`main` 직접 커밋** |
+| **GitOps 매니페스트** | **`main` 직접 커밋**(「GitOps 저장소 공통」이 소유한다. 같은 기준을 적용한 결과가 다른 것이지 예외가 아니다) |
 
 - 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 이 repo의 `verify.yml`·`verify-docs.yml`도, 배포 루트의 각 워크플로도
   **`push: branches: [main]`에서 돌므로** "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에

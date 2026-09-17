@@ -67,6 +67,29 @@ GitOps는 그 순서를 표현할 수단이 없다.
 ⚠️ App Routing을 켤 때 레거시 NGINX IngressClass 자동 생성을 끈다. 생략하면 provider
 기본값이 적용돼 쓰지 않는 NGINX 컨트롤러가 함께 뜬다.
 
+### 노드 배치: 시스템 풀에 taint를 두지 않는다
+
+| | AWS 원본 | 이 패턴 |
+|---|---|---|
+| 고정 노드 taint | `workload-class=system:NoSchedule` | **없다** |
+| 앱과 시스템 분리 | taint(밀어내기) + `nodeSelector`(끌어당기기) | 시스템 풀이 차면 NAP이 노드를 띄우는 것뿐이다 |
+| 플랫폼 addon의 toleration | 6곳 전부 필요 | 필요 없다 |
+
+Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고, 집행 수단으로 `CriticalAddonsOnly=true:NoSchedule`
+taint를 지목한다. 노드 풀이 하나뿐인 클러스터에 앱 파드를 올리는 것도 권장하지 않는다고 적는다.
+**이 패턴은 그 권고를 알고 따르지 않는다.**
+
+이유는 비용이 아니라 **부트스트랩 순서**다. 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 —
+NAP 노드는 아직 없고(그 `NodePool` CR을 ArgoCD가 배포한다), 시스템 풀은 taint로 막혀 있다. 풀려면
+ArgoCD에도 toleration을 줘야 하고, 그러면 AWS와 같은 모양이 된다. 격리를 얻는 대신 계층 2가 다시
+스케줄링 세부를 알아야 한다.
+
+⚠️ **도입 트리거는 하나다**: 시스템 노드에 `kube-system` 밖 파드가 쌓여 addon이 `Pending`이 되는 것.
+확인 절차는 `aks-reference-infra`의 운영 문서가 갖는다.
+
+도입하면 세 저장소가 함께 움직인다 — `aks-cluster` 모듈이 기본 풀 taint를 노출하고, 배포 루트가 값을
+넣고, GitOps의 ArgoCD values가 toleration을 받는다. 한 저장소만 고치면 클러스터가 seed 단계에서 멈춘다.
+
 ---
 
 ## 4. 클러스터 등록

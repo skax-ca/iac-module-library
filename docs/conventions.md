@@ -283,9 +283,13 @@ git config core.hooksPath .githooks
 > 따라서 `variables.tf`만 있고 소비하는 `main.tf`가 없는 상태는 **커밋할 수 없다.**
 > 커밋 단위는 "변수가 전부 소비되는 시점"이다.
 
-### CI (`.github/workflows/verify.yml`)
+### CI (`.github/workflows/`)
 
-게이트 7개를 돈다:
+워크플로 2개다. `verify.yml`이 OpenTofu 게이트 7개, `verify-docs.yml`이 문서·주석 검사기
+3개(약어 카탈로그·문서 작성 규칙·주석 규칙)를 돈다. GitHub Actions에 job별 경로 필터가 없어
+파일을 갈랐다. 한 파일이면 `docs/*.md`만 바뀐 push에도 OpenTofu 게이트가 돈다.
+
+`verify.yml`의 게이트 7개:
 
 | # | 게이트 |
 |---|--------|
@@ -300,6 +304,17 @@ git config core.hooksPath .githooks
 **계약 테스트가 없는 모듈은 릴리스하지 않는다.** 게이트 4가 강제한다.
 
 이 저장소는 배포하지 않으므로 **apply 워크플로가 없다.**
+
+`main` push는 경로 필터로 거른다. 두 워크플로의 필터 방향이 다르다.
+
+| 워크플로 | 필터 | 이유 |
+|---|---|---|
+| `verify.yml` | 허용 목록(`paths`): `modules/**`·`.tflint.hcl`·`.trivyignore.yaml`·워크플로 자신 | 게이트 7개의 입력이 닫힌 집합이고 `modules/<provider>/<name>/` 모양을 게이트가 강제한다 |
+| `verify-docs.yml` | 제외 목록(`paths-ignore`): `.claude/**`·`.mcp.json`·`presentations/**` | 검사기 대상이 넓은 글롭(`**/README.md`)이라 허용 목록은 검사기가 대상을 늘릴 때 같이 고치지 않으면 새 대상이 조용히 CI 밖에 남는다 |
+
+`pull_request`에는 필터가 없다. `workflow_dispatch`는 필터와 무관하게 전체를 돈다.
+⚠️ 새 게이트가 `modules/` 밖 파일을 읽게 되면 `verify.yml`의 허용 목록에 그 경로를 더한다.
+검사 대상 파일을 제외 경로 아래에 두면 그 파일은 CI 밖에서 바뀐다.
 
 > CI는 읽기 전용이라 `cancel-in-progress: true`다.
 > **배포 루트의 apply는 반대여야 한다.** apply 중단은 state 잠금과 부분 적용을 남긴다.

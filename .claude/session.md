@@ -7,8 +7,8 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit 셸 게이트가 `.githooks/pre-commit`·`pre-push` 자신까지 덮는다. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). Karpenter AMI 핀은 `amiAliasByTier`가 티어별로 갖고 차트가 `tier` 라벨로 고른다 — 지금 둘 다 `al2023@latest`다. 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다(legacy `kyverno.io/ClusterPolicy`는 어디에도 없다). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| eks-reference-infra | feat/critical-addons-only-taint = origin (PR #45 오픈) | hub·dev 전부 destroy. 시스템 노드그룹 taint 는 `CriticalAddonsOnly=true:NoSchedule`, 끌어당기기 라벨은 `workload-class=system` 으로 이름이 갈린다. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit 셸 게이트가 `.githooks/pre-commit`·`pre-push` 자신까지 덮는다. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
+| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). 스케줄 제약은 `CriticalAddonsOnly=true` toleration 5개 파일(ALBC·CA·KEDA·Kyverno·ArgoCD)이고 karpenter 는 차트 기본값에 기대 아무것도 쓰지 않는다. `nodeSelector: workload-class=system` 은 CA·KEDA 둘만 건다. `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). Karpenter AMI 핀은 `amiAliasByTier`가 티어별로 갖고 차트가 `tier` 라벨로 고른다 — 지금 둘 다 `al2023@latest`다. 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다(legacy `kyverno.io/ClusterPolicy`는 어디에도 없다). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 | aks-reference-infra | main = origin | 전부 철거 상태. ⚠️ **철거 중에는 `live/*/aks` plan이 항상 실패한다** — `data.azurerm_subnet.aks_node`가 없는 서브넷을 조회해 `Error: Subnet (...)`이 나고, 에러 문구가 `OpenTofu planned the following actions, but then encountered a problem`이라 plan 그래프 자체는 선다. eks와 같은 클래스다. 시스템 풀은 `Standard_D4s_v5` 2대에 `only_critical_addons_enabled = true`(모듈 태그 `aks-cluster-v0.10.0`). 변수 48건 `nullable = false`. pre-commit 셸 게이트가 훅 파일 자신까지 덮는다. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
 | aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ArgoCD는 `global.tolerations`로 `CriticalAddonsOnly`를 견딘다(플랫폼 addon 중 유일). ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다. 커스텀 정책의 `matchConstraints.namespaceSelector`는 조건 셋을 AND로 건다(`control-plane` 부재 · `managedby != aks` · 이름 != argocd). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 
@@ -44,39 +44,34 @@ push가 plan을 돌린다. 실측: `.claude/session.md`만 바뀐 push는 run 0�
 
 ## 지난 세션 (2026-09-17)
 
-「권고 미부합」 3건을 전부 닫았다. 도중에 taint 건의 리서치가 틀렸음이 드러나 판정을 뒤집었다.
+EKS 시스템 노드그룹의 taint 키를 `workload-class=system` 에서 `CriticalAddonsOnly=true` 로 바꿨다.
+AKS 와 문자열을 맞춘 것이 계기지만 근거는 다르다 — AKS 는 이 키만 받아서 강제이고, EKS 는 고를 수
+있는데 **플랫폼 컴포넌트의 차트·addon 기본 toleration 을 그대로 받으려고** 골랐다.
 
-**AKS 시스템 풀 크기**(aks `ec5789e`, module `9f9de20`): Microsoft 문서를 다시 읽으니 조건이 한
-덩어리가 아니라 세 층이었다 — 노드 2대·B 시리즈 금지는 강제, vCPU 4 이상은 문서가 제약으로 적지만
-API가 막지 않는 값(그래서 `D2s_v5`로도 클러스터가 섰다), 노드 3대는 권고. `D4s_v5`로 올려 가운데
-층까지 충족시키고 남는 미부합을 3대 권고 하나로 줄였다. 모듈 예시(README Usage·examples·tests)에
-남아 있던 같은 값도 함께 올렸다.
+**실측이 판정을 바꿨다**(eks `5555152`/PR #45, eks-gitops `97ca4f9`, module `ecb905a`). helm 차트
+6개 중 이 키를 기본으로 가진 것은 Karpenter 하나뿐이었지만, `describe-addon-configuration` 스키마의
+`default` 필드를 찍으니 계층 1 에서 셋이 더 나왔다(coredns·metrics-server·ebs-csi controller).
+넷이 되면서 "override 를 줄인다"가 성립했다. 그 명령은 클러스터 없이 돌아 철거 상태에서도 찍힌다.
 
-**Karpenter AMI 핀**(eks-gitops `378fe95`): 값을 핀하는 대신 **승격 경로를 만들었다.** `amiAlias`
-한 값으로는 "비운영에서 먼저 시험하라"는 공식 권고를 표현할 수 없었다. ApplicationSet은 쪼개지
-않고(⛔ uniform 유지) `tier` 라벨을 차트에 넘겨 `amiAliasByTier`에서 고르게 했다 — 두 줄이 한
-파일에 있어 nonprd 커밋과 prd 커밋 사이가 승격 구간으로 남는다. 라벨 계약은 늘지 않았다(`tier`가
-이미 있다). 지금 둘 다 `latest`인 것은 검증할 클러스터가 없기 때문이다.
+**잠재 결함 하나를 같이 고쳤다.** `configuration_values` 의 배열은 병합이 아니라 교체라, 우리가
+toleration 을 적는 순간 coredns 의 `node-role.kubernetes.io/control-plane` 과 ebs-csi controller 의
+`NoExecute/300s` 가 함께 지워지고 있었다. 이제 그 셋에는 `nodeSelector` 만 넘긴다. toleration 을
+직접 쓰는 자리는 스키마에 기본값이 없는 cert-manager 하나로 줄었다.
 
-**시스템 풀 taint**(설계 `1c373fb`→`366af36`, module `744a2a4`+태그 `aks-cluster-v0.10.0`,
-aks-gitops `86bdf26`, aks `32d5953`): 처음에 "관리형 addon이 taint를 못 견딘다"를 두 번째 기각
-근거로 문서에 실었는데, 그 근거가 이 패턴이 **쓰지 않는** 컴포넌트(NGINX·AGIC)에서 온 것이었다.
-우리가 쓰는 App Routing Istio 구현체는 이 taint를 견디고 시스템 노드 선호 affinity까지 갖는다.
-toleration이 빠졌던 Azure Policy는 Microsoft가 고쳤고, 미해결로 남은 것은 addon이 아니라 cluster
-extension 계열(extension-manager·Flux)이다 — 이 패턴은 extension을 쓰지 않는다. 근거가 무너져
-도입으로 뒤집었다. 지불한 비용은 ArgoCD `global.tolerations` 한 곳뿐이고(차트의 각 컴포넌트가
-그 값을 상속해 5개 워크로드 전부가 받는 것을 `helm template`으로 확인), Kyverno는 일부러 주지
-않았다 — NAP 노드로 밀려나는 것이 격리의 내용이다. 세 저장소를 GitOps → 모듈 태그 → 배포 루트
-순으로 올렸다.
+**대가는 밀어내기 약화다.** `CriticalAddonsOnly` 는 생태계 관례 키라 우리 전용이 아니고, 이
+toleration 을 기본으로 달고 오는 차트는 허락 없이도 시스템 노드그룹에 설 수 있다. `nodeSelector`
+는 이것을 막지 못한다(파드를 보내는 장치이지 남을 막는 장치가 아니다). 방어는 절차뿐이라
+runbook 「기본값을 읽는 법」에 "새 차트를 들일 때 기본 `tolerations` 부터 읽는다"로 넣었다.
 
-**배포 루트 CI 개선안**(`d75882a`): 문서 전용 변경은 이미 트리거하지 않는다(`paths`가 허용
-목록이라 `docs/**`가 없다. aks `a8db0428` → run 0건). 실재하는 문제는 `.tf` **주석만** 바뀐 push가
-plan을 돌리는 것(aks `d484623`·`1cb393a`)과 철거 상태 plan이 항상 실패하는 것이다. 방안마다
-실패 모드를 함께 적어 public 전환 항목의 ④로 넣었다.
+**노드는 교체되지 않는다.** `UpdateNodegroupConfig` 가 `addOrUpdateTaints`/`removeTaints` 로 taint
+만 갱신한다 — AKS 가 시스템 풀을 순환하는 것과 갈린다. 다만 `NoSchedule` 은 이미 뜬 파드를
+쫓아내지 않아 살아 있는 클러스터에서는 다음 재시작 때 조용히 갈 곳이 사라지므로, 철거 상태인
+지금 바꿨다.
 
-**lock 드리프트**: 모듈 태그를 받으려고 쓴 `tofu init -upgrade`가 azurerm을 `5.4.0 → 5.5.0`으로
-함께 올렸고, 경로를 명시해 `git add`한 탓에 lock이 커밋에서 빠졌다. `git restore`로 되돌렸다.
-재발 방지는 메모리에 남겼다.
+**`docs/runbooks.md` 9절을 작성 규칙에 맞춰 다시 썼다.** 산문 6문단이 지던 판정을 표 둘로 옮기고
+(구조 규칙 5), 패턴 문서와 글자까지 중복이던 근거 블록을 위임하고(규칙 8), 400줄 한도 안으로
+들였다(388 → 376). 절 제목도 「노드 배치」로 바꿨다 — 이 저장소가 소유하는 것은 배선과 확인이지
+두 컨트롤러를 같이 켜는 근거가 아니다.
 
 ## 다음 할 일
 - [ ] [*-gitops] **Kyverno CEL 전환을 재구축 후 클러스터에서 검증한다.** 매니페스트는 이미 새 타입이다
@@ -104,6 +99,23 @@ plan을 돌리는 것(aks `d484623`·`1cb393a`)과 철거 상태 plan이 항상 
         `kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS:.spec.tolerations[*].key`
       - 시스템 노드에 앉은 것이 `kube-system`과 `argocd`뿐인지.
         `kubectl get pods -A -o wide --field-selector spec.nodeName=<시스템 노드>`
+- [ ] [eks-ref·eks-gitops] **taint 키 교체를 재구축 후 클러스터에서 검증한다.** PR #45 가 머지되면
+      코드는 다 들어간 것이고 남은 것은 실물이다. 설계와 절차는 `eks-reference-infra` 의
+      `docs/runbooks.md` 「노드 배치」가 갖는다.
+      - ⚠️ **기본값에 기댄 네 자리에 toleration 이 실제로 붙는지** — coredns · metrics-server ·
+        ebs-csi controller · Karpenter. 이 넷에는 우리가 toleration 을 주지 않으므로, 비어 있으면
+        addon·차트 기본값이 바뀐 것이고 `nodeSelector` 에 고정된 파드가 Pending 으로 남는다.
+        coredns 가 그러면 클러스터 DNS 가 함께 멈춘다. 한 번에 읽는다:
+        `kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,TOLERATIONS:.spec.tolerations[*].key`
+      - 배열 교체를 그만둔 효과 확인 — coredns 에 `node-role.kubernetes.io/control-plane`,
+        ebs-csi controller 에 `NoExecute/300s` 가 되살아났는지
+      - cert-manager 세 컴포넌트(컨트롤러·cainjector·webhook)가 전부 시스템 노드에 서는지.
+        여기만 toleration 을 직접 쓴다
+      - Karpenter 가 시스템 노드그룹에서 부트스트랩되는지. ⚠️ 그 고정은 차트 기본 affinity
+        (`karpenter.sh/nodepool DoesNotExist`)가 남기는 후보가 시스템 노드그룹뿐이라서 성립한다 —
+        관리형 노드그룹이 둘이 되면 깨진다
+      - ALBC·Kyverno·ArgoCD 는 `nodeSelector` 가 없어 **고정이 아니라 부트스트랩 허용**이다.
+        Karpenter 노드가 생긴 뒤 어디에 있든 정상이다(Pending 이 아니면 통과)
 - [ ] [eks-gitops] **재구축 후 Karpenter AMI를 prd에 핀한다.** 구조는 이미 있다
       (`amiAliasByTier`, `tier` 라벨 주입). 값만 비어 있다 — 지금 둘 다 `al2023@latest`다.
       핀 값은 그 클러스터에서 **실제로 뜬 노드**에서 읽는다(`kubectl get nodeclaim -o wide`).

@@ -8,9 +8,9 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 | repo | git | 상태 |
 |------|-----|------|
 | eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit 셸 게이트가 `.githooks/pre-commit`·`pre-push` 자신까지 덮는다. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다(legacy `kyverno.io/ClusterPolicy`는 어디에도 없다). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
-| aks-reference-infra | main = origin | 전부 철거 상태. 원본 이식 항목 완료. 변수 48건 `nullable = false`. pre-commit 셸 게이트가 훅 파일 자신까지 덮는다. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
-| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다. 커스텀 정책의 `matchConstraints.namespaceSelector`는 조건 셋을 AND로 건다(`control-plane` 부재 · `managedby != aks` · 이름 != argocd). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). Karpenter AMI 핀은 `amiAliasByTier`가 티어별로 갖고 차트가 `tier` 라벨로 고른다 — 지금 둘 다 `al2023@latest`다. 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다(legacy `kyverno.io/ClusterPolicy`는 어디에도 없다). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| aks-reference-infra | main = origin | 전부 철거 상태. ⚠️ **철거 중에는 `live/*/aks` plan이 항상 실패한다** — `data.azurerm_subnet.aks_node`가 없는 서브넷을 조회해 `Error: Subnet (...)`이 나고, 에러 문구가 `OpenTofu planned the following actions, but then encountered a problem`이라 plan 그래프 자체는 선다. eks와 같은 클래스다. 시스템 풀은 `Standard_D4s_v5` 2대에 `only_critical_addons_enabled = true`(모듈 태그 `aks-cluster-v0.10.0`). 변수 48건 `nullable = false`. pre-commit 셸 게이트가 훅 파일 자신까지 덮는다. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
+| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ArgoCD는 `global.tolerations`로 `CriticalAddonsOnly`를 견딘다(플랫폼 addon 중 유일). ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다. 커스텀 정책의 `matchConstraints.namespaceSelector`는 조건 셋을 AND로 건다(`control-plane` 부재 · `managedby != aks` · 이름 != argocd). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 
 ⚠️ 로컬 전제: 훅이 `shellcheck`를 **하드 요구**한다(없으면 즉시 실패). clone마다
 `git config core.hooksPath .githooks`와 `brew install shellcheck`가 필요하다. 이 Mac에는
@@ -23,51 +23,60 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 차트 appVersion과 같은 버전을 쓴다. 네임스페이스 라벨이 필요한 selector는 `-f`에 넘기는 Values의
 `namespaceSelector` 목록으로 준다(`apiVersion: cli.kyverno.io/v1alpha1`, 최상위 키다 — `spec:`
 아래 넣으면 `unknown field "spec"`으로 죽는다). ⚠️ `--values-file /dev/null`은 deprecated 스키마로
-오인돼 에러다. 값이 필요 없으면 옵션 자체를 뺀다.
+오인돼 에러다. 값이 필요 없으면 옵션 자체를 뺀다. `terraform-docs` v0.24.0이 있고 CI와 같은
+버전이다.
 
 이 저장소 CI는 워크플로 2개다. `verify.yml`이 OpenTofu 게이트 7개(허용 목록 `paths`),
 `verify-docs.yml`이 파이썬 검사기 3개(제외 목록 `paths-ignore`)를 돈다. GitHub Actions에 job별 경로
-필터가 없어 파일을 갈랐다. 실측: `.claude/session.md`만 바뀐 push는 run 0건, `docs/*.md`만 바뀐 push는
+필터가 없어 파일을 갈랐다. `verify.yml`은 `pull_request:` 트리거도 갖는다 — PR에서 CI가 돈다.
+⛔ **배포 루트는 다르다**: `pull_request` 트리거가 없어 PR에서는 아무것도 돌지 않고 머지 후
+push가 plan을 돌린다. 실측: `.claude/session.md`만 바뀐 push는 run 0건, `docs/*.md`만 바뀐 push는
 `verify-docs` 하나만 뜬다. ⚠️ `gh run list --commit`은 전체 40자 SHA만 받는다(짧은 SHA는 에러 없이
 0건을 돌려줘 "안 떴다"와 구분되지 않는다).
 
 주석 규칙 검사기는 5개 저장소 전부 `scripts/validate-comment-conventions.py` 한 이름이고,
 위반 메시지가 **외부 참조 / 이력 서술** 두 범주 중 어느 쪽인지를 앞에 붙인다. 규칙 SSOT는
-이 저장소 `docs/conventions.md` 「주석」 절이다. ⚠️ gitops 두 저장소의 훅 정규식과 검사기
-대상 목록은 **최상위 디렉토리 이름을 하드코딩**한다. 새 최상위 디렉토리를 만들면 둘 다 고쳐야
-게이트에 잡힌다.
+이 저장소 `docs/conventions.md` 「주석」 절이다. ⚠️ 이모지 허용 범위가 면마다 다르다 —
+`docs/*.md`는 7종, `modules/**`의 `.tf`와 배포 루트 `.tf`는 **⚠️·⛔ 두 종뿐**, GitOps 매니페스트는
+실물 관행이 7종이다(🔑 25건). 검사기는 이 축을 잡지 못한다(기계 판정은 절 번호·`D-` 식별자·날짜
+3종뿐). ⚠️ gitops 두 저장소의 훅 정규식과 검사기 대상 목록은 **최상위 디렉토리 이름을
+하드코딩**한다. 새 최상위 디렉토리를 만들면 둘 다 고쳐야 게이트에 잡힌다.
 
 ## 지난 세션 (2026-09-17)
 
-addon 차트를 전부 최신으로 올리고, Kyverno를 legacy 타입에서 CEL로 옮겼다. 그 과정에서 비어 있던
-GitOps 저장소의 브랜치 규칙을 리서치해 신설했다.
+「권고 미부합」 3건을 전부 닫았다. 도중에 taint 건의 리서치가 틀렸음이 드러나 판정을 뒤집었다.
 
-차트 올림(eks `abc1c26`, aks `46bd967`): argo-cd 10.3.0 → 10.9.1(7곳), karpenter 1.14.0 → 1.14.1(3곳).
-클러스터가 없어 `argocd app manifests` 대신 `helm template` diff로 봤다. 33,770줄 렌더에서 실질 변경은
-넷뿐이었고(이미지 태그, `argocd-tls-certs-cm`에 `optional: true`, `dnsPolicy` 명시, checksum) values 키는
-하나도 사라지지 않았다. argo-cd는 자기 관리라 `argocd-app.yaml`과 `argocd-seed.sh`의 핀을 한 커밋에
-함께 옮겼다 — 갈리면 seed의 흡수가 업그레이드가 되고 sync 주체가 sync 도중 재시작한다. 철거 상태가
-오히려 이 작업에 유리한 시점이다.
+**AKS 시스템 풀 크기**(aks `ec5789e`, module `9f9de20`): Microsoft 문서를 다시 읽으니 조건이 한
+덩어리가 아니라 세 층이었다 — 노드 2대·B 시리즈 금지는 강제, vCPU 4 이상은 문서가 제약으로 적지만
+API가 막지 않는 값(그래서 `D2s_v5`로도 클러스터가 섰다), 노드 3대는 권고. `D4s_v5`로 올려 가운데
+층까지 충족시키고 남는 미부합을 3대 권고 하나로 줄였다. 모듈 예시(README Usage·examples·tests)에
+남아 있던 같은 값도 함께 올렸다.
 
-Kyverno CEL 전환(eks `35ec069`·`37ffdd6`, aks `8c42bf4`·`973b4e2`): 3.9.1이 rc를 뺀 최신이고 appVersion이
-v1.19.1이다. legacy `kyverno.io` 타입은 v1.19 deprecated·**v1.20 제거**라 유예가 마이너 하나뿐이다.
-철거 상태라 마이그레이션 경로를 만들지 않고 목표 상태로 바로 갔다. 전환 중 드러난 것 셋 —
-`validationActions` enum에 `Enforce`가 없어 `Deny`로 간다, `excludeResourceRules`는 apiGroup·resource
-단위라 네임스페이스를 못 빼서 `kubernetes.io/metadata.name`을 selector에 넣어야 한다, `has()` 가드 없이
-`.all()`을 부르면 그 필드 없는 파드에서 CEL 런타임 에러가 나고 `failurePolicy: Fail`이 그것을 거부로
-바꾼다(가드 뺀 프로브로 `error: 1` 확인). 커스텀 정책 2개는 자동 변환 도구가 없어 손으로 썼고,
-`kyverno` CLI 1.19.1로 픽스처 12건을 돌려 legacy `pattern`과 판정이 같음을 확인했다(error 0).
+**Karpenter AMI 핀**(eks-gitops `378fe95`): 값을 핀하는 대신 **승격 경로를 만들었다.** `amiAlias`
+한 값으로는 "비운영에서 먼저 시험하라"는 공식 권고를 표현할 수 없었다. ApplicationSet은 쪼개지
+않고(⛔ uniform 유지) `tier` 라벨을 차트에 넘겨 `amiAliasByTier`에서 고르게 했다 — 두 줄이 한
+파일에 있어 nonprd 커밋과 prd 커밋 사이가 승격 구간으로 남는다. 라벨 계약은 늘지 않았다(`tier`가
+이미 있다). 지금 둘 다 `latest`인 것은 검증할 클러스터가 없기 때문이다.
 
-GitOps 브랜치 규칙 신설(`e3ae48e`·`5e462b1`): 두 GitOps 저장소에 `CLAUDE.md`가 없고 루트 표도 `.tf`·
-워크플로·문서만 다뤄 매니페스트가 규정 공백이었다. Argo CD 공식 문서·OpenGitOps·Argo 팀 멤버 글을
-근거로 대조한 결과 구조(저장소 분리·브랜치로 환경을 나누지 않음)는 이미 권고를 충족했고, 빠진 것은
-규정 자체였다. 판정 기준은 그대로 두고 결과만 적었다 — 두 repo에 CI가 없고 5개 저장소 전부
-private·무료라 브랜치 보호도 못 걸어 PR이 막을 것이 없다. 대신 배포 루트와 갈리는 사실(push가 곧
-apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 절로 못박았다.
+**시스템 풀 taint**(설계 `1c373fb`→`366af36`, module `744a2a4`+태그 `aks-cluster-v0.10.0`,
+aks-gitops `86bdf26`, aks `32d5953`): 처음에 "관리형 addon이 taint를 못 견딘다"를 두 번째 기각
+근거로 문서에 실었는데, 그 근거가 이 패턴이 **쓰지 않는** 컴포넌트(NGINX·AGIC)에서 온 것이었다.
+우리가 쓰는 App Routing Istio 구현체는 이 taint를 견디고 시스템 노드 선호 affinity까지 갖는다.
+toleration이 빠졌던 Azure Policy는 Microsoft가 고쳤고, 미해결로 남은 것은 addon이 아니라 cluster
+extension 계열(extension-manager·Flux)이다 — 이 패턴은 extension을 쓰지 않는다. 근거가 무너져
+도입으로 뒤집었다. 지불한 비용은 ArgoCD `global.tolerations` 한 곳뿐이고(차트의 각 컴포넌트가
+그 값을 상속해 5개 워크로드 전부가 받는 것을 `helm template`으로 확인), Kyverno는 일부러 주지
+않았다 — NAP 노드로 밀려나는 것이 격리의 내용이다. 세 저장소를 GitOps → 모듈 태그 → 배포 루트
+순으로 올렸다.
 
-주석 점검(`37ffdd6`·`973b4e2`·`5e462b1`): 새로 쓴 주석이 세 곳에서 **없어질 타입을 기준으로** 설명하고
-있었다. 그 타입이 사라지면 서술도 함께 낡으므로, 외부 참조를 금지하는 것과 같은 이유로 걷어냈다.
-`⚠️` 등급도 맞췄다 — 문법 설명에 붙어 있던 것을 떼고 진짜 조용한 실패(위 `has()` 건)로 옮겼다.
+**배포 루트 CI 개선안**(`d75882a`): 문서 전용 변경은 이미 트리거하지 않는다(`paths`가 허용
+목록이라 `docs/**`가 없다. aks `a8db0428` → run 0건). 실재하는 문제는 `.tf` **주석만** 바뀐 push가
+plan을 돌리는 것(aks `d484623`·`1cb393a`)과 철거 상태 plan이 항상 실패하는 것이다. 방안마다
+실패 모드를 함께 적어 public 전환 항목의 ④로 넣었다.
+
+**lock 드리프트**: 모듈 태그를 받으려고 쓴 `tofu init -upgrade`가 azurerm을 `5.4.0 → 5.5.0`으로
+함께 올렸고, 경로를 명시해 `git add`한 탓에 lock이 커밋에서 빠졌다. `git restore`로 되돌렸다.
+재발 방지는 메모리에 남겼다.
 
 ## 다음 할 일
 - [ ] [*-gitops] **Kyverno CEL 전환을 재구축 후 클러스터에서 검증한다.** 매니페스트는 이미 새 타입이다
@@ -84,6 +93,22 @@ apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 �
         legacy의 `exclude` 블록을 대신한다 — `excludeResourceRules`는 group/resource 단위라 ns를 못 뺀다
       - 영구 OutOfSync가 없는지. `spec.evaluation.{admission,background}.enabled`를 apiserver가
         채우므로 `ServerSideDiff=true`에 기대고 있다
+- [ ] [aks-ref·aks-gitops] **시스템 풀 taint를 재구축 후 클러스터에서 검증한다.** 코드는 세 저장소에
+      전부 들어갔고 남은 것은 실물이다. 설계는 `docs/architectures/gitops-hub-spoke/azure/README.md`
+      「노드 배치」, 절차는 `aks-reference-infra`의 `docs/runbooks.md` 9절이 갖는다.
+      - **seed가 멈추지 않는지.** ArgoCD가 시스템 풀에 서고 → `NodePool` CR 배포 → NAP 노드 →
+        Kyverno가 그 노드로. 이 순서가 실제로 도는지 본다
+      - ⚠️ **KEDA addon의 toleration이 확인되지 않았다.** addon 계열이라 들어 있을 것으로 보지만
+        공개 문서가 답하지 않는다. 빠져 있으면 NAP 노드로 가고 NAP 노드가 없는 구간에서 `Pending`
+        으로 기다린다(영구 실패는 아니다). 한 번에 읽는다:
+        `kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS:.spec.tolerations[*].key`
+      - 시스템 노드에 앉은 것이 `kube-system`과 `argocd`뿐인지.
+        `kubectl get pods -A -o wide --field-selector spec.nodeName=<시스템 노드>`
+- [ ] [eks-gitops] **재구축 후 Karpenter AMI를 prd에 핀한다.** 구조는 이미 있다
+      (`amiAliasByTier`, `tier` 라벨 주입). 값만 비어 있다 — 지금 둘 다 `al2023@latest`다.
+      핀 값은 그 클러스터에서 **실제로 뜬 노드**에서 읽는다(`kubectl get nodeclaim -o wide`).
+      조회만 해서 넣은 최신 버전은 아무도 그 위에서 워크로드를 돌려보지 않았다는 점에서 `latest`와
+      위험이 같다. 형식은 `al2023@v<YYYYMMDD>`. nonprd는 다음 AMI를 먼저 받는 자리로 둔다
 - [ ] [addon] **남은 차트는 전부 최신이다.** 아래는 실측값이고, 다음에 올릴 때 이 표를 다시 찍는다.
 
       | addon | 저장소 | 핀 | 비고 |
@@ -99,20 +124,12 @@ apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 �
       ⚠️ `argo-cd`는 자기 관리라 `bootstrap/argocd-app.yaml`과 `argocd-seed.sh`의 핀이 함께 움직인다.
       ⛔ Kyverno를 3.8 라인으로 되돌리지 않는다 — legacy `kyverno.io` 타입은 v1.19 deprecated,
       **v1.20 제거**다. whitelist·커스텀 정책이 이미 새 kind라 셋이 함께 어긋난다
-- [ ] [권고 미부합] **AKS 시스템 풀에 `CriticalAddonsOnly=true:NoSchedule` 도입 검토.** Microsoft는 시스템
-      풀을 앱에서 격리하라고 권고하고 그 집행 수단으로 이 taint를 지목한다. 지금은 따르지 않으며 그 판단은
-      `docs/architectures/gitops-hub-spoke/azure/README.md` 「노드 배치」가 갖는다.
-      ⚠️ 세 저장소가 함께 움직인다 — ① `aks-cluster` 모듈이 `default_node_pool`에 taint 노출(지금은 user
-      풀의 `node_taints`만 있다) ② `aks-reference-infra`가 값 주입 ③ `aks-platform-gitops`의
-      `argocd-values.yaml`에 toleration 추가. ③ 없이 ①②만 하면 seed 시점의 ArgoCD가 갈 곳이 없어 멈춘다
-      (그 파일의 ⛔ "tolerations를 넣지 않는다"가 뒤집혀야 하는 줄이다)
-- [ ] [권고 미부합] **AKS 시스템 풀 크기.** Microsoft 권고는 vCPU 4 이상·노드 3대인데 현재
-      `Standard_D2s_v5`(2 vCPU) 2대다. 강제가 아니라 클러스터는 생성된다. 실 워크로드를 올릴 때 함께
-      올린다. ⛔ B 시리즈는 시스템 풀에 쓸 수 없다. 값과 근거는 `live/{hub,dev}/aks/main.tf` 주석
-- [ ] [권고 미부합] **Karpenter AMI 핀.** EKS Best Practices Guide가 운영 클러스터에 `@latest` 대신 검증한
-      AMI로 핀하라고 강하게 권고한다. 현재 `addons/karpenter/nodepool/values.yaml`이 `al2023@latest`이고
-      hub는 `tier: prd`다. ⚠️ 값을 바꾸면 노드가 교체되므로 인프라가 선 상태에서 판단한다.
-      핀 형식은 `al2023@v<날짜>`
+- [ ] [aks-ref] **azurerm `5.5.0` 업그레이드를 검토한다.** 현재 lock은 `5.4.0`이고 제약은
+      `>= 5.0.0, ~> 5.0`이라 범위 안이다. ⚠️ AKS 관련 ForceNew 축이 바뀌었는지를 먼저 본다 —
+      `network_profile` 블록과 `private_cluster_enabled`가 이미 ForceNew라 여기가 움직이면
+      재구축 계획이 바뀐다. 올릴 때는 5개 루트의 lock을 함께 올린다
+- [ ] [권고 미부합] **AKS 시스템 풀 노드 수.** Microsoft 권고는 3대인데 현재 2대다(2대 이상은 강제라
+      충족한다). 실 워크로드를 올릴 때 함께 본다. 값과 근거는 `live/{hub,dev}/aks/main.tf` 주석
 - [ ] [aks-gitops] **관리형 네임스페이스의 실제 라벨을 찍고, 안 쓰는 조건을 지운다.**
       `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `matchConstraints.namespaceSelector`가
       조건 셋을 AND로 건다. `control-plane DoesNotExist`는 AKS FAQ가 admission webhook 제외용으로
@@ -140,12 +157,14 @@ apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 �
 - [ ] [*-gitops] EKS·AKS 재구축 후 cluster Secret 등록 — ⚠️ teardown이 매칭 라벨을 **먼저 떼고**
       파일을 지웠다. git 이력에서 되살리면 라벨이 빠진 껍데기이고 그 상태로는 Application이 하나도
       안 생긴다. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·`karpenterNodeRole`,
-      AKS dev는 `environment`·`tier: nonprd`·`addon-karpenter`가 필요하다
+      AKS dev는 `environment`·`tier: nonprd`·`addon-karpenter`가 필요하다.
+      ⚠️ `tier`는 이제 Karpenter NodePool 차트의 AMI 핀 선택에도 쓰인다 — 빠지면 그 차트가
+      `required`로 실패한다
 - [ ] [*-gitops] nonprd 클러스터가 생기면 `*-nonprd` ApplicationSet 팬아웃 실측 — 지금은 의도된 빈 슬롯이다
 - [ ] [*-gitops] 실제 승격 한 번 돌려보기(nonprd 올림 → 검증 → prd 올림). Kyverno는 엔진·정책 값 4개를
       짝으로 움직여야 한다(엔진 prd·nonprd, 정책 prd·nonprd). 지금은 넷이 전부 3.9.1이라 승격
-      구간이 없다 — 다음 릴리스가 나와야 이 절차를 돌려볼 수 있다. 이 항목은 승격 **절차**가
-      의도대로 도는지만 본다
+      구간이 없다 — 다음 릴리스가 나와야 이 절차를 돌려볼 수 있다. Karpenter AMI 핀은 같은 절차를
+      값 하나로 돌려볼 수 있는 자리다. 이 항목은 승격 **절차**가 의도대로 도는지만 본다
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그 메시지에 아래 문구를 싣는다. 지금 태그를
       컷하지 않는다(`6e34dec`는 주석·문서 전용이다). 미릴리스 확인: `6e34dec`가 `workbench-v0.9.0`·
       `aks-workbench-v0.7.0` 양쪽보다 뒤에 있다. 메커니즘도 실물 확인 완료 — AWS는
@@ -160,6 +179,8 @@ apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 �
          Azure: azurerm_linux_virtual_machine.custom_data 가 ForceNew
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
+- [ ] [module] `aks-cluster` 예시 SKU 변경(`4f4bb10`)이 `aks-cluster-v0.10.0`보다 뒤에 머지됐다.
+      모듈 동작과 무관하므로 태그를 따로 컷하지 않고 다음 기능 릴리스에 싣는다
 - [ ] [전체] **5개 저장소를 private → public 으로 전환한다.** 무료 플랜 + private 조합이 막고 있는
       GitHub 기능을 열어 지금 우회로 버티는 것들을 없앤다. 순서는 **① 공개해도 되는 상태로 조치 →
       ② 전환 → ③ 열린 기능으로 개선**이고, ①을 끝내기 전에 ②로 넘어가지 않는다.

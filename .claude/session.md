@@ -8,9 +8,9 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 | repo | git | 상태 |
 |------|-----|------|
 | eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit 셸 게이트가 `.githooks/pre-commit`·`pre-push` 자신까지 덮는다. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 | aks-reference-infra | main = origin | 전부 철거 상태. 원본 이식 항목 완료. 변수 48건 `nullable = false`. pre-commit 셸 게이트가 훅 파일 자신까지 덮는다. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
-| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. 커스텀 정책의 관리형 ns 제외는 `control-plane`·`managedby` 두 라벨을 AND로 건다. 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 
 ⚠️ 로컬 전제: 훅이 `shellcheck`를 **하드 요구**한다(없으면 즉시 실패). clone마다
 `git config core.hooksPath .githooks`와 `brew install shellcheck`가 필요하다. 이 Mac에는
@@ -20,6 +20,12 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 (OCI는 `oci://public.ecr.aws/karpenter/karpenter`). ALBC 차트는 렌더마다 자체 서명 TLS를 새로
 만들어 `ca.crt`·`tls.*`·`caBundle` 4줄이 매번 다르다.
 
+이 저장소 CI는 워크플로 2개다. `verify.yml`이 OpenTofu 게이트 7개(허용 목록 `paths`),
+`verify-docs.yml`이 파이썬 검사기 3개(제외 목록 `paths-ignore`)를 돈다. GitHub Actions에 job별 경로
+필터가 없어 파일을 갈랐다. 실측: `.claude/session.md`만 바뀐 push는 run 0건, `docs/*.md`만 바뀐 push는
+`verify-docs` 하나만 뜬다. ⚠️ `gh run list --commit`은 전체 40자 SHA만 받는다(짧은 SHA는 에러 없이
+0건을 돌려줘 "안 떴다"와 구분되지 않는다).
+
 주석 규칙 검사기는 5개 저장소 전부 `scripts/validate-comment-conventions.py` 한 이름이고,
 위반 메시지가 **외부 참조 / 이력 서술** 두 범주 중 어느 쪽인지를 앞에 붙인다. 규칙 SSOT는
 이 저장소 `docs/conventions.md` 「주석」 절이다. ⚠️ gitops 두 저장소의 훅 정규식과 검사기
@@ -28,31 +34,31 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 
 ## 지난 세션 (2026-09-17)
 
-전 세션의 ArgoCD 변경(include allow-list 전환)을 자기완결성·규칙 기준으로 검토하고, gitops
-저장소 구조를 공식 문서(Best Practices·Cluster Bootstrapping·Directory/Helm source)와
-커뮤니티 관례(Kostis의 3층 분리, GitOps Bridge의 `$values` 레이어링)에 대조했다. 세 단계로
-적용했다.
+CI 경로 필터를 넣고, 두 GitOps 저장소의 문서·주석을 전면 정리한 뒤, 거기 적힌 기술적 주장을
+공식 문서·차트 실물과 대조해 검증했다.
 
-③ 문서 결함 7건(eks `55a712f`·aks `d6000f8`): 삭제된 `choose-your-path.md` 참조 5건,
-헤더 링크 16건을 `gitops-hub-spoke/aws/`·`gitops.md`로 좁힘, root-app·README에 세 번
-중복된 deny-list 기각 근거를 `gitops.md` 한 곳으로, prune 주석의 정정 서술을 긍정문으로,
-"root App이 이 파일을 읽을 일이 없다"의 지시 대상 오류, README의 존재하지 않는 "per-cluster
-values" 메커니즘, aks README의 진행 상태 절 2개.
+CI(`c226d6f`, PR #57): 워크플로를 `verify.yml`(OpenTofu 게이트 7개, 허용 목록 `paths`)과
+`verify-docs.yml`(검사기 3개, 제외 목록 `paths-ignore`)로 가르고 job 이름을 「OpenTofu 검증 게이트」로
+바꿨다. GitHub Actions에 job별 필터가 없어 파일을 가르는 것이 유일한 네이티브 수단이다. 필터 방향이
+갈린 이유는 입력을 열거할 수 있느냐다 — OpenTofu 게이트는 닫힌 집합, 검사기는 넓은 글롭. 사전 작업으로
+`presentations/README.md`를 지워 그 디렉토리를 게이트 밖으로 뺐다(`b7c12ed`).
 
-`gitops.md` 전면 재작성(`011c3aa`): 4절을 정의(정책 표+라벨 표) → 판정 → 형태 순으로 다시
-짜고, 실측 사건 서술을 현재 사실로, `(4절)` 절 번호 인용 제거, deny-list 셀을 세 행으로.
-절 제목 참조는 규칙상 허용이지만(번호만 금지, 검사기 메시지가 「절 제목」을 권한다) 밖에서
-인용되는 4개만 남기고 새 참조는 넣지 않았다.
+문서·주석 정리(eks `64800a5`·`0bf9907`, aks `7f6776c`·`7c58ebc`·`36b078e`): yaml 44개에서 1500줄 넘게
+걷어냈다. 헤더 3~6줄 규칙을 32개 파일이 어겼고(최대 58줄), 본문 `✅` 14건·확정 사실에 붙은 `🔴` 35건·
+이력 서술 39건이 있었다. 반복되던 규약은 지우지 않고 README로 올렸다(「ApplicationSet 공통 규약」·
+「staged 전파」·「cluster Secret 라벨 계약」). aks 쪽은 "AWS 원본과 무엇이 다른가" 서술 15건을 이 저장소
+기준 서술로 바꿨다. 모든 yaml을 HEAD와 파싱 대조해 구조 동치를 확인했다.
 
-① helm values 파일 분리(eks `937d2e7`): 인라인 `values: |` 8블록 → `addons/<addon>/values.yaml`
-5개, ApplicationSet은 multi-source `$values`. 팬아웃 시점 값(`{{name}}`·라벨)은 `parameters`에
-남긴다. 검증은 HEAD 대조(15개 AppSet 구조 동치) + `helm template` 렌더 비교(5개 차트 동일).
+검증(eks `af0ad0e`·`b51b3f1`, aks `0437c27`): 차트 6개 핀이 전부 실재하고 `appVersion`·`kubeVersion`
+주장이 맞았다. 틀린 것 다섯을 고쳤다 — Karpenter values의 `tolerations`가 차트 기본
+`CriticalAddonsOnly`를 교체한다는 사실 누락(helm은 리스트를 병합하지 않는다), `replicas: 2`가 차트
+기본값과 중복, aks Kyverno의 `namespaceSelector`가 문서상 컴포넌트 라벨에만 의존(FAQ가 지목하는
+`control-plane`을 AND로 더했다), aks NodePool 주석이 모듈 실물(`default_node_pools = "None"`)과 어긋남,
+kyverno 3.9 legacy 타입 deprecation 누락.
 
-② 디렉토리 분리(`d51e4f0`·eks `e7594da`·aks `d37a7e9`·aks-ref `a8db042`): ApplicationSet을
-`applicationsets/{baseline,catalog}/`로 `git mv`, include는 `applicationsets/**/*.yaml` 한 항목,
-훅·검사기 목록 갱신, 검사기 헤더의 옛 사실("`path: .`라 어디에 두든 흡수") 정정. 이름·selector·
-`path`는 그대로라 계약 위반이 아니다. 마지막에 stop-slop을 돌려 수사적 밑밥·단문 마무리·정형구
-반복 11곳을 고쳤다(`6e9fe92`·`fd0581d`).
+결정 기록(`0481b9b`, aks-ref `d484623`): Microsoft 권고 셋을 따르지 않는다는 사실이 어디에도 없어
+`azure/README.md`에 「노드 배치: 시스템 풀에 taint를 두지 않는다」를 신설했다. 안 하는 이유는 부트스트랩
+순서(시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다)이고, 도입 시 세 저장소가 함께 움직인다.
 
 ## 다음 할 일
 - [ ] [질문] aks `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `namespaceSelector`에
@@ -125,9 +131,6 @@ values" 메커니즘, aks README의 진행 상태 절 2개.
          Azure: azurerm_linux_virtual_machine.custom_data 가 ForceNew
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
-- [ ] [module] 경로 필터 실측 — `gh run list`로 두 가지를 본다. `.claude/session.md`만 바뀐 push는
-      run이 하나도 안 떠야 하고(이 항목을 쓴 커밋이 첫 표본이다), `docs/*.md`만 바뀐 push는
-      `verify-docs`만 약 20초 돌고 `verify`는 안 떠야 한다. 어긋나면 `.github/workflows/`의 필터부터 본다
 - [ ] [local] context7 MCP에 rate limit이 걸리면 context7.com/dashboard에서 키를 받아 로컬 설정에
       `Authorization: Bearer` 헤더로 얹는다(저장소에 넣지 않는다)
 - [ ] [local] 약 한 달 뒤 `~/archive/`(에이전트·스킬·hook·`.omc` 백업 3개) 삭제

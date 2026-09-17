@@ -52,7 +52,7 @@ module "aks_cluster" {
   # 기본값을 그대로 따른다.
   pod_cidr = "10.244.0.0/16"
 
-  system_node_pool = { vm_size = "Standard_D2s_v5", node_count = 2 }
+  system_node_pool = { vm_size = "Standard_D4s_v5", node_count = 2 }
 
   depends_on = [azurerm_role_assignment.aks_network_contributor]
 }

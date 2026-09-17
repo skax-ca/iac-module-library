@@ -79,8 +79,10 @@ module "aks_cluster" {
   # 무관한 값이면 되는데, az aks create의 기본값(10.244.0.0/16)을 그대로 따른다.
   pod_cidr = "10.244.0.0/16"
 
+  # AKS 는 시스템 풀에 vCPU 4 이상·메모리 4 GiB 이상을 요구하고 노드 2대 이상을 강제한다.
+  # 이 값이 그 하한이다. B 시리즈는 시스템 풀에 쓸 수 없다.
   system_node_pool = {
-    vm_size    = "Standard_D2s_v5"
+    vm_size    = "Standard_D4s_v5"
     node_count = 2
   }
 

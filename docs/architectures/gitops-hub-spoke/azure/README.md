@@ -71,10 +71,16 @@ GitOps는 그 순서를 표현할 수단이 없다.
 
 | | AWS 원본 | 이 패턴 |
 |---|---|---|
-| 고정 노드 taint | `workload-class=system:NoSchedule` | `CriticalAddonsOnly=true:NoSchedule` |
-| taint 키를 고르는가 | 고른다 | **못 고른다.** AKS가 이 키 하나만 받고, azurerm은 `only_critical_addons_enabled` bool로만 노출한다 |
-| 시스템 파드를 끌어당기는 것 | `nodeSelector` | AKS가 시스템 풀 노드에 자동으로 붙이는 `kubernetes.azure.com/mode: system` 라벨 |
-| 플랫폼 addon의 toleration | 6곳 전부 필요 | **ArgoCD 한 곳** |
+| 고정 노드 taint | `CriticalAddonsOnly=true:NoSchedule` | `CriticalAddonsOnly=true:NoSchedule` |
+| taint 키를 고르는가 | **고른다.** 고를 수 있는데 같은 값을 골랐다 | **못 고른다.** AKS가 이 키 하나만 받고, azurerm은 `only_critical_addons_enabled` bool로만 노출한다 |
+| 시스템 파드를 끌어당기는 것 | 노드그룹 `labels`로 우리가 만드는 `workload-class=system` | AKS가 시스템 풀 노드에 자동으로 붙이는 `kubernetes.azure.com/mode: system` 라벨 |
+| 플랫폼 addon의 toleration | 차트 기본값이 없는 곳만(cert-manager·ALBC·CA·KEDA·Kyverno·ArgoCD) | **ArgoCD 한 곳** |
+| taint를 바꾸면 노드가 어떻게 되나 | in-place. `UpdateNodegroupConfig`가 taint만 갱신한다 | **시스템 풀을 순환한다.** cordon·drain 없이 |
+
+⚠️ **두 열의 taint 값이 같아진 근거는 서로 다르다.** AKS는 강제이고, AWS는 생태계 관례에 맞춰
+플랫폼 컴포넌트의 차트 기본 toleration을 그대로 받으려는 선택이다. 값이 같다고 판단이 같은 것은
+아니므로, 한쪽을 바꿀 때 다른 쪽을 따라 바꾸지 않는다. AWS 쪽이 치르는 대가(우리만 쓰는 키를
+버려 밀어내기가 약해진다)는 `eks-reference-infra`의 운영 문서가 갖는다.
 
 Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고 이 taint를 집행 수단으로 지목한다. 막으려는 것은
 자원 경합이 아니라 축출이다 — 잘못 설정된 앱 파드가 시스템 파드의 자리를 빼앗는 것. 노드 풀이 하나뿐인

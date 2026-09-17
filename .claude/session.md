@@ -61,28 +61,35 @@ kyverno 3.9 legacy 타입 deprecation 누락.
 순서(시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다)이고, 도입 시 세 저장소가 함께 움직인다.
 
 ## 다음 할 일
-- [ ] [addon] **차트 버전을 클러스터가 지원하는 최신으로 올린다.** 아래는 실측한 현재/최신이다.
-      클러스터는 EKS 1.35 · AKS 1.35다. 올릴 때마다 `argocd app manifests`로 렌더를 먼저 본다
+- [ ] [*-gitops] **Kyverno CEL 전환을 재구축 후 클러스터에서 검증한다.** 매니페스트는 이미 새 타입이다
+      (엔진·정책 차트 3.9.1, `policies.kyverno.io/v1beta1 ValidatingPolicy`). 남은 것은 실물 확인이다.
+      - 업스트림 PSS 11개가 `ValidatingPolicy`로 뜨고 `validationActions: [Audit]`·`failurePolicy: Ignore`
+        조합이 유지되는지
+      - ⚠️ **커스텀 정책 2개가 진짜로 막는지** — eks `require-karpenter-resources`,
+        aks `require-nodepool-resources`. 둘 다 `validationActions: [Deny]`라 실패 모드가 조용하다.
+        requests 없는 파드로 실제 거부를, 완전한 파드로 통과를 본다.
+        `kyverno apply`로 오프라인 검증은 끝냈다(픽스처 12건, error 0) — 클러스터에서 다른 것은
+        autogen(파드 컨트롤러 대응 규칙을 Kyverno가 서버에서 만든다)과 기본 `resourceFilters`다
+      - aks 관리형 ns 제외가 먹는지. `namespaceSelector` 3조건 AND(`control-plane` 부재 ·
+        `managedby != aks` · 이름 != argocd). ⚠️ `kubernetes.io/metadata.name`으로 argocd를 빼는 것이
+        legacy의 `exclude` 블록을 대신한다 — `excludeResourceRules`는 group/resource 단위라 ns를 못 뺀다
+      - 영구 OutOfSync가 없는지. `spec.evaluation.{admission,background}.enabled`를 apiserver가
+        채우므로 `ServerSideDiff=true`에 기대고 있다
+- [ ] [addon] **남은 차트는 전부 최신이다.** 아래는 실측값이고, 다음에 올릴 때 이 표를 다시 찍는다.
 
-      | addon | 저장소 | 현재 | 최신 | 비고 |
-      |---|---|---|---|---|
-      | `kyverno`·`kyverno-policies` | eks·aks | 3.8.2 | **3.9.1** | ⚠️ 이것만 단순 버전 올림이 아니다(아래 별도 항목) |
-      | `argo-cd` | eks·aks | 10.3.0 | **10.9.1** | appVersion v3.5.0 → v3.5.3. `kubeVersion >=1.25` 충족 |
-      | `karpenter` | eks | 1.14.0 | **1.14.1** | OCI 태그 = chart = appVersion |
-      | `aws-load-balancer-controller` | eks | 3.5.0 | 3.5.0 | 이미 최신 |
-      | `keda` | eks | 2.20.2 | 2.20.2 | 이미 최신. `kubeVersion >=1.23` |
-      | `cluster-autoscaler` | eks | 9.59.0 | 9.59.0 | 이미 최신. appVersion 1.35.0 = 클러스터 마이너와 일치 |
-      | Gateway API CRD | eks | v1.6.2 | v1.6.2 | 이미 최신 |
+      | addon | 저장소 | 핀 | 비고 |
+      |---|---|---|---|
+      | `kyverno`·`kyverno-policies` | eks·aks | 3.9.1 | appVersion v1.19.1 |
+      | `argo-cd` | eks·aks | 10.9.1 | appVersion v3.5.3 |
+      | `karpenter` | eks | 1.14.1 | OCI 태그 = chart = appVersion |
+      | `aws-load-balancer-controller` | eks | 3.5.0 | |
+      | `keda` | eks | 2.20.2 | `kubeVersion >=1.23` |
+      | `cluster-autoscaler` | eks | 9.59.0 | appVersion 1.35.0 = 클러스터 마이너와 일치 |
+      | Gateway API CRD | eks | v1.6.2 | |
 
-      ⚠️ `argo-cd` 올림은 자기 관리 Application이라 순서가 있다. seed가 설치한 핀과 저장소 값이
-      갈리면 흡수가 아니라 업그레이드가 된다(`bootstrap/argocd-app.yaml` 헤더)
-- [ ] [addon] **Kyverno 3.9 전환은 버전 올림이 아니라 kind 이동이다.** 3.9 차트 values 원문이 legacy
-      `kyverno.io` 타입을 deprecated·향후 제거로 표시하고 `policyType` 기본값이 `ValidatingPolicy`(CEL)다.
-      선택지 둘: ① `policyType=ClusterPolicy` 명시로 현행 유지(시한부다) ② whitelist·커스텀 정책을
-      CEL로 함께 이동. **②를 기본으로 잡고 ①은 시간이 없을 때의 후퇴선으로 둔다.**
-      ②를 고르면 함께 움직이는 것: 양쪽 `projects/platform.yaml`의 `clusterResourceWhitelist`
-      (`kyverno.io/ClusterPolicy` → 새 kind), eks `require-karpenter-resources.yaml`,
-      aks `require-nodepool-resources.yaml`
+      ⚠️ `argo-cd`는 자기 관리라 `bootstrap/argocd-app.yaml`과 `argocd-seed.sh`의 핀이 함께 움직인다.
+      ⛔ Kyverno를 3.8 라인으로 되돌리지 않는다 — legacy `kyverno.io` 타입은 v1.19 deprecated,
+      **v1.20 제거**다. whitelist·커스텀 정책이 이미 새 kind라 셋이 함께 어긋난다
 - [ ] [권고 미부합] **AKS 시스템 풀에 `CriticalAddonsOnly=true:NoSchedule` 도입 검토.** Microsoft는 시스템
       풀을 앱에서 격리하라고 권고하고 그 집행 수단으로 이 taint를 지목한다. 지금은 따르지 않으며 그 판단은
       `docs/architectures/gitops-hub-spoke/azure/README.md` 「노드 배치」가 갖는다.
@@ -98,8 +105,8 @@ kyverno 3.9 legacy 타입 deprecation 누락.
       hub는 `tier: prd`다. ⚠️ 값을 바꾸면 노드가 교체되므로 인프라가 선 상태에서 판단한다.
       핀 형식은 `al2023@v<날짜>`
 - [ ] [aks-gitops] **관리형 네임스페이스의 실제 라벨을 찍고, 안 쓰는 조건을 지운다.**
-      `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `match` 쪽 `namespaceSelector`가
-      라벨 두 개를 AND로 건다. `control-plane DoesNotExist`는 AKS FAQ가 admission webhook 제외용으로
+      `addons/kyverno/custom-policies/require-nodepool-resources.yaml`의 `matchConstraints.namespaceSelector`가
+      조건 셋을 AND로 건다. `control-plane DoesNotExist`는 AKS FAQ가 admission webhook 제외용으로
       직접 지목하고 selector 예시를 그대로 싣는다. `kubernetes.azure.com/managedby NotIn [aks]`는 공식
       문서가 관리형 **컴포넌트**의 라벨이라 적을 뿐 네임스페이스에도 붙는지가 확정되지 않았다.
       근거가 약한 쪽을 실물로 판정한다.
@@ -108,11 +115,11 @@ kyverno 3.9 legacy 타입 deprecation 누락.
       판정: 그것들이 `control-plane` 하나로 **전부** 잡히면 `managedby` 조건은 죽은 조건이니 지우고,
       주석에서 그 불확실성을 적은 줄도 함께 걷는다. `control-plane`이 없는데 `managedby`만 붙은 것이
       하나라도 있으면 둘 다 남기고 주석에 그 네임스페이스 이름을 적는다.
-      ⚠️ `match` 안이라 `matchExpressions`는 AND다 — 조건을 지우면 정책 사정권이 **넓어진다**.
-         제외가 줄어드는 방향이라 전수 확인 전에는 지우지 않는다. 이 정책은 Enforce고 실패해도
+      ⛔ 세 번째 조건(`kubernetes.io/metadata.name NotIn [argocd]`)은 판정 대상이 아니다. legacy
+         `exclude` 블록을 대신하는 자리고, ArgoCD 자신이 막히면 고칠 수단을 잃는다
+      ⚠️ `matchExpressions`는 AND다 — 조건을 지우면 정책 사정권이 **넓어진다**. 제외가 줄어드는
+         방향이라 전수 확인 전에는 지우지 않는다. 이 정책은 `validationActions: [Deny]`고 실패해도
          에러가 Kyverno 로그에만 남는다
-      ⚠️ 이 파일은 「Kyverno 3.9 전환」 항목이 CEL로 다시 쓰는 대상이다. 3.9 이동을 먼저 하면
-         실측 결과를 새 kind 위에 반영한다
       참고: AKS FAQ는 `kube-system`과 AKS 내부 네임스페이스를 자동 제외하는 admissions enforcer도
       함께 적지만, 그러면서 `control-plane` 제외를 여전히 권고한다. 자동 장치에 기대지 않는다
 - [ ] [*-gitops] 재구축 seed 5단계 직후 `argocd app manifests root-app --core`로 include가 의도대로
@@ -127,8 +134,9 @@ kyverno 3.9 legacy 타입 deprecation 누락.
       AKS dev는 `environment`·`tier: nonprd`·`addon-karpenter`가 필요하다
 - [ ] [*-gitops] nonprd 클러스터가 생기면 `*-nonprd` ApplicationSet 팬아웃 실측 — 지금은 의도된 빈 슬롯이다
 - [ ] [*-gitops] 실제 승격 한 번 돌려보기(nonprd 올림 → 검증 → prd 올림). Kyverno는 엔진·정책 값 4개를
-      짝으로 움직여야 한다. 3.9 라인으로 넘기는 것 자체는 위 「Kyverno 3.9 전환」 항목이 갖는다 —
-      이 항목은 승격 **절차**가 의도대로 도는지만 본다
+      짝으로 움직여야 한다(엔진 prd·nonprd, 정책 prd·nonprd). 지금은 넷이 전부 3.9.1이라 승격
+      구간이 없다 — 다음 릴리스가 나와야 이 절차를 돌려볼 수 있다. 이 항목은 승격 **절차**가
+      의도대로 도는지만 본다
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그 메시지에 아래 문구를 싣는다. 지금 태그를
       컷하지 않는다(`6e34dec`는 주석·문서 전용이다). 미릴리스 확인: `6e34dec`가 `workbench-v0.9.0`·
       `aks-workbench-v0.7.0` 양쪽보다 뒤에 있다. 메커니즘도 실물 확인 완료 — AWS는

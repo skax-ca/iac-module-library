@@ -8,9 +8,9 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 | repo | git | 상태 |
 |------|-----|------|
 | eks-reference-infra | main = origin | hub·dev 전부 destroy. main push plan은 `hub/tgw`만 성공(정상. 나머지 4개는 `no matching RAM Resource Share found`로 실패하며, 철거 상태의 `data` 조회 실패라 코드 문제가 아니다). 변수 34개 전부 `nullable = false`. `scripts/argocd-seed.sh`는 없다(GitOps 저장소가 소유). pre-commit 셸 게이트가 `.githooks/pre-commit`·`pre-push` 자신까지 덮는다. `scripts/README.md`가 셸 게이트 상세를 소유한다 |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태(라벨 먼저 뗀 뒤 파일 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(10파일), `addons/<addon>/`은 values·로컬 차트·CR만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 14개. 업스트림 차트 values는 `addons/<addon>/values.yaml` 5개를 multi-source `$values`로 읽는다(인라인 `values: \|` 없음). 규약(팬아웃·finalizers·staged 전파·cluster Secret 라벨 계약)은 README가 소유하고 매니페스트 주석은 그 파일 고유 사실만 갖는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다(legacy `kyverno.io/ClusterPolicy`는 어디에도 없다). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 | aks-reference-infra | main = origin | 전부 철거 상태. 원본 이식 항목 완료. 변수 48건 `nullable = false`. pre-commit 셸 게이트가 훅 파일 자신까지 덮는다. `bootstrap/config.sh`의 `GH_ORG_ID`·`GH_REPO_ID`는 대입과 `readonly`를 나눠 `gh api` 실패가 `set -e`에 잡힌다 |
-| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. 커스텀 정책의 관리형 ns 제외는 `control-plane`·`managedby` 두 라벨을 AND로 건다. 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
+| aks-platform-gitops | main = origin | dev 스포크 철거 2단계 완료(라벨 제거 → cluster-secret 삭제). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet은 `applicationsets/{baseline,catalog}/`(5파일), `addons/<addon>/`은 평문 CR 디렉토리 3개만. root App include는 `applicationsets/**/*.yaml` 등 5항목이고 매칭 9개. 인라인 `values: \|`는 원래 없다(`parameters`만). 규약은 README가 소유하고 매니페스트 주석에 AWS 대조 서술을 두지 않는다. Kyverno 정책은 `policies.kyverno.io/v1beta1 ValidatingPolicy`고 AppProject whitelist도 그 kind다. 커스텀 정책의 `matchConstraints.namespaceSelector`는 조건 셋을 AND로 건다(`control-plane` 부재 · `managedby != aks` · 이름 != argocd). 훅·검사기 경로 목록에 `applicationsets/` 포함. 위반 0건 |
 
 ⚠️ 로컬 전제: 훅이 `shellcheck`를 **하드 요구**한다(없으면 즉시 실패). clone마다
 `git config core.hooksPath .githooks`와 `brew install shellcheck`가 필요하다. 이 Mac에는
@@ -18,7 +18,12 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 설치돼 있다(개발 중 손으로 돌리는 스키마 검증, 훅에는 넣지 않는다). `helm` 3.18.4가 있어
 `helm template --repo <url> <chart> --version <v>`로 업스트림 차트를 로컬 렌더할 수 있다
 (OCI는 `oci://public.ecr.aws/karpenter/karpenter`). ALBC 차트는 렌더마다 자체 서명 TLS를 새로
-만들어 `ca.crt`·`tls.*`·`caBundle` 4줄이 매번 다르다.
+만들어 `ca.crt`·`tls.*`·`caBundle` 4줄이 매번 다르다. `kyverno` CLI 1.19.1도 설치돼 있다 —
+`kyverno apply <정책> --resource <파드들> [-f <Values>]`로 **클러스터 없이** 정책 판정을 본다.
+차트 appVersion과 같은 버전을 쓴다. 네임스페이스 라벨이 필요한 selector는 `-f`에 넘기는 Values의
+`namespaceSelector` 목록으로 준다(`apiVersion: cli.kyverno.io/v1alpha1`, 최상위 키다 — `spec:`
+아래 넣으면 `unknown field "spec"`으로 죽는다). ⚠️ `--values-file /dev/null`은 deprecated 스키마로
+오인돼 에러다. 값이 필요 없으면 옵션 자체를 뺀다.
 
 이 저장소 CI는 워크플로 2개다. `verify.yml`이 OpenTofu 게이트 7개(허용 목록 `paths`),
 `verify-docs.yml`이 파이썬 검사기 3개(제외 목록 `paths-ignore`)를 돈다. GitHub Actions에 job별 경로
@@ -34,31 +39,35 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 
 ## 지난 세션 (2026-09-17)
 
-CI 경로 필터를 넣고, 두 GitOps 저장소의 문서·주석을 전면 정리한 뒤, 거기 적힌 기술적 주장을
-공식 문서·차트 실물과 대조해 검증했다.
+addon 차트를 전부 최신으로 올리고, Kyverno를 legacy 타입에서 CEL로 옮겼다. 그 과정에서 비어 있던
+GitOps 저장소의 브랜치 규칙을 리서치해 신설했다.
 
-CI(`c226d6f`, PR #57): 워크플로를 `verify.yml`(OpenTofu 게이트 7개, 허용 목록 `paths`)과
-`verify-docs.yml`(검사기 3개, 제외 목록 `paths-ignore`)로 가르고 job 이름을 「OpenTofu 검증 게이트」로
-바꿨다. GitHub Actions에 job별 필터가 없어 파일을 가르는 것이 유일한 네이티브 수단이다. 필터 방향이
-갈린 이유는 입력을 열거할 수 있느냐다 — OpenTofu 게이트는 닫힌 집합, 검사기는 넓은 글롭. 사전 작업으로
-`presentations/README.md`를 지워 그 디렉토리를 게이트 밖으로 뺐다(`b7c12ed`).
+차트 올림(eks `abc1c26`, aks `46bd967`): argo-cd 10.3.0 → 10.9.1(7곳), karpenter 1.14.0 → 1.14.1(3곳).
+클러스터가 없어 `argocd app manifests` 대신 `helm template` diff로 봤다. 33,770줄 렌더에서 실질 변경은
+넷뿐이었고(이미지 태그, `argocd-tls-certs-cm`에 `optional: true`, `dnsPolicy` 명시, checksum) values 키는
+하나도 사라지지 않았다. argo-cd는 자기 관리라 `argocd-app.yaml`과 `argocd-seed.sh`의 핀을 한 커밋에
+함께 옮겼다 — 갈리면 seed의 흡수가 업그레이드가 되고 sync 주체가 sync 도중 재시작한다. 철거 상태가
+오히려 이 작업에 유리한 시점이다.
 
-문서·주석 정리(eks `64800a5`·`0bf9907`, aks `7f6776c`·`7c58ebc`·`36b078e`): yaml 44개에서 1500줄 넘게
-걷어냈다. 헤더 3~6줄 규칙을 32개 파일이 어겼고(최대 58줄), 본문 `✅` 14건·확정 사실에 붙은 `🔴` 35건·
-이력 서술 39건이 있었다. 반복되던 규약은 지우지 않고 README로 올렸다(「ApplicationSet 공통 규약」·
-「staged 전파」·「cluster Secret 라벨 계약」). aks 쪽은 "AWS 원본과 무엇이 다른가" 서술 15건을 이 저장소
-기준 서술로 바꿨다. 모든 yaml을 HEAD와 파싱 대조해 구조 동치를 확인했다.
+Kyverno CEL 전환(eks `35ec069`·`37ffdd6`, aks `8c42bf4`·`973b4e2`): 3.9.1이 rc를 뺀 최신이고 appVersion이
+v1.19.1이다. legacy `kyverno.io` 타입은 v1.19 deprecated·**v1.20 제거**라 유예가 마이너 하나뿐이다.
+철거 상태라 마이그레이션 경로를 만들지 않고 목표 상태로 바로 갔다. 전환 중 드러난 것 셋 —
+`validationActions` enum에 `Enforce`가 없어 `Deny`로 간다, `excludeResourceRules`는 apiGroup·resource
+단위라 네임스페이스를 못 빼서 `kubernetes.io/metadata.name`을 selector에 넣어야 한다, `has()` 가드 없이
+`.all()`을 부르면 그 필드 없는 파드에서 CEL 런타임 에러가 나고 `failurePolicy: Fail`이 그것을 거부로
+바꾼다(가드 뺀 프로브로 `error: 1` 확인). 커스텀 정책 2개는 자동 변환 도구가 없어 손으로 썼고,
+`kyverno` CLI 1.19.1로 픽스처 12건을 돌려 legacy `pattern`과 판정이 같음을 확인했다(error 0).
 
-검증(eks `af0ad0e`·`b51b3f1`, aks `0437c27`): 차트 6개 핀이 전부 실재하고 `appVersion`·`kubeVersion`
-주장이 맞았다. 틀린 것 다섯을 고쳤다 — Karpenter values의 `tolerations`가 차트 기본
-`CriticalAddonsOnly`를 교체한다는 사실 누락(helm은 리스트를 병합하지 않는다), `replicas: 2`가 차트
-기본값과 중복, aks Kyverno의 `namespaceSelector`가 문서상 컴포넌트 라벨에만 의존(FAQ가 지목하는
-`control-plane`을 AND로 더했다), aks NodePool 주석이 모듈 실물(`default_node_pools = "None"`)과 어긋남,
-kyverno 3.9 legacy 타입 deprecation 누락.
+GitOps 브랜치 규칙 신설(`e3ae48e`·`5e462b1`): 두 GitOps 저장소에 `CLAUDE.md`가 없고 루트 표도 `.tf`·
+워크플로·문서만 다뤄 매니페스트가 규정 공백이었다. Argo CD 공식 문서·OpenGitOps·Argo 팀 멤버 글을
+근거로 대조한 결과 구조(저장소 분리·브랜치로 환경을 나누지 않음)는 이미 권고를 충족했고, 빠진 것은
+규정 자체였다. 판정 기준은 그대로 두고 결과만 적었다 — 두 repo에 CI가 없고 5개 저장소 전부
+private·무료라 브랜치 보호도 못 걸어 PR이 막을 것이 없다. 대신 배포 루트와 갈리는 사실(push가 곧
+apply다)과 진짜 게이트(렌더 확인)를 「GitOps 저장소 공통」 절로 못박았다.
 
-결정 기록(`0481b9b`, aks-ref `d484623`): Microsoft 권고 셋을 따르지 않는다는 사실이 어디에도 없어
-`azure/README.md`에 「노드 배치: 시스템 풀에 taint를 두지 않는다」를 신설했다. 안 하는 이유는 부트스트랩
-순서(시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다)이고, 도입 시 세 저장소가 함께 움직인다.
+주석 점검(`37ffdd6`·`973b4e2`·`5e462b1`): 새로 쓴 주석이 세 곳에서 **없어질 타입을 기준으로** 설명하고
+있었다. 그 타입이 사라지면 서술도 함께 낡으므로, 외부 참조를 금지하는 것과 같은 이유로 걷어냈다.
+`⚠️` 등급도 맞췄다 — 문법 설명에 붙어 있던 것을 떼고 진짜 조용한 실패(위 `has()` 건)로 옮겼다.
 
 ## 다음 할 일
 - [ ] [*-gitops] **Kyverno CEL 전환을 재구축 후 클러스터에서 검증한다.** 매니페스트는 이미 새 타입이다

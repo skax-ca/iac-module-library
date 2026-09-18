@@ -67,8 +67,8 @@ module "vpc" {
 |------|------|
 | 역할 | 이 repo의 모듈을 태그로 소비해 세우고 걷어낸다. 모듈 내부는 고치지 않는다. 고칠 것이 있으면 여기서 고치고 태그를 올린다 |
 | state | 배포 루트마다 별도 state, key는 `<env>/<component>.tfstate`. 루트 간 결합은 `terraform_remote_state`가 아니라 Name·태그 기반 `data` 조회다. 예외(크로스 구독 등)는 그 repo 값 표가 적는다 |
-| plan → apply | push가 plan을 돌리고, `workflow_dispatch`를 누르는 것이 apply 승인이다. `pull_request` 트리거는 두지 않는다 |
-| 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 승인한 것과 다른 plan을 만든다 |
+| plan → apply | push가 plan을 돌리고, apply job은 environment(`hub`·`dev`)의 required reviewers 승인을 기다린다. 승인자는 **그 run의** plan 요약을 읽고 누르고, 같은 run이 저장된 plan을 적용한다. `workflow_dispatch`는 destroy·replace·재-plan 경로이고 역시 승인을 기다린다. `pull_request` 트리거는 두지 않는다(PR plan은 OIDC subject를 넓혀야 한다) |
+| 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **이미 승인한 저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 새 plan이고 다시 승인 대상이다. plan artifact는 7일 보존이라 그 안에 승인한다 |
 | 로컬 | `tofu init`·`validate`까지. apply·destroy는 각 repo의 가드(실행 Role 신뢰 관계, `ci_run` 검사)가 막는다 |
 | 네이밍 | 약어 SSOT는 `docs/naming/abbreviations/{aws,azure}.md`. 배포 루트는 약어를 직접 조합하지 않고 모듈에 `naming` 객체를 넘긴다 |
 | 로컬 게이트 | pre-commit(문서·주석 규칙 → 셸 `bash -n`·`shellcheck -x` → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). CI는 이 게이트를 돌리지 않으므로 훅이 유일한 강제 지점이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
@@ -86,7 +86,7 @@ module "vpc" {
 | 항목 | 규칙 |
 |------|------|
 | 브랜치 | 매니페스트도 **main 직접 커밋**. 근거는 문서 전용 규칙과 같다 — 두 repo에 CI가 없고 브랜치 보호도 걸 수 없어 PR이 머지 전에 막을 것이 없다. 형식만 남은 절차는 비용만 낸다 |
-| ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, `workflow_dispatch`가 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`) |
+| ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, environment 승인이 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`) |
 | 커밋 전 확인 | 막는 것은 리뷰가 아니라 **렌더**다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠뜨리면 렌더가 0건에 `ComparisonError`가 되는데, 이는 차트를 받아오지 못했을 때와 같은 모양이라 값 문제인지 네트워크 문제인지 구분되지 않는다 |
 | ⚠️ 정책은 렌더로 부족하다 | admission 정책(Kyverno)은 렌더가 성공해도 **판정이 틀릴 수 있다**. 차단 정책이 조용히 안 걸리거나 무관한 워크로드를 막아도 렌더는 통과한다. 차트 `appVersion`과 같은 버전의 `kyverno` CLI로 픽스처를 돌려 통과·차단·제외를 각각 확인한다: `kyverno apply <정책> --resource <파드들>`. 네임스페이스 라벨에 기대는 selector는 Values 파일(`apiVersion: cli.kyverno.io/v1alpha1`, `namespaceSelector`가 최상위 키)을 `-f`로 넘긴다 |
 | 환경 분리 | ⛔ **브랜치로 나누지 않는다.** 티어는 `applicationsets/`의 prd·nonprd 블록과 cluster Secret의 `tier` 라벨이 나눈다. 두 블록에서 갈려도 되는 값은 `targetRevision` 하나다 |

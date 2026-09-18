@@ -19,9 +19,8 @@
 | azure | [`vnet`](modules/azure/vnet) | VNet · 서브넷 · 옵트인 NSG · 옵트인 라우팅 테이블 · NAT Gateway |
 | azure | [`aks-cluster`](modules/azure/aks-cluster) | AKS 클러스터 · 시스템/추가 노드 풀 · Karpenter(NAP) |
 
-모든 모듈이 개발 단계(`0.y.z`)다. 최신 태그는 `git tag -l`로 확인한다(여기 고정 표기하지 않는다.
-컷할 때마다 갱신을 잊으면 stale해진다). 실계정 배포로 검증된 조합은 `eks-reference-infra`(AWS)·
-`aks-reference-infra`(Azure)에 있다.
+모든 모듈이 개발 단계(`0.y.z`)다. 최신 태그는 `git tag -l`로 확인한다. 실계정 배포로 검증된
+조합은 `eks-reference-infra`(AWS)·`aks-reference-infra`(Azure)에 있다.
 
 태그 이름에는 provider 층이 들어가지 않는다(`vpc-vX.Y.Z`). 따라서 모듈 디렉터리명은
 provider를 가로질러 고유해야 한다.
@@ -75,7 +74,7 @@ module "vpc" {
 
 이 트리로 이동하기 전에 컷된 태그는 이동 전 경로(`modules/<모듈명>`)를 그대로 가리킨다. 이후
 컷된 태그부터는 `source` 경로에 `/aws`가 들어간다(`modules/aws/<모듈명>`). 어느 태그부터
-전환됐는지는 고정 표기하지 않는다. `git tag -l '<모듈명>-v*' | sort -V`로 직접 확인한다.
+전환됐는지는 `git tag -l '<모듈명>-v*' | sort -V`로 확인한다.
 
 승급할 때는 태그와 경로를 같은 커밋에서, `vpc`·`eks-cluster`·`workbench`·
 `cross-account-trust-role` 4개 모두 한 번에 올린다. 기존 태그는 그대로 동작하므로 승급 시점은

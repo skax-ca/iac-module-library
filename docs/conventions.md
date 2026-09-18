@@ -147,6 +147,27 @@ provider마다 다르므로 아래 provider별 절이 소유한다.
 
 예외는 **소비자가 0일 때뿐**이다. 한 번이라도 apply된 뒤에는 다음 마이너를 낸다.
 
+**태그 ruleset `release-tags`가 이것을 집행한다.** 대상은 `refs/tags/*-v*`이고 규칙은 삭제·갱신·
+force push 금지다. 새 태그를 컷하는 것만 열려 있다. ⛔ **bypass가 없다** — `main` ruleset과 다른
+점이고, 이 저장소의 관리자도 태그를 옮기거나 지울 수 없다.
+
+소비자가 0인 태그를 정리해야 하면 ruleset을 **일시 해제하고 되돌린다.** 해제된 상태를 남기지
+않는 것이 이 절차의 전부다.
+
+```bash
+ID=$(gh api repos/<org>/iac-module-library/rulesets --jq '.[]|select(.target=="tag").id')
+gh api repos/<org>/iac-module-library/rulesets/$ID > /tmp/rs.json   # 되돌릴 원본
+# enforcement 를 disabled 로 바꾼 본문으로 PUT → 태그 정리 → 원본으로 PUT
+gh api repos/<org>/iac-module-library/rulesets/$ID --jq '.enforcement'  # active 확인
+```
+
+⚠️ 이 엔드포인트는 `PATCH`가 404다. **전체 본문을 담은 `PUT`만 동작한다.** 그래서 해제와 복원
+모두 JSON 한 벌을 통째로 보낸다.
+
+⚠️ push가 거부됐는지 네트워크가 끊겼는지는 에러 문구로 가르지 않는다. `git ls-remote --tags
+origin <태그>`로 서버 실물을 다시 읽어 판정한다. 거부는 `remote rejected`로, bypass를 가진
+신원의 통과는 `Bypassed rule violations`로 나타난다.
+
 ### provider 층을 넣기 전에 컷된 태그
 
 AWS 모듈 4개는 `modules/<모듈명>/`에 있다가 `modules/aws/<모듈명>/`으로 옮겼다. 옮기기 전에

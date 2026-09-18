@@ -129,5 +129,9 @@ module "vpc" {
 - **main ruleset**(5개 저장소 동일): 삭제 금지 · force-push 금지 · PR 필수(승인 수 0) · required status check.
   bypass는 repository admin뿐이고 **그 용도는 문서 직접 커밋 하나다.** CI가 보는 파일을 bypass로 밀지 않는다 —
   규칙은 외부 기여자에게 걸리고 유지자는 훅과 이 문장이 지킨다.
+- **태그 ruleset `release-tags`**(이 repo만, 태그를 컷하는 repo가 여기뿐이다): `refs/tags/*-v*`의
+  삭제·갱신·force push를 막고 생성만 연다. ⛔ **bypass가 없어 admin도 막힌다** — `main` ruleset과
+  다른 점이다. 소비자 0인 태그를 정리하는 예외 절차와 그 함정은 `docs/conventions.md` 「릴리스된
+  태그를 옮기지 않는다」가 소유한다.
 - ⛔ **문서 전용 변경에 PR을 쓰지 않는다.** 이 repo는 사실상 1인 작업이라 리뷰는 self-merge = 형식이고,
   커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다. 형식만 남은 절차는 비용만 낸다.

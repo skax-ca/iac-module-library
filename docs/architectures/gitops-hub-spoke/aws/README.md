@@ -68,7 +68,7 @@ CLI 제약도 함께 본다: `argocd login` 미지원(토큰만) · `argocd admi
 | 3 | **cluster 등록** | Secret `server` = 클러스터 ARN. local도 **명시 등록 필요** | `https://kubernetes.default.svc`. 연결은 자동이나 **Secret은 여전히 만든다** |
 | 4 | **namespace** | 단일 강제 + immutable | 자유 |
 | 5 | **기능 표면** | 위 미지원 목록 | upstream 전체 |
-| 6 | **저장소 접근** | **CodeConnections**: 장기 자격증명 없음 | **GitHub App**: 장기 private key가 생긴다 |
+| 6 | **저장소 접근** | **CodeConnections** 프록시 URL. 자격증명 없음 | GitHub 직접. GitOps 저장소가 **public**이라 repository Secret 없이 익명으로 읽는다. private이면 GitHub App private key가 seed 예외로 생긴다 |
 
 > 1과 3은 같은 뿌리다: **ArgoCD가 클러스터 안에 있는가.**
 > self-managed는 내부 워크로드라 자기 apiserver에 ServiceAccount로 닿는다.

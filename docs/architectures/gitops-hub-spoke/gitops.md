@@ -358,7 +358,7 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 | ↳ 대신 | root App은 **`include`(allow-list)로 매니페스트 디렉토리만 지정**한다. 범위 밖 파일은 무엇이든 무시되므로 로컬 차트에 마커가 필요 없고, 값이 갈리지 않는 addon을 마커를 피하려고 helm 차트로 만들 이유도 없다 |
 | ApplicationSet 안에 **`helm.values: \|` 인라인** | 문자열 필드라 주석 한 줄이 바뀌어도 Application spec이 바뀌고, 렌더 결과가 같은데도 전 클러스터가 `OutOfSync`로 뜬다. *"`OutOfSync` = 문제"* 신호가 죽는다. 티어 쌍이면 같은 블록을 두 번 쓰고, 한쪽만 고치면 승격 때 설정이 조용히 갈린다. `valuesObject`는 주석 문제만 없애고 중복은 남긴다. 값은 `addons/<addon>/values.yaml`에 둔다 |
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
-| CI용 GitHub App **재사용** · 설치 범위를 **All repositories**로 | 권한 경계가 무너진다. GitOps용을 별도로 만들고 저장소 1개로 한정한다 |
+| GitOps 저장소를 **private**으로 되돌리기 · ArgoCD에 repository credential 두기 | 저장소가 public이라 ArgoCD가 익명으로 읽고, seed가 GitOps 관리 밖에 남기는 리소스가 0이다. private이면 GitHub App private key를 담은 repository Secret이 seed의 예외로 되살아나고, 그 키를 workbench로 나르는 절차와 키 분실 시 복구 절차가 함께 생긴다. 매니페스트에는 비밀이 없어 public으로 잃는 것이 없다. seed의 preflight가 익명 `ls-remote`로 이 전제를 확인한다 |
 | `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
 | 관리형이 **버전 승격 시점을 가져간다**는 이유로 관리형을 기각 | 관리형 addon은 라이프사이클이 클러스터에 묶여 있다. AKS가 클러스터 업그레이드에 맞춰 버전을 갱신하므로 플랫폼 관리자가 addon 버전을 따로 추적·승격하지 않아도 된다. 티어별 승격은 GitOps로 조립한 addon에만 적용한다 |
 | cluster Secret에 `addon-version-<name>` 라벨을 달고 `targetRevision`에 주입 | 승인된 버전이 클러스터 파일마다 흩어진다. 플랫폼이 어떤 버전을 승인했는지 한 곳에서 읽지 못하고, 버전을 올릴 때 클러스터 수만큼 파일을 고쳐야 한다 |

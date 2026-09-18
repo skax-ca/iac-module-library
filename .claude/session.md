@@ -168,7 +168,6 @@ AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같
 - [ ] [module] `modules/aws/eks-cluster/examples/enterprise/README.md`의 "확인하는 것이 좋다"를
       단정으로 고친다. stop-slop 스윕에서 찾은 유일한 실제 완충 표현인데 그 항목의 범위
       (`.tf` 주석·`docs/*.md`) 밖이라 손대지 않았다
-- [ ] [local] context7 rate limit 시 키를 로컬 설정 `Authorization: Bearer`로
 
 ### 4. 조건이 오면 (지금 하지 않는다)
 
@@ -182,6 +181,7 @@ AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같
       실패하는지 본다. plan artifact 보존이 7일이라 한 세션에 답이 나오지 않는다. ⚠️ 일부러
       만들 일은 아니다 — 게이트는 뜬 세션에 처리하는 것이 규칙이고, 그 규칙을 어긴 run이
       생겼을 때 관찰만 한다
+- [ ] [local] **context7이 rate limit에 걸리면**: 키를 로컬 설정 `Authorization: Bearer`로 넣는다
 - [ ] [local] **약 한 달 뒤**: `~/archive/` 삭제
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그를 컷할 때 태그 메시지에 user-data 교체
       경고를 싣는다. AWS `user_data_replace_on_change = true`, Azure `custom_data` ForceNew:

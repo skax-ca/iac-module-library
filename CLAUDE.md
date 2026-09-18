@@ -71,7 +71,7 @@ module "vpc" {
 | 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **이미 승인한 저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 새 plan이고 다시 승인 대상이다. plan artifact는 7일 보존이라 그 안에 승인한다 |
 | 로컬 | `tofu init`·`validate`까지. apply·destroy는 각 repo의 가드(실행 Role 신뢰 관계, `ci_run` 검사)가 막는다 |
 | 네이밍 | 약어 SSOT는 `docs/naming/abbreviations/{aws,azure}.md`. 배포 루트는 약어를 직접 조합하지 않고 모듈에 `naming` 객체를 넘긴다 |
-| 로컬 게이트 | pre-commit(문서·주석 규칙 → 셸 `bash -n`·`shellcheck -x` → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). CI는 이 게이트를 돌리지 않으므로 훅이 유일한 강제 지점이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
+| 로컬 게이트 | pre-commit(문서·주석 규칙 → 셸 `bash -n`·`shellcheck -x` → fmt → tflint → trivy), pre-push(변경된 루트 `validate`). `verify.yml`이 같은 명령을 PR·main push에서 다시 돈다(훅이 꺼진 클론과 fork PR을 막는다). 명령이 갈리면 둘 중 하나가 틀린 것이다. `.tflint.hcl` ruleset 핀은 이 repo와 같게 유지한다. 모듈 내부 지적은 `.trivyignore`에 넣지 않는다(모듈 쪽 위험 수락은 이 repo가 한다) |
 | 모듈 계약 | 루트 `main.tf`가 넘기는 변수와 참조하는 출력은 추정하지 않는다. `live/*/.terraform/modules/`의 실물이나 이 repo 소스로 확인한다 |
 | `.tf` 작성 | 배포 루트도 리소스와 변수를 직접 선언한다. 그 코드에도 `docs/conventions.md` 「코드 규약」(보안 규칙은 inline이 아닌 별도 리소스, 워크스페이스 간 데이터는 `data` 조회, 새 리소스·인자는 문서로 확인하고 추정하지 않는다)과 `docs/decisions.md` 「변수 계약 (nullable)」, `docs/writing-style.md` 2절(문체)이 그대로 적용된다. ⚠️ 이 repo의 `.claude/rules/terraform.md`는 **배포 루트에 실리지 않는다**(`paths` 규칙은 작업 디렉토리 기준이다). 그 파일은 모듈 전용이고, 배포 루트의 진입점은 이 행이다 |
 | 설계 근거의 자리 | 배포 루트에 설계 문서 계층(ADR 등)을 두지 않는다. 패턴 갈림길은 이 repo `docs/architectures/`, 그 repo 고유 판단은 적용된 `.tf`/`.sh`의 인라인 주석, 운영 절차는 그 repo `docs/hub-lifecycle.md`·`spoke-lifecycle.md`·`runbooks.md` |
@@ -87,8 +87,8 @@ module "vpc" {
 |------|------|
 | 브랜치 | 매니페스트도 **main 직접 커밋**. 근거는 문서 전용 규칙과 같다 — 두 repo에 CI가 없고 브랜치 보호도 걸 수 없어 PR이 머지 전에 막을 것이 없다. 형식만 남은 절차는 비용만 낸다 |
 | ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, environment 승인이 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`) |
-| 커밋 전 확인 | 막는 것은 리뷰가 아니라 **렌더**다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠뜨리면 렌더가 0건에 `ComparisonError`가 되는데, 이는 차트를 받아오지 못했을 때와 같은 모양이라 값 문제인지 네트워크 문제인지 구분되지 않는다 |
-| ⚠️ 정책은 렌더로 부족하다 | admission 정책(Kyverno)은 렌더가 성공해도 **판정이 틀릴 수 있다**. 차단 정책이 조용히 안 걸리거나 무관한 워크로드를 막아도 렌더는 통과한다. 차트 `appVersion`과 같은 버전의 `kyverno` CLI로 픽스처를 돌려 통과·차단·제외를 각각 확인한다: `kyverno apply <정책> --resource <파드들>`. 네임스페이스 라벨에 기대는 selector는 Values 파일(`apiVersion: cli.kyverno.io/v1alpha1`, `namespaceSelector`가 최상위 키)을 `-f`로 넘긴다 |
+| 커밋 전 확인 | `verify.yml`이 PR·main push에서 YAML 파싱·로컬 차트 `helm lint`/`template`·`kyverno test`를 돈다(오프라인). ArgoCD의 렌더(Application 조립·파라미터 주입·`include`)는 CI가 흉내 내지 않는다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠뜨리면 렌더가 0건에 `ComparisonError`가 되는데, 이는 차트를 받아오지 못했을 때와 같은 모양이라 값 문제인지 네트워크 문제인지 구분되지 않는다 |
+| ⚠️ 정책은 렌더로 부족하다 | admission 정책(Kyverno)은 렌더가 성공해도 **판정이 틀릴 수 있다**. 차단 정책이 조용히 안 걸리거나 무관한 워크로드를 막아도 렌더는 통과한다. 그래서 커스텀 정책마다 `tests/kyverno/<정책>/`에 통과·차단·제외 픽스처와 기대 판정(`kyverno-test.yaml`)을 두고 `verify.yml`이 `kyverno test`로 돌린다. CLI는 차트 `appVersion`과 같은 버전으로 핀한다. 네임스페이스 라벨에 기대는 selector는 `values.yaml`(`apiVersion: cli.kyverno.io/v1alpha1`, `namespaceSelector`가 최상위 키)로 준다. 정책을 고치면 픽스처도 같이 고친다 |
 | 환경 분리 | ⛔ **브랜치로 나누지 않는다.** 티어는 `applicationsets/`의 prd·nonprd 블록과 cluster Secret의 `tier` 라벨이 나눈다. 두 블록에서 갈려도 되는 값은 `targetRevision` 하나다 |
 | 승격 | 클러스터가 있으면 nonprd → 검증 → prd. **철거 상태에서는 양 티어를 같이 올리고 재구축 때 한 번에 검증한다** — 검증할 대상이 없는 상태에서 커밋을 둘로 쪼개는 것은 절차만 남는다 |
 | 자기 관리 ArgoCD | `bootstrap/argocd-app.yaml`의 `targetRevision`과 `bootstrap/argocd-seed.sh`의 `ARGOCD_CHART_VERSION`은 **항상 같다**. 갈리면 흡수가 업그레이드가 되고, sync 주체가 sync 도중에 재시작한다. 올리는 것은 **클러스터가 철거된 상태에서** 한다 |

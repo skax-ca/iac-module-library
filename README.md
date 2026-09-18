@@ -67,7 +67,7 @@ provider를 가로질러 고유해야 한다.
 
 ```hcl
 module "vpc" {
-  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z"
+  source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/vpc?ref=vpc-vX.Y.Z&depth=1"
 
   naming = { workload = "demo", env = "dev", region_code = "an2" }
   # ...
@@ -76,6 +76,11 @@ module "vpc" {
 
 `vX.Y.Z`는 자리표시자다. 실제 최신 태그는 `git tag -l 'vpc-v*'`로 확인한다.
 태그는 컴포넌트별 semver다. `ref=main`을 쓰지 않는다(움직이는 참조다).
+
+`depth=1`은 얕은 클론이다. 이 저장소는 모듈 전부의 태그 이력을 한 트리에 쌓으므로, 모듈 하나를
+받는 데 전체 이력을 끌어올 이유가 없다. ⚠️ `depth`를 주면 OpenTofu가 `ref`를 `git clone
+--branch`로 넘기므로 **`ref`에 커밋 SHA를 쓸 수 없다.** 태그나 브랜치만 받는다. 이 저장소는
+`ref`가 항상 태그라 제약에 걸리지 않는다.
 
 ---
 
@@ -97,3 +102,9 @@ AI 에이전트로 작업할 때의 규칙은 [`CLAUDE.md`](CLAUDE.md)에 있다
 
 `.tf`·워크플로·검사기 변경은 브랜치 → PR이다. `verify.yml`이 훅과 같은 게이트를 PR에서 다시
 돈다. 문서만 바뀌는 커밋은 `main` 직접이다.
+
+---
+
+## 라이선스
+
+[MIT](LICENSE). 다섯 저장소가 같은 라이선스다.

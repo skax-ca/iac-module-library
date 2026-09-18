@@ -311,7 +311,7 @@ brew install shellcheck gitleaks
 | 워크플로 | 필터 | 이유 |
 |---|---|---|
 | `verify.yml` | 허용 목록(`paths`): `modules/**`·`.tflint.hcl`·`.trivyignore.yaml`·워크플로 자신 | 게이트 7개의 입력이 닫힌 집합이고 `modules/<provider>/<name>/` 모양을 게이트가 강제한다 |
-| `verify-docs.yml` | 제외 목록(`paths-ignore`): `.claude/**`·`.mcp.json`·`presentations/**` | 검사기 대상이 넓은 글롭(`**/README.md`)이라 허용 목록은 검사기가 대상을 늘릴 때 같이 고치지 않으면 새 대상이 조용히 CI 밖에 남는다 |
+| `verify-docs.yml` | 제외 목록(`paths-ignore`): `.claude/**`·`.mcp.json` | 검사기 대상이 넓은 글롭(`**/README.md`)이라 허용 목록은 검사기가 대상을 늘릴 때 같이 고치지 않으면 새 대상이 조용히 CI 밖에 남는다 |
 
 `pull_request`에는 필터가 없다. `workflow_dispatch`는 필터와 무관하게 전체를 돈다.
 ⚠️ 새 게이트가 `modules/` 밖 파일을 읽게 되면 `verify.yml`의 허용 목록에 그 경로를 더한다.

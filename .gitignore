@@ -31,9 +31,5 @@ terraform.rc
 # Python 캐시 (scripts/*.py 로컬 실행 시 생성)
 __pycache__/
 
-# 로컬 전용 작업물 (push 안 함) — 팀 공유 자료 초안·개인 스크래치 등
+# 로컬 전용 작업물 (push 안 함) — 팀 공유 자료 초안·개인 스크래치·발표 자료 등
 .local/
-
-# 발표 슬라이드에서 생성한 PowerPoint. 3MB 바이너리라 갱신할 때마다 저장소가 통째로
-# 커진다. 산출물 대신 레시피를 남긴다 — scripts/build-deck-pptx.py 로 재생성한다.
-*.pptx

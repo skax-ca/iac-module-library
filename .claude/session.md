@@ -120,18 +120,14 @@ AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같
 - [ ] [aks-gitops] hub ArgoCD 초기 비밀번호를 교체하고 `argocd-initial-admin-secret`을 지운다.
       `hub-lifecycle.md`의 **완료 조건**인데 두 세션째 건너뛰었다. 대화형 프롬프트가 필요해
       사람이 workbench에서 한다(`runbooks.md` 「ArgoCD 관리자 비밀번호 교체」). ⚠️ `--core`로는
-      안 된다(세션 토큰이 없다), `--port-forward`를 쓴다
+      안 된다(세션 토큰이 없다), `--port-forward`를 쓴다.
+      ⚠️ **hub가 서 있으면 지금 바로 되는 일이다** — spoke 작업을 기다릴 이유가 없다
 
-**구축 중 — 이번 재구축에서만 답이 나오는 실측**
+**구축 중 — spoke를 세우는 동안에만 열리는 창**
 
-- [ ] [aks-ref] 승인 흐름 중 **남은 두 가지**. ①(대기 중 새 push)은 끝났다. 남은 것:
-      ② artifact 7일 안에 승인하지 않으면 apply가 어떻게 실패하는지(7일이 걸려 한 세션에 못 한다)
-      ③ `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지(**실패한 apply가 나와야** 확인된다)
-- [ ] [aks-ref] **`vwan`·`aks` 병렬 apply를 실측한다**(hub 재구축 때). 두 root는 서로를 읽지도
-      쓰지도 않아 의존이 없다(`docs/hub-lifecycle.md`). ① 동시 apply가 Azure의 VNet 쓰기
-      직렬화에 걸려 `AnotherOperationInProgress`로 떨어지는지 ② 떨어지면 `gh run rerun --failed`로
-      복구되는지. 순차는 약 44분, 병렬 임계 경로(networking → aks → workbench)는 약 19분이다.
-      ⚠️ workbench는 `aks`만 기다리면 된다
+- [ ] [aks-ref] 승인 흐름 중 **③만 남았다**(①은 끝났고 ②는 4절로 옮겼다).
+      `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지 본다. **실패한 apply가 나와야**
+      확인되는데 hub 구축은 4개 root가 전부 성공해 기회가 없었다
 - [ ] [aks-ref] dev 루트 3개를 순서대로 apply한다(`spoke-lifecycle.md`)
 - [ ] [aks-ref] **dev 생성 후 `live/hub/vwan`을 한 번 더 apply한다.** `azurerm_resources` 태그
       조회가 그때 dev VNet을 발견해 스포크 연결을 채운다. hub는 spoke 없이 완결되게 지어져 있다
@@ -172,11 +168,21 @@ AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같
 - [ ] [module] `modules/aws/eks-cluster/examples/enterprise/README.md`의 "확인하는 것이 좋다"를
       단정으로 고친다. stop-slop 스윕에서 찾은 유일한 실제 완충 표현인데 그 항목의 범위
       (`.tf` 주석·`docs/*.md`) 밖이라 손대지 않았다
-- [ ] [local] context7 rate limit 시 키를 로컬 설정 `Authorization: Bearer`로. 약 한 달 뒤
-      `~/archive/` 삭제
+- [ ] [local] context7 rate limit 시 키를 로컬 설정 `Authorization: Bearer`로
 
 ### 4. 조건이 오면 (지금 하지 않는다)
 
+- [ ] [aks-ref] **hub를 철거하고 다시 세울 때**: `vwan`·`aks` 병렬 apply를 실측한다. 두 root는
+      서로를 읽지도 쓰지도 않아 의존이 없다(`docs/hub-lifecycle.md`). ① 동시 apply가 Azure의
+      VNet 쓰기 직렬화에 걸려 `AnotherOperationInProgress`로 떨어지는지 ② 떨어지면
+      `gh run rerun --failed`로 복구되는지. 순차는 약 44분, 병렬 임계 경로(networking → aks →
+      workbench)는 약 19분이다. ⚠️ workbench는 `aks`만 기다리면 된다.
+      ⛔ hub가 서 있는 동안에는 두 root 다 변경 0건이라 apply가 `skipped`로 끝나 확인할 수 없다
+- [ ] [aks-ref·eks-ref] **승인 게이트를 7일 넘게 방치하게 되면**: artifact 만료 뒤 apply가 어떻게
+      실패하는지 본다. plan artifact 보존이 7일이라 한 세션에 답이 나오지 않는다. ⚠️ 일부러
+      만들 일은 아니다 — 게이트는 뜬 세션에 처리하는 것이 규칙이고, 그 규칙을 어긴 run이
+      생겼을 때 관찰만 한다
+- [ ] [local] **약 한 달 뒤**: `~/archive/` 삭제
 - [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그를 컷할 때 태그 메시지에 user-data 교체
       경고를 싣는다. AWS `user_data_replace_on_change = true`, Azure `custom_data` ForceNew:
 

@@ -34,12 +34,13 @@ org 기본 권한(`default_repository_permission`)이 `read`라 org 멤버는 Te
 gh api --method PUT orgs/skax-ca/teams/iac/repos/skax-ca/<repo> -f permission='maintain'
 ```
 
-**무료 플랜의 제약**: private repo에 required reviewers를 걸 수 없다. 무료 플랜은 **public
-repo에서만** environment protection rule을 설정할 수 있어서, 승인 게이트가 필요하면 Team
-플랜 이상으로 올리거나 저장소를 public으로 전환해야 한다.
+**무료 플랜에서 승인 게이트를 얻는 조건**: 무료 플랜은 **public repo에서만** environment
+protection rule을 설정할 수 있다. 다섯 저장소를 public으로 둔 이유 하나가 이것이고, 배포 루트
+두 곳의 apply가 required reviewers를 기다리는 것도 그래서 가능하다. ⛔ **private으로 되돌리면
+승인 게이트가 사라진다.** Team 플랜 이상으로 올리는 것이 유일한 대안이다.
 
-**GitHub Actions(CI) 무료 사용량**: private 저장소 기준 **월 2,000분**까지 무료다(공개 저장소는
-표준 러너로 무제한). Artifact storage 500MB · Cache storage 10GB(저장소당)를 넘으면 과금된다.
+**GitHub Actions(CI) 무료 사용량**: public 저장소는 표준 러너로 무제한이다(private은 월
+2,000분). Artifact storage 500MB · Cache storage 10GB(저장소당)를 넘으면 과금된다.
 
 ---
 

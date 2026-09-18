@@ -85,7 +85,7 @@ module "vpc" {
 
 | 항목 | 규칙 |
 |------|------|
-| 브랜치 | 매니페스트도 **main 직접 커밋**. 근거는 문서 전용 규칙과 같다 — 두 repo에 CI가 없고 브랜치 보호도 걸 수 없어 PR이 머지 전에 막을 것이 없다. 형식만 남은 절차는 비용만 낸다 |
+| 브랜치 | 매니페스트는 **브랜치 → PR**. `verify.yml`이 PR에서 돌고 ruleset이 그것을 요구한다. push가 곧 apply인 저장소라 머지 전 게이트가 유일한 게이트다. README만 바뀐 커밋은 main 직접이다 |
 | ⚠️ 배포 루트와의 차이 | 배포 루트는 push가 plan, environment 승인이 apply인 2단계다. **매니페스트는 push가 곧 apply다**(`targetRevision: main` + `automated`) |
 | 커밋 전 확인 | `verify.yml`이 PR·main push에서 YAML 파싱·로컬 차트 `helm lint`/`template`·`kyverno test`를 돈다(오프라인). ArgoCD의 렌더(Application 조립·파라미터 주입·`include`)는 CI가 흉내 내지 않는다. 클러스터가 살아 있으면 `argocd app manifests <app> --core`, 철거 상태면 `helm template --repo <url> <chart> --version <v> -f <values>`로 대체한다. ⚠️ ApplicationSet의 `parameters`는 values 파일에 없으므로 `--set`으로 함께 넘긴다 — 빠뜨리면 렌더가 0건에 `ComparisonError`가 되는데, 이는 차트를 받아오지 못했을 때와 같은 모양이라 값 문제인지 네트워크 문제인지 구분되지 않는다 |
 | ⚠️ 정책은 렌더로 부족하다 | admission 정책(Kyverno)은 렌더가 성공해도 **판정이 틀릴 수 있다**. 차단 정책이 조용히 안 걸리거나 무관한 워크로드를 막아도 렌더는 통과한다. 그래서 커스텀 정책마다 `tests/kyverno/<정책>/`에 통과·차단·제외 픽스처와 기대 판정(`kyverno-test.yaml`)을 두고 `verify.yml`이 `kyverno test`로 돌린다. CLI는 차트 `appVersion`과 같은 버전으로 핀한다. 네임스페이스 라벨에 기대는 selector는 `values.yaml`(`apiVersion: cli.kyverno.io/v1alpha1`, `namespaceSelector`가 최상위 키)로 준다. 정책을 고치면 픽스처도 같이 고친다 |
@@ -93,7 +93,7 @@ module "vpc" {
 | 승격 | 클러스터가 있으면 nonprd → 검증 → prd. **철거 상태에서는 양 티어를 같이 올리고 재구축 때 한 번에 검증한다** — 검증할 대상이 없는 상태에서 커밋을 둘로 쪼개는 것은 절차만 남는다 |
 | 자기 관리 ArgoCD | `bootstrap/argocd-app.yaml`의 `targetRevision`과 `bootstrap/argocd-seed.sh`의 `ARGOCD_CHART_VERSION`은 **항상 같다**. 갈리면 흡수가 업그레이드가 되고, sync 주체가 sync 도중에 재시작한다. 올리는 것은 **클러스터가 철거된 상태에서** 한다 |
 | 버전 핀의 자리 | 한 차트 버전이 여러 곳에 박힌다(`eks-platform-gitops`는 `README.md`의 addon 표가 버전을 중복 보유한다 — 자동 생성이 아니라 손으로 쓴 표다). 올린 뒤 `grep -rn '<옛버전>'`으로 0건을 확인한다 |
-| ⛔ 재검토 트리거 | **클러스터를 상시 가동으로 바꾸거나, 작업자가 2인 이상이 되거나, 저장소가 public이 되면** 이 절을 다시 연다. 그때는 렌더 검증 CI를 만들고 그 CI가 도는 PR을 요구하는 것이 값한다 — "CI가 없으니 PR은 형식"이라는 판정이 그때 뒤집힌다 |
+| ⛔ 재검토 트리거 | **클러스터를 상시 가동으로 바꾸거나 작업자가 2인 이상이 되면** 이 절을 다시 연다. 그때는 ruleset의 승인 수(지금 0)와 bypass 범위, 그리고 `argocd app diff`를 CI로 끌어올 수 있는지(클러스터가 있어야 한다)를 본다 |
 
 ---
 
@@ -121,12 +121,13 @@ module "vpc" {
 
 | 변경 대상 | 경로 |
 |-----------|------|
-| **`.tf` · `.github/workflows/`** | **브랜치 → PR** |
+| **`.tf` · `.github/workflows/` · GitOps 매니페스트 · 셸 · 검사기** — `verify.yml`이 보는 것 전부 | **브랜치 → PR** |
 | **문서 전용** | **`main` 직접 커밋** |
-| **GitOps 매니페스트** | **`main` 직접 커밋**(「GitOps 저장소 공통」이 소유한다. 기준은 같고 결과만 다르다) |
 
-- 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 이 repo의 `verify.yml`·`verify-docs.yml`도, 배포 루트의 각 워크플로도
-  **`push: branches: [main]`에서 돌므로** "PR이어야 CI가 돈다"는 성립하지 않는다. 차이는 **깨진 것이 main에
-  들어가기 전에 걸리느냐**뿐이다. 문서에는 main을 깨뜨릴 산출물이 없다.
+- 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 5개 저장소 전부 `verify.yml`이 `pull_request`에서 돌고
+  main의 ruleset이 그 job을 required status check로 요구한다. 문서에는 main을 깨뜨릴 산출물이 없다.
+- **main ruleset**(5개 저장소 동일): 삭제 금지 · force-push 금지 · PR 필수(승인 수 0) · required status check.
+  bypass는 repository admin뿐이고 **그 용도는 문서 직접 커밋 하나다.** CI가 보는 파일을 bypass로 밀지 않는다 —
+  규칙은 외부 기여자에게 걸리고 유지자는 훅과 이 문장이 지킨다.
 - ⛔ **문서 전용 변경에 PR을 쓰지 않는다.** 이 repo는 사실상 1인 작업이라 리뷰는 self-merge = 형식이고,
   커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다. 형식만 남은 절차는 비용만 낸다.

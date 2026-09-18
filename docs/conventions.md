@@ -329,10 +329,12 @@ git config core.hooksPath .githooks
 
 | 변경 대상 | 경로 |
 |-----------|------|
-| `.tf` · `.github/workflows/` | **브랜치 -> PR** |
+| `.tf` · `.github/workflows/` · 매니페스트 · 셸 · 검사기 — CI가 보는 것 전부 | **브랜치 -> PR** |
 | 문서 | **`main` 직접 커밋** |
 
-기준은 *"CI가 머지 전에 막아야 하는가"* 하나다. 문서에는 main을 깨뜨릴 산출물이 없다.
+기준은 *"CI가 머지 전에 막아야 하는가"* 하나다. 문서에는 main을 깨뜨릴 산출물이 없다. main의
+ruleset(삭제·force-push 금지, PR 필수, required status check)이 그 기준을 집행하고, bypass는
+repository admin의 문서 직접 커밋에만 쓴다.
 
 **문서 전용 변경에 PR을 쓰지 않는다.** 사실상 1인 작업이라 리뷰가 형식이 되고,
 커밋 메시지를 길게 쓰는 문화라 PR 본문도 중복이다.

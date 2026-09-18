@@ -1,12 +1,19 @@
 # iac-module-library
 
-여러 고객사 프로젝트에서 재사용하는 **IaC 모듈 자산 라이브러리**.
+**읽는 사람**: 이 저장소의 모듈을 쓰려는 사람, 그리고 여기에 모듈·설계를 더하는 사람.
 
-**스택**: OpenTofu · GitHub Actions(OIDC) · S3 backend · ArgoCD
+**오너**: GitHub org [`skax-ca`](https://github.com/skax-ca). 질문과 제안은 Issues로 받는다.
+
+여러 프로젝트에서 재사용하는 **IaC 모듈 자산 라이브러리**. 프로젝트마다 아키텍처를 새로
+그리는 것은 당연하다. 문제는 그때 내린 설계 판단이 남지 않아 다음 프로젝트에서 같은 고민을
+반복하는 것이고, 그 판단을 모듈·패턴·규약으로 쌓는 것이 이 저장소가 있는 이유다. 그래서
+`modules/`와 `docs/`가 같은 무게를 갖는다.
+
+**스택**: OpenTofu · GitHub Actions(OIDC) · 원격 state backend(S3 · Azure Storage) · ArgoCD
 
 ---
 
-## 현황
+## 모듈
 
 모듈은 `modules/<provider>/<모듈명>/`에 둔다. 현재 AWS 4개, Azure 2개다.
 
@@ -48,7 +55,7 @@ provider를 가로질러 고유해야 한다.
 |--------|---------|
 | 이 조직에 막 합류했다 | [`docs/team-access.md`](docs/team-access.md): GitHub org 구조·합류 방법 |
 | 팀에 처음 왔다 | [`docs/architectures/README.md`](docs/architectures/README.md): 아키텍처 패턴 라우팅표 |
-| 새 프로젝트를 맡았다 | [`docs/architectures/gitops-hub-spoke/README.md`](docs/architectures/gitops-hub-spoke/README.md): 이 패턴이 맞는지 판정한다. 세우기·걷어내기 절차는 `eks-reference-infra`(AWS)·`aks-reference-infra`(Azure) 참조 |
+| 새 프로젝트를 맡았다 | [`docs/architectures/gitops-hub-spoke/README.md`](docs/architectures/gitops-hub-spoke/README.md): 이 패턴이 맞는지 판정한다. 구축·철거 절차는 `eks-reference-infra`(AWS)·`aks-reference-infra`(Azure) 참조 |
 | 모듈을 쓰려 한다 | [`docs/module-catalog.md`](docs/module-catalog.md): 입출력 계약 |
 | 왜 이렇게 됐는지 궁금하다 | [`docs/decisions.md`](docs/decisions.md): 검토하고 기각한 것들 |
 
@@ -70,18 +77,6 @@ module "vpc" {
 
 ---
 
-## 마이그레이션 안내
-
-이 트리로 이동하기 전에 컷된 태그는 이동 전 경로(`modules/<모듈명>`)를 그대로 가리킨다. 이후
-컷된 태그부터는 `source` 경로에 `/aws`가 들어간다(`modules/aws/<모듈명>`). 어느 태그부터
-전환됐는지는 `git tag -l '<모듈명>-v*' | sort -V`로 확인한다.
-
-승급할 때는 태그와 경로를 같은 커밋에서, `vpc`·`eks-cluster`·`workbench`·
-`cross-account-trust-role` 4개 모두 한 번에 올린다. 기존 태그는 그대로 동작하므로 승급 시점은
-소비 repo가 고른다.
-
----
-
 ## 개발 준비
 
 ```bash
@@ -95,3 +90,18 @@ GITHUB_TOKEN=$(gh auth token) tflint --init
 
 규칙은 [`docs/conventions.md`](docs/conventions.md)가 소유한다.
 AI 에이전트로 작업할 때의 규칙은 [`CLAUDE.md`](CLAUDE.md)에 있다.
+
+`.tf`·워크플로·검사기 변경은 브랜치 → PR이다. `verify.yml`이 훅과 같은 게이트를 PR에서 다시
+돈다. 문서만 바뀌는 커밋은 `main` 직접이다.
+
+---
+
+## 모듈 경로 이동 안내
+
+이 트리로 이동하기 전에 컷된 태그는 이동 전 경로(`modules/<모듈명>`)를 그대로 가리킨다. 이후
+컷된 태그부터는 `source` 경로에 `/aws`가 들어간다(`modules/aws/<모듈명>`). 어느 태그부터
+전환됐는지는 `git tag -l '<모듈명>-v*' | sort -V`로 확인한다.
+
+승급할 때는 태그와 경로를 같은 커밋에서, `vpc`·`eks-cluster`·`workbench`·
+`cross-account-trust-role` 4개 모두 한 번에 올린다. 기존 태그는 그대로 동작하므로 승급 시점은
+소비 repo가 고른다.

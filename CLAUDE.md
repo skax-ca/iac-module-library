@@ -3,11 +3,11 @@
 **읽는 사람**: 이 저장소에 코드를 쓰거나 설계를 검토하는 사람, 그리고 이 저장소의 모듈을 소비하는
 배포 루트에서 작업하는 사람.
 
-우리 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 모듈 자산 라이브러리.
-프로젝트마다 아키텍처를 새로 그리는 건 당연하다. 문제는 그때 내린 **설계 판단이 남지 않아
-비슷한 고민을 반복**하는 것이고, 그 판단을 모듈·패턴·규약으로 축적하는 것이 이 repo의 존재 이유다.
+우리 팀이 **여러 실제 프로젝트에서 재사용**하는 IaC 모듈 자산 라이브러리. 이 저장소가 무엇을
+쌓는지와 왜 쌓는지는 `README.md`가 소유한다.
 
-**스택**: **OpenTofu**(MPL-2.0) + GitHub Actions(OIDC) + S3 backend(`use_lockfile`) + OPA/Conftest
+**스택**: **OpenTofu**(MPL-2.0) + GitHub Actions(OIDC) + 원격 state backend(S3 `use_lockfile` ·
+Azure Storage `use_azuread_auth`) + OPA/Conftest
 
 **`.tf` 작업 규칙**(네이밍·아키텍처·검증·모듈 설계 원칙)은 `.claude/rules/terraform.md`가 소유한다
 (`.tf` 파일을 열 때 자동 로드된다). 이 파일은 리포 전역 규칙과 「배포 루트 공통」 규칙만 갖는다.
@@ -65,7 +65,7 @@ module "vpc" {
 
 | 항목 | 규칙 |
 |------|------|
-| 역할 | 이 repo의 모듈을 태그로 소비해 세우고 걷어낸다. 모듈 내부는 고치지 않는다. 고칠 것이 있으면 여기서 고치고 태그를 올린다 |
+| 역할 | 이 repo의 모듈을 태그로 소비해 인프라를 구축하고 철거한다. 모듈 내부는 고치지 않는다. 고칠 것이 있으면 여기서 고치고 태그를 올린다 |
 | state | 배포 루트마다 별도 state, key는 `<env>/<component>.tfstate`. 루트 간 결합은 `terraform_remote_state`가 아니라 Name·태그 기반 `data` 조회다. 예외(크로스 구독 등)는 그 repo 값 표가 적는다 |
 | plan → apply | push가 plan을 돌리고, apply job은 environment(`hub`·`dev`)의 required reviewers 승인을 기다린다. 승인자는 **그 run의** plan 요약을 읽고 누르고, 같은 run이 저장된 plan을 적용한다. `workflow_dispatch`는 destroy·replace·재-plan 경로이고 역시 승인을 기다린다. `pull_request` 트리거는 두지 않는다(PR plan은 OIDC subject를 넓혀야 한다) |
 | 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **이미 승인한 저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 새 plan이고 다시 승인 대상이다. plan artifact는 7일 보존이라 그 안에 승인한다 |

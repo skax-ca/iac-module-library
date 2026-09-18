@@ -52,7 +52,6 @@ provider를 가로질러 고유해야 한다.
 | 새 프로젝트를 맡았다 | [`docs/architectures/gitops-hub-spoke/README.md`](docs/architectures/gitops-hub-spoke/README.md): 이 패턴이 맞는지 판정한다. 세우기·걷어내기 절차는 `eks-reference-infra`(AWS)·`aks-reference-infra`(Azure) 참조 |
 | 모듈을 쓰려 한다 | [`docs/module-catalog.md`](docs/module-catalog.md): 입출력 계약 |
 | 왜 이렇게 됐는지 궁금하다 | [`docs/decisions.md`](docs/decisions.md): 검토하고 기각한 것들 |
-| 이 저장소를 한 번에 훑고 싶다 | [`presentations/2026-09-iac-asset/`](presentations/2026-09-iac-asset): 팀 발표 슬라이드(`slides.html`)와 같은 내용의 기술 문서(`article.md`). `docs/`의 파생물이라 어긋나면 `docs/`가 맞다. 디렉토리는 `<연월>-<주제>`이고 버전은 경로에 넣지 않는다 |
 
 ---
 

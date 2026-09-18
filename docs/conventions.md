@@ -271,10 +271,11 @@ pre-push는 push 범위에서 `.tf`·`.tftpl`·`.tftest.hcl`·`.terraform.lock.h
 디렉토리만 test한다. `examples/`와 README 변경은 test 대상이 아니다. CI 게이트 4는 범위와 무관하게
 전 모듈을 test한다.
 
-git hook으로 강제한다. clone마다 1회 활성화:
+git hook으로 강제한다. clone마다 1회 활성화(훅이 `shellcheck`·`gitleaks`를 하드 요구한다):
 
 ```bash
 git config core.hooksPath .githooks
+brew install shellcheck gitleaks
 ```
 
 `--no-verify` 우회는 긴급 시에만 쓰고 **사유를 커밋 메시지에 남긴다.**

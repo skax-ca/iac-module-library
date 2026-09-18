@@ -87,7 +87,7 @@ module "vpc" {
 ## 개발 준비
 
 ```bash
-brew install opentofu trivy
+brew install opentofu trivy shellcheck gitleaks
 git config core.hooksPath .githooks        # clone마다 1회
 GITHUB_TOKEN=$(gh auth token) tflint --init
 ```

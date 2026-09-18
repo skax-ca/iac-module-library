@@ -75,56 +75,92 @@ Karpenter 1.14.0 < main 1.14.1 / `feat/destroy-workflow` `cd26444`: 통합 워�
 destroy 경로가 5개 전부에 있다). `git cherry`는 이 경우 `+`를 내므로 살아 있는 작업으로 오판한다.
 
 ## 다음 할 일
-- [ ] [eks-ref·aks-ref] **재구축 때 승인 흐름을 실측한다.** push → plan → apply `waiting` → Summary 읽고
-      Review deployments 승인 → 같은 run이 apply. 확인할 것: ① 승인 대기 중 같은 루트에 새 push가 오면
-      대기 run이 취소되는지(공식 문서가 답하지 않는다. 취소되면 헤더에 적는다) ② artifact 7일 안에
-      승인하지 않으면 apply가 어떻게 실패하는지 ③ `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지.
-      ⚠️ 철거 상태에서 plan이 성공하는 루트(eks `hub/tgw`, aks `hub/networking`·`dev/networking`)는 apply가
-      대기로 남는다. 재구축 절차 밖이면 **Reject**한다(승인하면 만든다)
-- [ ] [eks-ref·aks-ref] **Dependabot PR 21건(eks 12 · aks 9)은 재구축 때 plan을 보며 올린다.** 지금
-      머지하지 않는다 — 철거 상태라 검증할 대상이 없고 모듈이 전부 `0.y.z`라 마이너에 파괴적 변경이
-      들어 있을 수 있다. ⚠️ 재구축이 몇 주 더 미뤄지면 주기를 `monthly`로 내린다(열린 PR이 배경 소음이
-      되면 알림의 값이 사라진다). provider PR은 루트별로 뜨므로 재구축 후 소음을 겪어 보고 `groups`로
-      묶을지 정한다. `github-actions` 생태계 추가도 그때 함께 본다
-- [ ] [aks-gitops] **hub 재구축 때 `bootstrap/argocd-values.yaml:44,51`의 client ID를 새 UAMI 값으로 바꾼다.**
-      `live/hub/vwan`이 만드는 UAMI의 client ID가 고정돼 있고 seed는 치환하지 않는다. 빠뜨리면 ArgoCD가
-      federate되지 않는다. 값은 `az identity show`로 읽는다
-- [ ] [*-gitops] **Kyverno CEL 전환을 재구축 후 클러스터에서 검증한다.** 오프라인 판정(`kyverno test`)은 CI에
-      들어갔다. 클러스터에서 다른 것은 autogen(파드 컨트롤러 대응 규칙)과 기본 `resourceFilters`다.
+
+재구축을 전제하는 항목이 많아 **인프라 순서**로 묶었다. 다음 세션이 AKS 구축·철거이고 그다음이
+EKS다. 1·2절은 그 작업과 **같이** 해야 하는 것(클러스터가 없으면 확인 자체가 불가능하다),
+3절은 클러스터와 무관해 아무 때나 되는 것, 4절은 트리거가 와야 열리는 것이다.
+
+### 1. AKS 구축·철거와 같이 (다음 세션)
+
+**구축 전**
+
+- [ ] [aks-gitops] ⛔ **`bootstrap/argocd-values.yaml:44,51`의 workload identity client ID를 새 UAMI
+      값으로 바꾼다.** `live/hub/vwan`이 만드는 UAMI의 client ID가 고정돼 있고 seed는 치환하지
+      않는다. 빠뜨리면 ArgoCD가 federate되지 않는다. 값은 `az identity show`로 읽는다.
+      **hub 구축 직후, seed 전에** 한다
+- [ ] [aks-ref] Dependabot PR 9건을 올릴지 정한다. 올리면 구축 전에 머지해 새 태그로 세운다.
+      모듈이 전부 `0.y.z`라 마이너에 파괴적 변경이 있을 수 있으니 plan을 읽고 판단한다.
+      ⚠️ 안 올리기로 하면 주기를 `monthly`로 내린다(열린 PR이 배경 소음이 된다)
+
+**구축 중 — 이번 재구축에서만 답이 나오는 실측**
+
+- [ ] [aks-ref] **승인 흐름을 실측한다**(EKS와 공통 질문이라 여기서 답을 낸다). push → plan →
+      apply `waiting` → Summary 읽고 Review deployments 승인 → 같은 run이 apply. 확인할 것:
+      ① 승인 대기 중 같은 루트에 새 push가 오면 대기 run이 취소되는지(공식 문서가 답하지 않는다.
+      취소되면 세션 헤더에 적는다) ② artifact 7일 안에 승인하지 않으면 apply가 어떻게 실패하는지
+      ③ `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
+- [ ] [aks-gitops] seed의 root Application 단계 **직후** `argocd app manifests root-app --core`로
+      include를 확인한다 — 리소스 9개, 평문 CR 디렉토리의 전담 Application이 Directory 타입으로
+      렌더되는지
+- [ ] [aks-gitops] cluster Secret 등록 — teardown이 라벨을 먼저 뗐다. AKS dev는 `environment`·
+      `tier: nonprd`·`addon-karpenter`. `tier`는 staged addon(Kyverno) 선택에도 쓰인다
+
+**구축 후 — 클러스터가 살아 있을 때만 확인 가능**
+
+- [ ] [aks-ref·aks-gitops] **시스템 풀 taint를 검증한다.** seed 순서(ArgoCD 시스템 풀 → NodePool CR →
+      NAP 노드 → Kyverno), KEDA addon toleration(`kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS:.spec.tolerations[*].key`),
+      시스템 노드에 `kube-system`·`argocd`만 있는지
+- [ ] [aks-gitops] **Kyverno CEL 전환을 클러스터에서 검증한다.** 오프라인 판정(`kyverno test`)은 CI에
+      있다. 클러스터에서 다른 것은 autogen(파드 컨트롤러 대응 규칙)과 기본 `resourceFilters`다.
       - 업스트림 PSS 11개가 `ValidatingPolicy`로 뜨고 `validationActions: [Audit]`·`failurePolicy: Ignore`인지
       - 커스텀 정책 2개(`Deny`)가 requests 없는 파드를 실제로 거부하는지
       - aks 관리형 ns 제외가 먹는지. 영구 OutOfSync가 없는지(`ServerSideDiff=true`에 기댄다)
-- [ ] [aks-ref·aks-gitops] **시스템 풀 taint를 재구축 후 검증한다.** seed 순서(ArgoCD 시스템 풀 → NodePool CR →
-      NAP 노드 → Kyverno), KEDA addon toleration(`kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS:.spec.tolerations[*].key`),
-      시스템 노드에 `kube-system`·`argocd`만 있는지
-- [ ] [eks-ref·eks-gitops] **taint 키 교체를 재구축 후 검증한다.** coredns·metrics-server·ebs-csi·Karpenter의
+- [ ] [aks-gitops] **관리형 네임스페이스 라벨을 찍고 `managedby` 조건을 판정한다.** `kubectl get ns
+      --show-labels`. Azure 네임스페이스가 `control-plane` 하나로 전부 잡히면 `managedby` 조건과 그
+      주석·픽스처(`skip-managedby-aks`)를 걷는다. ⛔ argocd 제외 조건은 판정 대상이 아니다.
+      ⚠️ 조건을 지우면 사정권이 넓어진다
+- [ ] [aks-gitops] nonprd 팬아웃 실측. 승격 절차 1회(Kyverno 릴리스나 차트 버전 올림으로)
+
+### 2. EKS 구축·철거와 같이 (AKS 다음)
+
+- [ ] [eks-ref] Dependabot PR 12건을 올릴지 정한다(AKS와 같은 판단). 모듈 4종이 전부 한 마이너씩
+      밀려 있다. ⚠️ `live/hub/tgw`의 aws provider가 다른 루트와 갈려 있었다(6.61.0 vs 6.57.1) —
+      provider PR을 올리면 함께 정리된다
+- [ ] [eks-ref] 승인 흐름은 AKS에서 답이 나온 것을 빼고 **차이만** 본다. eks 고유는 철거 상태에서
+      `hub/tgw`만 plan이 성공한다는 점이다(생성 plan이라 절차 밖이면 **Reject**)
+- [ ] [eks-gitops] seed의 root Application 단계 직후 `argocd app manifests root-app --core`로 include
+      확인 — 리소스 14개
+- [ ] [eks-gitops] cluster Secret 등록. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·
+      `karpenterNodeRole`. ⚠️ `karpenterNodeRole`은 26자 hash 접미가 붙어 **재구축마다 바뀐다**
+- [ ] [eks-ref·eks-gitops] **taint 키 교체를 검증한다.** coredns·metrics-server·ebs-csi·Karpenter의
       기본값 toleration(`kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,NODE:.spec.nodeName,TOLERATIONS:.spec.tolerations[*].key`),
-      coredns `control-plane`·ebs-csi `NoExecute/300s` 복원, cert-manager 3개 시스템 노드, Karpenter 부트스트랩,
-      ALBC·Kyverno·ArgoCD는 Pending만 아니면 통과
-- [ ] [eks-gitops] **재구축 후 Karpenter AMI를 prd에 핀한다.** `kubectl get nodeclaim -o wide`로 실제 뜬 노드의
-      값. 형식 `al2023@v<YYYYMMDD>`. nonprd는 다음 AMI를 먼저 받는 자리
-- [ ] [*-gitops] seed의 root Application 단계 직후 `argocd app manifests root-app --core`로 include 확인 —
-      리소스 aks 9개·eks 14개, 평문 CR 디렉토리의 전담 Application이 Directory 타입으로 렌더되는지
-- [ ] [eks-gitops] 재구축 후 multi-source 5개 addon이 `$values/addons/<addon>/values.yaml`을 읽는지, AppProject
+      coredns `control-plane`·ebs-csi `NoExecute/300s` 복원, cert-manager 3개 시스템 노드, Karpenter
+      부트스트랩, ALBC·Kyverno·ArgoCD는 Pending만 아니면 통과
+- [ ] [eks-gitops] multi-source 5개 addon이 `$values/addons/<addon>/values.yaml`을 읽는지, AppProject
       `sourceRepos`를 통과하는지
-- [ ] [*-gitops] 재구축 후 cluster Secret 등록 — teardown이 라벨을 먼저 뗐다. EKS dev는 `environment`·`tier:
-      nonprd`·`vpcName`·`karpenterNodeRole`, AKS dev는 `environment`·`tier: nonprd`·`addon-karpenter`. `tier`는
-      AMI 핀 선택에도 쓰인다
-- [ ] [*-gitops] nonprd 팬아웃 실측. 승격 절차 1회(다음 Kyverno 릴리스나 AMI 핀으로)
-- [ ] [aks-gitops] **관리형 네임스페이스 라벨을 찍고 `managedby` 조건을 판정한다.** `kubectl get ns --show-labels`.
-      Azure 네임스페이스가 `control-plane` 하나로 전부 잡히면 `managedby` 조건과 그 주석·픽스처(`skip-managedby-aks`)를
-      걷는다. ⛔ argocd 제외 조건은 판정 대상이 아니다. ⚠️ 조건을 지우면 사정권이 넓어진다
-- [ ] [eks-ref·aks-ref] 루트 간 모듈 태그 드리프트를 `verify.yml` Summary에 출력만 하는 안(실패시키지 않는다).
-      지금은 루트별 `ref` 값이 전부 일치해 보류했다. 승격을 스테이지드로 돌리기 시작하면 갈린 상태가
-      의도인지 잊은 것인지 구분할 수단이 필요해진다
-- [ ] [전체] **작업자가 2인 이상이 되면**: ruleset 5개 `required_approving_review_count` 0→1 +
-      `require_last_push_approval`·`dismiss_stale_reviews_on_push`, 환경 4개에 두 번째 reviewer +
-      `prevent_self_review: true`, 문서 직접 커밋 규칙과 admin bypass(`always`) 재검토. CODEOWNERS는 모듈
-      담당이 갈릴 때만
-- [ ] [local] org 멤버십 가시성은 그대로 두었다(공개 멤버 0, 멤버 2). 바꾸면 달라지는 것은 People 탭과
-      개인 프로필 배지뿐이고 권한·CI·OIDC와는 무관하다. 본인 것은 각자만 바꿀 수 있다
-- [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그 메시지에 user-data 교체 경고를 싣는다(`6e34dec`는
-      주석·문서 전용, 양쪽 태그보다 뒤). AWS `user_data_replace_on_change = true`, Azure `custom_data` ForceNew:
+- [ ] [eks-gitops] **Karpenter AMI를 prd에 핀한다.** `kubectl get nodeclaim -o wide`로 실제 뜬 노드의
+      값. 형식 `al2023@v<YYYYMMDD>`. nonprd는 다음 AMI를 먼저 받는 자리
+- [ ] [eks-gitops] Kyverno CEL 클러스터 검증(1절의 aks 항목과 같은 목록, aks 관리형 ns 항목만 제외)
+
+### 3. 재구축과 무관 — 아무 때나
+
+- [ ] [module·eks-ref·aks-ref] stop-slop 잔여 범위: `.tf` 주석과 `docs/*.md`. README 4곳(모듈 루트·
+      배포 루트 둘의 `bootstrap/`·eks-gitops)은 끝났다. ⛔ em-dash 제외. "A가 아니라 B다"·
+      "의도적으로"·출처 수동태는 유지
+- [ ] [aks-ref] azurerm `5.5.0` 검토 — 문서 읽기까지는 지금 되고, AKS ForceNew 축
+      (`network_profile`·`private_cluster_enabled`) 변경 여부를 먼저 본다. lock 갱신과 apply는 1절의
+      구축과 함께
+- [ ] [eks-ref·aks-ref] 루트 간 모듈 태그 드리프트를 `verify.yml` Summary에 출력만 하는 안
+      (실패시키지 않는다). 지금은 루트별 `ref` 값이 전부 일치해 보류했다. 승격을 스테이지드로
+      돌리기 시작하면 갈린 상태가 의도인지 잊은 것인지 구분할 수단이 필요해진다
+- [ ] [local] context7 rate limit 시 키를 로컬 설정 `Authorization: Bearer`로. 약 한 달 뒤
+      `~/archive/` 삭제
+
+### 4. 조건이 오면 (지금 하지 않는다)
+
+- [ ] [module] 다음 `workbench`·`aks-workbench` **기능** 태그를 컷할 때 태그 메시지에 user-data 교체
+      경고를 싣는다(`6e34dec`는 주석·문서 전용, 양쪽 태그보다 뒤). AWS
+      `user_data_replace_on_change = true`, Azure `custom_data` ForceNew:
 
       ```
       ⚠️ 이 태그는 user-data 템플릿의 주석 변경을 포함한다. 소비 측 plan에
@@ -134,20 +170,26 @@ destroy 경로가 5개 전부에 있다). `git cherry`는 이 경우 `+`를 내�
          렌더링 내용은 같고 바뀐 것은 주석뿐이다. apply 전에 교체를 예상할 것.
       ```
 - [ ] [module] `aks-cluster` 예시 SKU 변경(`4f4bb10`)은 다음 기능 릴리스에 싣는다
-- [ ] [addon] 차트 전부 최신(kyverno 3.9.1 / argo-cd 10.9.1 / karpenter 1.14.1 / ALBC 3.5.0 / keda 2.20.2 /
-      cluster-autoscaler 9.59.0 / Gateway API v1.6.2). 다음 올릴 때 다시 찍는다. ⛔ Kyverno 3.8 라인으로
-      되돌리지 않는다(legacy 타입 v1.20 제거). `kyverno test` CLI 핀도 appVersion과 같이 올린다
-- [ ] [aks-ref] azurerm `5.5.0` 검토 — AKS ForceNew 축(`network_profile`·`private_cluster_enabled`) 변경 여부 먼저.
-      5개 루트 lock 함께
-- [ ] [권고 미부합] AKS 시스템 풀 노드 수 3대(권고) vs 2대. 실 워크로드 때
-- [ ] [module·eks-ref·aks-ref] stop-slop 잔여 범위: `.tf` 주석과 `docs/*.md`. README 4곳(모듈 루트·배포 루트
-      둘의 `bootstrap/`·eks-gitops)은 이번에 돌렸다. ⛔ em-dash 제외. "A가 아니라 B다"·"의도적으로"·출처
-      수동태는 유지
+- [ ] [addon] 차트 버전을 올릴 때 다시 찍는다(지금 전부 최신: kyverno 3.9.1 / argo-cd 10.9.1 /
+      karpenter 1.14.1 / ALBC 3.5.0 / keda 2.20.2 / cluster-autoscaler 9.59.0 / Gateway API v1.6.2).
+      ⛔ Kyverno 3.8 라인으로 되돌리지 않는다(legacy 타입 v1.20 제거). `kyverno test` CLI 핀도
+      appVersion과 같이 올린다
+- [ ] [aks-ref] 실 워크로드를 올릴 때 AKS 시스템 풀 노드 수를 3대(권고)로 볼지 판단한다. 지금 2대는
+      권고 미부합을 알고 수락한 값이다
+- [ ] [eks-ref·aks-ref] Dependabot에 `groups`로 provider PR을 묶을지, `github-actions` 생태계를 추가할지는
+      재구축 후 소음을 실제로 겪어 보고 정한다. ⚠️ `open-pull-requests-limit`은 디렉토리별이라
+      루트를 늘리면 전체 상한도 함께 늘어난다
+- [ ] [전체] **작업자가 2인 이상이 되면**: ruleset 5개 `required_approving_review_count` 0→1 +
+      `require_last_push_approval`·`dismiss_stale_reviews_on_push`, 환경 4개에 두 번째 reviewer +
+      `prevent_self_review: true`, 문서 직접 커밋 규칙과 admin bypass(`always`) 재검토. CODEOWNERS는
+      모듈 담당이 갈릴 때만
+- [ ] [local] org 멤버십 가시성은 그대로 두었다(공개 멤버 0, 멤버 2). 바꾸면 달라지는 것은 People
+      탭과 개인 프로필 배지뿐이고 권한·CI·OIDC와는 무관하다. 본인 것은 각자만 바꿀 수 있다
 - [ ] [module] ⛔ **모듈 소싱 대안 3종은 기각했다. 다시 제안하기 전에 이 근거를 반박해야 한다.**
       ① 레지스트리 이전 — 공개/사설 레지스트리는 저장소 1개당 모듈 1개(`terraform-<provider>-<name>`)를
-      요구해 저장소 7개 분할을 강제한다. 모노레포로 얻는 것(한 PR에서 여러 모듈 수정, 규약 문서와 코드의
-      동거)을 잃는다. ② OCI(`oci://`, digest 고정) — 불변성이 가장 강하고 `//subdir`도 지원하지만 레지스트리
-      운영·인증·게시 파이프라인이 새로 필요하다. 태그 ruleset이 같은 목적을 훨씬 싸게 달성한다. 팀이
-      커지거나 외부 배포가 생기면 그때 다시 본다. ③ `depth=1` 제거 후 SHA 고정 — 불변성은 얻지만 어느
-      버전인지 안 보이고 클론이 무거워진다. `examples/`의 상대 경로 유지는 `docs/decisions.md`에 기록했다
-- [ ] [local] context7 rate limit 시 키를 로컬 설정 `Authorization: Bearer`로. 약 한 달 뒤 `~/archive/` 삭제
+      요구해 저장소 7개 분할을 강제한다. 모노레포로 얻는 것(한 PR에서 여러 모듈 수정, 규약 문서와
+      코드의 동거)을 잃는다. ② OCI(`oci://`, digest 고정) — 불변성이 가장 강하고 `//subdir`도
+      지원하지만 레지스트리 운영·인증·게시 파이프라인이 새로 필요하다. 태그 ruleset이 같은 목적을
+      훨씬 싸게 달성한다. 팀이 커지거나 외부 배포가 생기면 그때 다시 본다. ③ `depth=1` 제거 후 SHA
+      고정 — 불변성은 얻지만 어느 버전인지 안 보이고 클론이 무거워진다. `examples/`의 상대 경로
+      유지는 `docs/decisions.md`에 기록했다

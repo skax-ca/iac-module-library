@@ -7,8 +7,8 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | hub·dev 전부 destroy. **public**, MIT. 시크릿 0개. 최상위 `README.md` 있음(라우터: 배포 루트 5개·state key·실행 모델·문서 라우팅표). `verify.yml`(시크릿·문서주석셸·OpenTofu 3 job)이 PR·push에서 돌고 ruleset `main`이 그것을 요구한다. environment `hub`·`dev`에 required reviewer `silverte`(self-review 허용)와 브랜치 정책 `main`. plan artifact 7일. 철거 상태 main push: `hub/tgw`만 plan 성공 → apply `waiting`(생성 plan 7건이라 **Reject**한다), 나머지 4개는 `RAM Resource Share`·`TGW`·`VPC` not found로 실패. 시스템 노드그룹 taint `CriticalAddonsOnly=true:NoSchedule`, 라벨 `workload-class=system`. 변수 34개 `nullable = false`. 루트마다 `backend.hcl.example`(로컬 전용 4키). **Dependabot PR 0건** — 모듈 4종이 `vpc-v0.5.0`·`eks-cluster-v0.11.0`·`workbench-v0.9.0`·`cross-account-trust-role-v0.4.0`, aws provider가 루트 5개 전부 `6.64.0`으로 수렴. 액션 6종이 커밋 SHA 핀(태그는 뒤 주석) |
-| eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태. **public**, MIT. seed는 1 helm install → 2 AppProject → 3 cluster Secret → 4 root Application(repository Secret 단계 없음, preflight가 `repoURL`을 익명 `ls-remote`). `verify.yml`(시크릿·주석셸·매니페스트 3 job: YAML 파싱·로컬 차트 2개 lint/template·`kyverno test`)과 ruleset. `tests/kyverno/require-karpenter-resources/` 픽스처 5건(pass 1·fail 3·skip 1). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet `applicationsets/{baseline,catalog}/`(10파일), root App include 매칭 14개. multi-source `$values` 5개. Karpenter AMI 핀 `amiAliasByTier` 둘 다 `al2023@latest`. Kyverno는 `policies.kyverno.io/v1beta1 ValidatingPolicy`. 훅 정규식에 `tests/`·`.github/workflows/` 포함. ⛔ 액션 SHA 핀을 걸지 않았다(OIDC job 0) |
+| eks-reference-infra | main = origin | **hub·dev 둘 다 구축 완료**(hub: tgw 7 + networking 69 + eks 87, dev: networking 69 + eks 87, hub networking 재적용으로 dev 라우트 6건 추가). k8s v1.35.6, 시스템 노드 2대씩이고 Karpenter 노드는 0. **public**, MIT. 시크릿 0개. 최상위 `README.md` 있음(라우터: 배포 루트 5개·state key·실행 모델·문서 라우팅표). `verify.yml`(시크릿·문서주석셸·OpenTofu 3 job)이 PR·push에서 돌고 ruleset `main`이 그것을 요구한다. environment `hub`·`dev`에 required reviewer `silverte`(self-review 허용)와 브랜치 정책 `main`. plan artifact 7일. 철거 상태에서 main push는 `hub/tgw`만 plan이 성공한다(생성 7건이라 **Reject**). 나머지 4개는 `RAM Resource Share`·`TGW`·`VPC` not found로 실패한다. ⚠️ plan artifact 이름은 `eks` 루트만 `tfplan-eks-<run_id>`이고 나머지 4개는 `tfplan-<run_id>`다. 시스템 노드그룹 taint `CriticalAddonsOnly=true:NoSchedule`, 라벨 `workload-class=system`. 변수 34개 `nullable = false`. 루트마다 `backend.hcl.example`(로컬 전용 4키). **Dependabot PR 0건** — 모듈 4종이 `vpc-v0.5.0`·`eks-cluster-v0.11.0`·`workbench-v0.9.0`·`cross-account-trust-role-v0.4.0`, aws provider가 루트 5개 전부 `6.64.0`으로 수렴. 액션 6종이 커밋 SHA 핀(태그는 뒤 주석) |
+| eks-platform-gitops | main = origin | hub·dev cluster Secret 등록(dev는 PR #22 `4b4007a`: `tier: nonprd`, `addon-cluster-autoscaler`·`addon-keda` 구독, `karpenterNodeRole`은 접미 없는 고정 이름). Application은 hub 11 + dev 10 전부 `Synced/Healthy`. **public**, MIT. seed는 1 helm install → 2 AppProject → 3 cluster Secret → 4 root Application(repository Secret 단계 없음, preflight가 `repoURL`을 익명 `ls-remote`). `verify.yml`(시크릿·주석셸·매니페스트 3 job: YAML 파싱·로컬 차트 2개 lint/template·`kyverno test`)과 ruleset. `tests/kyverno/require-karpenter-resources/` 픽스처 5건(pass 1·fail 3·skip 1). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet `applicationsets/{baseline,catalog}/`(10파일), root App 렌더 리소스 19개(AppProject 1·Application 2·ApplicationSet 15·Secret 1, cluster Secret이 늘면 Secret도 는다). multi-source `$values` 5개. Karpenter AMI 핀 `amiAliasByTier`는 prd `al2023@v20260917`(PR #23 `c34d73d`, hub NodeClaim 실측), nonprd `al2023@latest`. Kyverno는 `policies.kyverno.io/v1beta1 ValidatingPolicy`. 훅 정규식에 `tests/`·`.github/workflows/` 포함. ⛔ 액션 SHA 핀을 걸지 않았다(OIDC job 0) |
 | aks-reference-infra | main = origin | **hub·dev 둘 다 구축 완료.** hub(networking 27 + vwan 4 + aks 8 + workbench 14)는 기존, 이번 세션에 dev도 세웠다(networking 24 + aks 6 + workbench 15, 전부 신규 생성·파괴 0). dev workbench 공인 IP `20.200.218.130`, hub는 `20.196.104.126`(둘 다 `Standard_B2s`류). hub vwan을 dev networking 뒤에 재apply해 `azurerm_virtual_hub_connection.spoke["dev"]` 1건 생성 — `Succeeded` 확인됨. 두 클러스터 모두 k8s 1.35 private, `networkPluginMode=overlay`·`podCidr 10.244.0.0/16`·`outboundType=userAssignedNATGateway`·`networkPolicy=cilium`(dev가 hub 값을 그대로 승계, network_profile 대조 완료). provider 7루트 전부 `azurerm 5.5.0`, **Dependabot PR 0건**. 모듈 태그 `aks-cluster-v0.10.0`·`aks-workbench-v0.7.0`·`vnet-v0.2.0`. **public**, MIT. ⚠️ **dev workbench 최초 부팅에서 apt lock 결함이 실제로 재현됐다**(`spoke-lifecycle.md` 5절이 이미 적어둔 것) — azure-cli 설치가 실패해 kubeconfig가 안 만들어졌고, 수동 복구(`az` 재설치 → `az login --identity` → `get-credentials` → `kubelogin convert` → azureuser 홈에 복사)로 풀었다. 복구 절차를 `runbooks.md`에 남겼다(`6611a9a`, 문서 전용 main 직접 커밋). dev 3개 root 재-plan 전부 `No changes` 확인, 부트스트랩 drift 없음(`verify.sh`) |
 | aks-platform-gitops | main = origin | **hub·dev 둘 다 등록 완료.** Application **12개**(hub 5 + dev 5 + `argocd` + `root-app`) 전부 `Synced/Healthy`. **초기 admin 비밀번호 교체 완료** — `argocd-initial-admin-secret` 삭제됨(workbench SSH 비대화형 실행, heredoc stdin으로 비밀번호를 argv 노출 없이 전달). dev 클러스터 등록은 PR #5(`9e16569`)로 머지: `clusters/dev/aks-demo-dev-krc-main-01/cluster-secret.yaml` 신규(라벨 `environment: dev`·`tier: nonprd`·`addon-karpenter: enabled`) + `projects/platform.yaml` destinations를 새 fqdn(`...-yp20hiip...`)으로 갱신. Kyverno를 hub(prd)와 대조 — **차이 없음**(둘 다 엔진 3.9.1, 업스트림 PSS 11개 Audit + 커스텀 1개 Deny, 관리형 ns 라벨 동일). nonprd 최초 팬아웃은 등록 후 약 2분 만에 5개 Application이 전부 수렴했다. **public**, MIT. `bootstrap/argocd-values.yaml`의 client ID `ec70a09c-8160-4ba6-8a25-2905d55b9376`. ApplicationSet **5파일 = ApplicationSet 7개**, root App include 매칭 **11개**. `require-nodepool-resources`의 `namespaceSelector`는 **2조건**(`control-plane` 없음 + 이름이 `argocd` 아님, `f798dad`) |
 
@@ -83,80 +83,38 @@ heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`
 
 ## 지난 세션 (2026-09-21)
 
-**AKS spoke(dev)를 구축하고 hub ArgoCD에 등록해, 이번 재구축 순서(AKS→EKS)의 AKS 쪽을
-완결했다.** 통합 체크리스트 14항목 중 12개를 이 세션 안에서 끝냈다.
+**EKS hub·dev를 처음부터 구축하고 GitOps에 등록해, 재구축 순서(AKS→EKS)의 EKS 쪽까지 완결했다. 철거하지 않고 세워 둔 채로 마무리했다.** 지난 할 일 1절의 7개를 구축 중에 전부 확인했다.
 
-**hub ArgoCD 초기 비밀번호를 교체했다**(`hub-lifecycle.md` 완료 조건, 두 세션째 미뤄뒀던 것).
-워크벤치에 SSH로 접속해 `argocd login`·`account update-password`·`argocd-initial-admin-secret`
-삭제까지 비대화형 heredoc으로 실행했다 — 비밀값이 argv에 남지 않는 방식([[feedback_own_infra_secret_channel_override]]
-override를 이 대화에서 재확인받아 적용).
+**구축**: hub tgw 7 → networking 69 → eks 87 → seed → dev networking 69 → dev eks 87 → hub networking 재적용 6(dev 라우트) 순으로 apply했다. 매번 `gh run download`로 plan artifact를 받아 `tofu show`로 삭제·교체 0건을 확인한 뒤 승인했다. bootstrap은 hub·dev 둘 다 drift 없이 남아 있어 새로 만들지 않았다. hub ArgoCD 비밀번호를 교체했다([[feedback_own_infra_secret_channel_override]] override를 이 대화에서 재확인받아 적용). `update-password`가 tty를 요구해 heredoc 파이프가 실패했고 `--current-password`·`--new-password` 플래그로 풀었다. 새 값은 hub workbench `/tmp/argocd-newpw`에 있고(재부팅하면 사라질 수 있다) 대화에는 찍지 않았다.
 
-**dev 3개 root를 순서대로 apply했다**(networking 24 → aks 6 → workbench 15, 전부 신규 생성·
-파괴 0). 매 apply 전에 `gh run download`로 plan artifact를 받아 `tofu show -no-color`로
-직접 확인한 뒤 승인했다. workbench 최초 부팅에서 `spoke-lifecycle.md`가 이미 문서화해둔
-apt lock 결함이 실제로 나타나 azure-cli 설치가 실패했고, 수동으로 azure-cli 재설치 →
-`az login --identity` → `get-credentials` → `kubelogin convert` → root kubeconfig를 azureuser
-홈으로 복사하는 순서로 복구했다. 이 절차를 `runbooks.md`에 남겼다(`6611a9a`).
+**seed·팬아웃에서 만난 것**(문서에 반영했다, gitops `a3c2d7c`·eks-ref `e658814`): SSM `AWS-StartInteractiveCommand`의 `nohup … & disown`은 세션과 함께 죽어 `setsid`로 떼어 냈다. hub에서 ALBC가 CRD보다 2초 먼저 떠 `Disabling ALBGatewayAPI`로 굳어 gateway가 `Degraded`였고 ALBC 재시작으로 풀렸다(README의 "신규 seed는 이 문제가 없다"가 틀렸다). dev는 그 경쟁이 없었지만 ALBC 웹훅 인증서 `x509` 불일치로 kyverno sync가 재시도돼 ALBC를 재시작했고, `kyverno-policies`의 `Unknown`은 오래된 비교 오류 캐시라 hard refresh로 풀었다.
 
-**hub vwan을 재apply해 dev 스포크 연결을 채웠다**(`azurerm_virtual_hub_connection.spoke["dev"]`
-1건, `Succeeded` 확인). dev networking이 hub vwan보다 나중에 서므로 이 재적용이 필요했던
-통상 경로였다.
+**dev 등록**(gitops PR #22 `4b4007a`): `server`·`caData`는 `describe-cluster`로, `roleARN`·`vpcName`·`karpenterNodeRole`은 AWS 실물로 잡았다. 과거 dev cluster-secret은 `tier: dev`(라벨 계약 위반)와 이력 서술이 섞여 있어 복원하지 않고 hub 파일을 본떠 새로 썼다. `karpenterNodeRole`은 접미 없는 고정 이름(`iamr-demo-dev-an2-karpenter-node`)이라 지난 할 일의 "26자 hash 접미가 붙는다"는 서술은 EKS에는 틀렸다.
 
-**dev를 hub ArgoCD에 원격 클러스터로 등록했다**(aks-gitops PR #5, `9e16569`). fqdn·caData는
-`az aks get-credentials`+kubeconfig 파싱으로, hub UAMI clientId·tenantId는 `az identity show`로
-직접 수집해 `cluster-secret.yaml`을 작성했고, `platform.yaml`의 낡은 destination fqdn도 같이
-갱신했다(빠뜨리면 스포크 팬아웃이 조용히 막히는 함정이라 세트로 처리). root-app 강제 refresh
-후 dev Application 5개가 약 2분 만에 전부 `Synced/Healthy`로 수렴하는 것을 Monitor로 추적했다.
+**점검 7항목**: ① `hub/tgw`만 생성 7건으로 plan 성공. ② root App 렌더 리소스 19개(14개가 아니었다). ③ dev cluster Secret 등록. ④ 두 클러스터 Pending 0, 시스템 노드에 kube-system 9종·cert-manager 6·argocd 5·kyverno 5·keda 3 입주. ⑤ multi-source 5개가 chart+`$values` 2 source로 Synced. ⑥ 테스트 Deployment로 hub에 Karpenter 노드를 띄워 실측 `ami-02849ad5db10c09e4` = `al2023 v20260917`, prd 핀(PR #23 `c34d73d`), 노드는 회수됨. ⑦ PSS 11 Audit + 커스텀 Deny가 hub·dev Ready이고 서버 dry-run으로 차단·통과·제외(hub `argocd`)가 기대대로다. autogen도 Deployment를 막는다.
 
-**완료 판정 7항목(dev 기준)을 전부 확인했다.** 부트스트랩 drift 없음, 노드 2대 Ready(v1.35.7),
-network_profile이 hub와 동일하게 적용됨, root-app이 새 커밋 SHA를 읽음, Application 12개
-전부 Synced/Healthy, dev 3개 root 재-plan이 전부 `No changes`. Kyverno를 hub(prd)와 대조한
-결과도 **차이 없음**(엔진 3.9.1, 정책 세트, 관리형 ns 라벨 전부 동일) — dev 최초 온보딩이라
-아직 버전이 갈릴 기회가 없었던 것이 이유다.
-
-**승격 절차 1회는 보류했다.** 추적 중인 addon이 전부 이미 최신 버전이라 지금 올릴 대상이
-없다 — 인위적으로 버전을 올리는 건 실제 필요 없는 인프라 변경이라 다음 차트 업데이트가
-생길 때로 미뤘다(사용자 확인). 승인 흐름 ③(`gh run rerun --failed`가 저장된 plan을 그대로
-쓰는지)도 이번 3개 apply가 전부 성공해 확인 기회가 없었다.
+**하지 않은 것**: 5개 루트 `action=plan` 재확인(각 apply의 수렴 검증이 통과해 생략). 승인 흐름의 `rerun --failed`는 apply가 전부 성공해 이번에도 기회가 없었다.
 
 ## 다음 할 일
 
-AKS spoke 구축이 끝나 재구축 순서상 다음은 EKS다. 1절은 그 작업, 2절은 클러스터와 무관해
-아무 때나 되는 것, 3절은 트리거가 와야 열리는 것이다.
+hub·dev가 서 있는 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축·철거 일정이 정해질 때 다시 만든다. 지금 할 수 있는 것과 트리거가 와야 열리는 것만 남는다.
 
-### 1. EKS 구축·철거와 같이 (다음 세션)
+### 1. 재구축과 무관 — 아무 때나
 
-- [ ] [eks-ref] 승인 흐름은 AKS에서 답이 나온 것을 빼고 **차이만** 본다. eks 고유는 철거 상태에서
-      `hub/tgw`만 plan이 성공한다는 점이다(생성 7건, 절차 밖이면 **Reject**)
-- [ ] [eks-gitops] seed의 root Application 단계 직후 `argocd app manifests root-app --core`로 include
-      확인 — 리소스 14개. ⚠️ **kubeconfig 컨텍스트의 네임스페이스가 `argocd`여야 한다**(아니면
-      `configmap "argocd-cm" not found`로 죽는다). 임시 KUBECONFIG 사본에 `kubectl config set-context
-      --current --namespace=argocd`를 걸어 영구 변경 없이 돌린다
-- [ ] [eks-gitops] cluster Secret 등록. EKS dev는 `environment`·`tier: nonprd`·`vpcName`·
-      `karpenterNodeRole`. ⚠️ `karpenterNodeRole`은 26자 hash 접미가 붙어 **재구축마다 바뀐다**
-- [ ] [eks-ref·eks-gitops] **taint 키 교체를 검증한다.** coredns·metrics-server·ebs-csi·Karpenter의
-      기본값 toleration, coredns `control-plane`·ebs-csi `NoExecute/300s` 복원, cert-manager 3개
-      시스템 노드, Karpenter 부트스트랩, ALBC·Kyverno·ArgoCD는 Pending만 아니면 통과.
-      ⚠️ AKS에서는 시스템 노드에 관리형 addon(App Routing istiod·gateway)도 올라왔다. EKS는
-      관리형 addon 구성이 달라 실제 입주자 명단을 따로 찍는다
-- [ ] [eks-gitops] multi-source 5개 addon이 `$values/addons/<addon>/values.yaml`을 읽는지, AppProject
-      `sourceRepos`를 통과하는지
-- [ ] [eks-gitops] **Karpenter AMI를 prd에 핀한다.** `kubectl get nodeclaim -o wide`로 실제 뜬 노드의
-      값. 형식 `al2023@v<YYYYMMDD>`. nonprd는 다음 AMI를 먼저 받는 자리
-- [ ] [eks-gitops] Kyverno CEL 클러스터 검증. AKS hub에서 확인한 목록을 그대로 쓰되 관리형 ns
-      항목은 뺀다(EKS에는 `control-plane` 라벨 ns가 다르다)
-
-### 2. 재구축과 무관 — 아무 때나
-
+- [ ] [eks-ref·eks-gitops] taint 검증 잔여: `coredns`의 `control-plane` toleration과 `ebs-csi`의 `NoExecute/300s`가 서 있는 클러스터에서 실제로 보이는지. 이번에 안 봤다
+- [ ] [eks-ref] repo 변수 `DEV_VPC_ID`는 참조하는 곳이 없고 값이 재구축 전 VPC(`vpc-0da067c37b7c799e4`)다. 지워도 되는지 확인하고 지운다(공유 설정이라 확인 없이 지우지 않았다)
 - [ ] [module] `modules/aws/eks-cluster/examples/enterprise/README.md`의 "확인하는 것이 좋다"를
       단정으로 고친다. stop-slop 스윕에서 찾은 유일한 실제 완충 표현인데 그 항목의 범위
       (`.tf` 주석·`docs/*.md`) 밖이라 손대지 않았다
 
-### 3. 조건이 오면 (지금 하지 않는다)
+### 2. 조건이 오면 (지금 하지 않는다)
 
-- [ ] [aks-ref] **다음 apply가 실패하면**: `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
-      확인한다. 이번 dev 3개 apply·hub vwan 재apply는 전부 성공해 기회가 없었다
-- [ ] [aks-gitops] **다음 차트 버전 업데이트가 생기면**: nonprd→prd 승격 절차를 실측한다. 지금은
+- [ ] [eks-gitops] **eks hub를 다시 세울 때**: ALBC와 Gateway API CRD 경쟁이 재현되는지 본다. 잦으면 CRD를 ALBC보다 먼저 세우는 안(sync-wave 등)을 설계 문서부터 검토한다. 지금은 ALBC 재시작으로 푼다
+- [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: nonprd(dev)가 `latest`로 먼저 받는다. dev 노드가 정상으로 뜨는 것을 보고 같은 값을 prd(`amiAliasByTier`)에 올린다. ⚠️ 지금 dev에는 Karpenter 노드가 0이라 nonprd가 실제로 검증한 적이 없다 — 그때 dev에 워크로드를 올려 노드를 띄운 뒤 본다
+- [ ] [eks-ref] **spoke(dev)만 철거할 때**: `spoke-lifecycle.md` 13절의 열린 질문(hub의 잔존 blackhole 라우트 정리)을 실측한다. 서 있는 dev를 걷어야 열린다
+- [ ] [aks-ref·eks-ref] **다음 apply가 실패하면**: `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
+      확인한다. AKS·EKS 모두 지금까지 apply가 전부 성공해 기회가 없었다
+- [ ] [aks-gitops·eks-gitops] **다음 차트 버전 업데이트가 생기면**: nonprd→prd 승격 절차를 실측한다. 지금은
       추적 중인 모든 addon이 이미 최신이라(kyverno 3.9.1 등) 올릴 대상이 없다
 - [ ] [aks-ref] **hub를 철거하고 다시 세울 때**: `vwan`·`aks` 병렬 apply를 실측한다. 두 root는
       서로를 읽지도 쓰지도 않아 의존이 없다(`docs/hub-lifecycle.md`). ① 동시 apply가 Azure의

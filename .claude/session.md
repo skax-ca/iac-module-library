@@ -93,6 +93,8 @@ heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`
 
 **점검 7항목**: ① `hub/tgw`만 생성 7건으로 plan 성공. ② root App 렌더 리소스 19개(14개가 아니었다). ③ dev cluster Secret 등록. ④ 두 클러스터 Pending 0, 시스템 노드에 kube-system 9종·cert-manager 6·argocd 5·kyverno 5·keda 3 입주. ⑤ multi-source 5개가 chart+`$values` 2 source로 Synced. ⑥ 테스트 Deployment로 hub에 Karpenter 노드를 띄워 실측 `ami-02849ad5db10c09e4` = `al2023 v20260917`, prd 핀(PR #23 `c34d73d`), 노드는 회수됨. ⑦ PSS 11 Audit + 커스텀 Deny가 hub·dev Ready이고 서버 dry-run으로 차단·통과·제외(hub `argocd`)가 기대대로다. autogen도 Deployment를 막는다.
 
+**세션 끝에 정리한 것**: 남았던 taint 검증(`coredns`의 `control-plane`, `ebs-csi controller`의 `NoExecute` 300초 toleration)을 hub·dev 파드 spec으로 읽어 `runbooks.md` 설정표와 일치함을 확인했다(`aa6e7fb`). 참조가 0이고 값이 재구축 전 VPC였던 고아 repo 변수 `DEV_VPC_ID`를 지웠다(`a47309d`). `eks-cluster` enterprise README의 완충 표현을 단정으로 고쳤다(`cf45be1`). 다음 할 일의 소절 번호와 항목 번호가 겹쳐 헷갈려서 `.claude/rules/session.md`에 「`다음 할 일` 표시」 절(소절은 알파벳, 항목은 전체 연속 번호)을 넣었다(`59d9f8c`).
+
 **하지 않은 것**: 5개 루트 `action=plan` 재확인(각 apply의 수렴 검증이 통과해 생략). 승인 흐름의 `rerun --failed`는 apply가 전부 성공해 이번에도 기회가 없었다.
 
 ## 다음 할 일

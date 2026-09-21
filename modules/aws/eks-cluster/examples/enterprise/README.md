@@ -70,7 +70,7 @@ data "aws_subnets" "pod" {
 상세는 [`docs/module-catalog.md`](../../../../../docs/module-catalog.md).
 
 ⚠️ **배포 순서가 있다**: networking → eks-cluster. networking이 아직 apply되지 않았으면 조회가
-에러가 아니라 **빈 결과**를 낸다. 그래서 `precondition`으로 `length(...ids) > 0`을 확인하는 것이 좋다.
+에러가 아니라 **빈 결과**를 낸다. 그래서 `precondition`으로 `length(...ids) > 0`을 검사한다.
 
 ### 소싱 태그를 어떻게 고르나
 

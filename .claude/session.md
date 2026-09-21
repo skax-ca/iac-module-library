@@ -9,8 +9,8 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 |------|-----|------|
 | eks-reference-infra | main = origin | hub·dev 전부 destroy. **public**, MIT. 시크릿 0개. 최상위 `README.md` 있음(라우터: 배포 루트 5개·state key·실행 모델·문서 라우팅표). `verify.yml`(시크릿·문서주석셸·OpenTofu 3 job)이 PR·push에서 돌고 ruleset `main`이 그것을 요구한다. environment `hub`·`dev`에 required reviewer `silverte`(self-review 허용)와 브랜치 정책 `main`. plan artifact 7일. 철거 상태 main push: `hub/tgw`만 plan 성공 → apply `waiting`(생성 plan 7건이라 **Reject**한다), 나머지 4개는 `RAM Resource Share`·`TGW`·`VPC` not found로 실패. 시스템 노드그룹 taint `CriticalAddonsOnly=true:NoSchedule`, 라벨 `workload-class=system`. 변수 34개 `nullable = false`. 루트마다 `backend.hcl.example`(로컬 전용 4키). **Dependabot PR 0건** — 모듈 4종이 `vpc-v0.5.0`·`eks-cluster-v0.11.0`·`workbench-v0.9.0`·`cross-account-trust-role-v0.4.0`, aws provider가 루트 5개 전부 `6.64.0`으로 수렴. 액션 6종이 커밋 SHA 핀(태그는 뒤 주석) |
 | eks-platform-gitops | main = origin | dev cluster-secret 삭제 상태. **public**, MIT. seed는 1 helm install → 2 AppProject → 3 cluster Secret → 4 root Application(repository Secret 단계 없음, preflight가 `repoURL`을 익명 `ls-remote`). `verify.yml`(시크릿·주석셸·매니페스트 3 job: YAML 파싱·로컬 차트 2개 lint/template·`kyverno test`)과 ruleset. `tests/kyverno/require-karpenter-resources/` 픽스처 5건(pass 1·fail 3·skip 1). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet `applicationsets/{baseline,catalog}/`(10파일), root App include 매칭 14개. multi-source `$values` 5개. Karpenter AMI 핀 `amiAliasByTier` 둘 다 `al2023@latest`. Kyverno는 `policies.kyverno.io/v1beta1 ValidatingPolicy`. 훅 정규식에 `tests/`·`.github/workflows/` 포함. ⛔ 액션 SHA 핀을 걸지 않았다(OIDC job 0) |
-| aks-reference-infra | main = origin | **hub 구축 완료**(networking 27 + vwan 4 + aks 8 + workbench 14). dev는 철거 상태. workbench 공인 IP `20.196.104.126`(`Standard_B2s`), SSH CIDR `211.45.60.3/32`와 일치. 클러스터 `aks-demo-hub-krc-main-01` k8s 1.35 private, `networkPluginMode=overlay`·`podCidr 10.244.0.0/16`·`outboundType=userAssignedNATGateway`·`networkPolicy=cilium`. 시스템 풀 `Standard_D4s_v5` 2대(taint `CriticalAddonsOnly`) + NAP 노드 `Standard_D2als_v6` 1대(taint 없음). provider 7루트 전부 `azurerm 5.5.0`, **Dependabot PR 0건**. 모듈 태그 `aks-cluster-v0.10.0`·`aks-workbench-v0.7.0`·`vnet-v0.2.0`. **public**, MIT. 변수 48건 `nullable = false`. FIC subject는 repo ID에 묶여 있다. 액션 5종이 커밋 SHA 핀. 철거 상태 main push: `dev/networking`만 plan 성공(24 to add → **Reject**), `dev/aks`·`dev/workbench`는 VNet·서브넷 not found로 실패, hub 4개는 `plan=success, apply=skipped` |
-| aks-platform-gitops | main = origin | **hub seed 완료.** Application 7개 전부 `Synced/Healthy`. dev 스포크는 철거 상태. **public**, MIT. `bootstrap/argocd-values.yaml`의 client ID는 `ec70a09c-8160-4ba6-8a25-2905d55b9376`. ApplicationSet **5파일 = ApplicationSet 7개**, root App include 매칭 **11개**. ⛔ **초기 admin 비밀번호를 교체하지 않았다** — `argocd-initial-admin-secret`이 남아 있다. `require-nodepool-resources`의 `namespaceSelector`는 **2조건**(`control-plane` 없음 + 이름이 `argocd` 아님, `f798dad`) |
+| aks-reference-infra | main = origin | **hub·dev 둘 다 구축 완료.** hub(networking 27 + vwan 4 + aks 8 + workbench 14)는 기존, 이번 세션에 dev도 세웠다(networking 24 + aks 6 + workbench 15, 전부 신규 생성·파괴 0). dev workbench 공인 IP `20.200.218.130`, hub는 `20.196.104.126`(둘 다 `Standard_B2s`류). hub vwan을 dev networking 뒤에 재apply해 `azurerm_virtual_hub_connection.spoke["dev"]` 1건 생성 — `Succeeded` 확인됨. 두 클러스터 모두 k8s 1.35 private, `networkPluginMode=overlay`·`podCidr 10.244.0.0/16`·`outboundType=userAssignedNATGateway`·`networkPolicy=cilium`(dev가 hub 값을 그대로 승계, network_profile 대조 완료). provider 7루트 전부 `azurerm 5.5.0`, **Dependabot PR 0건**. 모듈 태그 `aks-cluster-v0.10.0`·`aks-workbench-v0.7.0`·`vnet-v0.2.0`. **public**, MIT. ⚠️ **dev workbench 최초 부팅에서 apt lock 결함이 실제로 재현됐다**(`spoke-lifecycle.md` 5절이 이미 적어둔 것) — azure-cli 설치가 실패해 kubeconfig가 안 만들어졌고, 수동 복구(`az` 재설치 → `az login --identity` → `get-credentials` → `kubelogin convert` → azureuser 홈에 복사)로 풀었다. 복구 절차를 `runbooks.md`에 남겼다(`6611a9a`, 문서 전용 main 직접 커밋). dev 3개 root 재-plan 전부 `No changes` 확인, 부트스트랩 drift 없음(`verify.sh`) |
+| aks-platform-gitops | main = origin | **hub·dev 둘 다 등록 완료.** Application **12개**(hub 5 + dev 5 + `argocd` + `root-app`) 전부 `Synced/Healthy`. **초기 admin 비밀번호 교체 완료** — `argocd-initial-admin-secret` 삭제됨(workbench SSH 비대화형 실행, heredoc stdin으로 비밀번호를 argv 노출 없이 전달). dev 클러스터 등록은 PR #5(`9e16569`)로 머지: `clusters/dev/aks-demo-dev-krc-main-01/cluster-secret.yaml` 신규(라벨 `environment: dev`·`tier: nonprd`·`addon-karpenter: enabled`) + `projects/platform.yaml` destinations를 새 fqdn(`...-yp20hiip...`)으로 갱신. Kyverno를 hub(prd)와 대조 — **차이 없음**(둘 다 엔진 3.9.1, 업스트림 PSS 11개 Audit + 커스텀 1개 Deny, 관리형 ns 라벨 동일). nonprd 최초 팬아웃은 등록 후 약 2분 만에 5개 Application이 전부 수렴했다. **public**, MIT. `bootstrap/argocd-values.yaml`의 client ID `ec70a09c-8160-4ba6-8a25-2905d55b9376`. ApplicationSet **5파일 = ApplicationSet 7개**, root App include 매칭 **11개**. `require-nodepool-resources`의 `namespaceSelector`는 **2조건**(`control-plane` 없음 + 이름이 `argocd` 아님, `f798dad`) |
 
 ⚠️ 로컬 전제: 훅이 `shellcheck`·`gitleaks`를 **하드 요구**한다(없으면 즉시 실패). clone마다
 `git config core.hooksPath .githooks`와 `brew install shellcheck gitleaks`가 필요하다. 이 Mac에는
@@ -33,13 +33,16 @@ bypass = repository admin(`always`) — 용도는 문서 직접 커밋 하나. �
 
 배포 루트 `deploy-*.yml`의 apply 게이트는 조건 **3항**이다: `github.ref == main` ·
 `needs.plan.outputs.changes == 'true'` · `inputs.action != 'plan'`. **변경 0건이면 apply job이
-`skipped`로 끝나 승인 게이트가 서지 않는다.** `action=plan`은 확인 전용 경로다. `push`는
-`inputs.action`이 비어 있어 조건을 그대로 통과한다. ⚠️ **로컬 `tofu plan`은 `require_oidc`/`ci_run`
-가드가 막는다.** ⚠️ **승인 대기 중인 run은 `gh run view --log`로 plan을 못 읽는다**(`still in
-progress`). 웹 Summary 탭이거나, `gh run download <id> -n tfplan-<id>` 후 `tofu init -backend=false`
-+ `tofu show`다. 게이트 거절은
+`skipped`로 끝나 승인 게이트가 서지 않는다.** `action=plan`은 확인 전용 경로이지만, apply가
+`skipped`인 것만으로 "changes=false"를 증명하지는 않는다(action=plan 자체도 조건 3을 깨 skip을
+강제한다) — `No changes` 여부는 plan job 로그를 직접 읽어야 확정된다. ⚠️ **로컬 `tofu plan`은
+`require_oidc`/`ci_run` 가드가 막는다.** ⚠️ **승인 대기 중인 run은 `gh run view --log`로 plan을 못
+읽는다**(`still in progress`). 웹 Summary 탭이거나, `gh run download <id> -n tfplan-<id>` 후
+`tofu init -backend=false` + `tofu show -no-color`다(색상 코드가 있으면 `^Plan:` 같은 grep이
+비어 있는 것처럼 보인다). 게이트 거절은
 `gh api -X POST .../actions/runs/<id>/pending_deployments -f state=rejected -F "environment_ids[]=<id>"`이고,
 응답 파싱에서 `--jq`가 죽어도 거절 자체는 성공한다(run이 `completed/failure`가 되는 것으로 확인한다).
+승인은 같은 엔드포인트에 `state=approved`.
 
 ⚠️ **`setup-opentofu`는 `tofu_wrapper: false`가 필수다**(`aks-ref` `8a7951d`·`eks-ref` `d99be78`).
 기본값 `true`는 `tofu` 호출을 래퍼로 감싸 `stdout`·`stderr`·`exitcode`를 스텝 출력으로 내보내는데,
@@ -72,76 +75,56 @@ progress`). 웹 Summary 탭이거나, `gh run download <id> -n tfplan-<id>` 후 
 쓰면 `--add-dir`로 5개를 붙일 때 **먼저 등록된 쪽만 살아남는다**. hub AKS에 kubectl을 쓸 때는 터널
 없이 `ssh -i ~/.ssh/workbench_ed25519 azureuser@<공인IP> 'kubectl ...'`이 가장 싸다.
 
-## 지난 세션 (2026-09-18 저녁)
+⚠️ **비밀값을 워크벤치 등 원격 호스트에서 비대화형으로 다뤄야 할 때**: SSH 명령의 argv가 아니라
+heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`). `ps aux`는 argv를
+비추지만 stdin 스크립트 본문은 비추지 않고, `bash -s`(비대화형)는 원격 `~/.bash_history`에도
+안 남는다. 비밀번호에 `$` 같은 셸 특수문자가 있으면 **heredoc 구분자를 따옴표로 감싼다**
+(`<<'REMOTE'`)—그래야 로컬 셸이 `$2`처럼 오해해 변수 치환을 시도하지 않는다.
 
-**할 일 32개를 현재 상태에 대고 다시 판정하고, 지금 가능한 것부터 진행했다.** 소절 제목("AKS
-spoke 구축·철거와 같이")이 항목을 실제보다 좁게 가두고 있었다. 「구축 후」 항목 대부분이 요구하는
-전제는 spoke가 아니라 **살아 있는 클러스터 하나**여서 hub로 충족됐다.
+## 지난 세션 (2026-09-21)
 
-**Kyverno를 hub 클러스터에서 검증하고 정책을 줄였다**(`aks-gitops` `f798dad`). 업스트림 PSS 11개가
-`Audit`+`Ignore`, 커스텀 1개가 `Deny`(기록의 "2개"는 틀렸다), autogen은 `defaults`+`cronjobs` 두
-갈래로 CEL 경로를 재작성하고 selector도 승계했다. 관리형 ns 2개(`kube-system`·`aks-istio-system`)가
-`control-plane`과 `managedby`를 **둘 다** 갖는 것을 확인해 `managedby` 조건과 픽스처를 걷었다.
-AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같은 예시를 싣는다. `--dry-run=server`로
-거부·제외 6건을 반영 전후로 대조했고 결과가 동일했다. 웹훅 실물에서 Kyverno가 기본 제외
-(`kube-system`·`kyverno`)를 더해 붙이는 것도 찾았다 — 오프라인 `kyverno test`가 흉내 내지 않는 부분이다.
+**AKS spoke(dev)를 구축하고 hub ArgoCD에 등록해, 이번 재구축 순서(AKS→EKS)의 AKS 쪽을
+완결했다.** 통합 체크리스트 14항목 중 12개를 이 세션 안에서 끝냈다.
 
-**액션을 커밋 SHA로 고정하고 Dependabot을 붙였다**(`eks-ref` `cdb8010`·`aks-ref` `226e974`).
-`tj-actions/changed-files` 침해(CVE-2025-30066)에서 공격자가 기존 버전 태그를 악성 커밋으로 되돌려
-붙였고 SHA 고정 저장소만 무사했다. 배포 루트 2곳만 대상으로 했다(OIDC job이 eks 10·aks 14, 나머지
-3개 저장소는 0). `github-actions` 생태계를 같이 넣었고, 곧바로 갱신 PR 3건이 열려 SHA와 주석 버전을
-함께 바꾸는 것까지 확인했다(`5838de8`·`1415b86`·`addf515`).
+**hub ArgoCD 초기 비밀번호를 교체했다**(`hub-lifecycle.md` 완료 조건, 두 세션째 미뤄뒀던 것).
+워크벤치에 SSH로 접속해 `argocd login`·`account update-password`·`argocd-initial-admin-secret`
+삭제까지 비대화형 heredoc으로 실행했다 — 비밀값이 argv에 남지 않는 방식([[feedback_own_infra_secret_channel_override]]
+override를 이 대화에서 재확인받아 적용).
 
-**`changes` 가드가 반대로 동작하던 결함을 찾아 고쳤다**(`d99be78`·`8a7951d`). 액션 핀 머지가
-`deploy-*.yml`을 건드려 12개 루트를 한꺼번에 깨웠고, "변경 있음"과 "변경 없음"이 같은 묶음에 나란히
-나오면서 양쪽 다 `skipped`인 것이 보였다. 원인은 `tofu_wrapper`였다. 수정 뒤 `dev/networking`
-(24 to add)이 게이트를 세우고 hub 4개는 `skipped`를 유지하는 것으로 검증했다.
+**dev 3개 root를 순서대로 apply했다**(networking 24 → aks 6 → workbench 15, 전부 신규 생성·
+파괴 0). 매 apply 전에 `gh run download`로 plan artifact를 받아 `tofu show -no-color`로
+직접 확인한 뒤 승인했다. workbench 최초 부팅에서 `spoke-lifecycle.md`가 이미 문서화해둔
+apt lock 결함이 실제로 나타나 azure-cli 설치가 실패했고, 수동으로 azure-cli 재설치 →
+`az login --identity` → `get-credentials` → `kubelogin convert` → root kubeconfig를 azureuser
+홈으로 복사하는 순서로 복구했다. 이 절차를 `runbooks.md`에 남겼다(`6611a9a`).
 
-**EKS Dependabot 12건을 짝 단위로 전부 머지했다**(`190b0d8`~`12728a1`). 모듈 4건이 전부 같은 변경
-(`nullable = false` 변수 계약)이라 plan을 읽는 대신 "소비자가 명시적 `null`을 넘기는가"를 코드에서
-직접 확인했다(0건). Dependabot이 디렉토리마다 PR을 여는 탓에 짝 중 하나만 머지하면 드리프트가
-생기는 것을 발견해, 미뤄 두었던 드리프트 보고기를 같이 만들었다(`180614c`·`4716df3`). 검사기가 아니라
-보고기라 종료 코드가 항상 0이다.
+**hub vwan을 재apply해 dev 스포크 연결을 채웠다**(`azurerm_virtual_hub_connection.spoke["dev"]`
+1건, `Succeeded` 확인). dev networking이 hub vwan보다 나중에 서므로 이 재적용이 필요했던
+통상 경로였다.
 
-**stop-slop 잔여 범위는 실질적으로 비어 있었다.** `.tf` 129개와 `docs/*.md` 21개를 4회 스윕하고
-문체 커밋이 0건인 `aks-ref`의 `.tf`를 표본으로 읽었는데, 히트 대부분이 의미를 지고 있었고 수사적
-밑밥은 0건이었다. 규칙에 맞는 문장을 다시 쓰지 않았다.
+**dev를 hub ArgoCD에 원격 클러스터로 등록했다**(aks-gitops PR #5, `9e16569`). fqdn·caData는
+`az aks get-credentials`+kubeconfig 파싱으로, hub UAMI clientId·tenantId는 `az identity show`로
+직접 수집해 `cluster-secret.yaml`을 작성했고, `platform.yaml`의 낡은 destination fqdn도 같이
+갱신했다(빠뜨리면 스포크 팬아웃이 조용히 막히는 함정이라 세트로 처리). root-app 강제 refresh
+후 dev Application 5개가 약 2분 만에 전부 `Synced/Healthy`로 수렴하는 것을 Monitor로 추적했다.
+
+**완료 판정 7항목(dev 기준)을 전부 확인했다.** 부트스트랩 drift 없음, 노드 2대 Ready(v1.35.7),
+network_profile이 hub와 동일하게 적용됨, root-app이 새 커밋 SHA를 읽음, Application 12개
+전부 Synced/Healthy, dev 3개 root 재-plan이 전부 `No changes`. Kyverno를 hub(prd)와 대조한
+결과도 **차이 없음**(엔진 3.9.1, 정책 세트, 관리형 ns 라벨 전부 동일) — dev 최초 온보딩이라
+아직 버전이 갈릴 기회가 없었던 것이 이유다.
+
+**승격 절차 1회는 보류했다.** 추적 중인 addon이 전부 이미 최신 버전이라 지금 올릴 대상이
+없다 — 인위적으로 버전을 올리는 건 실제 필요 없는 인프라 변경이라 다음 차트 업데이트가
+생길 때로 미뤘다(사용자 확인). 승인 흐름 ③(`gh run rerun --failed`가 저장된 plan을 그대로
+쓰는지)도 이번 3개 apply가 전부 성공해 확인 기회가 없었다.
 
 ## 다음 할 일
 
-재구축을 전제하는 항목이 많아 **인프라 순서**로 묶었다. AKS hub가 서 있고 dev(spoke)가 다음이다.
-1·2절은 그 작업과 **같이** 해야 하는 것, 3절은 클러스터와 무관해 아무 때나 되는 것, 4절은 트리거가
-와야 열리는 것이다.
+AKS spoke 구축이 끝나 재구축 순서상 다음은 EKS다. 1절은 그 작업, 2절은 클러스터와 무관해
+아무 때나 되는 것, 3절은 트리거가 와야 열리는 것이다.
 
-### 1. AKS spoke 구축·철거와 같이 (다음 세션)
-
-**구축 전**
-
-- [ ] [aks-gitops] hub ArgoCD 초기 비밀번호를 교체하고 `argocd-initial-admin-secret`을 지운다.
-      `hub-lifecycle.md`의 **완료 조건**인데 두 세션째 건너뛰었다. 대화형 프롬프트가 필요해
-      사람이 workbench에서 한다(`runbooks.md` 「ArgoCD 관리자 비밀번호 교체」). ⚠️ `--core`로는
-      안 된다(세션 토큰이 없다), `--port-forward`를 쓴다.
-      ⚠️ **hub가 서 있으면 지금 바로 되는 일이다** — spoke 작업을 기다릴 이유가 없다
-
-**구축 중 — spoke를 세우는 동안에만 열리는 창**
-
-- [ ] [aks-ref] 승인 흐름 중 **③만 남았다**(①은 끝났고 ②는 4절로 옮겼다).
-      `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지 본다. **실패한 apply가 나와야**
-      확인되는데 hub 구축은 4개 root가 전부 성공해 기회가 없었다
-- [ ] [aks-ref] dev 루트 3개를 순서대로 apply한다(`spoke-lifecycle.md`)
-- [ ] [aks-ref] **dev 생성 후 `live/hub/vwan`을 한 번 더 apply한다.** `azurerm_resources` 태그
-      조회가 그때 dev VNet을 발견해 스포크 연결을 채운다. hub는 spoke 없이 완결되게 지어져 있다
-- [ ] [aks-gitops] cluster Secret 등록 — teardown이 라벨을 먼저 뗐다. AKS dev는 `environment`·
-      `tier: nonprd`·`addon-karpenter`. `tier`는 staged addon(Kyverno) 선택에도 쓰인다
-
-**구축 후 — 클러스터가 살아 있을 때만 확인 가능**
-
-- [ ] [aks-gitops] dev(nonprd)의 Kyverno는 **hub와 차이만 본다.** hub(prd)에서 정책 형태·autogen·
-      관리형 ns 제외·admission 거동을 전부 확인했다. nonprd는 staged라 엔진·PSS 버전이 다를 수
-      있으니 그 축만 대조한다
-- [ ] [aks-gitops] nonprd 팬아웃 실측. 승격 절차 1회(Kyverno 릴리스나 차트 버전 올림으로)
-
-### 2. EKS 구축·철거와 같이 (AKS 다음)
+### 1. EKS 구축·철거와 같이 (다음 세션)
 
 - [ ] [eks-ref] 승인 흐름은 AKS에서 답이 나온 것을 빼고 **차이만** 본다. eks 고유는 철거 상태에서
       `hub/tgw`만 plan이 성공한다는 점이다(생성 7건, 절차 밖이면 **Reject**)
@@ -163,14 +146,18 @@ AKS FAQ가 `control-plane`만을 마커로 지목하고 우리 첫 조건과 같
 - [ ] [eks-gitops] Kyverno CEL 클러스터 검증. AKS hub에서 확인한 목록을 그대로 쓰되 관리형 ns
       항목은 뺀다(EKS에는 `control-plane` 라벨 ns가 다르다)
 
-### 3. 재구축과 무관 — 아무 때나
+### 2. 재구축과 무관 — 아무 때나
 
 - [ ] [module] `modules/aws/eks-cluster/examples/enterprise/README.md`의 "확인하는 것이 좋다"를
       단정으로 고친다. stop-slop 스윕에서 찾은 유일한 실제 완충 표현인데 그 항목의 범위
       (`.tf` 주석·`docs/*.md`) 밖이라 손대지 않았다
 
-### 4. 조건이 오면 (지금 하지 않는다)
+### 3. 조건이 오면 (지금 하지 않는다)
 
+- [ ] [aks-ref] **다음 apply가 실패하면**: `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
+      확인한다. 이번 dev 3개 apply·hub vwan 재apply는 전부 성공해 기회가 없었다
+- [ ] [aks-gitops] **다음 차트 버전 업데이트가 생기면**: nonprd→prd 승격 절차를 실측한다. 지금은
+      추적 중인 모든 addon이 이미 최신이라(kyverno 3.9.1 등) 올릴 대상이 없다
 - [ ] [aks-ref] **hub를 철거하고 다시 세울 때**: `vwan`·`aks` 병렬 apply를 실측한다. 두 root는
       서로를 읽지도 쓰지도 않아 의존이 없다(`docs/hub-lifecycle.md`). ① 동시 apply가 Azure의
       VNet 쓰기 직렬화에 걸려 `AnotherOperationInProgress`로 떨어지는지 ② 떨어지면

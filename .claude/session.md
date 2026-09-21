@@ -101,7 +101,6 @@ hub·dev가 서 있는 상태다. 클라우드별 「구축·철거와 같이」
 
 ### 1. 재구축과 무관 — 아무 때나
 
-- [ ] [eks-ref] repo 변수 `DEV_VPC_ID`는 참조하는 곳이 없고 값이 재구축 전 VPC(`vpc-0da067c37b7c799e4`)다. 지워도 되는지 확인하고 지운다(공유 설정이라 확인 없이 지우지 않았다)
 - [ ] [module] `modules/aws/eks-cluster/examples/enterprise/README.md`의 "확인하는 것이 좋다"를
       단정으로 고친다. stop-slop 스윕에서 찾은 유일한 실제 완충 표현인데 그 항목의 범위
       (`.tf` 주석·`docs/*.md`) 밖이라 손대지 않았다

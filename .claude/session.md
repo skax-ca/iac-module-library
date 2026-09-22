@@ -100,21 +100,51 @@ heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`
 
 ## 다음 할 일
 
-EKS·AKS hub·dev 모두 철거된 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축·철거 일정이 정해질 때 다시 만든다.
+EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Application 구조(#31)를 실측하고 다시 철거한다. AKS 「구축·철거와 같이」 절은 AKS 일정이 정해질 때 만든다.
 
-### 1. 재구축과 무관 — 아무 때나
+### 1. EKS 구축·철거와 같이
 
-- [ ] [eks-ref] `hub-lifecycle.md` 6절의 seed 예시에 `CLUSTER_DIR`(예: `clusters/hub/eks-demo-hub-an2-main-01`)가 빠져 있다. 스크립트가 필수 변수로 요구한다(`--help`)
-- [ ] [eks-ref] `runbooks.md`에 적는다: `AWS-RunShellScript`(send-command)는 root지만 `HOME`이 비어 `export HOME=/root KUBECONFIG=/root/.kube/config`가 필요하다. dev workbench role에는 `ec2:Describe*`가 없다
+순서: hub networking → hub tgw → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 등록 → (관찰) → dev 해제·destroy → hub 해제·destroy. 이번 사이클은 철거까지 가므로 `deletion_protection`은 `false` 그대로 둔다(4번째 소절의 복원 항목은 클러스터를 남기게 될 때만 연다).
 
-### 2. 조건이 오면 (지금 하지 않는다)
+#### 구축 전
 
-- [ ] [eks-gitops·eks-ref] **다음에 EKS를 seed할 때**: 부모 Application 구조를 실측한다. 볼 것은 ① `<cluster>-platform`이 wave 0(CRD)이 Healthy가 된 뒤에 wave 1을 만드는지(ALBC 로그에 `Disabling ALBGatewayAPI`가 없어야 한다) ② `kyverno-policies`가 `service ... not found` `Unknown`을 거치지 않는지 ③ 부모가 앞 wave에서 멈추면 `argocd app terminate-op`으로 풀리는지. 실패하면 `argocd-cm`에 health Lua가 들어갔는지부터 본다(`kubectl -n argocd get cm argocd-cm -o yaml | grep argoproj.io_Application`)
-- [ ] [eks-gitops·eks-ref] **다음에 dev spoke를 철거할 때**: `spoke-lifecycle.md` 10절(`environment` 라벨 제거 → 부모 cascade)을 실측한다. 볼 것은 hub에서 addon Application이 CR·정책 → 컨트롤러 → CRD 순으로 줄어드는지, `elbv2.k8s.aws/cluster` 태그 SG 0개, `EC2NodeClass` 정상 소멸. 성공하면 `ordering.md`·`README.md` 문서 지도·두 `spoke-lifecycle.md` 머리글의 ⏳를 지운다. SG가 남으면 `aws/README.md`의 SG 직접 공급 재평가 트리거가 당겨진다. ⚠️ 역순 삭제 근거는 v3.5.3 코드(`controller/sort_delete.go`)라 ArgoCD를 올릴 때도 다시 본다
-- [ ] [aks-gitops·aks-ref] **다음에 AKS를 seed·철거할 때**: 같은 것을 본다. seed에서는 Kyverno(wave 1)가 NodePool(wave 0) 뒤에 뜨는지, 철거에서는 kyverno Application이 `deletionTimestamp` 없이 지워지고 삭제 훅 Job이 NAP 노드에서 도는지. 차이만 본다
-- [ ] [eks-ref·aks-ref] **spoke 실측이 성공하면**: hub 철거(`hub-lifecycle.md` 11절, 컨트롤러 정지 + 손 삭제)도 hub cluster Secret의 `environment` 라벨 제거로 대체할 수 있는지 검토한다. ArgoCD 자기 관리 Application은 부모 밖이라 살아남는다. spoke에서 먼저 확인한 뒤에 옮긴다
-- [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: `amiAliasByTier.nonprd` 줄에 먼저 올리고, dev에서 워크로드를 올려 Karpenter 노드가 뜨는 것을 본 뒤 같은 값을 prd 줄에 올린다. 핀 값은 실제 NodeClaim에서 읽는다. ⚠️ dev에서 Karpenter 노드가 뜬 적은 아직 없다
-- [ ] [eks-ref] **EKS를 다시 세울 때 네 루트의 `deletion_protection`을 `true`로 되돌린다**(`live/{hub,dev}/{eks,networking}` 4곳, 코드 주석이 요구). 재구축이 끝나기 전에는 `main`에 `false`가 남는 것이 의도다
+- [ ] [eks-ref] **workbench `argocd_version`을 `v3.5.0` → `v3.5.3`으로 올린다**(`live/{hub,dev}/eks/main.tf` 2곳, 브랜치 → PR). argo-cd 차트 10.9.1의 appVersion이 `v3.5.3`이고(`helm show chart`), 모듈 변수 description이 "chart appVersion과 같은 값"을 요구한다. user_data가 바뀌어 workbench가 교체되므로 **철거 상태인 지금이 비용 0인 시점**이다. `terminate-op` 실측(구축 중 ③)이 이 CLI를 쓴다
+- [ ] [eks-gitops] 확인만: `clusters/hub/eks-demo-hub-an2-main-01/cluster-secret.yaml`은 `server: https://kubernetes.default.svc`라 재구축에도 값이 안 바뀐다. 손댈 것 없음. Karpenter AMI 핀 `al2023@v20260917`은 SSM `recommended`와 같다(최신) — AMI 승격 항목은 이번에 열리지 않는다
+
+#### 구축 중 (hub seed)
+
+- [ ] [eks-gitops·eks-ref] seed 전에 health Lua가 values에 있는지 본다(`bootstrap/argocd-values.yaml`의 `resource.customizations.health.argoproj.io_Application`). seed 뒤 `kubectl -n argocd get cm argocd-cm -o yaml | grep argoproj.io_Application`으로 **실제로 들어갔는지** 본다 — 없으면 wave가 생성 순서만 정하고 아래 실측이 전부 무의미하다
+- [ ] [eks-gitops] **① wave 대기**: `eks-demo-hub-an2-main-01-platform`이 wave 0(`-gateway-api-crds`)이 Healthy가 된 **뒤에** wave 1을 만드는지. 판정은 addon Application의 `creationTimestamp`를 wave와 대조한다(`kubectl -n argocd get applications -o custom-columns=NAME:.metadata.name,WAVE:.metadata.annotations.argocd\.argoproj\.io/sync-wave,CREATED:.metadata.creationTimestamp --sort-by=.metadata.creationTimestamp`). ALBC 로그에 `Disabling ALBGatewayAPI`가 **없어야** 한다(`kubectl -n kube-system logs deploy/aws-lbc-aws-load-balancer-controller | grep -i gatewayapi`)
+- [ ] [eks-gitops] **② kyverno 정책**: `-kyverno-policies`·`-kyverno-custom-policies`가 `service ...-kyverno-svc not found` `Unknown`을 거치지 않는지. 거치지 않으면 gitops README 「seed 직후 잠시 남는 비정상 상태」의 첫 줄을 걷는다. `x509` 웹훅 재시도(둘째 줄)도 다시 나오는지 본다
+- [ ] [eks-gitops] **③ 멈춤 복구**: 부모가 앞 wave에서 멈추는 일이 자연히 생기면 `argocd app terminate-op <cluster>-platform --core`로 풀리는지. ⚠️ `--core`는 kubeconfig 컨텍스트 네임스페이스가 `argocd`여야 한다. 일부러 만들지는 않는다
+- [ ] [eks-ref] 완료 판정은 `hub-lifecycle.md` 7절 6항목 + 부모 `-platform`이 `Healthy`. 비밀번호 교체(`runbooks.md` 3절)까지가 seed다
+
+#### 구축 중 (dev 등록)
+
+- [ ] [eks-gitops] dev 재등록은 `e71adff`(#27)의 파일을 되살리고 `server`·`caData`만 새 값으로 바꾼다(브랜치 → PR). 라벨 `tier: nonprd`·`addon-cluster-autoscaler`·`addon-keda`·`karpenterNodeRole: iamr-demo-dev-an2-karpenter-node`와 `roleARN`은 결정적이라 그대로다. ⚠️ git 이력의 **마지막**(`3931afd`) 파일은 `environment`가 빠진 껍데기다 — `e71adff`를 쓴다
+- [ ] [eks-gitops] dev 부모 `eks-demo-dev-an2-main-01-platform`으로 ①②를 한 번 더 본다(원격 클러스터에서도 wave 대기가 서는지). ALBC 로그는 dev workbench에서 본다(hub workbench kubectl은 hub만 본다)
+
+#### 구축 후 (철거 전 관찰)
+
+- [ ] [eks-gitops] dev에 Karpenter NodePool을 쓰는 워크로드를 올려 **Karpenter 노드가 실제로 뜨는지** 본다. dev에서 뜬 적이 한 번도 없다. `kubectl get nodeclaims -o wide`에서 AMI를 읽어 핀(`al2023@v20260917`)과 대조한다. 워크로드는 철거 전에 지운다(철거 10절 ⑤)
+
+#### 철거
+
+- [ ] [eks-gitops·eks-ref] **④ dev 해제**: `spoke-lifecycle.md` 10절대로 `environment` 라벨만 지우는 PR → hub에서 addon Application이 wave 2 → 1 → 0 순으로 줄어드는지(간격을 두고 `kubectl -n argocd get applications | grep eks-demo-dev` 반복) → dev에서 `elbv2.k8s.aws/cluster` 태그 SG 0개, `EC2NodeClass` finalizer 스턱 없이 소멸. 성공하면 `ordering.md`·`README.md` 문서 지도·EKS `spoke-lifecycle.md` 머리글의 ⏳를 지운다(AKS 쪽 ⏳는 AKS 실측까지 남긴다). SG가 남으면 `aws/README.md`의 SG 직접 공급 재평가 트리거가 당겨진다. ⚠️ 역순 삭제 근거는 v3.5.3 코드(`controller/sort_delete.go`)라 ArgoCD를 올릴 때 다시 본다
+- [ ] [eks-gitops] ④ 뒤 cluster-secret 파일 삭제 PR + hub 라이브 Secret 수동 삭제(root-app `prune: false`)
+- [ ] [eks-ref] **④가 성공하면 hub 철거 방식을 판단한다**: `hub-lifecycle.md` 11절(컨트롤러 정지 + 손 삭제)을 hub cluster Secret의 `environment` 라벨 제거로 대체할 수 있는지. 자기 관리 `argocd` Application은 부모 밖이라 살아남는다. 대체하면 이번 hub 철거가 그 실측이고 11절을 고친다. 판단이 서지 않으면 기존 11절로 철거한다
+- [ ] [eks-ref] destroy 순서 dev eks → dev networking → hub eks → hub networking → hub tgw. 각 루트 뒤 `teardown-verify.sh`(dev는 `AWS_PROFILE=asset`). Flow Logs 로그 그룹이 재생성되면 손으로 지운다
+
+### 2. 재구축과 무관 — 아무 때나
+
+- [ ] [aks-ref] workbench `argocd_version`이 `v3.5.2`다(`live/{hub,dev}/workbench/main.tf`). 차트 10.9.1 appVersion `v3.5.3`과 맞춘다. AKS가 철거 상태라 VM 교체 비용이 없다(브랜치 → PR)
+- [ ] [module] `modules/aws/workbench/variables.tf` `argocd_version` description의 `(30 판정 ③)`은 가리키는 곳이 없는 외부 참조다. 지우고 terraform-docs로 README를 다시 만든다. 동작 변경 없는 주석 수정이라 태그는 다음 기능 릴리스에 싣는다
+
+### 3. 조건이 오면 (지금 하지 않는다)
+
+- [ ] [aks-gitops·aks-ref] **다음에 AKS를 seed·철거할 때**: EKS 1절의 ①②④를 AKS에서 본다. seed에서는 Kyverno(wave 1)가 NodePool(wave 0) 뒤에 뜨는지, 철거에서는 kyverno Application이 `deletionTimestamp` 없이 지워지고 삭제 훅 Job이 NAP 노드에서 도는지. 차이만 본다
+- [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: `amiAliasByTier.nonprd` 줄에 먼저 올리고, dev에서 Karpenter 노드가 뜨는 것을 본 뒤 같은 값을 prd 줄에 올린다. 핀 값은 실제 NodeClaim에서 읽는다. 최신 확인: `aws ssm get-parameter --name /aws/service/eks/optimized-ami/1.35/amazon-linux-2023/x86_64/standard/recommended/image_name`
+- [ ] [eks-ref] **EKS를 철거하지 않고 남기게 되면** 네 루트의 `deletion_protection`을 `true`로 되돌린다(`live/{hub,dev}/{eks,networking}` 4곳, 코드 주석이 요구). 재구축 → 철거 사이클 동안은 `false`가 의도다
 - [ ] [aks-ref] **AKS를 다시 세운 뒤 vWAN `prevent_destroy`와 VNet·AKS `deletion_protection`을 `true`로 되돌린다**(`live/hub/vwan` 리소스 2곳, `live/{hub,dev}/networking`·`live/{hub,dev}/aks`). 재구축이 끝나기 전에는 `main`에 `false`가 남는 것이 의도다
 - [ ] [aks-ref·eks-ref] **다음 apply가 실패하면**: `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
       확인한다. AKS·EKS 모두 지금까지 apply와 destroy가 전부 성공해 기회가 없었다

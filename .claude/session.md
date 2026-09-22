@@ -104,7 +104,7 @@ EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Applica
 
 ### 1. EKS 구축·철거와 같이
 
-순서: hub networking → hub tgw → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 등록 → (관찰) → dev 해제·destroy → hub 해제·destroy. 이번 사이클은 철거까지 가므로 `deletion_protection`은 `false` 그대로 둔다(4번째 소절의 복원 항목은 클러스터를 남기게 될 때만 연다).
+순서: hub networking → hub tgw → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 등록 → (관찰) → dev 해제·destroy → hub 해제·destroy. 이번 사이클은 철거까지 가므로 `deletion_protection`은 `false` 그대로 둔다(「조건이 오면」의 복원 항목은 클러스터를 남기게 될 때만 연다).
 
 #### 구축 전
 

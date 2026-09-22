@@ -7,8 +7,8 @@ session.md를 두지 않는다. 표의 구조와 갱신 절차는 `.claude/rules
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | **hub·dev 둘 다 철거 완료**(dev eks 87 → networking 69, hub eks 87 → networking 74 → tgw 7 순 destroy, 양 계정 `teardown-verify.sh` exit 0). bootstrap(state 버킷·OIDC·Role)은 남아 있다. ⚠️ 네 루트(`live/{hub,dev}/{eks,networking}`)의 `deletion_protection = false`가 `main`에 남아 있다 — 재구축이 끝나면 `true`로 되돌린다. **public**, MIT. 시크릿 0개. 최상위 `README.md` 있음(라우터: 배포 루트 5개·state key·실행 모델·문서 라우팅표). `verify.yml`(시크릿·문서주석셸·OpenTofu 3 job)이 PR·push에서 돌고 ruleset `main`이 그것을 요구한다. environment `hub`·`dev`에 required reviewer `silverte`(self-review 허용)와 브랜치 정책 `main`. plan artifact 7일. 철거 상태에서 main push는 `hub/tgw`만 plan이 성공한다(생성 7건이라 **Reject**). 나머지 4개는 `RAM Resource Share`·`TGW`·`VPC` not found로 실패한다. ⚠️ plan artifact 이름은 `eks` 루트만 `tfplan-eks-<run_id>`이고 나머지 4개는 `tfplan-<run_id>`다. 시스템 노드그룹 taint `CriticalAddonsOnly=true:NoSchedule`, 라벨 `workload-class=system`. 변수 34개 `nullable = false`. 루트마다 `backend.hcl.example`(로컬 전용 4키). **Dependabot PR 0건** — 모듈 4종이 `vpc-v0.5.0`·`eks-cluster-v0.11.0`·`workbench-v0.9.0`·`cross-account-trust-role-v0.4.0`, aws provider가 루트 5개 전부 `6.64.0`으로 수렴. 액션 6종이 커밋 SHA 핀(태그는 뒤 주석) |
-| eks-platform-gitops | main = origin | **EKS 철거 상태.** `clusters/dev/`는 삭제했고(PR #24 라벨 제거 → #25 파일 삭제) `clusters/hub/`는 재구축용으로 남겼다. dev 재등록은 `4b4007a` 형태(`tier: nonprd`, `addon-cluster-autoscaler`·`addon-keda`, 고정 이름 `karpenterNodeRole`)를 따른다. ⚠️ root-app은 `prune: false`라 파일을 지워도 hub의 라이브 cluster Secret은 남는다. **public**, MIT. seed는 1 helm install → 2 AppProject → 3 cluster Secret → 4 root Application(repository Secret 단계 없음, preflight가 `repoURL`을 익명 `ls-remote`). `verify.yml`(시크릿·주석셸·매니페스트 3 job: YAML 파싱·로컬 차트 2개 lint/template·`kyverno test`)과 ruleset. `tests/kyverno/require-karpenter-resources/` 픽스처 5건(pass 1·fail 3·skip 1). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet `applicationsets/{baseline,catalog}/`(10파일), root App 렌더 리소스 19개(AppProject 1·Application 2·ApplicationSet 15·Secret 1, cluster Secret이 늘면 Secret도 는다). multi-source `$values` 5개. Karpenter AMI 핀 `amiAliasByTier`는 prd `al2023@v20260917`(PR #23 `c34d73d`, hub NodeClaim 실측), nonprd `al2023@latest`. Kyverno는 `policies.kyverno.io/v1beta1 ValidatingPolicy`. 훅 정규식에 `tests/`·`.github/workflows/` 포함. ⛔ 액션 SHA 핀을 걸지 않았다(OIDC job 0) |
+| eks-reference-infra | main = origin | **hub·dev 둘 다 철거 완료**(2026-09-22 재구축 → 재철거. dev eks 87 → networking 69, hub eks 87 → networking 74 → tgw 7 순 destroy, Flow Logs 로그 그룹 수동 삭제 후 양 계정 `teardown-verify.sh` "잔존물 없음"). bootstrap(state 버킷·OIDC·Role)은 남아 있다. `spoke-lifecycle.md` 10절에 ⓪ `decommission` 단계가 들어갔고 **아직 실측 전**이다. ⚠️ 네 루트(`live/{hub,dev}/{eks,networking}`)의 `deletion_protection = false`가 `main`에 남아 있다 — 재구축이 끝나면 `true`로 되돌린다. **public**, MIT. 시크릿 0개. 최상위 `README.md` 있음(라우터: 배포 루트 5개·state key·실행 모델·문서 라우팅표). `verify.yml`(시크릿·문서주석셸·OpenTofu 3 job)이 PR·push에서 돌고 ruleset `main`이 그것을 요구한다. environment `hub`·`dev`에 required reviewer `silverte`(self-review 허용)와 브랜치 정책 `main`. plan artifact 7일. 철거 상태에서 main push는 `hub/tgw`만 plan이 성공한다(생성 7건이라 **Reject**). 나머지 4개는 `RAM Resource Share`·`TGW`·`VPC` not found로 실패한다. ⚠️ plan artifact 이름은 `eks` 루트만 `tfplan-eks-<run_id>`이고 나머지 4개는 `tfplan-<run_id>`다. 시스템 노드그룹 taint `CriticalAddonsOnly=true:NoSchedule`, 라벨 `workload-class=system`. 변수 34개 `nullable = false`. 루트마다 `backend.hcl.example`(로컬 전용 4키). **Dependabot PR 0건** — 모듈 4종이 `vpc-v0.5.0`·`eks-cluster-v0.11.0`·`workbench-v0.9.0`·`cross-account-trust-role-v0.4.0`, aws provider가 루트 5개 전부 `6.64.0`으로 수렴. 액션 6종이 커밋 SHA 핀(태그는 뒤 주석) |
+| eks-platform-gitops | main = origin | **EKS 철거 상태.** `clusters/dev/`는 삭제했고(PR #28 라벨 제거 → #29 파일 삭제) `clusters/hub/`는 재구축용으로 남겼다. dev 재등록은 `e71adff`(#27) 형태(`tier: nonprd`, `addon-cluster-autoscaler`·`addon-keda`, 고정 이름 `karpenterNodeRole`)를 따르고 `server`·`caData`만 새로 넣는다. `gateway`·`karpenter-nodepool` selector에 `decommission` `DoesNotExist`(#30) — 해제 때 이 라벨을 먼저 붙인다. ⚠️ root-app은 `prune: false`라 파일을 지워도 hub의 라이브 cluster Secret은 남는다. **public**, MIT. seed는 1 helm install → 2 AppProject → 3 cluster Secret → 4 root Application(repository Secret 단계 없음, preflight가 `repoURL`을 익명 `ls-remote`). `verify.yml`(시크릿·주석셸·매니페스트 3 job: YAML 파싱·로컬 차트 2개 lint/template·`kyverno test`)과 ruleset. `tests/kyverno/require-karpenter-resources/` 픽스처 5건(pass 1·fail 3·skip 1). `bootstrap/argocd-seed.sh`의 SSOT가 이 저장소다. ApplicationSet `applicationsets/{baseline,catalog}/`(10파일), root App 렌더 리소스 19개(AppProject 1·Application 2·ApplicationSet 15·Secret 1, cluster Secret이 늘면 Secret도 는다). multi-source `$values` 5개. Karpenter AMI 핀 `amiAliasByTier`는 prd·nonprd 둘 다 `al2023@v20260917`(nonprd `latest` 추적은 #26에서 없앴다. 새 AMI는 nonprd 줄에 먼저 올린다). Kyverno는 `policies.kyverno.io/v1beta1 ValidatingPolicy`. 훅 정규식에 `tests/`·`.github/workflows/` 포함. ⛔ 액션 SHA 핀을 걸지 않았다(OIDC job 0) |
 | aks-reference-infra | main = origin | **hub·dev 둘 다 철거 완료**(dev workbench 15 → aks 6 → networking 24, hub workbench 14 → aks 8 → vwan 5 → networking 27 순 destroy, 양 구독 `teardown-verify.sh` "잔존물 없음"). state Storage Account(bootstrap)만 남아 있다. hub 구독 `57bb4b4a…`, dev 구독 `af8171fb…`(로컬 `az` 기본 구독은 dev). ⚠️ vWAN `prevent_destroy = false`와 VNet·AKS `deletion_protection = false`가 `main`에 남아 있다 — 재구축이 끝나면 `true`로 되돌린다. 재구축이 이어받는 값: k8s 1.35 private, `networkPluginMode=overlay`·`podCidr 10.244.0.0/16`·`outboundType=userAssignedNATGateway`·`networkPolicy=cilium`(dev는 hub 값 승계). provider 7루트 전부 `azurerm 5.5.0`, **Dependabot PR 0건**. 모듈 태그 `aks-cluster-v0.10.0`·`aks-workbench-v0.7.0`·`vnet-v0.2.0`. **public**, MIT. dev workbench `vm_size = Standard_B2s_v2` 오버라이드, SSH 키는 hub `workbench_ed25519`·dev `workbench_dev_ed25519`. ⚠️ workbench 최초 부팅의 apt lock 결함은 재구축 때 다시 나온다(`runbooks.md`에 수동 복구 절차). 철거 상태에서 main push는 루트 7개가 대상 없음으로 실패한다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** `clusters/dev/`는 삭제했고(PR #6 라벨 제거 → #7 파일 삭제) `clusters/hub/`는 재구축용으로 남겼다. **public**, MIT. ⚠️ 재구축하면 hub ArgoCD 초기 admin 비밀번호를 다시 교체해야 하고(이번에 교체한 값은 클러스터와 함께 사라졌다), `bootstrap/argocd-values.yaml`과 cluster Secret의 client ID(`ec70a09c…`)는 새 UAMI 값으로 갱신한다. root-app은 `prune: false`라 파일을 지워도 라이브 cluster Secret은 남는다. ApplicationSet 5파일 = ApplicationSet 7개, root App include 매칭 11개. Kyverno 엔진 3.9.1(업스트림 PSS 11개 Audit + 커스텀 1개 Deny). `require-nodepool-resources`의 `namespaceSelector`는 2조건(`control-plane` 없음 + 이름이 `argocd` 아님, `f798dad`) |
 
@@ -75,43 +75,44 @@ bypass = repository admin(`always`) — 용도는 문서 직접 커밋 하나. �
 쓰면 `--add-dir`로 5개를 붙일 때 **먼저 등록된 쪽만 살아남는다**. hub AKS에 kubectl을 쓸 때는 터널
 없이 `ssh -i ~/.ssh/workbench_ed25519 azureuser@<공인IP> 'kubectl ...'`이 가장 싸다.
 
+⚠️ **EKS workbench의 kubectl은 자기 클러스터만 본다.** hub workbench에서 `kubectl get gateway -A`를
+치면 hub 것이 나온다 — dev와 hub의 Gateway 이름이 `gateway-system/shared-gateway`로 같아 혼동한다.
+dev를 보려면 dev workbench(`--profile asset`)로 가고, 먼저 `kubectl config current-context`를 찍는다.
+hub ArgoCD의 Application 상태(원격 조회)만 hub에서 본다. `AWS-RunShellScript`는 root로 돌지만
+`HOME`이 비어 있어 `export HOME=/root KUBECONFIG=/root/.kube/config`를 앞에 붙인다. dev workbench
+role에는 `ec2:Describe*`가 없어 SG·ALB 조회는 로컬 `--profile asset`으로 한다.
+
 ⚠️ **비밀값을 워크벤치 등 원격 호스트에서 비대화형으로 다뤄야 할 때**: SSH 명령의 argv가 아니라
 heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`). `ps aux`는 argv를
 비추지만 stdin 스크립트 본문은 비추지 않고, `bash -s`(비대화형)는 원격 `~/.bash_history`에도
 안 남는다. 비밀번호에 `$` 같은 셸 특수문자가 있으면 **heredoc 구분자를 따옴표로 감싼다**
 (`<<'REMOTE'`)—그래야 로컬 셸이 `$2`처럼 오해해 변수 치환을 시도하지 않는다.
 
-## 지난 세션 (2026-09-21)
+## 지난 세션 (2026-09-22)
 
-**AKS hub·dev를 전부 철거했다. 직전 세션(`2ea2a12`)의 EKS 철거와 합쳐 두 클라우드가 모두 철거된 상태다.** 순서는 dev 등록 해제 → dev destroy → hub 선처리 → hub destroy(workbench → aks → vwan → networking)이고, 승인 게이트 8번 모두 plan artifact로 추가·변경·교체 0건과 구축 때 수량 일치(15·6·24·14·8·5·27)를 확인한 뒤 승인했다. 0단계는 삭제 보호가 이미 `false`라 PR이 필요 없었다.
+**EKS hub·dev를 재구축했다가 다시 철거하며 「조건이 오면」 항목을 실측했다.** 구축 tgw 7 → hub networking 69 → hub eks 87 → seed → dev networking 69 → dev eks 87 → dev 등록(#27) → hub networking 재적용 6, 철거는 dev 해제(#28·#29) → dev eks 87 → networking 69 → hub 선처리 → hub eks 87 → networking 74 → tgw 7. 승인 게이트는 전부 plan artifact로 수량을 대조한 뒤 승인했다. 사용자 판단으로 hub ArgoCD 초기 비밀번호는 `send-command`로 조회했고(팀 인프라 override), 곧 철거할 예정이라 교체는 생략했다. Flow Logs 로그 그룹이 양 계정에 다시 생겨 손으로 지웠다.
 
-**dev 등록 해제**(aks-gitops PR #6 `e1b9a76`, #7 `130884f`): `environment`·`tier`·`addon-karpenter` 라벨만 먼저 뺐다. 🔴 `karpenter-nodepool`이 `kyverno`보다 먼저 prune돼 NAP 노드가 사라졌고, kyverno 파드와 Helm 삭제 훅 Job(`scale-to-zero`·`rm-webhooks`)이 시스템 노드의 `CriticalAddonsOnly` taint를 견디지 못해 `Pending`에 걸려 kyverno·kyverno-policies Application이 삭제를 못 끝냈다. dev 클러스터가 살아 있는 동안 hub에서 그 두 Application의 finalizer만 비웠다. root-app은 머지 뒤 5분이 지나도 옛 SHA라 hard refresh(`argocd.argoproj.io/refresh=hard`)로 반영시켰고, `prune: false`라 라이브 dev Secret은 직접 지웠다.
+**실측 결과**: ① ALBC/Gateway CRD 경쟁은 새로 seed할 때 재현된다. dev ALBC 로그에 `Disabling ALBGatewayAPI: missing required CRDs`가 찍혔고, 재시작하자 `PROGRAMMED=True`가 됐다. hub도 gateway가 `Progressing`에 머물렀다. hub ALBC는 dev를 진단하다 실수로 재시작했고, 그 뒤 hub 상태는 확인하지 않았다. ② 재적용 plan은 dev 라우트 6건이다. 철거 plan 5건에 `aws_ec2_transit_gateway_route_table_association.spoke`가 더해진 수다. 철거 뒤 `action=plan`은 5건(TGW route 1 + VPC 4)이고 association은 refresh만 된다. 13절 서술과 일치한다. ③ SG 고아 회피책(`kubectl delete gateway`)은 성립하지 않았다. 라벨을 떼기 전에 지우면 selfHeal이 4초 만에 되살렸고, 뗀 직후에는 aws-lbc Application이 이미 prune돼 SG 2개가 고아로 남았다. finalizer patch와 SG 삭제로 복구했다.
 
-**hub 선처리**: ArgoCD 컨트롤러 `scale 0` → Gateway 삭제(관리형 Istio가 살아 있는 채) → NodePool·AKSNodeClass 삭제. LB Service·Azure LB·NAP 노드가 모두 정리된 것을 확인한 뒤 destroy했다. hub vwan destroy는 vHub 때문에 10분을 넘겼고 성공했다.
-
-**「조건이 오면」 실측**: dev networking destroy 뒤 hub vwan `action=plan`이 `spoke["dev"]` 연결 1건의 destroy만 잡았다(그 밖 변경 0건, 코드 수정 불필요). `spoke-lifecycle.md` 13절 서술이 맞았다.
-
-**문서 반영**(aks-ref `73e919a`, main 직접 커밋): `spoke-lifecycle.md` 10절에 kyverno 삭제 교착과 finalizer 정리, `prune=false`로 인한 라이브 Secret 직접 삭제, hard refresh를 넣고 13절에 plan 실측을 넣었다. 문서 길이 한도(400) 때문에 같은 절의 기존 문단 2개를 줄였다.
-
-**하지 않은 것**: `rerun --failed` 실측(destroy 8건이 전부 한 번에 성공), 두 구독의 `action=plan` 재확인.
+**A안(decommission 2단계 prune)**: 공식 문서를 리서치했다. Argo CD는 Application 사이의 삭제 순서를 보장하지 않는다. Progressive Syncs `deletionOrder`는 한 ApplicationSet 안에서만 걸리고 베타다. ALBC는 SG를 직접 공급하는 옵션이 있지만 finalizer 멈춤은 남는다. 그래서 `decommission` 라벨로 CR ApplicationSet(gateway·karpenter-nodepool)만 먼저 놓게 했다. 설계는 module `765bbc5`(`aws/README.md` 6절 + 하지 않는 것 3행), 구현은 eks-gitops #30 `d861c6c`, 절차는 eks-ref #76 `134bf37`(10절 ⓪, 검증 상태 머리글)이다. 부수로 nonprd AMI `latest`를 없앴고(#26), README `karpenterNodeRole`의 낡은 서술과 `gateway.yaml` 헤더의 "신규 클러스터는 해당 없음"을 고쳤다.
 
 ## 다음 할 일
 
-EKS·AKS hub·dev 모두 철거된 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축·철거 일정이 정해질 때 다시 만든다. 지금 할 수 있는 것과 트리거가 와야 열리는 것만 남는다.
+EKS·AKS hub·dev 모두 철거된 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축·철거 일정이 정해질 때 다시 만든다.
 
 ### 1. 재구축과 무관 — 아무 때나
 
-없음. 지금 착수할 수 있는 항목은 남아 있지 않다.
+- [ ] [eks-gitops] **ALBC가 Gateway API CRD보다 먼저 뜨는 경쟁이 새 seed마다 재현된다**("잦으면 검토" 조건 충족). CRD를 ALBC보다 먼저 세우는 안을 설계 문서부터 검토한다. ⚠️ 두 Application은 서로 다른 ApplicationSet이 만들고 root-app은 ApplicationSet만 sync하므로 Application의 sync-wave로는 순서가 서지 않는다. 그 점부터 확인한다. 지금은 ALBC 재시작으로 푼다
+- [ ] [eks-ref] `hub-lifecycle.md` 6절의 seed 예시에 `CLUSTER_DIR`(예: `clusters/hub/eks-demo-hub-an2-main-01`)가 빠져 있다. 스크립트가 필수 변수로 요구한다(`--help`)
+- [ ] [eks-ref] `runbooks.md`에 적는다: `AWS-RunShellScript`(send-command)는 root지만 `HOME`이 비어 `export HOME=/root KUBECONFIG=/root/.kube/config`가 필요하다. dev workbench role에는 `ec2:Describe*`가 없다
 
 ### 2. 조건이 오면 (지금 하지 않는다)
 
-- [ ] [eks-gitops] **eks hub를 다시 세울 때**: ALBC와 Gateway API CRD 경쟁이 재현되는지 본다. 잦으면 CRD를 ALBC보다 먼저 세우는 안(sync-wave 등)을 설계 문서부터 검토한다. 지금은 ALBC 재시작으로 푼다
-- [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: nonprd(dev)가 `latest`로 먼저 받는다. dev 노드가 정상으로 뜨는 것을 보고 같은 값을 prd(`amiAliasByTier`)에 올린다. ⚠️ 지금 dev에는 Karpenter 노드가 0이라 nonprd가 실제로 검증한 적이 없다 — 그때 dev에 워크로드를 올려 노드를 띄운 뒤 본다
+- [ ] [eks-gitops·eks-ref] **다음에 dev spoke를 철거할 때**: `spoke-lifecycle.md` 10절 ⓪(`decommission` 라벨)을 실측한다. 볼 것은 hub에서 gateway·karpenter-nodepool Application 소멸, spoke CR 0, `elbv2.k8s.aws/cluster` 태그 SG 0개, `EC2NodeClass` 정상 소멸. 성공하면 설계 문서의 ⏳와 `spoke-lifecycle.md` 머리글의 ⏳를 지운다. SG가 남으면 설계 문서의 SG 직접 공급 재평가 트리거가 당겨진다
+- [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: `amiAliasByTier.nonprd` 줄에 먼저 올리고, dev에서 워크로드를 올려 Karpenter 노드가 뜨는 것을 본 뒤 같은 값을 prd 줄에 올린다. 핀 값은 실제 NodeClaim에서 읽는다. ⚠️ dev에서 Karpenter 노드가 뜬 적은 아직 없다
 - [ ] [eks-ref] **EKS를 다시 세울 때 네 루트의 `deletion_protection`을 `true`로 되돌린다**(`live/{hub,dev}/{eks,networking}` 4곳, 코드 주석이 요구). 재구축이 끝나기 전에는 `main`에 `false`가 남는 것이 의도다
-- [ ] [eks-ref] **EKS 재구축에서 dev를 세운 뒤 hub networking을 재적용할 때**: 추가되는 dev 라우트가 5건인지 6건인지 센다. 철거 plan은 5건(TGW route 1 + VPC route 4)이었는데 지난 구축 기록은 6건이라 1건이 어디서 나왔는지 확인되지 않았다
-- [ ] [eks-ref] **다음에 dev spoke를 철거할 때**: `spoke-lifecycle.md`에 적은 회피책(ALBC가 살아 있는 동안 spoke에서 `kubectl delete gateway --all -A`)이 SG 고아를 막는지 실측한다. hub에서는 이 순서로 고아 0이었지만 spoke에서는 검증하지 못했다
 - [ ] [aks-ref] **AKS를 다시 세운 뒤 vWAN `prevent_destroy`와 VNet·AKS `deletion_protection`을 `true`로 되돌린다**(`live/hub/vwan` 리소스 2곳, `live/{hub,dev}/networking`·`live/{hub,dev}/aks`). 재구축이 끝나기 전에는 `main`에 `false`가 남는 것이 의도다
-- [ ] [aks-gitops·aks-ref] **다음에 dev spoke를 철거할 때**: kyverno 삭제 교착(`spoke-lifecycle.md` 10절)을 피하는 순서를 정한다. NodePool Application이 kyverno보다 먼저 지워지는 것이 원인이라, 지우는 순서를 바꾸거나 kyverno에 시스템 노드 toleration을 주는 안을 설계 문서부터 검토한다
+- [ ] [aks-gitops·aks-ref] **다음에 dev spoke를 철거할 때**: kyverno 삭제 교착(`spoke-lifecycle.md` 10절)을 피하는 순서를 정한다. NodePool Application이 kyverno보다 먼저 지워지는 것이 원인이다. 설계 문서부터 검토한다. 참고로 EKS는 kyverno에 `CriticalAddonsOnly` toleration을 줘서 같은 순서에도 교착이 없었다. EKS의 `decommission` 2단계는 NodePool을 **먼저** 지우므로 AKS에 그대로 옮기면 교착이 난다
 - [ ] [aks-ref·eks-ref] **다음 apply가 실패하면**: `gh run rerun --failed`가 승인된 plan을 그대로 쓰는지
       확인한다. AKS·EKS 모두 지금까지 apply와 destroy가 전부 성공해 기회가 없었다
 - [ ] [aks-gitops·eks-gitops] **다음 차트 버전 업데이트가 생기면**: nonprd→prd 승격 절차를 실측한다. 지금은

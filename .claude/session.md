@@ -134,12 +134,7 @@ EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Applica
 - [ ] [eks-ref] **④가 성공하면 hub 철거 방식을 판단한다**: `hub-lifecycle.md` 11절(컨트롤러 정지 + 손 삭제)을 hub cluster Secret의 `environment` 라벨 제거로 대체할 수 있는지. 자기 관리 `argocd` Application은 부모 밖이라 살아남는다. 대체하면 이번 hub 철거가 그 실측이고 11절을 고친다. 판단이 서지 않으면 기존 11절로 철거한다
 - [ ] [eks-ref] destroy 순서 dev eks → dev networking → hub eks → hub networking → hub tgw. 각 루트 뒤 `teardown-verify.sh`(dev는 `AWS_PROFILE=asset`). Flow Logs 로그 그룹이 재생성되면 손으로 지운다
 
-### 2. 재구축과 무관 — 아무 때나
-
-- [ ] [aks-ref] workbench `argocd_version`이 `v3.5.2`다(`live/{hub,dev}/workbench/main.tf`). 차트 10.9.1 appVersion `v3.5.3`과 맞춘다. AKS가 철거 상태라 VM 교체 비용이 없다(브랜치 → PR)
-- [ ] [module] `modules/aws/workbench/variables.tf` `argocd_version` description의 `(30 판정 ③)`은 가리키는 곳이 없는 외부 참조다. 지우고 terraform-docs로 README를 다시 만든다. 동작 변경 없는 주석 수정이라 태그는 다음 기능 릴리스에 싣는다
-
-### 3. 조건이 오면 (지금 하지 않는다)
+### 2. 조건이 오면 (지금 하지 않는다)
 
 - [ ] [aks-gitops·aks-ref] **다음에 AKS를 seed·철거할 때**: EKS 1절의 ①②④를 AKS에서 본다. seed에서는 Kyverno(wave 1)가 NodePool(wave 0) 뒤에 뜨는지, 철거에서는 kyverno Application이 `deletionTimestamp` 없이 지워지고 삭제 훅 Job이 NAP 노드에서 도는지. 차이만 본다
 - [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: `amiAliasByTier.nonprd` 줄에 먼저 올리고, dev에서 Karpenter 노드가 뜨는 것을 본 뒤 같은 값을 prd 줄에 올린다. 핀 값은 실제 NodeClaim에서 읽는다. 최신 확인: `aws ssm get-parameter --name /aws/service/eks/optimized-ami/1.35/amazon-linux-2023/x86_64/standard/recommended/image_name`

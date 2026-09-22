@@ -67,6 +67,24 @@ GitOps는 그 순서를 표현할 수단이 없다.
 ⚠️ App Routing을 켤 때 레거시 NGINX IngressClass 자동 생성을 끈다. 생략하면 provider
 기본값이 적용돼 쓰지 않는 NGINX 컨트롤러가 함께 뜬다.
 
+### addon wave (AKS)
+
+wave를 정하는 규칙은 [../ordering.md](../ordering.md)가 소유한다. AKS에서 그 규칙을 적용한
+결과는 EKS와 순서가 다르다. **Kyverno가 NodePool 뒤에 온다.**
+
+| wave | addon | 기대는 것 |
+|:---:|---|---|
+| 0 | `karpenter-nodepool`(opt-in) · `gateway` | 컨트롤러와 CRD는 계층 1이 만든다(NAP · App Routing) |
+| 1 | `kyverno` | 파드가 뜰 NAP 노드. 아래 「노드 배치」대로 시스템 풀 taint를 견디지 않는다 |
+| 2 | `kyverno-policies` · `kyverno-custom-policies` | 엔진(wave 1) |
+
+해제는 역순이라 Kyverno가 NAP 노드가 살아 있을 때 지워진다. 삭제 훅 Job(`scale-to-zero`·
+`rm-webhooks`)도 NAP 노드에서만 뜨므로, NodePool이 먼저 지워지면 그 Job이 `Pending`에 걸려
+kyverno Application이 `deletionTimestamp`를 낀 채 남는다. 이 순서가 그것을 막는다.
+
+⚠️ `karpenter-nodepool`을 구독하지 않은 클러스터에서는 Kyverno가 뜰 노드가 없다. wave 1이
+Healthy가 되지 못해 wave 2가 멈춘다. 엔진 없이 정책만 적용될 일은 없다.
+
 ### 노드 배치: 시스템 풀을 CriticalAddonsOnly로 잠근다
 
 | | AWS 원본 | 이 패턴 |

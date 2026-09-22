@@ -42,9 +42,9 @@
 
 ## 3. Application 이름과 release 이름을 분리한다
 
-ApplicationSet의 cluster generator(등록된 클러스터마다 Application을 복제하는 제너레이터)는
-Application 이름을 `{{name}}-<addon>`으로 짓는다. 하나의 ArgoCD가 여러 클러스터를 관리하므로
-콘솔에서 어느 클러스터의 addon인지 가르려면 이 접두사가 필요하다.
+클러스터마다 있는 부모 Application(「전파 정책」)이 addon Application 이름을 `<cluster>-<addon>`으로
+짓는다. 하나의 ArgoCD가 여러 클러스터를 관리하므로 콘솔에서 어느 클러스터의 addon인지 가르려면
+이 접두사가 필요하다.
 
 **release 이름을 따로 주지 않으면 그 접두사가 Kubernetes 리소스 이름까지 전파된다.** ArgoCD는
 `spec.source.helm.releaseName`이 없으면 release 이름을 Application 이름과 같게 쓰고
@@ -70,32 +70,58 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 
 ## 4. 전파 정책: 누가 받고, 어떤 버전을 받나
 
-ApplicationSet의 cluster generator selector는 **팬아웃 대상**을 고른다. 버전은 `targetRevision`
-리터럴 하나가 정하므로, **한 ApplicationSet에 걸린 클러스터는 전부 같은 버전을 받는다.** 버전을
-갈라 받으려면 ApplicationSet 자체를 나눠야 하고, 아래 세 정책 중 staged만 그렇게 한다.
+### 클러스터마다 부모 Application 하나
+
+hub ArgoCD는 등록된 클러스터마다 부모 Application `<cluster>-platform`을 하나 만든다. 그 부모가
+그 클러스터의 addon Application을 전부 렌더한다.
+
+```
+root-app
+└─ ApplicationSet platform              cluster generator. environment 라벨이 있는 클러스터마다 부모 하나
+   └─ <cluster>-platform                로컬 helm 차트 addons/platform/ 를 렌더한다
+      ├─ <cluster>-gateway-api-crds     wave 0
+      ├─ <cluster>-aws-lbc              wave 1
+      └─ <cluster>-gateway              wave 2
+```
+
+| 누가 | 무엇을 정하나 |
+|---|---|
+| ApplicationSet `platform` | 어느 클러스터가 플랫폼을 받나. selector는 `environment` 라벨의 **존재** 하나다 |
+| 부모 차트 `addons/platform/` | 그 클러스터가 어느 addon을 어떤 버전으로, 어떤 wave에 받나. cluster Secret 라벨을 helm parameter로 받아 고른다 |
+| addon Application | addon 하나. 차트 source·values 파일·sync 정책을 갖는다 |
+
+부모를 두는 이유는 순서다. sync-wave는 Application 하나의 sync 안에서만 순서를 정한다. addon
+Application을 ApplicationSet이 직접 만들면 그것을 sync하는 Application이 없어 wave가 아무 순서도
+정하지 않는다. 부모가 addon Application을 자기 리소스로 sync해야 wave가 설치와 해제의 순서가
+된다([ordering.md](ordering.md)). 콘솔에서 클러스터 하나의 addon이 한 트리에 모이는 것은 따라오는 효과다.
+
+부모는 `prune`을 켠다. opt-in 해지(라벨 제거)는 부모 sync의 prune으로 이루어진다. ⚠️ 그래서
+차트에서 addon 템플릿을 지우면 등록된 전 클러스터에서 그 addon이 wave 역순으로 지워진다.
 
 ### 정책 셋
 
-| 정책 | 무엇으로 고르나 | 버전 | 파일 위치 |
-|------|----------|------|------|
-| **uniform** | `environment` 라벨의 **존재** | 전 클러스터가 한 개 | `applicationsets/baseline/` |
-| **staged** | `tier` 라벨의 **값**(ApplicationSet을 값별로 분리) | 티어마다 한 개 | `applicationsets/baseline/` |
-| **opt-in** | `addon-<name>` 라벨의 **값** | 구독 클러스터가 한 개 | `applicationsets/catalog/` |
+| 정책 | 부모 차트가 고르는 방법 | 버전 |
+|------|----------|------|
+| **uniform** | 조건 없이 렌더한다 | 전 클러스터가 한 개 |
+| **staged** | `versions.<addon>.<tier>`를 읽는다 | 티어마다 한 개 |
+| **opt-in** | `addon-<name>` 라벨 값이 `enabled`일 때만 렌더한다 | 구독 클러스터가 한 개 |
 
-정책은 하나만 고르고 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **ApplicationSet마다
+정책은 하나만 고르고 조합하지 않는다. 한 addon이 컨트롤러와 CR로 나뉘면 **addon Application마다
 따로** 고른다(Karpenter·Kyverno가 그렇다).
 
-세 라벨은 전부 cluster Secret에 붙고, 어느 것도 버전을 고르지 않는다.
+세 라벨은 전부 cluster Secret에 붙는다. 버전은 부모 차트의 values 파일이 갖고, 라벨은 그 표에서
+어느 줄을 읽을지만 정한다.
 
 | 라벨 | 무엇을 정하나 | 값 |
 |---|---|---|
-| `environment` | **존재**가 uniform의 대상. **값**은 리소스 이름의 재료(AWS 공유 Gateway가 ALB 이름·태그에 쓴다) | 클러스터마다(`hub`·`dev`…) |
-| `tier` | **값**이 staged의 대상 | `prd`(운영. 재구축 대상이 아닌 hub도 여기) · `nonprd`(그 밖 전부, 승격을 먼저 받는다). **둘뿐이다** |
+| `environment` | **존재**가 부모의 대상. **값**은 리소스 이름의 재료(AWS 공유 Gateway가 ALB 이름·태그에 쓴다) | 클러스터마다(`hub`·`dev`…) |
+| `tier` | **값**이 staged 버전의 줄 | `prd`(운영. 재구축 대상이 아닌 hub도 여기) · `nonprd`(그 밖 전부, 승격을 먼저 받는다). **둘뿐이다** |
 | `addon-<name>` | **값**이 opt-in의 대상 | `enabled` |
 
 `tier`를 `environment`와 따로 두는 이유는 값의 개수다. `environment`는 클러스터가 늘면 값이 함께
-늘고, `tier`는 둘로 고정된다. ⚠️ `tier`에 다른 값을 쓰면 어느 selector에도 안 걸리는 클러스터가
-생기는데, ArgoCD는 대상 0개인 팬아웃을 오류로 보고하지 않는다.
+늘고, `tier`는 둘로 고정된다. `tier`에 다른 값을 쓰면 부모 차트가 `required`로 렌더를 실패시켜 그
+클러스터의 부모가 `ComparisonError`로 멈춘다. ⚠️ `environment`를 빠뜨리면 부모가 아예 생기지 않고,
+ArgoCD는 대상 0개인 팬아웃을 오류로 보고하지 않는다.
 
 ⚠️ **세 이름은 이 저장소가 붙인 것이다.** 업계는 비슷한 개념을 ring 배포·staged rollout이라
 부른다. ArgoCD ApplicationSet의
@@ -105,10 +131,10 @@ ApplicationSet의 cluster generator selector는 **팬아웃 대상**을 고른�
 
 ### 어느 정책을 고르나
 
-판정 단위는 ApplicationSet이다. `main` 핀은 승격할 버전이 없어 staged가 될 수 없다. 버전 핀을
+판정 단위는 addon Application이다. `main` 핀은 승격할 버전이 없어 staged가 될 수 없다. 버전 핀을
 가진 것만 아래 표로 티어로 나눌지 판단한다.
 
-| 이 ApplicationSet이 | 정책 | 이유 |
+| 이 addon Application이 | 정책 | 이유 |
 |-----------|------|------|
 | 인프라를 직접 움직이는 **컨트롤러**인가 | **staged** | 노드를 만들고 트래픽을 받는다. 깨지면 클러스터가 망가지므로 비운영에서 먼저 확인하고 승격한다 |
 | 컨트롤러와 **같은 마이너 라인**을 요구하는 업스트림 차트인가 | **컨트롤러를 따라간다** | 상류가 그 내용을 컨트롤러 app 버전에 맞춰 쓴다. 라인이 갈리면 업스트림이 내지 않는 조합이 된다 |
@@ -122,7 +148,7 @@ Kyverno는 엔진과 PSS 정책이 staged이고, 이 저장소가 만든 커스�
 같은 기준을 적용해도 **답은 클라우드마다 갈린다.** 관리형으로 받은 기능은 GitOps 계층에 없어
 정책을 고를 일이 없기 때문이다.
 
-| ApplicationSet | `targetRevision` | AWS(EKS) | Azure(AKS) |
+| addon Application | `targetRevision` | AWS(EKS) | Azure(AKS) |
 |---|---|---|---|
 | Kyverno 엔진 | 버전 핀 | **staged** | **staged** |
 | Kyverno PSS 정책(업스트림 차트) | 버전 핀(엔진과 같은 마이너 라인) | **staged** | **staged** |
@@ -158,144 +184,117 @@ v1.13.4인데 같은 라인 정책 최신 3.3.6은 app v1.13.6으로 앞선다. 
 ### uniform: 전 클러스터가 같은 버전
 
 ```yaml
-# applicationsets/baseline/kyverno-custom-policies.yaml
-generators:
-  - clusters:
-      selector:
-        matchExpressions:
-          - key: environment
-            operator: Exists
+# addons/platform/templates/kyverno-custom-policies.yaml
+spec:
+  source:
+    targetRevision: main          # 조건도 티어도 없다
 ```
 
-라벨의 **존재만** 본다. 클러스터를 등록하는 행위가 곧 배포라, 스포크가 늘어도 addon 파일은
-그대로다. ApplicationSet이 하나라 `targetRevision`도 하나이고, 올리면 등록된 전 클러스터가 함께
-올라간다. 클러스터마다 정책 버전이 다르면 무엇이 통과하는지가 갈리므로 가드레일에는 그것이 맞다.
+클러스터를 등록하는 행위가 곧 배포라, 스포크가 늘어도 addon 파일은 그대로다. `targetRevision`이
+하나라 올리면 등록된 전 클러스터가 함께 올라간다. 클러스터마다 정책 버전이 다르면 무엇이 통과하는지가
+갈리므로 가드레일에는 그것이 맞다.
 
 ### staged: 티어별로 승격
 
-**버전 핀을 가진 ApplicationSet만** 티어 수만큼 두고, 그 둘은 **같은 파일에** 둔다.
+**버전 핀을 가진 addon만** 티어별 값을 두 개 갖는다. 그 둘은 부모 차트의 values 파일 한 곳에
+나란히 둔다.
 
-한 addon 파일에 ApplicationSet이 여럿인 경우는 이미 있다. 컨트롤러 차트가 CRD를 동봉하면 그
-CRD를 쓰는 CR이 뒤에 와야 해서 sync-wave로 둘을 가른다. 티어는 여기에 **두 번째 축**으로
-얹히는데, 두 축을 곱하지 않는다.
-
-| ApplicationSet | `targetRevision` | 티어로 나누나 |
+| addon Application | `targetRevision` | 티어로 나누나 |
 |---|---|:---:|
 | 컨트롤러 helm(업스트림 차트 버전 핀) | `1.14.0` | ✅ |
 | CR(이 저장소의 로컬 차트) | `main` | ❌ |
 
-`main`은 저장소 최신을 따라가는 참조다. 두 블록으로 나눠도 두 값이 같을 수밖에 없어 승격은
-기록되지 않고 블록만 는다.
-
-ApplicationSet 이름은 `<addon>-<티어>`로 짓는다. 나누지 않는 블록은 접미사 대신 역할로 짓는다
-(`karpenter-nodepool`). ⛔ 이 이름은 **한 번 배포되면 계약**이다(「하지 않는 것」).
+`main`은 저장소 최신을 따라가는 참조다. 티어별로 적어도 두 값이 같을 수밖에 없어 승격은 기록되지
+않고 줄만 는다.
 
 ```yaml
-# applicationsets/baseline/karpenter.yaml — 두 블록은 ← 표시한 세 줄만 다르다
-metadata:
-  name: karpenter-nonprd            # ← <addon>-<티어>
-spec:
-  generators:
-    - clusters:
-        selector:
-          matchLabels:
-            tier: nonprd            # ← 티어
-  template:
-    spec:
-      source:
-        targetRevision: 1.15.0      # ← 검증 중인 버전
----
-metadata:
-  name: karpenter-prd               # ←
-spec:
-  generators:
-    - clusters:
-        selector:
-          matchLabels:
-            tier: prd               # ←
-  template:
-    spec:
-      source:
-        targetRevision: 1.14.0      # ← 운영 버전
+# addons/platform/values.yaml
+versions:
+  karpenter:
+    prd: 1.14.0       # 운영 버전
+    nonprd: 1.15.0    # 검증 중인 버전
 ```
 
-🔑 두 `targetRevision`의 차이가 승격이 어디까지 갔는지를 저장소에 기록한다. 파일에 적힌 차이는
-의도한 것이고, 그 밖의 클러스터 간 차이는 사고다. 클러스터를 열어 보지 않고 저장소만 읽어
-판정한다. 블록 수는 티어 수를 따라가고 클러스터 수를 따라가지 않는다.
+```yaml
+# addons/platform/templates/karpenter.yaml
+targetRevision: {{ required "tier 는 prd·nonprd 둘뿐이다" (index .Values.versions.karpenter .Values.tier) }}
+```
 
-그 티어의 클러스터가 아직 없어 대상이 0개인 것은 **빈 슬롯**이고, 클러스터가 등록되는 순간
-팬아웃된다. 사고는 클러스터가 **있는데** `tier` 값이 갈려 안 걸리는 경우다. 둘은 등록된 cluster
-Secret의 `tier` 값을 세어 가른다. 어느 쪽 값도 아닌 클러스터가 있으면 사고다.
+🔑 두 값의 차이가 승격이 어디까지 갔는지를 저장소에 기록한다. 파일에 적힌 차이는 의도한 것이고,
+그 밖의 클러스터 간 차이는 사고다. 클러스터를 열어 보지 않고 저장소만 읽어 판정한다. 줄 수는 티어
+수를 따라가고 클러스터 수를 따라가지 않는다. 버전 리터럴은 values 파일에만 있고 템플릿은 표에서
+읽기만 한다. `eks-platform-gitops`의 Karpenter AMI 핀(`amiAliasByTier`)이 같은 경로를 쓴다.
+
+addon Application 이름에는 티어가 들어가지 않는다(`<cluster>-karpenter`). 한 클러스터는 한 티어에만
+속하므로 이름이 겹치지 않는다.
 
 **승격 절차**
 
-1. `karpenter-nonprd`의 `targetRevision`을 새 버전으로 올려 커밋한다.
+1. `versions.karpenter.nonprd`를 새 버전으로 올려 커밋한다.
 2. 비운영 클러스터에서 컨트롤러 동작을 확인한다.
-3. `karpenter-prd`의 `targetRevision`을 같은 값으로 올려 커밋한다.
+3. `versions.karpenter.prd`를 같은 값으로 올려 커밋한다.
 4. 두 값이 같아지면 승격이 끝난 것이다.
 
-⚠️ **1~3 사이에는 CR이 두 버전 모두에서 유효해야 한다.** 티어로 나누지 않은 CR ApplicationSet은
-양 티어가 같은 차트를 본다. 그 구간에는 nonprd가 새 CRD를, prd가 옛 CRD를 갖고 있으므로, 새
-버전에서 생긴 필드를 CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고
-커밋한다. 승격 구간이 길수록 이 제약에 걸리는 커밋이 는다.
+⚠️ **1~3 사이에는 CR이 두 버전 모두에서 유효해야 한다.** 티어로 나누지 않은 CR은 양 티어가 같은
+차트를 본다. 그 구간에는 nonprd가 새 CRD를, prd가 옛 CRD를 갖고 있으므로, 새 버전에서 생긴 필드를
+CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필요하면 3을 끝내고 커밋한다. 승격 구간이
+길수록 이 제약에 걸리는 커밋이 는다.
 
 ### opt-in: 구독한 클러스터에만
 
 ```yaml
-# applicationsets/catalog/keda.yaml
-generators:
-  - clusters:
-      selector:
-        matchLabels:
-          addon-keda: enabled
+# addons/platform/templates/keda.yaml
+{{- if eq .Values.addons.keda "enabled" }}
+...
+{{- end }}
 ```
 
-라벨의 **값**을 본다. 라벨을 붙이고 떼는 것이 곧 구독과 해지다. ⚠️ 라벨을 빠뜨린 채 클러스터를
-등록하면 그 addon이 **빠진 채** 배포되고, ArgoCD는 이것을 오류로 보고하지 않는다.
+라벨의 **값**을 본다. ApplicationSet이 cluster Secret 라벨을 `index`로 읽어 넘기므로 라벨이 없으면
+빈 값이 되고 렌더하지 않는다. 라벨을 붙이고 떼는 것이 곧 구독과 해지다. ⚠️ 라벨을 빠뜨린 채
+클러스터를 등록하면 그 addon이 **빠진 채** 배포되고, ArgoCD는 이것을 오류로 보고하지 않는다.
 
-ApplicationSet이 하나라 버전도 하나다. 구독한 클러스터가 여럿이면 함께 올라간다. 티어별 승격이
-필요해질 만큼 대상이 늘면 그 addon을 staged로 옮긴다.
+버전은 하나다. 구독한 클러스터가 여럿이면 함께 올라간다. 티어별 승격이 필요해질 만큼 대상이 늘면
+그 addon을 staged로 옮긴다.
 
 ### 파일 구성: 컴포넌트로 나누고 티어는 붙여 둔다
 
-addon 하나가 컨트롤러·CR·정책으로 나뉘면 **파일도 나눈다.** 다만 **티어 쌍은 한 파일에 남긴다.**
+| 파일 | 무엇을 갖나 |
+|---|---|
+| `applicationsets/platform.yaml` | ApplicationSet 하나. root App이 읽는다 |
+| `addons/platform/templates/<addon>.yaml` | addon Application 하나와 그 wave |
+| `addons/platform/values.yaml` | 버전 표. staged의 티어 쌍이 여기 나란히 있다 |
+| `addons/<addon>/values.yaml` · `addons/<addon>/<로컬 차트>/` | addon Application의 source가 읽는 내용물 |
 
 | 나누는 축 | 파일을 나누나 | 이유 |
 |---|:---:|---|
 | 컴포넌트(컨트롤러·CR·정책) | ✅ | 서로를 보지 않고도 읽힌다. 나눠도 잃는 것이 없다 |
-| 티어(`prd`·`nonprd`) | ❌ | 승격은 두 `targetRevision`을 **비교하는** 행위다. 한 화면에 있어야 저장소만 읽고 판정할 수 있다 |
+| 티어(`prd`·`nonprd`) | ❌ | 승격은 두 값을 **비교하는** 행위다. 한 화면에 있어야 저장소만 읽고 판정할 수 있다 |
 
-이름은 주 컴포넌트가 addon 이름을 그대로 쓰고 부속에 접미사를 붙인다(`karpenter.yaml` ·
-`karpenter-nodepool.yaml`). 파일은 평면으로 두고 접미사로 묶는다. 하위 디렉토리를 둘 이유가
-없다 — 파일 수가 적고, `include`가 재귀라 동작도 같다. 각 파일 헤더에 **형제 파일 목록과 나뉜
-이유**를 둔다.
+템플릿 이름은 주 컴포넌트가 addon 이름을 그대로 쓰고 부속에 접미사를 붙인다(`karpenter.yaml` ·
+`karpenter-nodepool.yaml`). 각 파일 헤더에 **형제 파일 목록과 나뉜 이유**를 둔다.
 
-`applicationsets/`는 root App이 읽는 ApplicationSet만 두고,
-`addons/<addon>/`은 그 ApplicationSet의 source가 읽는 내용물(helm values · 로컬 차트 · CR
-매니페스트)만 둔다. ArgoCD는 디렉토리 안의 파일 구성에 관여하지 않는다. root App은 `include`에
-적힌 경로를 재귀 스캔하고 `sync-wave`는 리소스 애노테이션이라 파일 경계와 무관하다. 파일을
-나누는 규칙은 **사람이 읽는 방식**에 대한 것이다. 다만 ApplicationSet 파일은 `applicationsets/`
-아래에 있어야 root App이 읽는다. `addons/`는 그 범위 밖이라 무엇을 두든 root App이 보지 않는다.
+root App의 `include`는 `applicationsets/`만 읽는다. `addons/`는 그 범위 밖이라 부모 차트와 addon
+내용물을 무엇으로 두든 root App이 보지 않는다.
 
-### helm values는 ApplicationSet 밖 파일에 둔다
+### helm values는 addon Application 밖 파일에 둔다
 
 | 값 | 자리 | 이유 |
 |---|---|---|
-| 저장소가 이미 아는 값(tolerations · replicas · serviceAccount) | `addons/<addon>/values.yaml` | 티어 쌍이 **같은 파일**을 읽으므로 갈릴 수 없다. 주석을 고쳐도 Application spec은 그대로다 |
-| 팬아웃 시점에 정해지는 값(`{{name}}` · cluster Secret 라벨) | ApplicationSet `helm.parameters` | fasttemplate은 Application spec에만 적용되고 git 경로 안의 파일에는 적용되지 않는다 |
+| 저장소가 이미 아는 값(tolerations · replicas · serviceAccount) | `addons/<addon>/values.yaml` | 양 티어가 **같은 파일**을 읽으므로 갈릴 수 없다. 주석을 고쳐도 Application spec은 그대로다 |
+| 클러스터마다 갈리는 값(클러스터 이름 · cluster Secret 라벨) | addon Application의 `helm.parameters` | values 파일은 전 클러스터가 같은 파일을 읽어 클러스터별 값을 담지 못한다. ApplicationSet이 부모에 넘기고 부모 차트가 옮겨 적는다 |
 
-ApplicationSet은 multi-source로 읽는다. 차트 source는 그대로이고 `valueFiles`와 `ref` source가
-더해진다. `$values`는 `ref: values`를 단 source의 저장소 루트다.
+addon Application은 multi-source로 읽는다. 차트 source에 `valueFiles`와 `ref` source가 더해진다.
+`$values`는 `ref: values`를 단 source의 저장소 루트다.
 
 ```yaml
 sources:
-  - repoURL: public.ecr.aws/karpenter         # 차트 source. 전과 같다
+  - repoURL: public.ecr.aws/karpenter         # 차트 source
     chart: karpenter
-    targetRevision: 1.14.0                    # 티어마다 갈리는 유일한 값
+    targetRevision: 1.14.0                    # 부모 차트가 versions 표에서 읽은 값
     helm:
       parameters:
-        - name: settings.clusterName          # 팬아웃 시점 값은 여기 남는다
-          value: '{{name}}'
+        - name: settings.clusterName          # 클러스터마다 갈리는 값은 여기 남는다
+          value: eks-demo-dev-an2-main-01
       valueFiles:
         - $values/addons/karpenter/values.yaml  # 저장소가 아는 값은 파일로
   - repoURL: https://github.com/<org>/eks-platform-gitops.git
@@ -304,8 +303,7 @@ sources:
 ```
 
 ⚠️ values 파일은 `applicationsets/` **밖**에 둔다. root App의 `include`가 그 디렉토리를
-`**/*.yaml`로 읽으므로, 안에 두면 매니페스트로 읽혀 root App의 렌더가 깨진다. `addons/<addon>/`은
-include 범위 밖이다.
+`**/*.yaml`로 읽으므로, 안에 두면 매니페스트로 읽혀 root App의 렌더가 깨진다.
 
 ---
 
@@ -350,25 +348,25 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 | 하지 말 것 | 이유 |
 |---|---|
 | **cluster generator**로 ArgoCD 자체를 팬아웃 | 등록된 모든 스포크에 ArgoCD가 설치된다. ArgoCD는 **hub에만** 산다 |
-| 돌고 있는 클러스터가 있는데 **ApplicationSet 이름·selector 변경** | 이름이 바뀌면 기존 ApplicationSet이 삭제된 것으로 처리된다. 그것이 만든 Application이 ownerReference를 따라 지워지고 `resources-finalizer.argocd.argoproj.io`가 **클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께 사라진다. selector도 기존 대상이 안 걸리게 바꾸면 같은 경로다. **이름과 selector는 배포된 순간 계약**이고, 바꿀 수 있는 시점은 전면 철거 이후 seed 이전뿐이다. 같은 편집이 클러스터 상태에 따라 무해하기도 파괴적이기도 한데 diff만 봐서는 구분되지 않는다 |
+| 돌고 있는 클러스터가 있는데 **ApplicationSet·addon Application 이름이나 selector 변경** | ApplicationSet 이름이 바뀌면 기존 ApplicationSet이 삭제된 것으로 처리되어 부모가 ownerReference를 따라 지워지고, 부모의 finalizer가 그 클러스터의 addon을 전부 지운다. addon 템플릿의 `metadata.name`이 바뀌면 부모의 prune이 옛 이름의 addon을 지운다. 어느 쪽이든 `resources-finalizer.argocd.argoproj.io`가 **클러스터의 실제 리소스까지 prune한다.** CRD를 설치하는 addon이면 그 CRD를 쓰던 CR도 함께 사라진다. selector도 기존 대상이 안 걸리게 바꾸면 같은 경로다. **이름과 selector는 배포된 순간 계약**이고, 바꿀 수 있는 시점은 전면 철거 이후 seed 이전뿐이다. 같은 편집이 클러스터 상태에 따라 무해하기도 파괴적이기도 한데 diff만 봐서는 구분되지 않는다 |
 | `Replace=true` · `Force=true` | 객체를 통째로 교체하거나 `delete+create`로 동기화한다. `ServerSideApply`(kubectl 대신 API 서버가 patch를 계산하는 적용 방식)보다 우선해 무력화한다 |
 | `ignoreDifferences` · `managedFieldsManagers` · **전역 스위치**로 `OutOfSync` 해소 | 정답은 **앱별 `ServerSideDiff=true`**. 전역 적용은 *"`OutOfSync` = 문제"* 라는 신호를 죽인다 |
 | root App 스캔 범위를 **`exclude`** 로(deny-list) | 새 차트 디렉토리가 생기면 **아직 적용되지 않은 옛 spec**으로 렌더가 실패해 root App이 자기 갱신을 못 한다. seed의 root Application 단계를 사람이 다시 밟아야 풀린다 |
 | root App 스캔 범위를 **`+argocd:skip-file-rendering` 마커**로(deny-list) | 판정이 파일 전체의 문자열 포함 검사라 마커를 **설명하는 주석**이 있는 파일까지 조용히 빠진다. 마커가 붙은 파일을 Directory 소스로 읽는 전담 Application은 자기 담당 파일까지 걸러 렌더가 비는데, 리소스 0개라 `Synced`로 표시된다 |
 | ↳ 대신 | root App은 **`include`(allow-list)로 매니페스트 디렉토리만 지정**한다. 범위 밖 파일은 무엇이든 무시되므로 로컬 차트에 마커가 필요 없고, 값이 갈리지 않는 addon을 마커를 피하려고 helm 차트로 만들 이유도 없다 |
-| ApplicationSet 안에 **`helm.values: \|` 인라인** | 문자열 필드라 주석 한 줄이 바뀌어도 Application spec이 바뀌고, 렌더 결과가 같은데도 전 클러스터가 `OutOfSync`로 뜬다. *"`OutOfSync` = 문제"* 신호가 죽는다. 티어 쌍이면 같은 블록을 두 번 쓰고, 한쪽만 고치면 승격 때 설정이 조용히 갈린다. `valuesObject`는 주석 문제만 없애고 중복은 남긴다. 값은 `addons/<addon>/values.yaml`에 둔다 |
+| addon Application 안에 **`helm.values: \|` 인라인** | 문자열 필드라 주석 한 줄이 바뀌어도 Application spec이 바뀌고, 렌더 결과가 같은데도 전 클러스터가 `OutOfSync`로 뜬다. *"`OutOfSync` = 문제"* 신호가 죽는다. `valuesObject`는 주석 문제만 없애고 부모 차트 템플릿이 addon values까지 떠안는다. 값은 `addons/<addon>/values.yaml`에 둔다 |
 | seed에 `helm --set` · **인라인 heredoc 매니페스트** | 저장소 커밋본과 바이트가 달라져 **영구 드리프트**가 된다 |
 | GitOps 저장소를 **private**으로 되돌리기 · ArgoCD에 repository credential 두기 | 저장소가 public이라 ArgoCD가 익명으로 읽고, seed가 GitOps 관리 밖에 남기는 리소스가 0이다. private이면 GitHub App private key를 담은 repository Secret이 seed의 예외로 되살아나고, 그 키를 workbench로 나르는 절차와 키 분실 시 복구 절차가 함께 생긴다. 매니페스트에는 비밀이 없어 public으로 잃는 것이 없다. seed의 preflight가 익명 `ls-remote`로 이 전제를 확인한다 |
 | `argocd-initial-admin-secret` **남겨두기** | 평문에 가까운 관리자 자격증명이 클러스터에 상주한다 |
 | 관리형이 **버전 승격 시점을 가져간다**는 이유로 관리형을 기각 | 관리형 addon은 라이프사이클이 클러스터에 묶여 있다. AKS가 클러스터 업그레이드에 맞춰 버전을 갱신하므로 플랫폼 관리자가 addon 버전을 따로 추적·승격하지 않아도 된다. 티어별 승격은 GitOps로 조립한 addon에만 적용한다 |
 | cluster Secret에 `addon-version-<name>` 라벨을 달고 `targetRevision`에 주입 | 승인된 버전이 클러스터 파일마다 흩어진다. 플랫폼이 어떤 버전을 승인했는지 한 곳에서 읽지 못하고, 버전을 올릴 때 클러스터 수만큼 파일을 고쳐야 한다 |
-| matrix generator로 `clusters/<tier>/versions.yaml`을 읽어 주입 | 버전 목록은 한 곳에 모이지만 generator 조합이 늘어 팬아웃이 안 될 때 원인을 좁히기 어렵다. baseline addon이 다섯 개인 지금은 값에 비해 비싸다. addon이 늘면 다시 본다 |
-| `goTemplate`으로 `tier`를 조건 분기해 `targetRevision`을 고름 | 버전이 템플릿 표현식 안으로 들어간다. helm values를 저장소 파일 그대로 쓰고 `--set`을 금지한 이 패턴의 기준과 어긋난다 |
+| matrix generator로 `clusters/<tier>/versions.yaml`을 읽어 주입 | generator 조합이 늘어 팬아웃이 안 될 때 원인을 좁히기 어렵다. 버전 표를 한 곳에 모으는 일은 부모 차트의 values 파일이 generator 없이 한다 |
+| ApplicationSet `goTemplate`으로 `tier`를 조건 분기하고 **버전 리터럴을 표현식 안에** 둠 | 버전이 템플릿 표현식 안으로 들어간다. helm values를 저장소 파일 그대로 쓰고 `--set`을 금지한 이 패턴의 기준과 어긋난다. 부모 차트는 버전 리터럴을 values 파일에 두고 템플릿은 `tier`로 표에서 읽기만 한다 |
 
 ### 되살리면 안 되는 근거
 
 | 근거 | 무엇이 반증했나 |
 |---|---|
 | *"`kube-apiserver`와 `kyverno`가 스키마 기본값을 채워 `OutOfSync`가 난다"* | 두 매니저는 `status` 서브리소스만 소유했다. 원인은 **CRD 스키마 defaulting**이다 |
-| *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃이 Secret의 라벨과 이름을 읽는다** |
+| *"in-cluster는 자동 등록되니 cluster Secret이 불필요하다"* | 연결은 자동이지만 **ApplicationSet 팬아웃과 부모 차트가 Secret의 라벨과 이름을 읽는다** |
 | *"마커는 파일 안에 있으니 root App spec을 안 건드려 순서 제약이 없다"* | 마커는 root App만 빼는 것이 아니라 **그 파일을 Directory 소스로 읽는 모든 Application**에서 뺀다. 전담 Application이 자기 담당 파일을 걸러내고, 그것을 피하려면 `Chart.yaml`을 두어 Helm 타입으로 만들어야 한다. 순서 제약을 없앤 대가로 파일 형식 제약이 생긴 것이다 |

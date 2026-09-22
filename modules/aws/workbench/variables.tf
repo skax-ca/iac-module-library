@@ -167,7 +167,7 @@ variable "argocd_version" {
 
     용도는 "로그인해서 쓴다"가 아니다: ① 초기 비밀번호 교체.
     CLI가 없으면 port-forward + 대화형 SSM 세션이 필요하다 · ② `argocd cluster list`로
-    cluster Secret이 내장 in-cluster를 대체하는지 판정(30 판정 ③).
+    cluster Secret이 내장 in-cluster를 대체하는지 판정.
   EOT
   type        = string
   default     = null

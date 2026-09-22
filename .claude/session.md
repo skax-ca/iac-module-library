@@ -108,7 +108,6 @@ EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Applica
 
 #### 구축 전
 
-- [ ] [eks-ref] **workbench `argocd_version`을 `v3.5.0` → `v3.5.3`으로 올린다**(`live/{hub,dev}/eks/main.tf` 2곳, 브랜치 → PR). argo-cd 차트 10.9.1의 appVersion이 `v3.5.3`이고(`helm show chart`), 모듈 변수 description이 "chart appVersion과 같은 값"을 요구한다. user_data가 바뀌어 workbench가 교체되므로 **철거 상태인 지금이 비용 0인 시점**이다. `terminate-op` 실측(구축 중 ③)이 이 CLI를 쓴다
 - [ ] [eks-gitops] 확인만: `clusters/hub/eks-demo-hub-an2-main-01/cluster-secret.yaml`은 `server: https://kubernetes.default.svc`라 재구축에도 값이 안 바뀐다. 손댈 것 없음. Karpenter AMI 핀 `al2023@v20260917`은 SSM `recommended`와 같다(최신) — AMI 승격 항목은 이번에 열리지 않는다
 
 #### 구축 중 (hub seed)

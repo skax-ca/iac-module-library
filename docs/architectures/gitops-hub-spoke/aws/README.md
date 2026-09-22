@@ -201,7 +201,37 @@ flowchart TB
 
 ---
 
-## 6. 하지 않는 것
+## 6. spoke 등록 해제: CR을 그 컨트롤러보다 먼저 prune한다
+
+spoke의 addon은 hub ArgoCD가 ApplicationSet으로 뿌린다. cluster Secret에서 매칭 라벨을 빼면
+ApplicationSet마다 자기 Application을 **따로** 지우고, Argo CD는 Application 사이의 삭제 순서를
+보장하지 않는다. cascade delete가 기다리는 것은 한 Application 안의 리소스뿐이다. 그래서 finalizer를
+**다른 Application의 컨트롤러**가 처리하는 CR은, 컨트롤러가 먼저 사라지면 `deletionTimestamp`를 낀 채
+멈추고 AWS 쪽 뒷정리도 끝나지 않는다.
+
+| CR을 가진 ApplicationSet | finalizer를 처리하는 컨트롤러 | 컨트롤러가 먼저 사라지면 |
+|---|---|---|
+| `gateway` (Gateway · GatewayClass · LoadBalancerConfiguration) | ALBC | ALB는 회수되지만 frontend·backend SG 2개가 고아로 남아 VPC destroy를 막는다 |
+| `karpenter-nodepool` (NodePool · EC2NodeClass) | Karpenter | `EC2NodeClass`가 멈추고, 떠 있던 Karpenter 노드가 회수되지 않을 수 있다 |
+
+그래서 해제를 **2단계**로 나눈다. cluster Secret에 `decommission` 라벨을 붙이면 위 두 ApplicationSet만
+그 클러스터를 놓는다(selector에 `decommission` `DoesNotExist`). 컨트롤러가 살아 있는 동안 CR이
+지워지므로 finalizer가 정상 처리된다. 두 Application이 hub에서 사라지고 이 클러스터 태그의 SG가
+0개인 것을 확인한 뒤 매칭 라벨을 빼 나머지를 지운다. 라벨 계약은 `eks-platform-gitops`의
+`README.md`가, 명령 순서는 `eks-reference-infra`의 `spoke-lifecycle.md`가 갖는다.
+
+- ⚠️ 1단계에서 NodePool이 지워지면 Karpenter 노드의 파드가 쫓겨난다. ALBC·Kyverno·Karpenter는 시스템
+  노드그룹의 `CriticalAddonsOnly` taint를 넘는 toleration이 있어 시스템 노드로 옮겨 계속 돈다. 이
+  toleration 없이 Karpenter 노드에만 뜨는 컨트롤러가 생기면 1단계 목록을 다시 본다.
+- CR을 소유하는 addon을 새로 넣을 때: 그 CR의 finalizer를 다른 Application의 컨트롤러가 처리하면 그
+  ApplicationSet selector에도 같은 조건을 넣는다.
+- `DoesNotExist` 조건 추가는 `decommission` 라벨이 없는 클러스터의 매칭 결과를 바꾸지 않는다.
+  selector를 배포된 계약으로 보는 규칙([`gitops.md`](../gitops.md)의 「하지 않는 것」)에 걸리지 않는다.
+- ⏳ 다음 spoke 철거에서 SG 고아 0과 `EC2NodeClass` 정상 소멸을 실측한다.
+
+---
+
+## 7. 하지 않는 것
 
 | 하지 말 것 | 이유 |
 |---|---|
@@ -210,3 +240,6 @@ flowchart TB
 | ALBC를 위해 노드 **IMDS hop limit을 2로** | 그 노드의 모든 파드가 노드 IAM role을 탈취할 수 있다. VPC는 `--aws-vpc-tags`로 찾는다 |
 | **eksctl** 도입 | IaC 소유 경계를 깬다 |
 | 비밀번호를 **`ssm send-command`** 로 조회 | 출력이 SSM에 저장되고 CloudTrail에 남는다. 대화형 세션에서만 읽는다 |
+| spoke 해제 직전에 **`kubectl delete gateway`로 순서를 끼워 넣기** | 매칭 라벨을 빼기 전에는 gateway Application의 `selfHeal`이 수 초 안에 되살리고, 뺀 뒤에는 ALBC Application이 이미 prune됐을 수 있다 |
+| spoke 해제 순서를 **Progressive Syncs `deletionOrder: Reverse`** 로 맞추기 | 순서는 한 ApplicationSet이 만든 Application 사이에만 걸린다. 쓰려면 baseline ApplicationSet을 하나로 합쳐야 하고, RollingSync는 생성되는 Application의 autosync를 강제로 끈다. v3.3 기준 베타다 |
+| ALBC SG 고아를 **SG 직접 공급**(`LoadBalancerConfiguration.securityGroups` · 차트 `backendSecurityGroup`)으로 없애기 | SG 고아는 막지만 Gateway CR의 finalizer 멈춤은 남는다. 2단계 해제가 둘 다 막으므로 SG를 계층 1로 옮기는 모듈·배포 루트 변경을 낼 이유가 없다. 재평가 트리거: 2단계 해제로도 SG 고아가 재현되면 |

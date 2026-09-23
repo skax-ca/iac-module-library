@@ -112,7 +112,6 @@ hub tgw(7)·networking(69)·eks(87) apply 완료, seed 완료(workbench `i-0b93d
 
 - 비밀번호 교체는 이번 사이클에서 생략했다(hub를 곧 철거한다, 사용자 결정). 초기 비밀번호를 send-command로 읽어 SSM 기록에 남았다
 - seed 뒤 추가로 고친 것: kyverno의 pre-delete finalizer를 부모 selfHeal이 5분마다 지우는 루프(eks-gitops #35·aks-gitops #11, `ordering.md` 2·4절) — 머지 후 루프 0건 확인. addon Application 식별 라벨 `platform.addon`·`.cluster`·`.wave` + `resource.customLabels`(eks-gitops #36·#37·aks-gitops #12, `gitops.md` 3절) — 콘솔 트리 태그 확인
-- [ ] [eks-gitops·aks-gitops] gitops README 「seed 직후 잠시 남는 비정상 상태」의 kyverno `Unknown` 줄과 `x509` 줄은 hub seed·dev 등록 둘 다에서 0회였다. 걷는다(README만, main 직접)
 - [ ] [eks-ref] `deploy-{hub,dev}-eks.yml`·`deploy-dev-network.yml`에는 apply 후 수렴 검증 스텝이 없다(hub network·tgw만 있다). `deploy-hub-eks.yml` 250~251행 주석은 있다고 적는다 — 주석을 고칠지 스텝을 넣을지 정한다(브랜치 → PR)
 - [ ] [eks-gitops·aks-gitops] root-app `include`와 ApplicationSet 템플릿을 CI가 검사하지 못한다. `verify.yml`에서 `include` glob을 실제 파일 목록에 대 보는 검사(0건 매치 경로 = 실패)를 넣을지 검토한다
 

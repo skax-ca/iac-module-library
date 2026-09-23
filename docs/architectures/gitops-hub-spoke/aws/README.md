@@ -229,7 +229,8 @@ CRD를 **한 번만** 확인하고, 없으면 `ALBGatewayAPI`를 끈 채 계속 
   노드그룹의 `CriticalAddonsOnly` taint를 넘는 toleration이 있어 시스템 노드로 옮겨 계속 돈다. 이
   toleration 없이 Karpenter 노드에만 뜨는 addon이 생기면 그 addon은 `karpenter-nodepool`보다 뒤
   wave로 간다(「자기 파드가 뜰 노드」).
-- ⏳ 다음 spoke 해제에서 SG 고아 0과 `EC2NodeClass` 정상 소멸을 실측한다.
+- 이 순서로 해제하면 `elbv2.k8s.aws/cluster` 태그 SG가 남지 않고 `EC2NodeClass`도 finalizer 스턱 없이
+  사라진다. 둘 중 하나라도 남으면 wave 순서가 서지 않은 것이다(health Lua 누락 등).
 
 ---
 

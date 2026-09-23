@@ -66,6 +66,29 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 예외: 차트가 release 이름과 무관하게 컨트롤러 이름을 고정으로 렌더링하면(kyverno 계열) 접두사가
 겹치지 않으므로 지정하지 않는다.
 
+### 식별은 이름이 아니라 라벨로 한다
+
+`<cluster>-` 접두사는 이름의 유일성을 위해 있지만, 콘솔이 이름의 뒷부분을 잘라 어느 addon인지가
+가려진다. 이름을 바꾸면 Argo CD가 옛 Application을 지우고(finalizer가 실물까지 prune한다) 새로
+만들므로, 식별은 이름 대신 라벨로 푼다. 부모 차트가 addon Application마다 라벨 셋을 붙인다.
+
+| 라벨 | 값 | 쓰임 |
+|---|---|---|
+| `platform.addon` | addon 이름(`aws-lbc`·`karpenter` …) | 한 addon을 전 클러스터에서 고른다(승격 때 버전 비교) |
+| `platform.cluster` | cluster Secret 이름 | 한 클러스터의 addon을 고른다. 부모 Application에도 붙는다 |
+| `platform.wave` | sync-wave와 같은 값 | wave 순서로 정렬한다. 어노테이션과 같은 헬퍼가 찍어 값이 갈리지 않는다 |
+
+라벨은 목록 화면의 필터·타일·표와 CLI(`kubectl -l`·`-L`, `argocd app list -l`)에 그대로 쓰인다.
+부모의 리소스 트리 노드에는 기본으로 나오지 않는다. 트리 노드 태그는 컨트롤러가 채우는 리소스
+`info`이고, `argocd-cm`의 `resource.customLabels`에 적은 키만 그 값을 `info`로 올린다(Argo CD
+`controller/cache/info.go`). 그래서 `resource.customLabels: platform.addon,platform.wave`를 함께 둔다.
+⚠️ 이 설정은 전역이라 같은 키를 가진 모든 리소스의 노드에 태그가 붙는다. `platform.` 접두사가 다른
+차트 라벨과의 충돌을 피한다.
+
+⛔ 이름을 `<environment>-<addon>`처럼 짧게 짓지 않는다. `environment` 값은 클러스터마다 유일하다는
+보장이 없고(같은 `dev`에 클러스터가 둘일 수 있다), 이름이 겹치면 두 부모가 같은 Application을 번갈아
+덮어쓰고 prune한다. Argo CD는 이 충돌을 막지 않는다.
+
 ---
 
 ## 4. 전파 정책: 누가 받고, 어떤 버전을 받나

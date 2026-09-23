@@ -121,8 +121,7 @@ dev networking(69, RAM 자동 수락 스텝 성공)·eks(87) apply, hub networki
 
 #### 철거
 
-- [ ] [eks-gitops·eks-ref] **④ dev 해제**: `spoke-lifecycle.md` 10절대로 `environment` 라벨만 지우는 PR → hub에서 addon Application이 wave 2 → 1 → 0 순으로 줄어드는지(간격을 두고 `kubectl -n argocd get applications | grep eks-demo-dev` 반복) → dev에서 `elbv2.k8s.aws/cluster` 태그 SG 0개, `EC2NodeClass` finalizer 스턱 없이 소멸. 성공하면 `ordering.md`·`README.md` 문서 지도·EKS `spoke-lifecycle.md` 머리글의 ⏳를 지운다(AKS 쪽 ⏳는 AKS 실측까지 남긴다). SG가 남으면 `aws/README.md`의 SG 직접 공급 재평가 트리거가 당겨진다. ⚠️ 역순 삭제 근거는 v3.5.3 코드(`controller/sort_delete.go`)라 ArgoCD를 올릴 때 다시 본다
-- [ ] [eks-gitops] ④ 뒤 cluster-secret 파일 삭제 PR + hub 라이브 Secret 수동 삭제(root-app `prune: false`)
+- ④ dev 해제 — 2026-09-23 결과: eks-gitops #39(`environment`만 제거) → 부모 cascade가 wave 2(03:07:49) → 1(03:08:10, gateway 삭제 완료 뒤) → 0(03:08:31) 순, 약 70초. dev에서 CR 전부 finalizer 스턱 없이 소멸, kyverno PreDelete 훅 Job(`rm-webhooks`·`scale-to-zero`) 실행. AWS 잔존 SG·ALB·TG·Karpenter LT·EC2 0. #40으로 파일 삭제 + hub 라이브 Secret 수동 삭제. 빈 네임스페이스(gateway-system·keda·kyverno)는 설계대로 남음. dev eks(87)·networking(69) destroy, Flow Logs 로그 그룹 재생성분 수동 삭제 후 `teardown-verify.sh` 잔존물 없음. ⏳ 4곳(`ordering.md`·문서 지도·`aws/README.md`·EKS `spoke-lifecycle.md`)을 걷었다
 - [ ] [eks-ref] **④가 성공하면 hub 철거 방식을 판단한다**: `hub-lifecycle.md` 11절(컨트롤러 정지 + 손 삭제)을 hub cluster Secret의 `environment` 라벨 제거로 대체할 수 있는지. 자기 관리 `argocd` Application은 부모 밖이라 살아남는다. 대체하면 이번 hub 철거가 그 실측이고 11절을 고친다. 판단이 서지 않으면 기존 11절로 철거한다
 - [ ] [eks-ref] destroy 순서 dev eks → dev networking → hub eks → hub networking → hub tgw. 각 루트 뒤 `teardown-verify.sh`(dev는 `AWS_PROFILE=asset`). Flow Logs 로그 그룹이 재생성되면 손으로 지운다
 

@@ -67,10 +67,12 @@ module "vpc" {
 |------|------|
 | 역할 | 이 repo의 모듈을 태그로 소비해 인프라를 구축하고 철거한다. 모듈 내부는 고치지 않는다. 고칠 것이 있으면 여기서 고치고 태그를 올린다 |
 | state | 배포 루트마다 별도 state, key는 `<env>/<component>.tfstate`. 루트 간 결합은 `terraform_remote_state`가 아니라 Name·태그 기반 `data` 조회다. 예외(크로스 구독 등)는 그 repo 값 표가 적는다 |
-| plan → apply | push가 plan을 돌리고, apply job은 environment(`hub`·`dev`)의 required reviewers 승인을 기다린다. 승인자는 **그 run의** plan 요약을 읽고 누르고, 같은 run이 저장된 plan을 적용한다. `workflow_dispatch`는 destroy·replace·재-plan 경로이고 역시 승인을 기다린다. `pull_request` 트리거는 두지 않는다(PR plan은 OIDC subject를 넓혀야 한다) |
+| plan → apply | push가 plan을 돌리고, apply job은 environment(`hub`·`dev`)의 required reviewers 승인을 기다린다. 승인자는 **그 run의** plan 요약을 읽고 누르고, 같은 run이 저장된 plan을 적용한다. `workflow_dispatch`는 destroy·replace·재-plan 경로이고 역시 승인을 기다린다. `pull_request` 트리거는 두지 않는다(PR plan은 OIDC subject를 넓혀야 한다). ⚠️ `deploy-*.yml`의 `paths`에 워크플로 파일 자신이 들어 있어, `.github/workflows/`를 건드리는 머지는 그 루트의 plan을 전부 깨운다. 철거 상태에서는 대상이 없어 대부분 plan이 실패하지만, 조회 대상이 없는 루트(EKS `hub/tgw`)는 생성 plan이 떠 게이트가 서므로 Reject한다 |
 | 승인 게이트의 조건 | apply job의 `if`는 **3항**이다: `github.ref == main` · `needs.plan.outputs.changes == 'true'` · `inputs.action != 'plan'`. **변경 0건이면 apply가 `skipped`로 끝나 게이트가 서지 않는다** — 게이트가 섰다는 사실 자체가 "적용할 것이 있다"는 신호다. `destroy`는 항상 `changes=true`라 영향이 없고, `push`는 `inputs.action`이 비어 있어 그대로 통과한다. ⛔ 이 신호는 `changes` 판정이 맞을 때만 성립한다 — `setup-opentofu`에 `tofu_wrapper: false`를 빠뜨리면 래퍼가 `-detailed-exitcode`의 `2`를 삼켜 변경이 있어도 `skipped`가 된다(워크플로 인라인 주석이 근거를 갖는다) |
 | 승인을 미룬 채 push하지 않는다 | 동시성 그룹(`cancel-in-progress: false`)이 지키는 것은 **`waiting`(승인 대기) run 하나뿐**이다. 그 뒤 대기열의 `pending` run은 새 run이 오면 취소된다 — GitHub이 그룹당 대기 슬롯을 하나만 둔다. 승인을 미루고 push를 이어 가면 중간 run들이 조용히 사라지고 마지막 하나만 남는다. 게이트는 **뜬 그 세션에 처리한다**(승인이든 Reject든). 거절은 `gh api -X POST .../actions/runs/<id>/pending_deployments -f state=rejected -F "environment_ids[]=<id>"`이고, 응답 파싱이 실패해도 거절은 성사된다(run이 `completed/failure`가 되는 것으로 확인한다) |
-| 드리프트 확인 | `action=plan`이 확인 전용 경로다. 드리프트가 **있어도** apply하지 않으므로 Reject할 게이트가 남지 않는다. ⛔ 로컬 `tofu plan`으로 대체하지 않는다 — `require_oidc`/`ci_run` 가드가 막고, 그 가드를 우회하는 것은 "적용 경로는 CI 하나뿐"이라는 설계를 깨는 것이다. ⚠️ 승인 대기 중인 run은 `gh run view --log`로 plan을 못 읽는다(`still in progress`). 웹 Summary 탭이거나, `gh run download <id> -n tfplan-<id>` 후 그 루트에서 `tofu init -backend=false` + `tofu show`다 |
+| 드리프트 확인 | `action=plan`이 확인 전용 경로다. 드리프트가 **있어도** apply하지 않으므로 Reject할 게이트가 남지 않는다. ⛔ 로컬 `tofu plan`으로 대체하지 않는다 — `require_oidc`/`ci_run` 가드가 막고, 그 가드를 우회하는 것은 "적용 경로는 CI 하나뿐"이라는 설계를 깨는 것이다. ⚠️ apply가 `skipped`인 것만으로 변경 0건이 증명되지 않는다(`action=plan` 자체가 조건 3을 깨 skip시킨다). `No changes`는 plan job 로그로 확인한다. ⚠️ 승인 대기 중인 run은 `gh run view --log`로 plan을 못 읽는다(`still in progress`). 웹 Summary 탭이거나, `gh run download <id> -n tfplan-<id>`(EKS `eks` 루트는 `tfplan-eks-<id>`) 후 그 루트에서 `tofu init -backend=false` + `tofu show -no-color`다(색상 코드가 섞이면 `^Plan:` 같은 grep이 비어 보인다) |
+| `gh` CLI | `gh run list --commit`은 40자 SHA만 받는다. 완료를 기다리는 루프는 `status`가 아니라 **`conclusion`이 비어 있지 않은지**로 건다. job `status`는 `conclusion`보다 늦게 갱신되고, run의 `conclusion`은 빈 문자열로 먼저 나타나 `!= "null"` 비교를 통과해 버린다 |
+| 에이전트 스킬 | 이름에 클라우드 접두어를 붙인다(`eks-argocd-tunnel-*`·`aks-argocd-tunnel-*`). 같은 이름의 스킬이 `--add-dir`로 붙인 저장소 여럿에 있으면 먼저 등록된 쪽만 살아남는다 |
 | 재시도 | ⚠️ 실패한 apply는 `gh run rerun <run-id> --failed`로 **이미 승인한 저장된 plan을 그대로** 다시 적용한다. 새 dispatch는 새 plan이고 다시 승인 대상이다. plan artifact는 7일 보존이라 그 안에 승인한다 |
 | 로컬 | `tofu init`·`validate`까지. apply·destroy는 각 repo의 가드(실행 Role 신뢰 관계, `ci_run` 검사)가 막는다 |
 | 네이밍 | 약어 SSOT는 `docs/naming/abbreviations/{aws,azure}.md`. 배포 루트는 약어를 직접 조합하지 않고 모듈에 `naming` 객체를 넘긴다 |
@@ -130,7 +132,8 @@ module "vpc" {
 - 기준은 *"CI가 **머지 전에** 막아야 하는가"* 하나다. 5개 저장소 전부 `verify.yml`이 `pull_request`에서 돌고
   main의 ruleset이 그 job을 required status check로 요구한다. 문서에는 main을 깨뜨릴 산출물이 없다.
 - **main ruleset**(5개 저장소 동일): 삭제 금지 · force-push 금지 · PR 필수(승인 수 0) · required status check.
-  bypass는 repository admin뿐이고 **그 용도는 문서 직접 커밋 하나다.** CI가 보는 파일을 bypass로 밀지 않는다 —
+  bypass는 repository admin뿐이고 **그 용도는 문서 직접 커밋 하나다.** API는 이 bypass를
+  `RepositoryRole actor_id 5`로만 내보내고, 역할 이름은 웹 `Settings → Rules`에서만 읽힌다. CI가 보는 파일을 bypass로 밀지 않는다 —
   규칙은 외부 기여자에게 걸리고 유지자는 훅과 이 문장이 지킨다.
 - **태그 ruleset `release-tags`**(이 repo만, 태그를 컷하는 repo가 여기뿐이다): `refs/tags/*-v*`의
   삭제·갱신·force push를 막고 생성만 연다. ⛔ **bypass가 없어 admin도 막힌다** — `main` ruleset과

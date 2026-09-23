@@ -249,9 +249,11 @@ CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필�
 {{- end }}
 ```
 
-라벨의 **값**을 본다. ApplicationSet이 cluster Secret 라벨을 sprig `get`으로 읽어 넘기므로 라벨이
-없으면 빈 문자열이 되고 렌더하지 않는다. ⚠️ `index`로 읽으면 없는 키가 `<no value>`라는 문자열이
-된다. 라벨을 붙이고 떼는 것이 곧 구독과 해지다. ⚠️ 라벨을 빠뜨린 채
+라벨의 **값**을 본다. ApplicationSet이 cluster Secret 라벨을 `index`로 읽어 넘기므로 라벨이
+없으면 빈 문자열이 되고 렌더하지 않는다. cluster generator의 라벨 맵은 `map[string]string`이라
+`index`가 없는 키에 빈 문자열을 주고 `missingkey=error`에도 걸리지 않는다. ⛔ sprig `get`은 쓰지
+않는다. `map[string]interface{}`만 받아 `wrong type for value`로 실패하고, ApplicationSet이
+Application을 하나도 만들지 않는다. 라벨을 붙이고 떼는 것이 곧 구독과 해지다. ⚠️ 라벨을 빠뜨린 채
 클러스터를 등록하면 그 addon이 **빠진 채** 배포되고, ArgoCD는 이것을 오류로 보고하지 않는다.
 
 버전은 하나다. 구독한 클러스터가 여럿이면 함께 올라간다. 티어별 승격이 필요해질 만큼 대상이 늘면

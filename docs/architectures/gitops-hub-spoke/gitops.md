@@ -388,6 +388,7 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 | cluster Secret에 `addon-version-<name>` 라벨을 달고 `targetRevision`에 주입 | 승인된 버전이 클러스터 파일마다 흩어진다. 플랫폼이 어떤 버전을 승인했는지 한 곳에서 읽지 못하고, 버전을 올릴 때 클러스터 수만큼 파일을 고쳐야 한다 |
 | matrix generator로 `clusters/<tier>/versions.yaml`을 읽어 주입 | generator 조합이 늘어 팬아웃이 안 될 때 원인을 좁히기 어렵다. 버전 표를 한 곳에 모으는 일은 부모 차트의 values 파일이 generator 없이 한다 |
 | ApplicationSet `goTemplate`으로 `tier`를 조건 분기하고 **버전 리터럴을 표현식 안에** 둠 | 버전이 템플릿 표현식 안으로 들어간다. helm values를 저장소 파일 그대로 쓰고 `--set`을 금지한 이 패턴의 기준과 어긋난다. 부모 차트는 버전 리터럴을 values 파일에 두고 템플릿은 `tier`로 표에서 읽기만 한다 |
+| 부모 차트를 **kustomize**로 대체 | 부모 차트가 하는 셋(클러스터별 값 주입·티어 버전 선택·opt-in 조건)에 kustomize 대응이 없다. 값을 `kustomize.patches`로 넣으면 ApplicationSet에 JSON patch가 쌓이고, 티어를 overlay로 나누면 티어 쌍을 한 파일에 두는 규칙이 깨진다. 클러스터마다 ArgoCD를 두는 토폴로지라면 클러스터별 값이 없어 다시 볼 만하다 |
 
 ### 되살리면 안 되는 근거
 

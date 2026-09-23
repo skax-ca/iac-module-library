@@ -100,35 +100,18 @@ heredoc으로 stdin에 실어 보낸다(`ssh host bash -s <<'REMOTE' ... REMOTE`
 
 ## 다음 할 일
 
-EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Application 구조(#31)를 실측하고 다시 철거한다. AKS 「구축·철거와 같이」 절은 AKS 일정이 정해질 때 만든다.
+EKS·AKS hub·dev 모두 철거된 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축 일정이 정해질 때 만든다.
 
-### 1. EKS 구축·철거와 같이
+### 1. 재구축과 무관 — 아무 때나
 
-순서: hub tgw → hub networking(TGW를 `data`로 조회하므로 tgw가 먼저) → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 등록 → (관찰) → dev 해제·destroy → hub 해제·destroy. 이번 사이클은 철거까지 가므로 `deletion_protection`은 `false` 그대로 둔다(「조건이 오면」의 복원 항목은 클러스터를 남기게 될 때만 연다).
-
-#### 구축 중 (hub seed) — 2026-09-23 진행 상태
-
-hub tgw(7)·networking(69)·eks(87) apply 완료, seed 완료(workbench `i-0b93d159071774b28`). seed에서 결함 2건이 나와 고쳤다: root-app `include`의 `applicationsets/**/*.yaml`이 바로 아래 `platform.yaml`을 못 잡음(eks-gitops #33·aks-gitops #9), 라벨을 sprig `get`으로 읽어 `map[string]string` 타입 오류로 Application 0건(eks-gitops #34·aks-gitops #10·module `gitops.md`). 둘 다 CI가 ArgoCD 렌더를 흉내 내지 않아 못 잡았다. 결과: ① wave 대기 성립(컨트롤러 로그 `waiting for healthy state of … and N more resources`가 줄어든 뒤 다음 wave 생성, ALBC `Disabling ALBGatewayAPI` 0건). ② kyverno 정책 `Unknown` 0회, `x509` 0회. 부모 `Synced to main (04d2d94)`·`Healthy`, diff 없음. GatewayClass Accepted, shared-gateway Programmed.
-
-- 비밀번호 교체는 이번 사이클에서 생략했다(hub를 곧 철거한다, 사용자 결정). 초기 비밀번호를 send-command로 읽어 SSM 기록에 남았다
-- seed 뒤 추가로 고친 것: kyverno의 pre-delete finalizer를 부모 selfHeal이 5분마다 지우는 루프(eks-gitops #35·aks-gitops #11, `ordering.md` 2·4절) — 머지 후 루프 0건 확인. addon Application 식별 라벨 `platform.addon`·`.cluster`·`.wave` + `resource.customLabels`(eks-gitops #36·#37·aks-gitops #12, `gitops.md` 3절) — 콘솔 트리 태그 확인
 - [ ] [eks-ref] `deploy-{hub,dev}-eks.yml`·`deploy-dev-network.yml`에는 apply 후 수렴 검증 스텝이 없다(hub network·tgw만 있다). `deploy-hub-eks.yml` 250~251행 주석은 있다고 적는다 — 주석을 고칠지 스텝을 넣을지 정한다(브랜치 → PR)
-- [ ] [eks-gitops·aks-gitops] root-app `include`와 ApplicationSet 템플릿을 CI가 검사하지 못한다. `verify.yml`에서 `include` glob을 실제 파일 목록에 대 보는 검사(0건 매치 경로 = 실패)를 넣을지 검토한다
-
-#### 구축 중 (dev 등록)·구축 후 — 2026-09-23 결과
-
-dev networking(69, RAM 자동 수락 스텝 성공)·eks(87) apply, hub networking 재적용 6건(라우트 5 + spoke attachment의 TGW RT association 1 — 5로 예상했던 것은 틀렸다). dev 등록 eks-gitops #38(`e71adff`에서 `server`·`caData` 2줄만 교체). 개입 없이 02:51 → 02:55 수렴: ① wave 0(02:51:19) → 1(02:51:42) → 2(02:52:36), dev ALBC `Disabling ALBGatewayAPI` 0건, shared-gateway Programmed. ② kyverno 정책 `Unknown` 0회·`x509` 0회. CRD `Degraded`는 11초 만에 스스로 풀렸다(부모 sync `Failed` → `Attempt #1`에서 진행). kyverno pre-delete finalizer 유지·부모 `configured` 0건. Karpenter: dev에서 처음으로 노드가 떴다 — `r8gd.medium` spot, launched 6초·initialized 38초, AMI `amazon-eks-node-al2023-arm64-standard-1.35-v20260917`(핀 일치). 워크로드 삭제 후 50초 만에 consolidation으로 노드·EC2 종료. hub Application 24개 전부 Synced/Healthy.
-
-#### 철거
-
-- ④ dev 해제 — 2026-09-23 결과: eks-gitops #39(`environment`만 제거) → 부모 cascade가 wave 2(03:07:49) → 1(03:08:10, gateway 삭제 완료 뒤) → 0(03:08:31) 순, 약 70초. dev에서 CR 전부 finalizer 스턱 없이 소멸, kyverno PreDelete 훅 Job(`rm-webhooks`·`scale-to-zero`) 실행. AWS 잔존 SG·ALB·TG·Karpenter LT·EC2 0. #40으로 파일 삭제 + hub 라이브 Secret 수동 삭제. 빈 네임스페이스(gateway-system·keda·kyverno)는 설계대로 남음. dev eks(87)·networking(69) destroy, Flow Logs 로그 그룹 재생성분 수동 삭제 후 `teardown-verify.sh` 잔존물 없음. ⏳ 4곳(`ordering.md`·문서 지도·`aws/README.md`·EKS `spoke-lifecycle.md`)을 걷었다
-- [ ] [eks-ref] **④가 성공하면 hub 철거 방식을 판단한다**: `hub-lifecycle.md` 11절(컨트롤러 정지 + 손 삭제)을 hub cluster Secret의 `environment` 라벨 제거로 대체할 수 있는지. 자기 관리 `argocd` Application은 부모 밖이라 살아남는다. 대체하면 이번 hub 철거가 그 실측이고 11절을 고친다. 판단이 서지 않으면 기존 11절로 철거한다
-- [ ] [eks-ref] destroy 순서 dev eks → dev networking → hub eks → hub networking → hub tgw. 각 루트 뒤 `teardown-verify.sh`(dev는 `AWS_PROFILE=asset`). Flow Logs 로그 그룹이 재생성되면 손으로 지운다
+- [ ] [eks-gitops·aks-gitops] root-app `include`와 ApplicationSet 템플릿을 CI가 검사하지 못한다(이번 seed의 결함 2건이 둘 다 CI를 통과했다). `verify.yml`에서 `include` glob을 실제 파일 목록에 대 보는 검사(0건 매치 경로 = 실패)를 넣을지 검토한다
 
 ### 2. 조건이 오면 (지금 하지 않는다)
 
 - [ ] [eks-gitops] **CRD health 고착이 다시 나오면**: hub seed에서 Gateway API CRD가 생성 순간의 `Degraded`(아직 `Established` 전)에 굳어 부모가 2분 반 멈췄고 자식 hard refresh로 풀렸다. dev 등록에서는 11초 만에 스스로 풀려 재현되지 않았다. 가설(차트 기본 `ignoreResourceUpdates.all: /status`)은 공식 문서(`reconcile.md` "health가 바뀌면 무시하지 않는다")와 어긋나 원인 미확정이다. 다시 나오면 `argocd app get <crd-app> --core`로 CRD별 health를 보고, 재현이 쌓이면 CRD만 `ignoreResourceUpdates`에서 빼는 안을 검토한다
-- [ ] [aks-gitops·aks-ref] **다음에 AKS를 seed·철거할 때**: EKS 1절의 ①②④를 AKS에서 본다. seed에서는 Kyverno(wave 1)가 NodePool(wave 0) 뒤에 뜨는지, 철거에서는 kyverno Application이 `deletionTimestamp` 없이 지워지고 삭제 훅 Job이 NAP 노드에서 도는지. 차이만 본다
+- [ ] [aks-gitops·aks-ref] **다음에 AKS를 seed·철거할 때**: EKS에서 확인한 것을 AKS에서 본다 — wave 대기(설치), `environment` 라벨 제거만으로 wave 역순 해제, 잔존물 0. 차이만 본다: seed에서 Kyverno(wave 1)가 NodePool(wave 0) 뒤에 뜨는지, 철거에서 kyverno PreDelete 훅 Job이 NAP 노드에서 도는지. 성공하면 `ordering.md` 4절의 AKS 단서와 AKS `spoke-lifecycle.md` 머리글 ⏳를 걷는다
+- [ ] [aks-ref] **AKS hub를 철거할 때**: EKS처럼 hub cluster Secret의 `environment` 라벨 제거로 addon을 해제해 보고, 되면 AKS `hub-lifecycle.md`의 hub 철거 절을 EKS `hub-lifecycle.md` 11절 형태로 바꾼다. 라벨은 git에서 떼고 destroy 뒤 그 커밋을 되돌린다(seed 입력)
 - [ ] [eks-gitops] **새 AL2023 AMI가 나오면**: `amiAliasByTier.nonprd` 줄에 먼저 올리고, dev에서 Karpenter 노드가 뜨는 것을 본 뒤 같은 값을 prd 줄에 올린다. 핀 값은 실제 NodeClaim에서 읽는다. 최신 확인: `aws ssm get-parameter --name /aws/service/eks/optimized-ami/1.35/amazon-linux-2023/x86_64/standard/recommended/image_name`
 - [ ] [eks-ref] **EKS를 철거하지 않고 남기게 되면** 네 루트의 `deletion_protection`을 `true`로 되돌린다(`live/{hub,dev}/{eks,networking}` 4곳, 코드 주석이 요구). 재구축 → 철거 사이클 동안은 `false`가 의도다
 - [ ] [aks-ref] **AKS를 다시 세운 뒤 vWAN `prevent_destroy`와 VNet·AKS `deletion_protection`을 `true`로 되돌린다**(`live/hub/vwan` 리소스 2곳, `live/{hub,dev}/networking`·`live/{hub,dev}/aks`). 재구축이 끝나기 전에는 `main`에 `false`가 남는 것이 의도다

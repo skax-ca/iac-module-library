@@ -44,6 +44,17 @@ Lua를 넣는다. CRD에는 내장 health(`Established`)가 있어 따로 넣지
 ⚠️ 이 health는 전역 설정이라 root App에도 걸린다. root App의 health가 ArgoCD 자기 관리
 Application과 부모들의 health를 반영하게 된다.
 
+🔑 **부모는 addon Application의 `metadata.finalizers`를 diff하지 않는다.** 차트에 `pre-delete` 훅이
+있는 addon(Kyverno)이면 Argo CD가 그 Application에 `pre-delete-finalizer.argocd.argoproj.io`와
+`…/cleanup`을 런타임에 붙인다. 부모 매니페스트에는 없는 값이라, 무시하지 않으면 부모의 selfHeal이
+그것을 지우고 Argo CD가 다시 붙이는 루프가 selfHeal 주기마다 돈다. 부모에 `ignoreDifferences`
+(`/metadata/finalizers`)와 `RespectIgnoreDifferences=true`를 함께 건다. 앞의 것만 걸면 diff만 숨고
+sync는 여전히 지운다. 근거는 Argo CD
+[Cluster Bootstrapping](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
+「Ignoring differences in child applications」와
+[Sync Options](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-options/)
+「Respect ignore difference configs」다.
+
 ---
 
 ## 3. 해제는 2단계다
@@ -70,6 +81,7 @@ cluster`). CR의 finalizer도, 그 CR이 만든 클라우드 리소스도 남는
 |---|---|
 | 앞 wave의 addon 하나가 Healthy가 되지 못하면 그 클러스터의 뒤 wave가 전부 멈춘다. wave가 없으면 addon은 서로를 기다리지 않는다 | 1절 규칙대로 두면 뒤 wave에는 앞 wave 없이는 어차피 동작하지 않는 것만 남는다. Healthy까지 오래 걸리는 것(ALB를 만드는 Gateway)은 마지막 wave에 둔다 |
 | 부모의 sync operation이 앞 wave를 기다리는 동안 새 커밋의 버전 변경이 addon Application spec에 반영되지 않는다. 멈춘 addon을 고치는 커밋도 같다. `controller.sync.timeout.seconds` 기본값이 `0`(무제한)이라 스스로 풀리지 않는다 | `argocd app terminate-op <cluster>-platform`으로 operation을 끊으면 다음 auto-sync가 새 커밋으로 돈다. `addons/<addon>/values.yaml`만 고친 커밋은 addon Application이 직접 읽으므로 부모를 거치지 않는다 |
+| 부모가 addon Application의 finalizer를 무시하므로, 생성 뒤 누가 `resources-finalizer.argocd.argoproj.io`를 손으로 지워도 부모가 되살리지 않는다. 그 addon은 해제 때 클러스터 실물을 남긴다 | 생성 시점에는 매니페스트 그대로 붙는다(`RespectIgnoreDifferences`는 이미 있는 리소스에만 걸린다). 해제 전에 `kubectl -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name} {.metadata.finalizers}{"\n"}{end}'`로 확인한다. `pre-delete` 항목만 골라 무시하는 jq 경로는 sync 전 patch에 반영되는지 문서가 말하지 않아 쓰지 않았다 |
 | 전체 해제의 순서가 문서에 없는 코드 동작에 기댄다 | ⏳ 다음 spoke 해제에서 실측한다. Argo CD를 올릴 때 `controller/sort_delete.go`가 남아 있는지 본다 |
 
 ---

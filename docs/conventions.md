@@ -168,6 +168,13 @@ gh api repos/<org>/iac-module-library/rulesets/$ID --jq '.enforcement'  # active
 origin <태그>`로 서버 실물을 다시 읽어 판정한다. 거부는 `remote rejected`로, bypass를 가진
 신원의 통과는 `Bypassed rule violations`로 나타난다.
 
+### 부팅 템플릿이 바뀐 태그는 교체를 예고한다
+
+`workbench`의 `user_data`(`user_data_replace_on_change = true`)와 `aks-workbench`의 `custom_data`
+(ForceNew)는 템플릿 문자열이 한 글자만 바뀌어도 소비 측 plan에 인스턴스·VM **교체**를 띄운다.
+주석만 바뀌어 부팅 동작이 같아도 그렇다. 이런 변경이 실린 태그는 태그 메시지에 교체가 뜬다는
+사실과 원인이 주석 변경뿐인지를 적어, 승인자가 plan의 `must be replaced`를 예상하고 읽게 한다.
+
 ### provider 층을 넣기 전에 컷된 태그
 
 AWS 모듈 4개는 `modules/<모듈명>/`에 있다가 `modules/aws/<모듈명>/`으로 옮겼다. 옮기기 전에

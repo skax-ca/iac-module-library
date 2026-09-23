@@ -106,17 +106,15 @@ EKS·AKS hub·dev 모두 철거된 상태다. EKS를 재구축해 부모 Applica
 
 순서: hub tgw → hub networking(TGW를 `data`로 조회하므로 tgw가 먼저) → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 등록 → (관찰) → dev 해제·destroy → hub 해제·destroy. 이번 사이클은 철거까지 가므로 `deletion_protection`은 `false` 그대로 둔다(「조건이 오면」의 복원 항목은 클러스터를 남기게 될 때만 연다).
 
-#### 구축 전
+#### 구축 중 (hub seed) — 2026-09-23 진행 상태
 
-- [ ] [eks-gitops] 확인만: `clusters/hub/eks-demo-hub-an2-main-01/cluster-secret.yaml`은 `server: https://kubernetes.default.svc`라 재구축에도 값이 안 바뀐다. 손댈 것 없음. Karpenter AMI 핀 `al2023@v20260917`은 SSM `recommended`와 같다(최신) — AMI 승격 항목은 이번에 열리지 않는다
+hub tgw(7)·networking(69)·eks(87) apply 완료, seed 완료(workbench `i-0b93d159071774b28`). seed에서 결함 2건이 나와 고쳤다: root-app `include`의 `applicationsets/**/*.yaml`이 바로 아래 `platform.yaml`을 못 잡음(eks-gitops #33·aks-gitops #9), 라벨을 sprig `get`으로 읽어 `map[string]string` 타입 오류로 Application 0건(eks-gitops #34·aks-gitops #10·module `gitops.md`). 둘 다 CI가 ArgoCD 렌더를 흉내 내지 않아 못 잡았다. 결과: ① wave 대기 성립(컨트롤러 로그 `waiting for healthy state of … and N more resources`가 줄어든 뒤 다음 wave 생성, ALBC `Disabling ALBGatewayAPI` 0건). ② kyverno 정책 `Unknown` 0회, `x509` 0회. 부모 `Synced to main (04d2d94)`·`Healthy`, diff 없음. GatewayClass Accepted, shared-gateway Programmed.
 
-#### 구축 중 (hub seed)
-
-- [ ] [eks-gitops·eks-ref] seed 전에 health Lua가 values에 있는지 본다(`bootstrap/argocd-values.yaml`의 `resource.customizations.health.argoproj.io_Application`). seed 뒤 `kubectl -n argocd get cm argocd-cm -o yaml | grep argoproj.io_Application`으로 **실제로 들어갔는지** 본다 — 없으면 wave가 생성 순서만 정하고 아래 실측이 전부 무의미하다
-- [ ] [eks-gitops] **① wave 대기**: `eks-demo-hub-an2-main-01-platform`이 wave 0(`-gateway-api-crds`)이 Healthy가 된 **뒤에** wave 1을 만드는지. 판정은 addon Application의 `creationTimestamp`를 wave와 대조한다(`kubectl -n argocd get applications -o custom-columns=NAME:.metadata.name,WAVE:.metadata.annotations.argocd\.argoproj\.io/sync-wave,CREATED:.metadata.creationTimestamp --sort-by=.metadata.creationTimestamp`). ALBC 로그에 `Disabling ALBGatewayAPI`가 **없어야** 한다(`kubectl -n kube-system logs deploy/aws-lbc-aws-load-balancer-controller | grep -i gatewayapi`)
-- [ ] [eks-gitops] **② kyverno 정책**: `-kyverno-policies`·`-kyverno-custom-policies`가 `service ...-kyverno-svc not found` `Unknown`을 거치지 않는지. 거치지 않으면 gitops README 「seed 직후 잠시 남는 비정상 상태」의 첫 줄을 걷는다. `x509` 웹훅 재시도(둘째 줄)도 다시 나오는지 본다
-- [ ] [eks-gitops] **③ 멈춤 복구**: 부모가 앞 wave에서 멈추는 일이 자연히 생기면 `argocd app terminate-op <cluster>-platform --core`로 풀리는지. ⚠️ `--core`는 kubeconfig 컨텍스트 네임스페이스가 `argocd`여야 한다. 일부러 만들지는 않는다
-- [ ] [eks-ref] 완료 판정은 `hub-lifecycle.md` 7절 6항목 + 부모 `-platform`이 `Healthy`. 비밀번호 교체(`runbooks.md` 3절)까지가 seed다
+- [ ] [local] **ArgoCD 관리자 비밀번호 교체**(`runbooks.md` 3절, 대화형 SSM 세션에서 사용자가 직접). 이것까지가 hub seed 완료다
+- [ ] [eks-gitops] **CRD health 고착**: wave 0의 Gateway API CRD 8개가 생성 순간의 `Degraded`(아직 `Established` 전)에 굳어 부모가 2분 반 멈췄다. CRD 조건은 전부 `True`였고 내장 Lua(`resource_customizations/apiextensions.k8s.io/CustomResourceDefinition/health.lua`)도 지금 조건이면 Healthy를 낸다. 자식 Application hard refresh 한 번에 풀렸다. 가설: 차트 기본 `ignoreResourceUpdates.all: /status`가 CRD의 status 갱신을 무시했다. ⚠️ 공식 문서(`reconcile.md`)는 "health가 바뀌면 무시하지 않는다"고 해 가설과 어긋난다 — 원인 미확정. dev 등록에서 재현되는지 먼저 보고, 재현되면 CRD만 `ignoreResourceUpdates`에서 빼는 안을 검토한다. 부모는 그동안 sync를 `Failed` → 재시도(`Attempt #4`)로 돌았고 `terminate-op`은 쓰지 않았다(③은 이번에 열리지 않았다)
+- [ ] [eks-gitops] gitops README 「seed 직후 잠시 남는 비정상 상태」의 kyverno `Unknown` 줄과 `x509` 줄은 이번 seed에서 둘 다 안 나왔다. dev 등록에서도 안 나오면 걷는다
+- [ ] [eks-ref] `deploy-{hub,dev}-eks.yml`·`deploy-dev-network.yml`에는 apply 후 수렴 검증 스텝이 없다(hub network·tgw만 있다). `deploy-hub-eks.yml` 250~251행 주석은 있다고 적는다 — 주석을 고칠지 스텝을 넣을지 정한다(브랜치 → PR)
+- [ ] [eks-gitops·aks-gitops] root-app `include`와 ApplicationSet 템플릿을 CI가 검사하지 못한다. `verify.yml`에서 `include` glob을 실제 파일 목록에 대 보는 검사(0건 매치 경로 = 실패)를 넣을지 검토한다
 
 #### 구축 중 (dev 등록)
 

@@ -7,32 +7,46 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | **hub·dev 철거 완료.** bootstrap(state 버킷·OIDC·Role)만 남았다. 네 루트의 `deletion_protection = false`가 main에 남아 있는 것은 재구축 사이클 동안의 의도다 |
-| eks-platform-gitops | main = origin | **EKS 철거 상태.** `clusters/hub/`는 seed 입력으로 남겼고 `clusters/dev/`는 없다(재등록은 `spoke-lifecycle.md`) |
+| eks-reference-infra | main = origin | **hub·dev 구축 완료, 철거 예정.** hub 부트스트랩은 계정 관리자 정리 뒤 새로 만들었다(버킷명 변경). 네 루트의 `deletion_protection = false`는 철거를 위한 의도다. hub ArgoCD 초기 비밀번호는 철거 예정이라 교체하지 않았다 |
+| eks-platform-gitops | main = origin | **hub·dev 등록, 전 Application `Synced`/`Healthy`**(hub 13 · dev 11). `clusters/dev/`가 다시 있다 |
 | aks-reference-infra | main = origin | **hub·dev 철거 완료.** state Storage Account만 남았다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 dev다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** 부모 Application 구조는 ⏳ AKS 실측 전이다. `clusters/hub/`는 재구축용으로 남겼다 |
 
-## 지난 세션 (2026-09-23)
+## 지난 세션 (2026-09-29)
 
-**「재구축과 무관」 두 항목을 닫았다.** eks-ref 워크플로 3개에 apply 후 수렴 검증을 넣었다(#78 `b20dddf`). 두 gitops 저장소 `verify.yml`에 root App `include` 판정을 넣었다. ArgoCD와 같은 `gobwas/glob`을 같은 방식으로 부른다(eks-gitops #43 `5afa634`, aks-gitops #14 `d10a35a`, module `1fddfac`).
+**EKS hub·dev를 재구축했다.** team 계정 관리자가 hub 부트스트랩(state 버킷·OIDC·Role)을 정리해 CI가 인증에서 멈췄고, `bootstrap.sh`로 다시 만들어 repo 변수·`backend.hcl`을 새 버킷명으로 바꿨다(절차는 eks-ref `hub-lifecycle.md` 3절에 옮겼다). 순서대로 tgw → hub networking → hub eks → seed → dev networking → dev eks → hub networking 재적용 → dev 재등록(eks-gitops #44 `5be9b91`)까지 전부 수렴했다.
 
-**세션 관리 구조를 재편했다.** 4절에 성격이 다른 항목 여섯 종류가 섞여 있었고, 기각 3건과 gotcha 9종이 덮어쓰는 이 파일에만 있었다. 기각은 `decisions.md`·`gitops.md`로(`1712bb4`), gotcha는 `CLAUDE.md`(`7222b7b`)·eks-ref `runbooks.md`(`7f9caf5`)·aks-ref `runbooks.md`(`a2eb208`)로, 태그 메시지 경고는 `conventions.md`로 옮겼다. `rules/session.md`는 4절을 트리거별 소절로 나누고 항목 형식·60일 재확인을 정했다(`c3bb706`). `~/archive/` 삭제. 옛 항목의 서술 원문은 `git log -p -- .claude/session.md`에 있다.
+**수렴 검증 첫 실행에서 결함 하나를 고쳤다.** hub eks 첫 apply 직후 계정 태거가 덮어쓴 workbench 볼륨 `Name` diff로 실패했다. `providers.tf`가 "생성당 1회"로 적어 둔 동작과 게이트가 충돌한 것이라, 그 diff 한 건만 경고로 통과시키는 `scripts/converge-check.sh`를 넣었다(eks-ref #79 `72ea298`). asset 계정에는 태거가 없어 dev eks는 첫 apply에서 바로 수렴했다.
+
+발표 자료(`.local/presentations/2026-09-iac-asset/`)에 스크립트를 쓰고 슬라이드·article의 낡은 사실(`aks-cluster` 태그, 승인 게이트, public 전환)과 「닫으며」 02를 고쳤다.
 
 ## 다음 할 일
 
-EKS·AKS hub·dev 모두 철거된 상태다. 클라우드별 「구축·철거와 같이」 절은 다음 재구축 일정이 정해질 때 만든다. 그때 4절의 해당 재구축 소절을 통째로 옮긴다.
+### 1. EKS 구축·철거와 같이
 
-### 1. 재구축과 무관 — 아무 때나
+#### 철거 중
+
+- [ ] [eks-gitops·eks-ref] dev 먼저 철거: `environment` 라벨 제거 PR → wave 역순 해제 확인 → `dev/eks`·`dev/networking` destroy → `teardown-verify.sh`(`AWS_PROFILE=asset`). 근거 eks-ref `spoke-lifecycle.md` 10~12절
+- [ ] [eks-ref] dev만 걷힌 상태에서 hub networking `action=plan`으로 잔존 라우트(TGW static 1 + VPC 4)를 본다. 근거 `spoke-lifecycle.md` 13절
+- [ ] [eks-gitops·eks-ref] hub 철거: 라벨 제거 PR → `hub/eks` → `hub/networking` → `hub/tgw` destroy → `teardown-verify.sh`. 근거 `hub-lifecycle.md` 11~13절
+- [ ] [eks-ref] `hub/eks`·`dev/eks` destroy 뒤 `converge-check.sh --destroy` 경로가 처음 돈다. 실패하면 남은 diff부터 본다
+
+#### 철거 후
+
+- [ ] [eks-gitops] hub cluster Secret의 라벨 제거 커밋을 되돌린다(다음 seed 입력). dev Secret은 철거 중 10절 ⑥에서 파일째 지운다. 근거 `hub-lifecycle.md` 11절
+
+### 2. 재구축과 무관 — 아무 때나
 
 - [ ] [전체] push 권한자가 이미 2명이다(`rajaelime`, 팀 경유 `maintain`). 「작업자 2인 이상」 트리거가 이미 당겨진 것으로 볼지 사용자가 판단한다. 당겨졌다면 아래 조직·권한 항목을 연다 (09-23~)
+- [ ] [eks-ref] `bootstrap.sh`의 `converge_bucket`이 `$(...)` 서브셸에서 돌아 버킷 변경이 `변경 N건`에 안 잡힌다(실측 8건 중 5건 보고). 셸이라 브랜치 → PR (09-29~)
 
-### 2. 조건이 오면 (지금 하지 않는다)
+### 3. 조건이 오면 (지금 하지 않는다)
 
 #### EKS 재구축
 
-- [ ] [eks-ref] 첫 apply: `hub/eks`·`dev/eks`·`dev/networking`의 수렴 검증이 처음 돈다. `2`로 실패하면 그 루트의 영구 diff부터 본다 (09-23~)
 - [ ] [eks-gitops] seed에서 CRD health 고착이 다시 나오면: `argocd app get <crd-app> --core`로 CRD별 health를 남긴다. 재현이 쌓이면 CRD만 `ignoreResourceUpdates`에서 빼는 안을 검토한다 (09-23~)
 - [ ] [eks-ref] 철거하지 않고 남기기로 하면: 네 루트의 `deletion_protection`을 `true`로 되돌린다 (09-23~)
+- [ ] [eks-ref] hub workbench가 다시 생기면(재구축·도구 핀 상향): `converge-check.sh`의 경고 통과 경로가 CI에서 처음 도는지 본다. 근거 `scripts/README.md` (09-29~)
 
 #### AKS 재구축
 

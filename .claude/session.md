@@ -24,7 +24,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절(재등록은 14절). hub workbench를 새로 만든 뒤 첫 `hub/eks` apply에서 `converge-check.sh`의 태거 diff 경고 통과 경로가 처음 돈다. 실패하면 그 양상을 `scripts/README.md`에 적는다 (09-30~)
+- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절(재등록은 14절). hub workbench를 새로 만든 뒤 첫 `hub/eks` apply에서 `converge-check.sh`의 태거 diff 경고 통과 경로가 처음 돈다. 실패하면 그 양상을 `scripts/README.md`에 적는다. seed에서 새 이름(ApplicationSet `cluster-addons`, 부모 `<cluster>-addons`, 라벨 `addon.*`)이 처음 선다 (09-30~)
 - [ ] [aks-ref·aks-gitops] 발표 전 AKS 재구축: aks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. 이번에 실측한 ⏳를 걷는다(`grep -rn '⏳' docs/ ../iac-module-library/docs/architectures/gitops-hub-spoke`) (09-23~)
 - [ ] [local] AKS 구축 뒤 발표 준비: `script.md` 데모 ⑤를 실물과 대조하고(포털 `Networking`의 `Azure CNI Overlay`·NAP 표시, AKS ArgoCD addon 목록) 「발표 전 확인 · 전날」을 돈다. ArgoCD 앱 수가 바뀌면 위 표의 hub 13 · dev 11도 고친다 (09-30~)
 - [ ] [전체] push 권한자가 이미 2명이다(`rajaelime`, 팀 경유 `maintain`). `CLAUDE.md` 「GitOps 저장소 공통」 ⛔ 재검토 트리거가 당겨진 것으로 볼지 사용자가 정한다 (09-23~)

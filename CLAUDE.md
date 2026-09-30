@@ -98,7 +98,7 @@ module "vpc" {
 | 승격 | 클러스터가 있으면 nonprd → 검증 → prd. **철거 상태에서는 양 티어를 같이 올리고 재구축 때 한 번에 검증한다** — 검증할 대상이 없는 상태에서 커밋을 둘로 쪼개는 것은 절차만 남는다 |
 | 자기 관리 ArgoCD | `bootstrap/argocd-app.yaml`의 `targetRevision`과 `bootstrap/argocd-seed.sh`의 `ARGOCD_CHART_VERSION`은 **항상 같다**. 갈리면 흡수가 업그레이드가 되고, sync 주체가 sync 도중에 재시작한다. 올리는 것은 **클러스터가 철거된 상태에서** 한다 |
 | 버전 핀의 자리 | 한 차트 버전이 여러 곳에 박힌다(`eks-platform-gitops`는 `README.md`의 addon 표가 버전을 중복 보유한다 — 자동 생성이 아니라 손으로 쓴 표다). 올린 뒤 `grep -rn '<옛버전>'`으로 0건을 확인한다 |
-| ⛔ 재검토 트리거 | **클러스터를 상시 가동으로 바꾸거나 작업자가 2인 이상이 되면** 이 절을 다시 연다. 그때는 ruleset의 승인 수(지금 0)와 bypass 범위, 그리고 `argocd app diff`를 CI로 끌어올 수 있는지(클러스터가 있어야 한다)를 본다 |
+| ⛔ 재검토 트리거 | **클러스터를 상시 가동으로 바꾸거나 작업자가 2인 이상이 되면** 이 절을 다시 연다. 그때는 5개 저장소 main ruleset의 승인 수(지금 0)·`require_last_push_approval`·`dismiss_stale_reviews_on_push`와 bypass 범위(문서 직접 커밋), 배포 루트 environment의 두 번째 reviewer·`prevent_self_review`, 그리고 `argocd app diff`를 CI로 끌어올 수 있는지(클러스터가 있어야 한다)를 본다 |
 
 ---
 

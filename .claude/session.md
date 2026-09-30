@@ -31,7 +31,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 조건이 오면
 
-- [ ] [eks-ref·eks-gitops] 발표가 끝나면: EKS 철거. eks-ref `spoke-lifecycle.md` 8~12절(dev) → `hub-lifecycle.md` 8~13절(hub) (09-30~)
+- [ ] [eks-ref·eks-gitops] 발표가 끝나면: EKS 철거. eks-ref `spoke-lifecycle.md` 8~12절(dev) → `hub-lifecycle.md` 8~13절(hub). `*/eks` destroy 뒤 같은 job이 `converge-check.sh --destroy`를 처음 돈다. 결과를 보고, 실패하면 그 양상과 대응을 `hub-lifecycle.md` 16절에 적는다 (09-30~)
 - [ ] [aks-ref·aks-gitops] AKS를 걷어낼 때: 철거 절을 따르고 ⏳를 걷는다. hub는 `environment` 라벨 제거로 addon 해제를 시험해, 되면 aks-ref `hub-lifecycle.md` 12절을 eks-ref `hub-lifecycle.md` 11절 형태로 바꾼다 (09-23~)
 - [ ] [*-gitops·module] 이 저장소들에 `id-token: write` job이 생기면: 액션 SHA 핀을 넓힌다(지금은 배포 루트만 SHA 핀) (09-23~)
 - [ ] [eks-ref·aks-ref] 재구축 뒤 Dependabot provider PR이 루트마다 따로 쌓이면: `groups`로 묶을지 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)

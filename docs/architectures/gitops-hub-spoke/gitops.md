@@ -74,15 +74,15 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 
 | 라벨 | 값 | 쓰임 |
 |---|---|---|
-| `platform.addon` | addon 이름(`aws-lbc`·`karpenter` …) | 한 addon을 전 클러스터에서 고른다(승격 때 버전 비교) |
-| `platform.cluster` | cluster Secret 이름 | 한 클러스터의 addon을 고른다. 부모 Application에도 붙는다 |
-| `platform.wave` | sync-wave와 같은 값 | wave 순서로 정렬한다. 어노테이션과 같은 헬퍼가 찍어 값이 갈리지 않는다 |
+| `addon.name` | addon 이름(`aws-lbc`·`karpenter` …) | 한 addon을 전 클러스터에서 고른다(승격 때 버전 비교) |
+| `addon.cluster` | cluster Secret 이름 | 한 클러스터의 addon을 고른다. 부모 Application에도 붙는다 |
+| `addon.wave` | sync-wave와 같은 값 | wave 순서로 정렬한다. 어노테이션과 같은 헬퍼가 찍어 값이 갈리지 않는다 |
 
 라벨은 목록 화면의 필터·타일·표와 CLI(`kubectl -l`·`-L`, `argocd app list -l`)에 그대로 쓰인다.
 부모의 리소스 트리 노드에는 기본으로 나오지 않는다. 트리 노드 태그는 컨트롤러가 채우는 리소스
 `info`이고, `argocd-cm`의 `resource.customLabels`에 적은 키만 그 값을 `info`로 올린다(Argo CD
-`controller/cache/info.go`). 그래서 `resource.customLabels: platform.addon,platform.wave`를 함께 둔다.
-⚠️ 이 설정은 전역이라 같은 키를 가진 모든 리소스의 노드에 태그가 붙는다. `platform.` 접두사가 다른
+`controller/cache/info.go`). 그래서 `resource.customLabels: addon.name,addon.wave`를 함께 둔다.
+⚠️ 이 설정은 전역이라 같은 키를 가진 모든 리소스의 노드에 태그가 붙는다. `addon.` 접두사가 다른
 차트 라벨과의 충돌을 피한다.
 
 ⛔ 이름을 `<environment>-<addon>`처럼 짧게 짓지 않는다. `environment` 값은 클러스터마다 유일하다는
@@ -95,13 +95,13 @@ release 이름은 **클러스터 안에서만** 유일하면 된다. `destinatio
 
 ### 클러스터마다 부모 Application 하나
 
-hub ArgoCD는 등록된 클러스터마다 부모 Application `<cluster>-platform`을 하나 만든다. 그 부모가
+hub ArgoCD는 등록된 클러스터마다 부모 Application `<cluster>-addons`를 하나 만든다. 그 부모가
 그 클러스터의 addon Application을 전부 렌더한다.
 
 ```
 root-app
-└─ ApplicationSet platform              cluster generator. environment 라벨이 있는 클러스터마다 부모 하나
-   └─ <cluster>-platform                로컬 helm 차트 addons/platform/ 를 렌더한다
+└─ ApplicationSet cluster-addons              cluster generator. environment 라벨이 있는 클러스터마다 부모 하나
+   └─ <cluster>-addons                로컬 helm 차트 addons/cluster-addons/ 를 렌더한다
       ├─ <cluster>-gateway-api-crds     wave 0
       ├─ <cluster>-aws-lbc              wave 1
       └─ <cluster>-gateway              wave 2
@@ -109,8 +109,8 @@ root-app
 
 | 누가 | 무엇을 정하나 |
 |---|---|
-| ApplicationSet `platform` | 어느 클러스터가 플랫폼을 받나. selector는 `environment` 라벨의 **존재** 하나다 |
-| 부모 차트 `addons/platform/` | 그 클러스터가 어느 addon을 어떤 버전으로, 어떤 wave에 받나. cluster Secret 라벨을 helm parameter로 받아 고른다 |
+| ApplicationSet `cluster-addons` | 어느 클러스터가 플랫폼을 받나. selector는 `environment` 라벨의 **존재** 하나다 |
+| 부모 차트 `addons/cluster-addons/` | 그 클러스터가 어느 addon을 어떤 버전으로, 어떤 wave에 받나. cluster Secret 라벨을 helm parameter로 받아 고른다 |
 | addon Application | addon 하나. 차트 source·values 파일·sync 정책을 갖는다 |
 
 부모를 두는 이유는 순서다. sync-wave는 Application 하나의 sync 안에서만 순서를 정한다. addon
@@ -207,7 +207,7 @@ v1.13.4인데 같은 라인 정책 최신 3.3.6은 app v1.13.6으로 앞선다. 
 ### uniform: 전 클러스터가 같은 버전
 
 ```yaml
-# addons/platform/templates/kyverno-custom-policies.yaml
+# addons/cluster-addons/templates/kyverno-custom-policies.yaml
 spec:
   source:
     targetRevision: main          # 조건도 티어도 없다
@@ -231,7 +231,7 @@ spec:
 않고 줄만 는다.
 
 ```yaml
-# addons/platform/values.yaml
+# addons/cluster-addons/values.yaml
 versions:
   karpenter:
     prd: 1.14.0       # 운영 버전
@@ -239,7 +239,7 @@ versions:
 ```
 
 ```yaml
-# addons/platform/templates/karpenter.yaml
+# addons/cluster-addons/templates/karpenter.yaml
 targetRevision: {{ required "tier 는 prd·nonprd 둘뿐이다" (index .Values.versions.karpenter .Values.tier) }}
 ```
 
@@ -266,7 +266,7 @@ CR 차트에 넣으면 prd에서 미지의 필드가 된다. 새 필드가 필�
 ### opt-in: 구독한 클러스터에만
 
 ```yaml
-# addons/platform/templates/keda.yaml
+# addons/cluster-addons/templates/keda.yaml
 {{- if eq .Values.addons.keda "enabled" }}
 ...
 {{- end }}
@@ -286,9 +286,9 @@ Application을 하나도 만들지 않는다. 라벨을 붙이고 떼는 것이 
 
 | 파일 | 무엇을 갖나 |
 |---|---|
-| `applicationsets/platform.yaml` | ApplicationSet 하나. root App이 읽는다 |
-| `addons/platform/templates/<addon>.yaml` | addon Application 하나와 그 wave |
-| `addons/platform/values.yaml` | 버전 표. staged의 티어 쌍이 여기 나란히 있다 |
+| `applicationsets/cluster-addons.yaml` | ApplicationSet 하나. root App이 읽는다 |
+| `addons/cluster-addons/templates/<addon>.yaml` | addon Application 하나와 그 wave |
+| `addons/cluster-addons/values.yaml` | 버전 표. staged의 티어 쌍이 여기 나란히 있다 |
 | `addons/<addon>/values.yaml` · `addons/<addon>/<로컬 차트>/` | addon Application의 source가 읽는 내용물 |
 
 | 나누는 축 | 파일을 나누나 | 이유 |

@@ -242,6 +242,7 @@ CRD를 **한 번만** 확인하고, 없으면 `ALBGatewayAPI`를 끈 채 계속 
 | 매니페스트에 **AWS가 발급한 ID**(VPC ID · 해시 붙은 role 이름) 적기 | 환경을 다시 세우면 값이 바뀌어 없는 자원을 가리킨다. 계층 1이 **이름을 결정적으로** 만들고 계층 2는 이름을 참조한다 |
 | ALBC를 위해 노드 **IMDS hop limit을 2로** | 그 노드의 모든 파드가 노드 IAM role을 탈취할 수 있다. VPC는 `--aws-vpc-tags`로 찾는다 |
 | **eksctl** 도입 | IaC 소유 경계를 깬다 |
+| spoke cluster Secret의 `server`를 **Route 53 별칭·PrivateLink로 고정**해 재구축 때 교체를 없애기 | EKS API 서버 인증서의 SAN에 사용자 도메인을 추가할 수 없어 별칭으로는 TLS 검증이 실패한다(containers-roadmap #283·#413, `Proposed`). `tlsClientConfig.serverName`에는 실제 EKS 호스트 이름을 넣어야 해 교체가 그 필드로 옮겨갈 뿐이다. EKS PrivateLink 인터페이스 엔드포인트는 EKS 관리 API용이고 Kubernetes API를 지원하지 않는다(EKS 사용 설명서 「Access Amazon EKS using AWS PrivateLink」). 호스트 이름을 고정해도 클러스터 CA(`caData`)는 재생성마다 바뀐다. 재구축 때 두 값을 한 커밋으로 교체한다(배포 루트 `spoke-lifecycle.md` 14절). 관리형 Capability는 클러스터를 ARN으로 등록해 이 교체가 없다(2절 3축) |
 | 비밀번호를 **`ssm send-command`** 로 조회 | 출력이 SSM에 저장되고 CloudTrail에 남는다. 대화형 세션에서만 읽는다 |
 | spoke 해제 직전에 **`kubectl delete gateway`로 순서를 끼워 넣기** | gateway Application의 `selfHeal`이 수 초 안에 되살린다. 순서는 부모의 wave가 건다 |
 | ALBC 기능 플래그 3개(`ALBGatewayAPI`·`NLBGatewayAPI`·`GatewayListenerSet`)를 **명시해 CRD 감지를 끄기** | 감지를 건너뛰면 ALBC가 CRD를 재시도하며 기다리지만, 2분(`CacheSyncTimeout`)이 지나면 종료해 CrashLoop에 빠진다. 그동안 `mservice.elbv2.k8s.aws` 웹훅(`failurePolicy: Fail`)이 클러스터 전역의 Service 생성을 거부한다. wave가 CRD를 먼저 세우므로 반경을 넓힐 이유가 없다 |

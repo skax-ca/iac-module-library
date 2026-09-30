@@ -7,8 +7,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 ## 저장소 상태
 | repo | git | 상태 |
 |------|-----|------|
-| eks-reference-infra | main = origin | **hub·dev 철거 상태(09-30), 발표(10-07) 전에 재구축한다.** 두 계정 잔존물 0건, 부트스트랩(state 버킷·OIDC·Role)만 남았다. 네 루트의 `deletion_protection = false`는 의도다 |
-| eks-platform-gitops | main = origin | **EKS 철거 상태.** hub Secret의 `environment` 라벨은 되돌려 seed 입력이 준비돼 있다. `clusters/dev/`는 지웠으므로 dev는 재구축 뒤 새 endpoint·CA로 재등록한다 |
+| eks-reference-infra | main = origin | **hub·dev 철거 상태(09-30, 구축·철거 한 사이클을 더 돌렸다), 발표(10-07) 전에 재구축한다.** 두 계정 잔존물 0건, 부트스트랩(state 버킷·OIDC·Role)만 남았다. 네 루트의 `deletion_protection = false`는 의도다 |
+| eks-platform-gitops | main = origin | **EKS 철거 상태.** hub Secret은 `environment` 라벨을 되돌려 seed 입력이 준비돼 있다. dev Secret은 라벨 없이 파일로 남아 있고 `server`·`caData`는 철거된 클러스터 값이다 |
 | aks-reference-infra | main = origin | **hub·dev 철거 상태, 발표 전에 재구축한다.** state Storage Account만 남았다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 dev다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** 부모 Application 구조는 ⏳ AKS 실측 전이다. `clusters/hub/`는 재구축용으로 남겼다 |
 
@@ -24,7 +24,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절(재등록은 14절). hub workbench를 새로 만든 뒤 첫 `hub/eks` apply에서 `converge-check.sh`의 태거 diff 경고 통과 경로가 처음 돈다. 실패하면 그 양상을 `scripts/README.md`에 적는다. seed에서 새 이름(ApplicationSet `cluster-addons`, 부모 `<cluster>-addons`, 라벨 `addon.*`)이 처음 선다 (09-30~)
+- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. dev 재등록은 14절의 새 방식(남겨 둔 파일에서 `server`·`caData` 교체 + `environment` 복원, 한 커밋)이 처음 도는 자리다. 데모에 쓰므로 hub 6절의 비밀번호 교체까지 한다 (09-30~)
 - [ ] [aks-ref·aks-gitops] 발표 전 AKS 재구축: aks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. 이번에 실측한 ⏳를 걷는다(`grep -rn '⏳' docs/ ../iac-module-library/docs/architectures/gitops-hub-spoke`) (09-23~)
 - [ ] [local] AKS 구축 뒤 발표 준비: `script.md` 데모 ⑤를 실물과 대조하고(포털 `Networking`의 `Azure CNI Overlay`·NAP 표시, AKS ArgoCD addon 목록) 「발표 전 확인 · 전날」을 돈다. ArgoCD 앱 수가 바뀌면 위 표의 hub 13 · dev 11도 고친다 (09-30~)
 - [ ] [전체] push 권한자가 이미 2명이다(`rajaelime`, 팀 경유 `maintain`). `CLAUDE.md` 「GitOps 저장소 공통」 ⛔ 재검토 트리거가 당겨진 것으로 볼지 사용자가 정한다 (09-23~)
@@ -32,7 +32,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 조건이 오면
 
-- [ ] [aks-ref·aks-gitops] AKS를 걷어낼 때: 철거 절을 따르고 ⏳를 걷는다. hub는 `environment` 라벨 제거로 addon 해제를 시험해, 되면 aks-ref `hub-lifecycle.md` 12절을 eks-ref `hub-lifecycle.md` 11절 형태로 바꾼다 (09-23~)
+- [ ] [aks-ref·aks-gitops] AKS를 걷어낼 때: 철거 절을 따르고 ⏳를 걷는다. spoke 등록 파일은 EKS처럼 지우지 않고 라벨만 떼는 방식으로 바꾼다(eks-ref `spoke-lifecycle.md` 10절 ⑥·14절, aks-ref `spoke-lifecycle.md` 10절). hub는 `environment` 라벨 제거로 addon 해제를 시험해, 되면 aks-ref `hub-lifecycle.md` 12절을 eks-ref `hub-lifecycle.md` 11절 형태로 바꾼다 (09-23~)
 - [ ] [*-gitops·module] 이 저장소들에 `id-token: write` job이 생기면: 액션 SHA 핀을 넓힌다(지금은 배포 루트만 SHA 핀) (09-23~)
 - [ ] [eks-ref·aks-ref] 재구축 뒤 Dependabot provider PR이 루트마다 따로 쌓이면: `groups`로 묶을지 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [local] context7이 rate limit에 걸리면: 키를 로컬 설정 `Authorization: Bearer`로 넣는다 (09-23~)

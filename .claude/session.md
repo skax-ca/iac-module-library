@@ -12,13 +12,13 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 | aks-reference-infra | main = origin | **hub·dev 철거 상태, 발표 전에 재구축한다.** state Storage Account만 남았다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 dev다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** 부모 Application 구조는 ⏳ AKS 실측 전이다. `clusters/hub/`는 재구축용으로 남겼다 |
 
-## 지난 세션 (2026-09-30)
+## 지난 세션 (2026-09-30, 오후)
 
-**발표 스크립트를 20분 라이브 데모판으로 다시 썼다**(`.local/presentations/2026-09-iac-asset/script.md`, 33분판은 폐기). 파트마다 장표 뒤에 실물 데모를 하나씩 붙였다: GitHub org·태그, Actions 승인 run, 버전 표와 EKS ArgoCD, AWS 콘솔, Azure 포털과 AKS ArgoCD, `aks-cluster` 태그, 두 저장소의 `gateway.yaml`. 탭 12개 순서, 발표 30분 전 체크리스트, 밀릴 때 빼는 순서를 같이 적었다.
+**할 일에는 문서가 모르는 것만 두도록 세션 규칙을 줄였다**(`64179ea`). 28개 중 약 3분의 2가 lifecycle 절차·⏳·`CLAUDE.md`의 사본이었다. 판정을 "지워도 문서를 따라가면 같은 일이 일어나는가" 하나로 바꾸고 소절을 `지금`·`조건이 오면` 둘로 줄였다. 작업자 2인 트리거의 점검 항목은 `CLAUDE.md` 재검토 행으로, CRD health 고착 대응은 eks-ref runbooks로 옮겼다.
 
-**데모를 실물과 대조하다가 10장이 낡은 것을 찾아 고쳤다.** 슬라이드와 article은 addon마다 ApplicationSet을 두고 tier별로 나눈 구조(`1.15.0`/`1.14.0`)였는데, 실물은 단일 ApplicationSet `platform` + 부모 차트 + `versions` 표(`1.14.1`/`1.14.1`)다. `slides.html` 10장과 `article.md` 2.2를 실물 기준으로 고쳤다. Notion 배포본 본문은 `article.md` 기준으로 부분 치환해 맞췄고(1.3·1.5·2.2·4.5·닫으며), 슬라이드 첨부는 사용자가 직접 다시 올려 확인했다.
+**부모 생성 사슬의 이름을 바꿨다.** ApplicationSet `platform` → `cluster-addons`, 부모 `<cluster>-platform` → `<cluster>-addons`, 차트 `addons/platform/` → `addons/cluster-addons/`, 라벨 `platform.*` → `addon.name`·`addon.cluster`·`addon.wave`. AppProject `platform`은 유지했다. 설계 `5cbe0a5` → eks-gitops #49 · aks-gitops #15 → 배포 루트 문서 → 발표 `article.md`·`script.md`와 Notion 배포본.
 
-허브 세션 alias 이름을 `claude-code`에서 `iac-module-library`로 바꿨다(`~/.zshrc`, `.local/claude-workspace.md`).
+**EKS를 두 번 철거하고 한 번 재구축했다**(eks-gitops #45~#53). 첫 철거로 `converge-check.sh --destroy`를, 재구축으로 태거 diff 경고 경로와 새 이름(구축·해제 wave 순서)을 처음 실측했다. dev 등록 파일은 지우지 않고 라벨만 떼는 방식으로 바꿔 두 번째 철거에서 실측했다(eks-ref `40ead8b`). 엔드포인트를 DNS·PrivateLink로 고정하는 안은 조사 뒤 「하지 않는 것」에 뒀다(`d13c787`).
 
 ## 다음 할 일
 

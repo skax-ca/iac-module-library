@@ -68,7 +68,7 @@ mock_provider "aws" {
     }
   }
 
-  # enable_cluster_creator_admin_permissions = true 가 이 data source의 ARN으로 Access Entry를 만든다.
+  # upstream이 KMS 키 관리자 기본값으로 이 data source의 issuer_arn을 읽는다.
   # ⚠️ arn은 이 data source의 **입력 인자**라 모킹할 수 없다(non-computed). issuer_arn만 채운다.
   mock_data "aws_iam_session_context" {
     defaults = {
@@ -188,6 +188,42 @@ run "naming_and_name_tag" {
   assert {
     condition     = output.karpenter_node_iam_role_name == "iamr-demo-prd-an2-karpenter-node"
     error_message = "Karpenter 노드 IAM role 이름은 결정적이어야 한다. GitOps 가 값으로 참조하므로 재구축마다 바뀌면 안 된다."
+  }
+}
+
+# ── Access Entry: 소비자가 적은 주체만  ─────────────────────────────
+
+# tofu 실행 신원의 entry(upstream 키 "cluster_creator")가 생기지 않아야 한다. 생기면 CI 실행
+# Role이 쓰지 않는 클러스터 관리자 권한을 받는다.
+run "access_entries_empty_by_default" {
+  command = plan
+
+  assert {
+    condition     = length(module.eks.access_entries) == 0
+    error_message = "access_entries를 비우면 Access Entry가 하나도 없어야 한다. tofu 실행 신원에 entry를 만들지 않는다."
+  }
+}
+
+run "access_entries_only_what_consumer_passes" {
+  command = plan
+
+  variables {
+    access_entries = {
+      workbench = {
+        principal_arn = "arn:aws:iam::111122223333:role/mock-workbench"
+        policy_associations = {
+          admin = {
+            policy_arn   = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+            access_scope = { type = "cluster" }
+          }
+        }
+      }
+    }
+  }
+
+  assert {
+    condition     = keys(module.eks.access_entries) == ["workbench"]
+    error_message = "Access Entry는 소비자가 넘긴 키만 있어야 한다."
   }
 }
 

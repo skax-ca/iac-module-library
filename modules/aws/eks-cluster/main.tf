@@ -101,8 +101,16 @@ module "eks" {
   #    여기 필요한 것은 "public이 꺼졌으니 애초에 관리하지 않는다"다.
   endpoint_public_access_cidrs = var.endpoint_public_access ? var.public_access_cidrs : null
 
-  enable_cluster_creator_admin_permissions = true
-  access_entries                           = var.access_entries
+  # Access Entry만 읽는다. aws-auth ConfigMap으로 권한을 주는 경로가 없어, 클러스터에 들어가는
+  # 주체는 access_entries에 적힌 것이 전부다.
+  # ⚠️ EKS가 API에서 API_AND_CONFIG_MAP·CONFIG_MAP으로 되돌리는 전환을 거부한다.
+  authentication_mode = "API"
+
+  # upstream의 enable_cluster_creator_admin_permissions는 넘기지 않는다(upstream 기본 false).
+  # 켜면 tofu를 실행한 신원이 클러스터 관리자 Access Entry를 받는데, 이 모듈은 EKS API만 호출해
+  # 그 권한을 쓰지 않는다. 변수로 열지 않는 이유: 그 신원에 클러스터 안 권한이 필요한 소비자는
+  # access_entries에 Role ARN을 적으면 되고, 그쪽이 누구에게 무엇을 줬는지를 루트 코드에 남긴다.
+  access_entries = var.access_entries
 
   # EKS 접근 3층: "클러스터가 누구를 네트워크로 받아들이는가".
   # 이 SG는 upstream이 만들어 vpc_config.security_group_ids 에 넣으므로 apiserver ENI 에 적용된다.

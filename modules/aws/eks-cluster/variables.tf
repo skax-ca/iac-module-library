@@ -325,7 +325,14 @@ variable "cluster_addons" {
 
 variable "access_entries" {
   description = <<-EOT
-    EKS Access Entry 정의(aws-auth ConfigMap 대체). upstream 스키마를 그대로 통과시킨다.
+    EKS Access Entry 정의. upstream 스키마를 그대로 통과시킨다.
+
+    클러스터에 들어가는 주체는 이 맵에 적힌 것이 전부다. 모듈이 인증 모드를 API로 고정해
+    aws-auth ConfigMap을 읽지 않고, tofu를 실행한 신원에도 entry를 만들지 않는다.
+
+    ⚠️ 같은 루트에서 kubernetes·helm provider로 클러스터 안 리소스를 만들면 tofu 실행 Role을
+    이 맵에 넣는다. 빠뜨리면 클러스터 생성은 성공하고 그 provider의 첫 호출이 Unauthorized로
+    실패한다.
 
     ⚠️ 이 변수는 type = any 다. upstream이 필드를 자주 늘리는 영역이라 facade가 구조를 복제하면
     upstream 변경마다 이 모듈이 막는 문지기가 된다. 계약 안정성보다 통과가 나은 드문 경우다.

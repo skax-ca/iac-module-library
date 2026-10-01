@@ -69,21 +69,17 @@ GitOps는 그 순서를 표현할 수단이 없다.
 
 ### addon wave (AKS)
 
-wave를 정하는 규칙은 [../ordering.md](../ordering.md)가 소유한다. AKS에서 그 규칙을 적용한
-결과는 EKS와 순서가 다르다. **Kyverno가 NodePool 뒤에 온다.**
+wave를 정하는 규칙은 [../ordering.md](../ordering.md)가 소유한다. 번호가 역할에서 나오므로 같은
+addon은 EKS와 같은 wave에 선다. 다른 점은 wave 0이 비어 있다는 것뿐이다.
 
 | wave | addon | 기대는 것 |
 |:---:|---|---|
-| 0 | `karpenter-nodepool`(opt-in) · `gateway` | 컨트롤러와 CRD는 계층 1이 만든다(NAP · App Routing) |
-| 1 | `kyverno` | 파드가 뜰 NAP 노드. 아래 「노드 배치」대로 시스템 풀 taint를 견디지 않는다 |
-| 2 | `kyverno-policies` · `kyverno-custom-policies` | 엔진(wave 1) |
+| 0 | (없다) | CRD는 계층 1 관리형이 소유한다(NAP · App Routing) |
+| 1 | `kyverno` | 없다. 아래 「노드 배치」대로 시스템 풀에 고정한다 |
+| 2 | `karpenter-nodepool`(opt-in) · `gateway` · `kyverno-policies` · `kyverno-custom-policies` | 정책은 엔진(wave 1). NodePool·Gateway의 컨트롤러는 계층 1이다 |
 
-해제는 역순이라 Kyverno가 NAP 노드가 살아 있을 때 지워진다. 삭제 훅 Job(`scale-to-zero`·
-`rm-webhooks`)도 NAP 노드에서만 뜨므로, NodePool이 먼저 지워지면 그 Job이 `Pending`에 걸려
-kyverno Application이 `deletionTimestamp`를 낀 채 남는다. 이 순서가 그것을 막는다.
-
-⚠️ `karpenter-nodepool`을 구독하지 않은 클러스터에서는 Kyverno가 뜰 노드가 없다. wave 1이
-Healthy가 되지 못해 wave 2가 멈춘다. 엔진 없이 정책만 적용될 일은 없다.
+해제는 역순이라 NodePool·Gateway·정책이 먼저 지워지고 엔진이 마지막이다. 엔진과 삭제 훅
+Job(`scale-to-zero`·`rm-webhooks`)은 시스템 풀에서 돌아 NAP 노드가 먼저 사라져도 막히지 않는다.
 
 ### 노드 배치: 시스템 풀을 CriticalAddonsOnly로 잠근다
 
@@ -92,7 +88,7 @@ Healthy가 되지 못해 wave 2가 멈춘다. 엔진 없이 정책만 적용될 
 | 고정 노드 taint | `CriticalAddonsOnly=true:NoSchedule` | `CriticalAddonsOnly=true:NoSchedule` |
 | taint 키를 고르는가 | **고른다.** 고를 수 있는데 같은 값을 골랐다 | **못 고른다.** AKS가 이 키 하나만 받고, azurerm은 `only_critical_addons_enabled` bool로만 노출한다 |
 | 시스템 파드를 끌어당기는 것 | 노드그룹 `labels`로 우리가 만드는 `workload-class=system` | AKS가 시스템 풀 노드에 자동으로 붙이는 `kubernetes.azure.com/mode: system` 라벨 |
-| 플랫폼 addon의 toleration | 차트 기본값이 없는 곳만(cert-manager·ALBC·CA·KEDA·Kyverno·ArgoCD) | **ArgoCD 한 곳** |
+| 플랫폼 addon의 toleration | 차트 기본값이 없는 곳만(cert-manager·ALBC·CA·KEDA·Kyverno·ArgoCD) | **ArgoCD·Kyverno 두 곳**(Kyverno는 nodeSelector로 고정) |
 | taint를 바꾸면 노드가 어떻게 되나 | in-place. `UpdateNodegroupConfig`가 taint만 갱신한다 | **시스템 풀을 순환한다.** cordon·drain 없이 |
 
 ⚠️ **두 열의 taint 값이 같아진 근거는 서로 다르다.** AKS는 강제이고, AWS는 생태계 관례에 맞춰
@@ -104,13 +100,19 @@ Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고 이 taint�
 자원 경합이 아니라 축출이다 — 잘못 설정된 앱 파드가 시스템 파드의 자리를 빼앗는 것. 노드 풀이 하나뿐인
 클러스터에 앱 파드를 올리는 것도 권장하지 않는다고 적는다.
 
-**toleration은 ArgoCD에만 준다.** 나머지 플랫폼 addon이 시스템 풀에서 밀려나 NAP 노드로 가는 것이
-격리의 내용이다. 주지 않는 쪽이 기본이고 ArgoCD가 예외다.
+**toleration은 ArgoCD와 Kyverno에만 준다.** 그 밖의 파드가 시스템 풀에서 밀려나 NAP 노드로 가는
+것이 격리의 내용이다. 이 격리가 막는 것은 앱 파드이고, 두 예외는 앱이 아니라 클러스터가 기대는
+컨트롤러다.
 
 ArgoCD가 예외인 이유는 부트스트랩 순서다. 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 —
 NAP 노드는 아직 없고, 그 `NodePool` CR을 배포하는 것이 ArgoCD 자신이다. ArgoCD가 시스템 풀에 서야
 순환이 끊긴다. 🔑 toleration은 허용이지 선호가 아니라서 ArgoCD는 taint를 건 뒤에도 시스템 풀에 남는다.
-이 패턴이 얻는 격리는 "ArgoCD 외 전부"다.
+
+Kyverno가 예외인 이유는 세 가지다. ① admission webhook이라 죽으면 그 클러스터의 모든 배포가
+막히는 critical addon이다. ② NAP 노드에 두면 엔진이 NodePool(wave 2)에 기대어 [../ordering.md](../ordering.md)
+1절의 셋째 줄을 어긴다. ③ 앱이 없는 클러스터에서 NAP 노드가 엔진 하나를 위해 상시로 뜬다.
+toleration에 `nodeSelector: kubernetes.azure.com/mode: system`을 더해 **고정**한다. 허용만 두면 순서(②)는
+서지만, NAP 노드가 생긴 뒤 엔진이 그쪽으로 재스케줄될 수 있어 ③이 돌아온다.
 
 **관리형 addon의 toleration은 AKS가 넣는다.** App Routing의 Istio 구현체는 이 taint를 견디고, 시스템
 노드를 선호하는 node affinity까지 갖는다. 과거 toleration이 빠져 있던 Azure Policy는 Microsoft가

@@ -14,21 +14,21 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ## 지난 세션 (2026-10-01)
 
-**AKS를 구축부터 철거까지 한 사이클 돌렸다**(aks-gitops #16~#20). 7개 루트를 재구축하고 재-plan 수렴(전부 `No changes`)까지 확인한 뒤 철거해 두 구독 잔존물 0건을 확인했다. 그 과정에서 문서 결함 셋을 고쳤다: spoke 부트스트랩의 `HUB_SUBSCRIPTION` 누락, hub 재구축 때 seed 전에 `argocd-values.yaml` client-id를 갱신해야 한다는 안내, 낡은 모듈 ref 이력 서술(aks-ref `51eaaaf`·`002a7bb`).
+**클러스터 인증을 클라우드 신원 하나로 좁혔다**(설계 `9a6ba21`). AKS hub는 Entra 통합 없이 돌아 workbench의 `Cluster User Role`이 관리자 kubeconfig를 내려주고 있었다. hub에 Entra 통합을 켜고 두 클러스터의 로컬 계정을 껐으며, hub workbench를 dev와 같은 kubelogin 경로로 맞췄다(aks-ref #80 `08dbc9f`). 모듈 태그는 그대로다.
 
-**철거를 EKS처럼 "파일을 두고 `environment` 라벨만 뗀다"로 바꿨고, hub addon도 같은 라벨 해제로 지운다**(aks-ref `51eaaaf`·`0c6433e`). hub·dev 라벨을 한 PR(#19)로 떼어 48초 만에 cascade가 끝나는 것을 실측했다. Kyverno를 지운 뒤 webhook 설정이 남는다는 점은 부분 삭제 절에 적었다(`4f16550`).
+**EKS는 인증 모드를 `API`로 고정하고 CI 실행 Role의 클러스터 관리자 Access Entry를 없앴다**(module #62 `623bb30` → 태그 `eks-cluster-v0.12.0` → eks-ref #81 `245b172`). upstream의 `enable_cluster_creator_admin_permissions`는 변수로 열지 않고 넘기지 않는다. 계약 테스트 둘을 더했고, `true`로 되돌리면 둘 다 실패한다. 전부 철거 상태에서 넣어 apply는 하지 않았다. 머지로 깨어난 push plan 6개는 조회 실패로 끝났고 게이트는 서지 않았다.
 
-**wave 번호를 역할에서 정하고 AKS Kyverno를 시스템 풀에 고정했다**(설계 `a8382dd` → aks-gitops #18 → aks-ref `33fa36b`). azure-dmz의 배치를 참고했다. 앱이 없는 hub의 NAP 노드에는 Kyverno만 떠 있었다. 바꾼 뒤 같은 addon이 EKS와 같은 wave에 서고, NAP 노드가 0대로 consolidate되며, 해제 때 삭제 훅이 시스템 풀에서 Pending 없이 끝나는 것을 확인했다. 그 밖에 job 로그 API로 승인 대기 중인 plan을 읽는 법을 `CLAUDE.md`에 적고(`e73dac4`), EKS Kyverno values의 낡은 주석을 걷었다(eks-gitops #54).
+**그 밖**: eks-ref `bootstrap.sh`의 버킷 변경이 `변경 N건`에서 빠지던 것을 고쳤다(#80 `3282bff`). `AADSSHLoginForLinux` 확장이 dev workbench에만 있다는 aks-ref 문서 서술을 고쳤다(모듈의 `entra_ssh_login_enabled`가 양쪽에 만든다). 발표 `script.md` 예상 질문 표에 15장 두 행(사람의 클러스터 접근·접근 상실 복구)을 넣었다.
 
 ## 다음 할 일
 
 ### 지금
 
-- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. dev 재등록은 14절의 새 방식(남겨 둔 파일에서 `server`·`caData` 교체 + `environment` 복원, 한 커밋)이 처음 도는 자리다. 데모에 쓰므로 hub 6절의 비밀번호 교체까지 한다 (09-30~)
-- [ ] [aks-ref·aks-gitops] 발표 전 AKS 재구축: aks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. dev 재등록이 14절 새 방식으로 처음 도는 자리라 상단 ⏳를 걷는다. 데모에 쓰므로 hub 7절의 비밀번호 교체까지 한다 (10-01~)
-- [ ] [local] 두 클라우드 구축 뒤 발표 준비: `script.md` 데모 ⑤의 포털 화면(`Networking`의 `Azure CNI Overlay`·NAP 표시)을 실물과 대조하고 「발표 전 확인 · 전날」을 돈다. ArgoCD addon 구성의 CLI 대조는 끝났다 (09-30~)
+- [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. dev 재등록은 14절의 새 방식(남겨 둔 파일에서 `server`·`caData` 교체 + `environment` 복원, 한 커밋)이 처음 도는 자리다. 데모에 쓰므로 hub 6절의 비밀번호 교체까지 한다. 부트스트랩 재실행의 `변경 0건`과, 클러스터의 `accessConfig.authenticationMode`가 `API`이고 `list-access-entries`에 CI 실행 Role이 없는지도 본다(plan 테스트가 못 보는 값이다) (09-30~)
+- [ ] [aks-ref·aks-gitops] 발표 전 AKS 재구축: aks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. hub workbench가 kubelogin 경로로 처음 선다. `spoke-lifecycle.md` 상단과 `runbooks.md` 「클러스터에 접근하기」의 ⏳를 걷는다. 데모에 쓰므로 hub 7절의 비밀번호 교체까지 한다 (10-01~)
+- [ ] [local] 두 클라우드 구축 뒤 발표 준비: `script.md` 데모 ⑤의 포털 화면(`Networking`의 `Azure CNI Overlay`·NAP 표시)과 예상 질문 표의 15장 두 행을 실물과 대조하고 「발표 전 확인 · 전날」을 돈다. ArgoCD addon 구성의 CLI 대조는 끝났다 (09-30~)
 - [ ] [전체] push 권한자가 이미 2명이다(`rajaelime`, 팀 경유 `maintain`). `CLAUDE.md` 「GitOps 저장소 공통」 ⛔ 재검토 트리거가 당겨진 것으로 볼지 사용자가 정한다 (09-23~)
-- [ ] [eks-ref] `bootstrap.sh`의 `converge_bucket`이 `$(...)` 서브셸에서 돌아 버킷 변경이 `변경 N건`에 안 잡힌다(실측 8건 중 5건 보고). 셸이라 브랜치 → PR (09-29~)
+- [ ] [module] `aks-cluster` `variables.tf`의 `G2 확정` 표기 3곳은 가리키는 기록이 저장소에 없다. 지우거나 이유로 바꾼다. `.tf`라 브랜치 → PR (10-01~)
 
 ### 조건이 오면
 

@@ -81,6 +81,10 @@ SSM Agent가 아웃바운드로 연결을 맺고 세션이 그 연결을 역방�
 | 2 | EKS Access Entry | **`eks-cluster`** |
 | 3 | cluster SG 인바운드 | **`eks-cluster`** |
 
+2층은 Access Entry 하나뿐이다. `eks-cluster`가 인증 모드를 `API`로 고정해 `aws-auth` ConfigMap을
+읽지 않고, tofu를 실행한 신원에도 entry를 만들지 않는다. 배포 루트가 `access_entries`에 적은
+주체만 클러스터에 들어간다.
+
 `workbench`는 1층만 만들고 **자기 SG ID와 Role ARN을 출력**한다.
 배포 루트가 그 둘을 `eks-cluster`의 `access_entries`와
 `cluster_security_group_additional_rules`에 넘긴다.
@@ -262,7 +266,7 @@ private AKS 클러스터의 운영 지점(kubectl·helm·argocd·az CLI·kubelog
 |---|---|
 | 배치 서브넷 | `vnet`의 `subnet_ids_by_group["<그룹키>"]` → `subnet_id` |
 | 신원 | bootstrap 계층이 user-assigned identity를 만들고 `identity_id`(필수)·`identity_client_id`(조건부 필수)로 넘긴다. **이 모듈은 identity도 role assignment도 만들지 않는다**(`aks-cluster`와 같은 경계 원칙) |
-| AKS 연동 | `aks_cluster_name`·`aks_resource_group_name`이 채워지면 kubeconfig를 부트스트랩한다. Entra RBAC를 쓰는 클러스터(`aks-cluster`의 `entra_admin_group_object_ids` 옵트인)면 `aks_entra_rbac_enabled = true` + `identity_client_id`가 함께 필요하다 |
+| AKS 연동 | `aks_cluster_name`·`aks_resource_group_name`이 채워지면 kubeconfig를 부트스트랩한다. Entra 통합 클러스터(`aks-cluster`의 `entra_integration_enabled` 또는 `entra_admin_group_object_ids`)면 `aks_entra_rbac_enabled = true` + `identity_client_id`가 함께 필요하다 |
 | private DNS 해석 | workbench가 대상 AKS 노드와 다른 VNet(스포크)에 있으면 별도 `azurerm_private_dns_zone_virtual_network_link`가 필요하다(`aks-cluster`의 private DNS zone은 노드 VNet에만 링크된다). 상세는 모듈 README「아웃바운드」절 참조 |
 
 **만들지 않는 것**: 리소스 그룹 · VNet · 서브넷 · user-assigned identity · role assignment ·

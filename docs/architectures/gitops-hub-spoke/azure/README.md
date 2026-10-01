@@ -34,6 +34,33 @@ Session Manager의 대응물이 없어 **SSH가 일상 경로, Run Command가 �
 ArgoCD 콘솔은 2단 터널로 연다. 로컬 `ssh -L` → workbench → `kubectl port-forward` →
 `argocd-server`. AWS는 1단이 `aws ssm start-session`이고 나머지는 같다.
 
+### 클러스터 인증
+
+hub와 spoke 클러스터가 같은 값을 쓴다.
+
+| 설정 | 값 | 이유 |
+|------|-----|------|
+| Entra 통합 | 켠다 | API 서버가 호출자를 Entra ID로 인증한다. Microsoft가 AKS 제어면 인증의 권장 경로로 적는다 |
+| Azure RBAC 인가 | 켠다(`aks-cluster`가 고정한다) | 권한을 클러스터 리소스 ID 스코프의 role assignment로 준다. Admin 그룹은 두지 않는다 |
+| 로컬 계정 | 끈다 | 로컬 계정은 Entra ID를 거치지 않는 인증서 기반 관리자 kubeconfig다. 켜 두면 그 인증서를 받은 호출자의 요청이 Entra 로그인 기록에 남지 않는다 |
+
+role assignment를 받는 주체는 둘이다.
+
+| 주체 | 역할 | 어느 클러스터 |
+|------|------|--------------|
+| workbench UAMI | `Azure Kubernetes Service Cluster User Role` + `Azure Kubernetes Service RBAC Cluster Admin` | 그 workbench가 조작하는 클러스터 |
+| hub ArgoCD UAMI | `Azure Kubernetes Service RBAC Cluster Admin` | spoke 클러스터 |
+
+hub ArgoCD는 자기 클러스터를 ServiceAccount로 다루므로 hub 클러스터에는 role assignment가 필요 없다.
+
+⚠️ `Cluster User Role`은 kubeconfig를 받을 권한이고, 그 kubeconfig의 내용은 Entra 통합 여부에
+따라 달라진다. 통합 클러스터에서는 로그인을 요구하는 kubeconfig가 내려오고 인가는 `RBAC Cluster
+Admin`이 따로 한다. 통합이 없는 클러스터에서는 같은 역할이 관리자 kubeconfig를 내려준다.
+
+로컬 계정을 꺼도 복구 경로가 남는다. 인가가 ARM의 role assignment라, 구독 Owner가 자신에게
+`RBAC Cluster Admin`을 부여하면 클러스터에 들어간다. 로컬 계정도 다시 켤 수 있다
+(`az aks update --enable-local-accounts`). Entra 통합은 끌 수 없다(「되돌릴 수 없는 선택」).
+
 Virtual WAN 허브는 raw 리소스로 쓴다. 소비자가 허브 하나뿐이라 모듈화의 값
 (재사용)이 없고, AWS 쪽 Transit Gateway도 같은 이유로 모듈이 아니다.
 
@@ -205,4 +232,6 @@ kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS
 | "NSG 규칙 0개 = 인바운드 0"이라고 가정 | Azure는 `AllowVNetInBound`가 이미 열려 있다. 막으려면 명시적 Deny(priority 4096)로 덮어야 한다. AWS 보안 그룹과 기본값이 정반대다 |
 | 허브가 스포크 클러스터를 발견해 **허브 쪽에서** ArgoCD role assignment를 만든다 | 허브 CI가 스포크 리소스 그룹에 `roleAssignments/write`를 가져야 한다. 그 권한이면 허브 CI가 그 리소스 그룹에서 자신에게 어떤 역할이든 부여할 수 있다. 「모듈 경계」([`decisions.md`](../../../decisions.md))가 모듈에 신원·권한 부여 리소스를 두지 않는 것과 같은 논리다 |
 | Entra 통합을 "일단 켜 보고 아니면 되돌린다" | Azure가 통합 해제를 지원하지 않는다. 되돌리려면 클러스터 재생성이다 |
+| hub 클러스터는 Entra 통합 없이 둔다(hub ArgoCD가 Entra를 거치지 않으므로) | 통합이 없으면 workbench의 `Cluster User Role`이 관리자 kubeconfig를 내려준다. 같은 role assignment가 hub와 spoke에서 다른 권한이 된다 |
+| 로컬 계정을 브레이크글래스로 남긴다 | 복구 경로는 ARM의 role assignment로 이미 있고(「클러스터 인증」), 그 경로는 Azure 활동 로그에 남는다. 로컬 계정 인증서는 남지 않는다 |
 | CI 신원의 **권한 크기**를 방어선으로 삼기(리소스 그룹 스코프 커스텀 역할 + 불변식 검사) | 한 번 세웠다가 걷어냈다. 배포 루트는 리소스 그룹·역할 할당까지 만들어야 해서 좁힌 역할을 계속 넓히게 되고, 그 과정에서 검사 항목만 늘어난다. AWS 실행 Role도 `AdministratorAccess`라 대칭이 아니었다. **방어선은 그 신원에 도달하는 경로(FIC subject) 하나뿐이다** |

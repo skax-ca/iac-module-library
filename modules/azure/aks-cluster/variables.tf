@@ -487,12 +487,13 @@ variable "sku_tier" {
   }
 }
 
-# ── 접근 제어(Entra RBAC): 옵트인, 로컬 계정 기본 유지(G2 확정) ────────────────
+# ── 접근 제어(Entra RBAC): 옵트인, 로컬 계정 기본 유지 ─────────────────────────
 
 variable "entra_admin_group_object_ids" {
   description = <<-EOT
     Entra ID(Azure AD) RBAC를 켤 Admin 그룹의 Object ID 목록. 비어 있으면 Entra 통합
-    블록 자체를 만들지 않는다. 잠금이 기본 동작이 아니다(옵트인, G2 확정).
+    블록 자체를 만들지 않는다. 옵트인이다: Entra 통합은 켠 뒤 되돌릴 수 없다
+    (entra_integration_enabled 설명).
   EOT
   type        = list(string)
   default     = []
@@ -519,8 +520,8 @@ variable "entra_integration_enabled" {
 
 variable "local_account_disabled" {
   description = <<-EOT
-    true면 로컬 계정(kubeconfig의 클러스터 admin 자격증명)을 비활성화한다. 기본 false로
-    브레이크글래스(kube_admin_config) 경로를 유지한다(G2 확정).
+    true면 로컬 계정(kubeconfig의 클러스터 admin 자격증명)을 비활성화한다. 기본은
+    false다: 기본값에서는 Entra 통합이 꺼져 있어 로컬 계정이 유일한 인증 경로다.
 
     ⚠️ entra_admin_group_object_ids와 entra_integration_enabled가 둘 다 비어/false인
     채로 이 값을 true로 두면 클러스터 접근 수단이 전혀 남지 않는다. provider도

@@ -342,7 +342,7 @@ run "reject_karpenter_with_pod_subnet_mode" {
   expect_failures = [var.enable_karpenter]
 }
 
-# ── Entra RBAC: 옵트인, 기본은 블록 자체가 없다(G2 확정) ───────────────────────
+# ── Entra RBAC: 옵트인, 기본은 블록 자체가 없다 ────────────────────────────────
 run "entra_rbac_optin_default_off" {
   command = plan
 

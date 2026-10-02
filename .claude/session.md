@@ -9,12 +9,12 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 |------|-----|------|
 | eks-reference-infra | main = origin | **hub·dev 철거 상태(10-02, 구축·철거 한 사이클을 더 돌렸다), 발표(10-07) 전에 재구축한다.** 두 계정 잔존물 0건, 부트스트랩(state 버킷·OIDC·Role)만 남았다. 네 루트의 `deletion_protection = false`는 의도다 |
 | eks-platform-gitops | main = origin | **EKS 철거 상태.** hub Secret은 `environment` 라벨을 되돌려 seed 입력이 준비돼 있다. dev Secret은 라벨 없이 파일로 남아 있고 `server`·`caData`는 철거된 클러스터 값이다 |
-| aks-reference-infra | main = origin | **hub·dev 구축 상태(10-02 재구축), 발표(10-07)에 쓴다.** 7개 루트 재-plan이 `No changes`다. hub ArgoCD 초기 admin 비밀번호는 아직 교체하지 않았다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
+| aks-reference-infra | main = origin | **hub·dev 구축 상태(10-02 재구축), 발표(10-07)에 쓴다.** 7개 루트 재-plan이 `No changes`다. hub 완료 판정 7항목이 닫혔다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
 | aks-platform-gitops | main = origin | **AKS 구축 상태.** hub·dev의 Application 14개가 전부 `Synced`/`Healthy`다(10-02). hub·dev Secret 모두 `environment` 라벨이 있고 접속 값은 지금 클러스터의 것이다 |
 
 ## 지난 세션 (2026-10-02)
 
-**AKS hub·dev를 재구축했다.** networking(hub·dev 동시) → vwan·hub aks·dev aks → workbench 순으로 8개 run을 승인했고, aks-gitops #26(hub UAMI client-id)을 머지한 뒤 seed, #27(dev 재등록)로 dev를 붙였다. 완료 판정 7항목 중 초기 비밀번호 교체만 남았다(부트스트랩 drift 없음, 7개 루트 `No changes`, `argocd app diff` exit 0).
+**AKS hub·dev를 재구축했다.** networking(hub·dev 동시) → vwan·hub aks·dev aks → workbench 순으로 8개 run을 승인했고, aks-gitops #26(hub UAMI client-id)을 머지한 뒤 seed, #27(dev 재등록)로 dev를 붙였다. 완료 판정 7항목을 닫았다(부트스트랩 drift 없음, 7개 루트 `No changes`, `argocd app diff` exit 0, 초기 비밀번호 교체 후 `argocd-initial-admin-secret` 삭제).
 
 **health Lua의 `Synced` 조건을 AKS에서 확인했다.** 부모가 wave 1(`kyverno`)과 wave 2 사이에서 hub 2분 54초, dev 2분 14초를 기다렸고 양쪽 다 멈추지 않고 `Healthy`로 수렴했다. dev에서 `kyverno`가 `OutOfSync` + `Healthy`인 동안, hub에서 `Synced` + `Healthy`인데 operation이 `Running`인 동안 부모가 넘어가지 않는 것을 5초 간격 기록으로 봤다.
 
@@ -26,7 +26,6 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [aks-ref] hub ArgoCD 초기 admin 비밀번호를 교체한다. 재구축 완료 판정에서 남은 하나다: aks-ref `docs/runbooks.md` 「ArgoCD 관리자 비밀번호 교체」 (10-02~)
 - [ ] [eks-ref·eks-gitops] 발표 전 EKS 재구축: eks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. 데모에 쓰므로 hub 6절의 비밀번호 교체까지 한다 (09-30~)
 - [ ] [local] EKS 구축 뒤 발표 준비: `script.md` 데모 ⑤의 포털 화면 표기(`Settings` › `Networking`, Node autoprovisioning 항목)를 눈으로 보고 캡처를 뜬 뒤 「발표 전 확인 · 전날」을 돈다. AKS 쪽 CLI 대조와 ArgoCD addon 구성 대조는 끝났다 (09-30~)
 - [ ] [eks-gitops] EKS 재구축 때 health Lua의 `Synced` 조건을 확인한다: 부모가 wave 사이에서 기다리는지(addon Application 생성 시각 간격)와 전 addon이 `Synced`로 수렴해 부모가 멈추지 않는지. AKS는 확인했다. 근거: `docs/architectures/gitops-hub-spoke/ordering.md` 2절·4절 (10-02~)

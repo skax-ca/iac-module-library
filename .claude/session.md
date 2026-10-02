@@ -14,9 +14,9 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ## 지난 세션 (2026-10-02)
 
-**지난 세션의 인증 변경을 EKS·AKS 구축 → 검증 → 철거 한 사이클로 실환경 검증했다.** EKS hub·dev는 `authenticationMode`가 `API`이고 Access Entry에 CI 실행 Role이 없으며 workbench가 자기 Role로 들어간다. AKS hub·dev는 로컬 계정이 꺼져 `get-credentials --admin`이 거부되고, workbench kubeconfig는 `kubelogin --login msi`뿐이다(hub workbench가 이 경로로 처음 섰다). 남긴 Secret을 고쳐 되살리는 dev 재등록도 양쪽에서 처음 돌아 통과했다(eks-gitops #55, aks-gitops #21·#22). 철거는 라벨 제거(#56, #23) → destroy → 잔존물 검증 exit 0 → hub 라벨 복원(#57, #24)까지 했다. ArgoCD 비밀번호 교체는 바로 철거할 사이클이라 건너뛰었다.
+**`aks-cluster` 변수 설명의 끊긴 결정 식별자를 이유로 바꿨다**(`bcc40a0`, main 직접, `verify` 통과). 식별자는 설계 라운드의 사용자 확인 게이트 번호였고 근거 계획서는 저장소에 없어, 코드에서 확인되는 이유를 적었다: Entra 통합은 켠 뒤 되돌릴 수 없다, 기본값에서는 로컬 계정이 유일한 인증 경로다. 패턴 문서가 기각한 "브레이크글래스" 표현과 모듈에 없는 `kube_admin_config` 언급도 뺐다. 동작 변경이 없어 태그는 컷하지 않았다.
 
-**aks-ref 문서에 실측을 옮겼다**(`c3cab24`·`48fa3c5`). `runbooks.md`: `command invoke`는 호출자 신원에 클러스터 스코프 `RBAC Cluster Admin`이 있어야 하고(구독 `Owner`로는 `Forbidden`), 명령 파드가 NAP 노드를 필요로 해 NodePool이 없으면 통하지 않는다. 접근 상실 복구 절차(역할 부여 → 호출 → 삭제)도 통했다. `hub-lifecycle.md`: vwan과 aks의 apply를 동시에 건다, seed 직후 `argocd app diff`는 흡수 sync 뒤에 본다. `spoke-lifecycle.md`: 재등록 ⏳를 걷었다.
+**`gateway-api-crds`의 `Degraded` 원인을 파기로 정하고 철거 상태에서 후보를 좁혔다.** upstream `config/crd/standard`(`v1.6.2`)는 CRD 10개와 `ValidatingAdmissionPolicy`·Binding이고, ArgoCD `v3.5.3`은 VAP에 health 판정이 없어 원인은 CRD 쪽이다. CRD가 `Degraded`가 되는 길은 `resource_customizations/apiextensions.k8s.io/CustomResourceDefinition/health.lua`의 세 가지(`NamesAccepted=False`·`NonStructuralSchema=True`·`Established=True` 없음)다. 확정은 재구축 때 한다.
 
 ## 다음 할 일
 
@@ -26,10 +26,9 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 - [ ] [aks-ref·aks-gitops] 발표 전 AKS 재구축: aks-ref `hub-lifecycle.md` 구축 절 → `spoke-lifecycle.md` 구축 절. 데모에 쓰므로 hub 7절의 비밀번호 교체까지 한다 (10-01~)
 - [ ] [local] 두 클라우드 구축 뒤 발표 준비: `script.md` 데모 ⑤의 포털 화면(`Networking`의 `Azure CNI Overlay`·NAP 표시)과 예상 질문 표의 15장 두 행을 실물과 대조하고 「발표 전 확인 · 전날」을 돈다. ArgoCD addon 구성의 CLI 대조는 끝났다 (09-30~)
 - [ ] [eks-ref·aks-ref] Dependabot provider PR이 루트마다 쌓여 있다(eks-ref #71~#75 aws 6.65.0, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 발표 전에 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
-- [ ] [eks-gitops] dev 등록 직후 `gateway-api-crds` 자식이 sync 성공 뒤에도 3분쯤 `Degraded`로 남아 부모 sync가 5회 재시도했다(전체 수렴 약 14분, 스스로 회복). 원인을 팔지 사용자가 정한다. 데모에서 dev 등록을 보여 주면 걸린다 (10-02~)
+- [ ] [eks-gitops] dev 등록 직후 `gateway-api-crds` 자식이 3분쯤 `Degraded`로 남는 원인을 판다. 재구축의 dev 등록 직후 `Degraded`인 동안 `argocd app get <dev 부모>-gateway-api-crds --core -o json`의 `status.resources[].health`와 dev의 `gateway.networking.k8s.io` CRD `status.conditions`를 같은 시각에 떠 맞댄다(실물이 `Established`면 ArgoCD 갱신 지연, 아니면 클러스터 쪽). 근거: `addons/cluster-addons/templates/gateway-api-crds.yaml` (10-02~)
 - [ ] [aks-ref] `docs/runbooks.md`가 399줄이다. 다음에 내용을 더하기 전에 나눈다(`docs/writing-style.md` 1절 4번) (10-02~)
 - [ ] [전체] push 권한자가 이미 2명이다(`rajaelime`, 팀 경유 `maintain`). `CLAUDE.md` 「GitOps 저장소 공통」 ⛔ 재검토 트리거가 당겨진 것으로 볼지 사용자가 정한다 (09-23~)
-- [ ] [module] `aks-cluster` `variables.tf`의 `G2 확정` 표기 3곳은 가리키는 기록이 저장소에 없다. 지우거나 이유로 바꾼다. `.tf`라 브랜치 → PR (10-01~)
 
 ### 조건이 오면
 

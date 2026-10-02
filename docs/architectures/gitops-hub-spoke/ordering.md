@@ -55,10 +55,23 @@ wave 1 시점에 NodePool 없이 시스템 풀에 뜨고, 해제 때 NodePool(wa
 넘어가 wave가 생성 순서만 정한다. 각 GitOps 저장소의 `bootstrap/argocd-values.yaml`이
 `configs.cm`의 `resource.customizations.health.argoproj.io_Application`에
 [업그레이드 문서](https://argo-cd.readthedocs.io/en/stable/operator-manual/upgrading/1.7-1.8/)의
-Lua를 넣는다. CRD에는 내장 health(`Established`)가 있어 따로 넣지 않는다.
+Lua를 넣고, 그 뒤에 아래 조건을 더한다. CRD에는 내장 health(`Established`)가 있어 따로 넣지 않는다.
+
+🔑 **addon Application은 `status.health`가 `Healthy`여도 아래 둘이 맞아야 `Healthy`로 본다.**
+`status.health`는 클러스터에 있는 리소스만으로 계산된다. 막 만들어진 Application은 아무것도 배포하지
+않은 채 `OutOfSync` + `Healthy`라, 그것만 보면 부모가 기다리지 않고 다음 wave로 넘어간다.
+
+| 조건 | 없으면 |
+|---|---|
+| `status.sync.status`가 `Synced`다 | 첫 sync가 돌기 전의 `Healthy`를 부모가 믿는다 |
+| sync operation이 돌고 있지 않다(`operationState.phase`가 `Running`이 아니다) | 리소스는 맞췄어도 hook(마이그레이션 Job 등)이 남은 상태를 부모가 믿는다 |
+
+조건은 `addon.name` 라벨이 있는 Application에만 건다. 이 라벨은 addon Application에만 붙는다
+([gitops.md](gitops.md)). 조건에 걸리면 `Progressing`으로 돌려준다.
 
 ⚠️ 이 health는 전역 설정이라 root App에도 걸린다. root App의 health가 ArgoCD 자기 관리
-Application과 부모들의 health를 반영하게 된다.
+Application과 부모들의 health를 반영하게 된다. 위 두 조건은 라벨이 없는 이 Application들에는 걸리지
+않는다.
 
 🔑 **부모는 addon Application의 `metadata.finalizers`를 diff하지 않는다.** 차트에 `pre-delete` 훅이
 있는 addon(Kyverno)이면 Argo CD가 그 Application에 `pre-delete-finalizer.argocd.argoproj.io`와
@@ -97,6 +110,7 @@ cluster`). CR의 finalizer도, 그 CR이 만든 클라우드 리소스도 남는
 |---|---|
 | 앞 wave의 addon 하나가 Healthy가 되지 못하면 그 클러스터의 뒤 wave가 전부 멈춘다. wave가 없으면 addon은 서로를 기다리지 않는다 | 1절 규칙대로 두면 뒤 wave에는 앞 wave 없이는 어차피 동작하지 않는 것만 남는다. Healthy까지 오래 걸리는 CR(ALB를 만드는 Gateway)은 역할상 마지막 wave라 뒤에 기다리는 것이 없다 |
 | 부모의 sync operation이 앞 wave를 기다리는 동안 새 커밋의 버전 변경이 addon Application spec에 반영되지 않는다. 멈춘 addon을 고치는 커밋도 같다. `controller.sync.timeout.seconds` 기본값이 `0`(무제한)이라 스스로 풀리지 않는다 | `argocd app terminate-op <cluster>-addons`로 operation을 끊으면 다음 auto-sync가 새 커밋으로 돈다. `addons/<addon>/values.yaml`만 고친 커밋은 addon Application이 직접 읽으므로 부모를 거치지 않는다 |
+| addon Application이 `OutOfSync`로 고착되면 리소스가 전부 `Healthy`여도 그 wave가 끝나지 않는다 | 고착은 대개 CRD 스키마 defaulting이고 그 Application에 `ServerSideDiff=true`를 켜서 푼다(배포 루트 `runbooks.md`). 새 addon을 얹을 때 `Synced`로 수렴하는지를 함께 본다 |
 | 부모가 addon Application의 finalizer를 무시하므로, 생성 뒤 누가 `resources-finalizer.argocd.argoproj.io`를 손으로 지워도 부모가 되살리지 않는다. 그 addon은 해제 때 클러스터 실물을 남긴다 | 생성 시점에는 매니페스트 그대로 붙는다(`RespectIgnoreDifferences`는 이미 있는 리소스에만 걸린다). 해제 전에 `kubectl -n argocd get applications -o jsonpath='{range .items[*]}{.metadata.name} {.metadata.finalizers}{"\n"}{end}'`로 확인한다. `pre-delete` 항목만 골라 무시하는 jq 경로는 sync 전 patch에 반영되는지 문서가 말하지 않아 쓰지 않았다 |
 | 전체 해제의 순서가 문서에 없는 코드 동작에 기댄다 | EKS spoke 해제에서 wave 2 → 1 → 0 순서와 앞 wave 삭제 완료 대기가 선다. Argo CD를 올릴 때 `controller/sort_delete.go`가 남아 있는지 본다 |
 
@@ -109,5 +123,7 @@ cluster`). CR의 finalizer도, 그 CR이 만든 클라우드 리소스도 남는
 | 컨트롤러를 NodePool 노드에만 띄우고 **wave를 의존 순으로 뒤집기**(NodePool → 컨트롤러) | 해제 때 컨트롤러의 삭제 훅이 NodePool 노드에 기대고, 그 노드가 컨트롤러 하나를 위해 상시로 뜬다. 같은 addon의 wave가 클라우드마다 갈린다 |
 | addon Application을 **ApplicationSet이 직접** 만들게 두고 `sync-wave`를 단다 | 그 Application을 sync하는 부모가 없어 wave가 아무 순서도 정하지 않는다. 순서를 addon 쪽 우회(컨트롤러 재시작 · 해제 전용 라벨 · finalizer 수동 제거)로 메우게 된다 |
 | 순서를 **Progressive Syncs**(`RollingSync` 단계 · `deletionOrder: Reverse`)로 맞추기 | 순서는 한 ApplicationSet이 만든 Application 사이에만 걸리고, RollingSync는 생성되는 Application의 autosync를 강제로 끈다. v3.3부터 베타다 |
+| 부모의 **마지막 wave 뒤에 표식 리소스**(빈 ConfigMap)를 한 wave 더 두기 | Argo CD는 마지막 wave를 적용만 하고 sync를 끝내므로 부모는 마지막 wave가 `Healthy`가 되기 전에 `Synced`가 된다. 표식은 그 틈을 막지만, 틈은 부모의 완료를 기다리는 계층이 있을 때만 문제다. 부모는 ApplicationSet이 만들고 그 뒤에 기다리는 것이 없다. 부모에 기대는 계층(앱 계층 등)을 두게 되면 다시 연다 |
+| health Lua에서 **sync 종료 시각과 재계산 시각(`reconciledAt`)을 비교**하기 | 시각이 초 단위라 sync가 끝난 초의 재계산을 믿을 수 없고, 다음 재계산은 주기(수 분)를 기다린다. wave마다 그만큼 멈춘다 |
 | 컨트롤러가 CRD를 기다리게 **PreSync Job**을 addon마다 두기 | Job·RBAC·이미지가 addon마다 늘고, 해제 순서는 풀지 못한다 |
 | CRD를 쓰는 CR을 **컨트롤러와 같은 Application**에 합치기 | 설치 순서는 같은 sync 안의 kind 순서로 서지만, 컨트롤러를 지울 때 CR과 finalizer가 같은 cascade에 섞인다. CR과 컨트롤러의 버전 축도 갈린다(CR은 `main`, 컨트롤러는 버전 핀) |

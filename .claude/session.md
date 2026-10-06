@@ -14,21 +14,16 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ## 지난 세션 (2026-10-06)
 
-**EKS hub·dev를 재구축했다.** hub tgw → hub networking → hub eks·dev networking → dev eks → hub networking 재적용 순으로 승인했고, hub seed 뒤 eks-gitops #59(dev 재등록)로 dev를 붙였다. hub eks의 첫 apply는 `tofu init`의 provider 서명 다운로드가 500으로 실패해 `gh run rerun --failed`로 같은 plan을 다시 적용했다. 완료 판정 6항목을 닫았다.
+**자체 설치 ingress-nginx의 이전 시점을 바로잡았다**(`4b2c41e`). `gitops.md` 6절의 "Azure와 같은 일정으로 옮긴다"는 지원 일정이 같다는 뜻으로 읽혔다. 2026-11까지의 중요 보안 패치는 Microsoft가 App Routing add-on에만 주고, 자체 설치한 쪽은 업스트림 유지보수가 2026-03에 끝났다(Kubernetes 공식 발표와 Microsoft Learn `app-routing`으로 확인했다).
 
-**health Lua의 `Synced` 조건을 EKS에서 확인했다.** 부모가 wave 1과 wave 2 사이에서 hub 2분 47초, dev 6분 39초를 기다렸고 양쪽 다 멈추지 않고 `Healthy`로 수렴했다. `karpenter`가 `OutOfSync` + `Healthy`인 동안, `kyverno`가 `Synced` + `Healthy`인데 operation이 `Running`인 동안 부모가 넘어가지 않았다. `gateway-api-crds`의 `Degraded`는 hub·dev 모두 5초 샘플 한 번에만 잡혔고 그때 dev의 CRD 10개는 이미 `Established`였다. 3분짜리는 재현되지 않았다.
+**발표 자료를 같은 내용으로 맞췄다.** `.local/presentations/2026-09-iac-asset/`의 `script.md`(20장 문단)·`slides.html`(20장 AWS 카드)·`article.md`(4.1)를 고치고 `deck.pptx`를 다시 빌드했다. Notion의 대본 페이지와 자산 페이지(pptx·`slides.html` embed·본문 4.1)에도 반영했다.
 
-**cert-manager addon을 EKS hub·dev에서 걷었다**(eks-ref #83·#84, eks-gitops `4034b63`). CR이 0건이고 쓰는 곳이 없었다. addon이 `preserve = true`로 만들어져 `enabled = false` apply가 EKS 등록만 지우고 파드·CRD·webhook·RBAC를 남겨, workbench에서 걷었다. 절차는 eks-ref `runbooks.md` 9절 「addon을 뺄 때」에 적었다.
-
-**`spoke-lifecycle.md` 5절을 고쳤다**(eks-ref `3039301`). dev eks의 trust policy가 hub의 `argocd_hub_pod_identity` Role을 Principal로 써서 hub eks apply 뒤에 걸어야 하는데, 문서는 반대로 적고 있었다.
-
-**발표용 접근을 준비했다.** EKS·AKS 두 hub ArgoCD의 `admin` 비밀번호를 `argocd-secret`의 bcrypt 해시 patch로 바꿨다. asset 계정에 hub 계정의 `silverte`만 신뢰하는 `ReadOnlyAccess` Role을 CLI로 만들고 dev 클러스터에 `AmazonEKSViewPolicy` Access Entry를 붙였다.
+**데모 ⑥의 NAP 확인 화면을 바꿨다.** 포털에 Node autoprovisioning 항목이 나오지 않아 `Overview` › `JSON View`의 `nodeProvisioningProfile.mode`를 가리키기로 했다. 사용자가 포털에서 값이 보이는 것을 확인했다. dev EKS 콘솔의 Resources 탭도 역할 전환으로 보이는 것을 사용자가 확인했다.
 
 ## 다음 할 일
 
 ### 지금
 
-- [ ] [local] 발표 준비: `script.md` 데모 ⑤의 포털 화면 표기(`Settings` › `Networking`, Node autoprovisioning 항목)를 눈으로 보고 캡처를 뜬 뒤 「발표 전 확인 · 전날」을 돈다. hub 계정에서 `iamr-demo-dev-an2-console-hub-01`로 역할 전환해 dev EKS 콘솔의 Resources 탭이 보이는지도 본다(엔드포인트가 private 전용이라 안 보일 수 있다) (09-30~)
 - [ ] [module] `eks-cluster` 모듈이 addon의 `preserve`를 노출할지 사용자가 정한다. 지금은 upstream 기본값 `true`라 addon을 빼면 실물이 남는다. 근거: eks-ref `docs/runbooks.md` 9절 「addon을 뺄 때」 (10-06~)
 - [ ] [eks-ref·aks-ref] Dependabot PR이 쌓여 있다(eks-ref #71~#75 aws 6.65.0·#82 setup-tflint, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 언제 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [eks-ref] hub eks plan에 workbench `volume_tags`의 `Name`이 `ec2-…` → `vol-…`로 잡혀 적용됐다. dev plan에는 없었다. hub에만 난 이유를 본다. 근거: run 37403309963 plan 로그 (10-06~)

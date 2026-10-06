@@ -362,7 +362,8 @@ GatewayClass · Gateway · HTTPRoute로 가른다. 클라우드 차이가 플랫
 앱팀의 HTTPRoute는 양 클라우드에서 같은 파일이 된다. 리소스 경계가 [README.md](README.md)
 「3계층 소유 모델」의 플랫폼-앱 경계와 일치한다.
 
-**예외**: EKS에 ingress-nginx를 자체 설치한 클러스터는 AWS 쪽이어도 Azure와 같은 일정으로 옮긴다.
+**예외**: EKS에 ingress-nginx를 자체 설치한 클러스터는 AWS 쪽이어도 옮긴다. 업스트림 패치가 이미 끊겨
+Azure의 2026-11 유예가 적용되지 않는다.
 
 구현체를 관리형으로 받을지 조립할지는 「관리형으로 받을 것과 조립할 것」이, 구현체 후보를 무엇까지
 보고 무엇을 기각했는지는 [aws/README.md](aws/README.md) · [azure/README.md](azure/README.md)가 갖는다.

@@ -73,6 +73,7 @@ locals {
     for name in local.baseline_addon_names : name => {
       enabled       = true
       addon_version = null
+      preserve      = true
       configuration = null
       pod_identity  = null
     }
@@ -130,6 +131,9 @@ locals {
         addon_version        = cfg.addon_version
         configuration_values = cfg.configuration
         before_compute       = contains(local.before_compute_addons, name)
+
+        # 삭제 때만 쓰이는 값이다. 기본값이 upstream과 같은 true라 넘기지 않던 때와 plan이 같다.
+        preserve = cfg.preserve
 
         # 소비자 주입 경로: role 생성은 소비자 소관이다.
         pod_identity_association = cfg.pod_identity != null ? [cfg.pod_identity] : null

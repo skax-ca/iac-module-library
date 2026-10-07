@@ -299,10 +299,20 @@ variable "cluster_addons" {
     ⚠️ core 4종(vpc-cni · coredns · kube-proxy · eks-pod-identity-agent)은 비활성화할 수 없다.
     eks-pod-identity-agent가 core인 이유는 Karpenter·EBS CSI의 association 생존 전제이기 때문이다.
     없으면 IAM에는 role이 있는데 Pod가 자격증명을 못 받는 조용한 파손이 된다.
+
+    preserve는 addon을 **지울 때** EKS가 클러스터 안 리소스(파드·CRD·webhook·RBAC)를 남길지 정한다.
+    기본값 true는 EKS 등록만 지우고 나머지를 남긴다. false면 EKS가 함께 지운다.
+    ⚠️ 삭제는 state에 적힌 값으로 일어난다. true로 만든 addon을 false로 지우려면 두 번에 나눈다:
+    preserve = false를 먼저 apply하고(in-place 변경), 그다음 enabled = false를 apply한다.
+    둘을 한 번에 넣으면 addon이 설정에서 빠져 false가 state에 닿지 않고, true로 지워진다.
+    ⚠️ false는 CRD를 지우고 CRD가 지워지면 그 CR도 사라진다. CR이 0건인지 먼저 확인한다.
+    ⚠️ 클러스터를 통째로 철거할 때 쓰는 값이 아니다. upstream이 기본값을 true로 둔 이유가 철거다:
+    CNI가 먼저 지워지면 리소스가 고아로 남아 철거가 충돌한다.
   EOT
   type = map(object({
     enabled       = optional(bool, true)
     addon_version = optional(string)
+    preserve      = optional(bool, true)
     configuration = optional(string)
     pod_identity = optional(object({
       role_arn        = string

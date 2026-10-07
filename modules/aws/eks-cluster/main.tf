@@ -125,6 +125,20 @@ module "eks" {
     "karpenter.sh/discovery" = local.cluster_name
   } : {}
 
+  # addon webhook이 요구하는 포트를 control plane에 연다(addons.tf의 node_addon_webhook_ports).
+  # ⚠️ upstream이 구형 aws_security_group_rule로 만든다. 같은 SG에 신형 rule을 직접 붙이면 두 종류가
+  #    섞이므로 upstream 입력으로 넘긴다(cluster_security_group_additional_rules와 같은 판단).
+  node_security_group_additional_rules = {
+    for port in local.node_addon_webhook_ports : "ingress_cluster_${port}_addon_webhook" => {
+      description                   = "Cluster API to node ${port}/tcp addon webhook"
+      protocol                      = "tcp"
+      from_port                     = port
+      to_port                       = port
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
+
   addons                  = local.addons_final # addons.tf 가 baseline 과 merge 한다
   eks_managed_node_groups = local.managed_node_groups
 

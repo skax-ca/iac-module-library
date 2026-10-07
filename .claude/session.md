@@ -24,6 +24,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
+- [ ] [module·eks-ref·eks-gitops] ALBC 웹훅 TLS를 cert-manager(공식 권장안)로 옮길지 사용자가 정한다. dev에서 켰다가 되돌렸다: EKS cert-manager addon의 webhook이 10260 포트인데 노드 SG가 control plane에 그 포트를 열지 않아 `Certificate`·`Issuer` 생성이 거부된다. 옮기려면 `eks-cluster` 모듈이 그 포트를 여는 것이 먼저다. 옮기지 않으면 dev eks의 cert-manager addon을 다시 뺀다(지금 dev에만 서 있고 쓰는 곳이 없다). 스위치와 켜는 조건: eks-platform-gitops `addons/cluster-addons/values.yaml`의 `awsLbcCertManager` (10-07~)
 - [ ] [eks-ref] 발표가 끝났다. IaC 밖 자원을 지운다. dev 클러스터의 Access Entry(`aws eks delete-access-entry`) → asset 계정 Role `iamr-demo-dev-an2-console-hub-01`(`detach-role-policy` 뒤 `delete-role`) 순이다. 두 hub ArgoCD의 `admin` 비밀번호도 바꾼다 (10-06~)
 - [ ] [eks-ref·aks-ref] Dependabot PR이 쌓여 있다(eks-ref #71~#75 aws 6.65.0·#82 setup-tflint, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 언제 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [eks-ref·aks-ref] eks-ref `docs/runbooks.md`가 400줄, aks-ref `docs/runbooks.md`가 399줄·`docs/spoke-lifecycle.md`가 400줄이다. 다음에 내용을 더하기 전에 나눈다(`docs/writing-style.md` 1절 4번) (10-02~)

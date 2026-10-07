@@ -24,7 +24,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [eks-ref] 철거 전에 `preserve = false`가 무엇까지 지우는지 실측한다. dev eks를 `eks-cluster-v0.13.0`으로 올리고 `metrics-server`에 `preserve = false` apply → `enabled = false` apply 순으로 간다. 볼 것: ① 첫 apply의 plan이 그 addon 1건 in-place이고 다른 변경이 없는지 ② 둘째 apply 뒤 `kubectl get deploy,svc,sa -n kube-system`·`apiservice`·`clusterrole,clusterrolebinding`에 `metrics-server`가 0건인지 ③ addon 삭제에 걸린 시간. `metrics-server`에는 CRD·webhook이 없어 그 둘은 이번에 확인되지 않는다. 결과는 eks-ref `docs/runbooks.md` 9절 「addon을 뺄 때」와 `live/{hub,dev}/eks/main.tf`의 `preserve` 주석에 옮긴다 (10-07~)
+- [ ] [eks-ref] PR #87(addon 제거 절차 갱신, dev `metrics-server` 복원, hub `eks-cluster-v0.13.0`)을 머지하고 dev eks 게이트를 처리한다. dev를 먼저 철거하면 머지만 하고 게이트는 Reject한다 (10-07~)
 - [ ] [eks-ref] 발표가 끝났다. IaC 밖 자원을 지운다. dev 클러스터의 Access Entry(`aws eks delete-access-entry`) → asset 계정 Role `iamr-demo-dev-an2-console-hub-01`(`detach-role-policy` 뒤 `delete-role`) 순이다. 두 hub ArgoCD의 `admin` 비밀번호도 바꾼다 (10-06~)
 - [ ] [eks-ref·aks-ref] Dependabot PR이 쌓여 있다(eks-ref #71~#75 aws 6.65.0·#82 setup-tflint, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 언제 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [eks-ref·aks-ref] eks-ref `docs/runbooks.md`가 400줄, aks-ref `docs/runbooks.md`가 399줄·`docs/spoke-lifecycle.md`가 400줄이다. 다음에 내용을 더하기 전에 나눈다(`docs/writing-style.md` 1절 4번) (10-02~)

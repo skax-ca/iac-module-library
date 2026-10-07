@@ -9,8 +9,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 |------|-----|------|
 | eks-reference-infra | main = origin | **hub·dev 구축 상태(10-06 재구축), 발표(10-07)에 쓴다.** 5개 루트 apply 성공, hub·dev eks 재-plan이 `No changes`다. hub 완료 판정 6항목이 닫혔다. IaC 밖 자원 둘이 asset 계정에 있다: Role `iamr-demo-dev-an2-console-hub-01`과 dev 클러스터의 그 Role Access Entry. 네 루트의 `deletion_protection = false`는 의도다 |
 | eks-platform-gitops | main = origin | **EKS 구축 상태.** hub·dev의 Application 24개가 전부 `Synced`/`Healthy`다(10-06). hub·dev Secret 모두 `environment` 라벨이 있고 접속 값은 지금 클러스터의 것이다 |
-| aks-reference-infra | main = origin | **hub·dev 구축 상태(10-02 재구축), 발표(10-07)에 쓴다.** 7개 루트 재-plan이 `No changes`다(10-02). hub 완료 판정 7항목이 닫혔다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
-| aks-platform-gitops | main = origin | **AKS 구축 상태.** hub·dev의 Application 14개가 전부 `Synced`/`Healthy`다(10-02). hub·dev Secret 모두 `environment` 라벨이 있고 접속 값은 지금 클러스터의 것이다 |
+| aks-reference-infra | main = origin | **hub·dev 철거 상태(10-07).** 7개 루트를 전부 destroy했고 `teardown-verify.sh`가 두 구독에서 exit 0이다. bootstrap 소유물(state Storage Account·App Registration·RG)은 남아 있다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
+| aks-platform-gitops | main = origin | **AKS 철거 상태.** hub Secret은 `environment` 라벨이 있다(다음 seed의 입력). dev Secret은 `environment` 라벨이 없고 접속 값은 파기된 클러스터의 것이다 |
 
 ## 지난 세션 (2026-10-06)
 

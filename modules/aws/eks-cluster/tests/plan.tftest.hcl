@@ -285,6 +285,43 @@ run "addon_opt_out_removes_addon_and_its_role" {
   }
 }
 
+run "addon_preserve_defaults_to_true" {
+  command = plan
+
+  # 소비자가 preserve를 안 주면 baseline과 증분 addon 모두 true여야 한다.
+  # 이 기본값이 뒤집히면 addon을 뺄 때 EKS가 CRD와 그 CR까지 지운다.
+  variables {
+    cluster_addons = {
+      "cert-manager" = {}
+    }
+  }
+
+  assert {
+    condition     = alltrue([for name, addon in module.eks.cluster_addons : addon.preserve])
+    error_message = "preserve를 명시하지 않은 addon은 전부 preserve = true여야 한다."
+  }
+}
+
+run "addon_preserve_passes_through_per_addon" {
+  command = plan
+
+  variables {
+    cluster_addons = {
+      "metrics-server" = { preserve = false }
+    }
+  }
+
+  assert {
+    condition     = module.eks.cluster_addons["metrics-server"].preserve == false
+    error_message = "소비자가 준 preserve = false가 그 addon에 닿아야 한다."
+  }
+
+  assert {
+    condition     = module.eks.cluster_addons["coredns"].preserve == true
+    error_message = "한 addon의 preserve가 다른 addon으로 번지면 안 된다."
+  }
+}
+
 # ── AC4-b: 스토리지 CSI addon: opt-in이라야 role이 생긴다 ────────────
 
 run "storage_csi_addons_disabled_by_default" {

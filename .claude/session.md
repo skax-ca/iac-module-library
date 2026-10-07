@@ -24,7 +24,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [module] `eks-cluster` 모듈이 addon의 `preserve`를 노출할지 사용자가 정한다. 지금은 upstream 기본값 `true`라 addon을 빼면 실물이 남는다. 근거: eks-ref `docs/runbooks.md` 9절 「addon을 뺄 때」 (10-06~)
+- [ ] [eks-ref] 철거 전에 `preserve = false`가 무엇까지 지우는지 실측한다. dev eks를 `eks-cluster-v0.13.0`으로 올리고 `metrics-server`에 `preserve = false` apply → `enabled = false` apply 순으로 간다. 볼 것: ① 첫 apply의 plan이 그 addon 1건 in-place이고 다른 변경이 없는지 ② 둘째 apply 뒤 `kubectl get deploy,svc,sa -n kube-system`·`apiservice`·`clusterrole,clusterrolebinding`에 `metrics-server`가 0건인지 ③ addon 삭제에 걸린 시간. `metrics-server`에는 CRD·webhook이 없어 그 둘은 이번에 확인되지 않는다. 결과는 eks-ref `docs/runbooks.md` 9절 「addon을 뺄 때」와 `live/{hub,dev}/eks/main.tf`의 `preserve` 주석에 옮긴다 (10-07~)
+- [ ] [eks-ref] 발표가 끝났다. IaC 밖 자원을 지운다. dev 클러스터의 Access Entry(`aws eks delete-access-entry`) → asset 계정 Role `iamr-demo-dev-an2-console-hub-01`(`detach-role-policy` 뒤 `delete-role`) 순이다. 두 hub ArgoCD의 `admin` 비밀번호도 바꾼다 (10-06~)
 - [ ] [eks-ref·aks-ref] Dependabot PR이 쌓여 있다(eks-ref #71~#75 aws 6.65.0·#82 setup-tflint, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 언제 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [eks-ref] hub eks plan에 workbench `volume_tags`의 `Name`이 `ec2-…` → `vol-…`로 잡혀 적용됐다. dev plan에는 없었다. hub에만 난 이유를 본다. 근거: run 37403309963 plan 로그 (10-06~)
 - [ ] [eks-gitops] dev의 `kyverno` sync operation이 5분가량 `Running`이었다(hub는 30초 안팎). 원인을 본다. 근거: `docs/architectures/gitops-hub-spoke/ordering.md` 4절 (10-06~)
@@ -33,7 +34,6 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 조건이 오면
 
-- [ ] [eks-ref] 발표(10-07)가 끝나면: IaC 밖 자원을 지운다. dev 클러스터의 Access Entry(`aws eks delete-access-entry`) → asset 계정 Role `iamr-demo-dev-an2-console-hub-01`(`detach-role-policy` 뒤 `delete-role`) 순이다. 두 hub ArgoCD의 `admin` 비밀번호도 바꾼다 (10-06~)
 - [ ] [eks-gitops] dev 등록 직후 `gateway-api-crds` 자식이 1분 넘게 `Degraded`로 남으면: 그동안 ArgoCD 리소스 트리(`argocd app get <dev 부모>-gateway-api-crds -o tree`)와 dev의 CRD `status.conditions`를 같은 시각에 떠 맞댄다. Application의 `status.resources[].health`는 비어 있어 근거가 되지 않는다. 근거: `addons/cluster-addons/templates/gateway-api-crds.yaml` (10-02~)
 - [ ] [*-gitops·module] 이 저장소들에 `id-token: write` job이 생기면: 액션 SHA 핀을 넓힌다(지금은 배포 루트만 SHA 핀) (09-23~)
 - [ ] [local] context7이 rate limit에 걸리면: 키를 로컬 설정 `Authorization: Bearer`로 넣는다 (09-23~)

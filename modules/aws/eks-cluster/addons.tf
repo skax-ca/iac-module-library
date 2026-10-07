@@ -87,6 +87,24 @@ locals {
   ebs_csi_enabled = local.enabled && try(local.merged_addons["aws-ebs-csi-driver"].enabled, false)
   efs_csi_enabled = local.enabled && try(local.merged_addons["aws-efs-csi-driver"].enabled, false)
 
+  # ── 2-b) addon webhook이 요구하는 노드 SG 인바운드 ──────────────────────────
+  #
+  # cert-manager addon의 webhook은 10260 포트로 듣는다(addon 설정 스키마의 webhook.securePort
+  # 기본값). upstream이 control plane에 여는 노드 포트(443·4443·6443·8443·9443·10250·10251)에
+  # 없어서, 열지 않으면 apiserver가 webhook에 닿지 못한다. addon은 ACTIVE이고 파드도 Ready인데
+  # Certificate·Issuer를 만드는 요청만 `failed calling webhook "webhook.cert-manager.io":
+  # context deadline exceeded`로 거부된다.
+  # 소비자가 configuration으로 securePort를 바꾸면 그 값을 연다. 고정값을 열면 addon 설정과 SG가
+  # 조용히 어긋난다.
+  # ⚠️ 변수로 열지 않는다. 어느 addon이 어느 포트를 요구하는지는 addon을 싣는 이 모듈이 아는
+  #    사실이고, 소비자가 따로 적게 두면 addon만 싣고 포트를 빠뜨린다.
+  cert_manager_enabled = local.enabled && try(local.merged_addons["cert-manager"].enabled, false)
+  cert_manager_webhook_port = try(
+    jsondecode(local.merged_addons["cert-manager"].configuration).webhook.securePort,
+    10260,
+  )
+  node_addon_webhook_ports = local.cert_manager_enabled ? [local.cert_manager_webhook_port] : []
+
   # ── 3) custom networking configuration  ───────────────────────────────
   #
   # ENIConfig를 addon의 configuration_values 안에서 만들면 kubernetes_manifest 없이 끝난다.

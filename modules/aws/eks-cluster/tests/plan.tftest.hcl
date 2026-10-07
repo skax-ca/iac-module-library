@@ -322,6 +322,49 @@ run "addon_preserve_passes_through_per_addon" {
   }
 }
 
+run "cert_manager_addon_opens_webhook_port" {
+  command = plan
+
+  # cert-manager를 실으면 그 webhook 포트가 control plane에 열려야 한다. 빠지면 addon은 ACTIVE인데
+  # Certificate·Issuer 생성만 webhook 호출 타임아웃으로 거부된다.
+  variables {
+    cluster_addons = {
+      "cert-manager" = {}
+    }
+  }
+
+  assert {
+    condition     = output.node_addon_webhook_ports == tolist([10260])
+    error_message = "cert-manager addon을 실으면 노드 SG에 10260이 열려야 한다."
+  }
+}
+
+run "cert_manager_webhook_port_follows_configuration" {
+  command = plan
+
+  variables {
+    cluster_addons = {
+      "cert-manager" = {
+        configuration = jsonencode({ webhook = { securePort = 10261 } })
+      }
+    }
+  }
+
+  assert {
+    condition     = output.node_addon_webhook_ports == tolist([10261])
+    error_message = "소비자가 securePort를 바꾸면 SG가 그 포트를 따라가야 한다."
+  }
+}
+
+run "no_addon_webhook_port_without_cert_manager" {
+  command = plan
+
+  assert {
+    condition     = length(output.node_addon_webhook_ports) == 0
+    error_message = "cert-manager가 없으면 노드 SG에 추가 포트를 열지 않는다."
+  }
+}
+
 # ── AC4-b: 스토리지 CSI addon: opt-in이라야 role이 생긴다 ────────────
 
 run "storage_csi_addons_disabled_by_default" {

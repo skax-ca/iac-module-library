@@ -113,6 +113,7 @@ networking·Karpenter·workbench 연동을 포함한 실전 예시는
 | <a name="output_karpenter_node_iam_role_arn"></a> [karpenter\_node\_iam\_role\_arn](#output\_karpenter\_node\_iam\_role\_arn) | Karpenter가 프로비저닝하는 노드의 IAM role ARN. |
 | <a name="output_karpenter_node_iam_role_name"></a> [karpenter\_node\_iam\_role\_name](#output\_karpenter\_node\_iam\_role\_name) | Karpenter 노드 IAM role 이름. EC2NodeClass의 role 필드가 ARN이 아니라 이름을 받는다. |
 | <a name="output_karpenter_sqs_queue_name"></a> [karpenter\_sqs\_queue\_name](#output\_karpenter\_sqs\_queue\_name) | 스팟 중단·헬스 이벤트를 받는 SQS 큐 이름. |
+| <a name="output_node_addon_webhook_ports"></a> [node\_addon\_webhook\_ports](#output\_node\_addon\_webhook\_ports) | addon의 webhook 때문에 모듈이 노드 SG에 control plane 인바운드로 추가한 포트 목록.<br/>cert-manager addon을 실으면 그 webhook 포트(기본 10260)가 들어간다. 없으면 빈 목록이다.<br/><br/>upstream이 기본으로 여는 포트(443·4443·6443·8443·9443·10250·10251)는 여기 없다.<br/>effective\_addon\_names와 같은 이유로 노출한다. 하위 모듈에 들어간 SG 규칙은 `tofu test`가<br/>볼 수 없다. |
 | <a name="output_node_security_group_id"></a> [node\_security\_group\_id](#output\_node\_security\_group\_id) | 노드 보안 그룹 ID. Karpenter의 securityGroupSelectorTerms가 이 SG의 discovery 태그를 찾는다.<br/>custom networking의 Pod ENI도 이 SG를 상속한다(addons.tf 주석 참조). |
 | <a name="output_oidc_provider_arn"></a> [oidc\_provider\_arn](#output\_oidc\_provider\_arn) | IAM OIDC 공급자 ARN. IRSA 방식 role의 신뢰 정책이 참조한다(Pod Identity를 쓰면 불필요). |
 <!-- END_TF_DOCS -->

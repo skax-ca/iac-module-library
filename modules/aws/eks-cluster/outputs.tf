@@ -153,6 +153,18 @@ output "effective_addon_names" {
   value       = local.enabled ? sort(keys(local.addons_final)) : []
 }
 
+output "node_addon_webhook_ports" {
+  description = <<-EOT
+    addon의 webhook 때문에 모듈이 노드 SG에 control plane 인바운드로 추가한 포트 목록.
+    cert-manager addon을 실으면 그 webhook 포트(기본 10260)가 들어간다. 없으면 빈 목록이다.
+
+    upstream이 기본으로 여는 포트(443·4443·6443·8443·9443·10250·10251)는 여기 없다.
+    effective_addon_names와 같은 이유로 노출한다. 하위 모듈에 들어간 SG 규칙은 `tofu test`가
+    볼 수 없다.
+  EOT
+  value       = local.node_addon_webhook_ports
+}
+
 # ── 컨트롤러 IAM ─────────────────────────────────────────────────────────────
 
 output "ebs_csi_iam_role_arn" {

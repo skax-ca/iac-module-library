@@ -24,7 +24,6 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 지금
 
-- [ ] [module·eks-ref·eks-gitops] ALBC 웹훅 TLS를 cert-manager(공식 권장안)로 옮길지 사용자가 정한다. dev에서 켰다가 되돌렸다: EKS cert-manager addon의 webhook이 10260 포트인데 노드 SG가 control plane에 그 포트를 열지 않아 `Certificate`·`Issuer` 생성이 거부된다. 옮기려면 `eks-cluster` 모듈이 그 포트를 여는 것이 먼저다. 옮기지 않으면 dev eks의 cert-manager addon을 다시 뺀다(지금 dev에만 서 있고 쓰는 곳이 없다). 스위치와 켜는 조건: eks-platform-gitops `addons/cluster-addons/values.yaml`의 `awsLbcCertManager` (10-07~)
 - [ ] [eks-ref] 발표가 끝났다. IaC 밖 자원을 지운다. dev 클러스터의 Access Entry(`aws eks delete-access-entry`) → asset 계정 Role `iamr-demo-dev-an2-console-hub-01`(`detach-role-policy` 뒤 `delete-role`) 순이다. 두 hub ArgoCD의 `admin` 비밀번호도 바꾼다 (10-06~)
 - [ ] [eks-ref·aks-ref] Dependabot PR이 쌓여 있다(eks-ref #71~#75 aws 6.65.0·#82 setup-tflint, aks-ref #72~#78 azurerm 5.6.0). `groups`로 묶을지와 언제 올릴지를 사용자가 정한다(`open-pull-requests-limit`은 디렉토리별) (09-23~)
 - [ ] [eks-ref·aks-ref] eks-ref `docs/runbooks.md`가 400줄, aks-ref `docs/runbooks.md`가 399줄·`docs/spoke-lifecycle.md`가 400줄이다. 다음에 내용을 더하기 전에 나눈다(`docs/writing-style.md` 1절 4번) (10-02~)
@@ -32,6 +31,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 ### 조건이 오면
 
+- [ ] [eks-gitops] EKS hub·dev가 철거된 상태가 되면: `addons/cluster-addons/values.yaml`의 `awsLbcCertManager`를 양 티어 `"true"`로 올린다(살아 있는 클러스터에서 켜면 전환 중 웹훅이 끊긴다). 다음 구축에서 `Certificate` 2개가 `Ready`이고 `aws-lbc`가 `Synced`로 서는지, cainjector가 넣은 `caBundle`을 Argo CD가 diff로 보는지 확인한 뒤 스위치를 표에서 빼 `addons/aws-load-balancer-controller/values.yaml`로 옮기고 README 「운영 노트」의 ALBC 웹훅 항목을 고친다 (10-07~)
 - [ ] [eks-gitops] dev 등록 직후 `gateway-api-crds` 자식이 1분 넘게 `Degraded`로 남으면: 그동안 ArgoCD 리소스 트리(`argocd app get <dev 부모>-gateway-api-crds -o tree`)와 dev의 CRD `status.conditions`를 같은 시각에 떠 맞댄다. Application의 `status.resources[].health`는 비어 있어 근거가 되지 않는다. 근거: `addons/cluster-addons/templates/gateway-api-crds.yaml` (10-02~)
 - [ ] [*-gitops·module] 이 저장소들에 `id-token: write` job이 생기면: 액션 SHA 핀을 넓힌다(지금은 배포 루트만 SHA 핀) (09-23~)
 - [ ] [local] context7이 rate limit에 걸리면: 키를 로컬 설정 `Authorization: Bearer`로 넣는다 (09-23~)

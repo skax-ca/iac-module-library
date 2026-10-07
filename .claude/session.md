@@ -12,13 +12,15 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 | aks-reference-infra | main = origin | **hub·dev 철거 상태(10-07).** 7개 루트를 전부 destroy했고 `teardown-verify.sh`가 두 구독에서 exit 0이다. bootstrap 소유물(state Storage Account·App Registration·RG)은 남아 있다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** hub Secret은 `environment` 라벨이 있다(다음 seed의 입력). dev Secret은 `environment` 라벨이 없고 접속 값은 파기된 클러스터의 것이다 |
 
-## 지난 세션 (2026-10-06)
+## 지난 세션 (2026-10-07)
 
-**자체 설치 ingress-nginx의 이전 시점을 바로잡았다**(`4b2c41e`). `gitops.md` 6절의 "Azure와 같은 일정으로 옮긴다"는 지원 일정이 같다는 뜻으로 읽혔다. 2026-11까지의 중요 보안 패치는 Microsoft가 App Routing add-on에만 주고, 자체 설치한 쪽은 업스트림 유지보수가 2026-03에 끝났다(Kubernetes 공식 발표와 Microsoft Learn `app-routing`으로 확인했다).
+**`eks-cluster` 모듈을 두 번 릴리스했다.** `v0.13.0`은 `cluster_addons` 엔트리에 `preserve`를 연다(#63). `v0.14.0`은 cert-manager addon을 실으면 그 webhook 포트(10260)를 control plane에 연다(#64). 이 포트가 닫혀 있어 `Certificate`·`Issuer` 생성이 거부되던 것을 dev에서 겪고 고쳤고, hub·dev에서 `Issuer` server-side dry-run으로 도달을 확인했다.
 
-**발표 자료를 같은 내용으로 맞췄다.** `.local/presentations/2026-09-iac-asset/`의 `script.md`(20장 문단)·`slides.html`(20장 AWS 카드)·`article.md`(4.1)를 고치고 `deck.pptx`를 다시 빌드했다. Notion의 대본 페이지와 자산 페이지(pptx·`slides.html` embed·본문 4.1)에도 반영했다.
+**ALBC 웹훅 TLS를 두 단계로 고쳤다.** dev `kyverno` sync 지연의 원인이 ALBC 차트가 렌더마다 TLS를 새로 만드는 것임을 audit 로그로 확인하고 `ignoreDifferences`로 유지하게 했다(eks-gitops #60). 공식 문서가 권장안으로 cert-manager를 들어 dev에서 전환을 켰다가 dev의 Service 생성·수정이 10분쯤 막혀 되돌렸다(#61·#62). 철거 뒤에 양 티어 스위치를 켜 두었다(#65).
 
-**데모 ⑥의 NAP 확인 화면을 바꿨다.** 포털에 Node autoprovisioning 항목이 나오지 않아 `Overview` › `JSON View`의 `nodeProvisioningProfile.mode`를 가리키기로 했다. 사용자가 포털에서 값이 보이는 것을 확인했다. dev EKS 콘솔의 Resources 탭도 역할 전환으로 보이는 것을 사용자가 확인했다.
+**EKS hub·dev를 철거했다.** 다섯 루트를 destroy했고 `teardown-verify.sh`가 두 계정에서 exit 0이다. 철거 중에 `preserve = false`의 정리 범위(metrics-server, cert-manager)와 wave 역순 삭제를 실측해 eks-ref `docs/runbooks.md`·`docs/spoke-lifecycle.md`에 옮겼다(`1ce0ce9`·`9e763ad`). dev에 ALBC backend SG가 남은 원인이 같은 wave의 NodePool 삭제가 ALBC 리더를 퇴거시킨 것이어서 ALBC와 kyverno를 system 노드그룹에 고정했다(eks-gitops #64).
+
+**AKS hub·dev는 다른 세션이 철거했다.** 이 세션에서 hub 구독의 `teardown-verify.sh` exit 0과 dev 구독에 bootstrap 소유물만 남은 것을 확인했다.
 
 ## 다음 할 일
 

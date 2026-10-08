@@ -12,15 +12,13 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 | aks-reference-infra | main = origin | **hub·dev 철거 상태(10-07).** 7개 루트를 전부 destroy했고 `teardown-verify.sh`가 두 구독에서 exit 0이다. bootstrap 소유물(state Storage Account·App Registration·RG)은 남아 있다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** hub Secret은 `environment` 라벨이 있다(다음 seed의 입력). dev Secret은 `environment` 라벨이 없고 접속 값은 파기된 클러스터의 것이다 |
 
-## 지난 세션 (2026-10-07)
+## 지난 세션 (2026-10-08)
 
-**`eks-cluster` 모듈을 두 번 릴리스했다.** `v0.13.0`은 `cluster_addons` 엔트리에 `preserve`를 연다(#63). `v0.14.0`은 cert-manager addon을 실으면 그 webhook 포트(10260)를 control plane에 연다(#64). 이 포트가 닫혀 있어 `Certificate`·`Issuer` 생성이 거부되던 것을 dev에서 겪고 고쳤고, hub·dev에서 `Issuer` server-side dry-run으로 도달을 확인했다.
+**EKS hub·dev를 다시 세워 두 항목을 확인하고 철거했다.** hub는 `tgw → networking → eks` 뒤 seed, dev는 `networking → eks` 뒤 hub networking 재적용과 재등록(eks-gitops #67)이다. 철거는 라벨 제거(#70) 뒤 다섯 루트 destroy이고 `teardown-verify.sh`가 두 계정에서 exit 0이다. dev에 Flow Logs가 다시 만든 빈 로그 그룹 하나는 손으로 지웠다. hub 라벨은 되돌렸다(#71).
 
-**ALBC 웹훅 TLS를 두 단계로 고쳤다.** dev `kyverno` sync 지연의 원인이 ALBC 차트가 렌더마다 TLS를 새로 만드는 것임을 audit 로그로 확인하고 `ignoreDifferences`로 유지하게 했다(eks-gitops #60). 공식 문서가 권장안으로 cert-manager를 들어 dev에서 전환을 켰다가 dev의 Service 생성·수정이 10분쯤 막혀 되돌렸다(#61·#62). 철거 뒤에 양 티어 스위치를 켜 두었다(#65).
+**ALBC 웹훅 TLS가 cert-manager로 처음부터 서는 것을 양 티어에서 확인했다.** Certificate·Issuer가 Ready이고, `caBundle` 필드의 소유자가 cainjector라 `aws-lbc`를 hard refresh하고 다시 sync해도 웹훅 설정의 `resourceVersion`이 그대로다. kyverno sync는 `x509` 재시도 없이 끝났다. 스위치를 버전 표에서 빼 ALBC values로 옮겼다(#68·#69, 클러스터가 살아 있는 동안 둘로 나눠 넣었다).
 
-**EKS hub·dev를 철거했다.** 다섯 루트를 destroy했고 `teardown-verify.sh`가 두 계정에서 exit 0이다. 철거 중에 `preserve = false`의 정리 범위(metrics-server, cert-manager)와 wave 역순 삭제를 실측해 eks-ref `docs/runbooks.md`·`docs/spoke-lifecycle.md`에 옮겼다(`1ce0ce9`·`9e763ad`). dev에 ALBC backend SG가 남은 원인이 같은 wave의 NodePool 삭제가 ALBC 리더를 퇴거시킨 것이어서 ALBC와 kyverno를 system 노드그룹에 고정했다(eks-gitops #64).
-
-**AKS hub·dev는 다른 세션이 철거했다.** 이 세션에서 hub 구독의 `teardown-verify.sh` exit 0과 dev 구독에 bootstrap 소유물만 남은 것을 확인했다.
+**dev 등록 직후 `gateway-api-crds`의 `Degraded`는 주기 refresh까지 남는 것임을 확인했다.** hub의 리소스 트리와 dev의 CRD 조건을 같은 시각으로 맞댔다. CRD는 생성 4초 안에 전부 `Established`였고 Application은 `comparison expired` refresh에서 손대지 않고 `Healthy`가 됐다. eks-ref `docs/runbooks.md` 5절의 그 행을 고쳤다(`fc09310`).
 
 ## 다음 할 일
 

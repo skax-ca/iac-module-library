@@ -840,3 +840,44 @@ run "invalid_ami_type_is_rejected" {
 
   expect_failures = [var.managed_node_groups]
 }
+
+# 노드그룹 버전 핀은 컨트롤플레인과 노드 롤링을 다른 apply로 가르는 장치다. 두 핀(kubernetes_version·
+# ami_release_version)의 마이너가 갈린 입력을 plan 시점에 잡는지 확인한다.
+run "node_group_version_pins_must_share_minor" {
+  command = plan
+
+  variables {
+    managed_node_groups = {
+      system = {
+        instance_types      = ["t4g.medium"]
+        min_size            = 1
+        max_size            = 2
+        desired_size        = 1
+        ami_type            = "AL2023_ARM_64_STANDARD"
+        kubernetes_version  = "1.36"
+        ami_release_version = "1.35.6-20260728" # 마이너가 kubernetes_version과 다르다
+      }
+    }
+  }
+
+  expect_failures = [var.managed_node_groups]
+}
+
+run "node_group_kubernetes_version_is_minor_only" {
+  command = plan
+
+  variables {
+    managed_node_groups = {
+      system = {
+        instance_types     = ["t4g.medium"]
+        min_size           = 1
+        max_size           = 2
+        desired_size       = 1
+        ami_type           = "AL2023_ARM_64_STANDARD"
+        kubernetes_version = "1.35.6" # 패치까지 적었다
+      }
+    }
+  }
+
+  expect_failures = [var.managed_node_groups]
+}

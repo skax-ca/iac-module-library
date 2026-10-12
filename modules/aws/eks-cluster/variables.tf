@@ -221,6 +221,15 @@ variable "managed_node_groups" {
     ⚠️ ami_release_version도 **아키텍처별로 값이 다르다.** arm으로 바꾸면 핀도 arm SSM 경로에서
     다시 얻는다(README "AMI 버전 고정" 절).
 
+    kubernetes_version: 노드그룹의 k8s 마이너(예: "1.35"). null이면 클러스터의 kubernetes_version을
+    따라간다.
+    ⚠️ null인 채로 클러스터의 kubernetes_version을 올리면 그 plan에 노드그룹이 함께 뜬다. 컨트롤플레인
+    업그레이드와 노드 롤링 교체가 한 apply가 되어 승인도 하나가 된다. 둘을 나눠 승인하려면 이 값을
+    명시하고, 컨트롤플레인을 올린 다음 커밋에서 ami_release_version과 함께 올린다.
+    ⚠️ 클러스터보다 높은 마이너를 주면 AWS가 거부한다. kubelet은 컨트롤플레인보다 높을 수 없다.
+    ⚠️ AL2·AL2023 계열은 ami_release_version이 이 마이너로 시작해야 한다("1.35"와
+    "1.35.6-20260728"). Bottlerocket·Windows는 릴리스 버전의 체계가 달라 검증하지 않는다.
+
     taints는 리스트로 받아 모듈이 upstream의 map 스키마로 변환한다(facade 번역).
   EOT
   type = map(object({
@@ -231,6 +240,7 @@ variable "managed_node_groups" {
     capacity_type       = optional(string, "ON_DEMAND")
     ami_type            = optional(string, "AL2023_x86_64_STANDARD")
     ami_release_version = optional(string)
+    kubernetes_version  = optional(string)
     labels              = optional(map(string), {})
     taints = optional(list(object({
       key    = string
@@ -283,6 +293,29 @@ variable "managed_node_groups" {
       ])
     ])
     error_message = "taint의 effect는 NO_SCHEDULE, NO_EXECUTE, PREFER_NO_SCHEDULE 중 하나여야 한다."
+  }
+
+  # 패치까지 적은 값("1.35.6")은 plan을 통과하고 노드그룹 단계에서 AWS API가 거부한다.
+  validation {
+    condition = alltrue([
+      for ng in var.managed_node_groups :
+      ng.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+$", ng.kubernetes_version))
+    ])
+    error_message = "managed_node_groups의 kubernetes_version은 마이너까지만 적는다(예: \"1.35\")."
+  }
+
+  # 두 핀의 마이너가 갈리면 클러스터 업그레이드가 끝난 뒤 노드그룹 단계에서야 실패한다. 업그레이드
+  # 커밋에서 한쪽만 올리는 실수가 이 형태로 온다.
+  # ⚠️ AL2·AL2023 계열만 본다. Bottlerocket의 릴리스 버전은 OS 버전이고 Windows는 날짜 체계라
+  #    k8s 마이너로 시작하지 않는다.
+  validation {
+    condition = alltrue([
+      for ng in var.managed_node_groups :
+      ng.kubernetes_version == null || ng.ami_release_version == null ? true : (
+        startswith(ng.ami_type, "AL2") ? startswith(ng.ami_release_version, "${ng.kubernetes_version}.") : true
+      )
+    ])
+    error_message = "managed_node_groups의 ami_release_version은 같은 노드그룹의 kubernetes_version 마이너로 시작해야 한다(예: \"1.35\"와 \"1.35.6-20260728\")."
   }
 }
 

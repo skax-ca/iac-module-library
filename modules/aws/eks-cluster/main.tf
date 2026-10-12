@@ -57,6 +57,11 @@ locals {
       ami_release_version            = ng.ami_release_version
       use_latest_ami_release_version = ng.ami_release_version == null
 
+      # 노드그룹의 k8s 마이너. null이면 upstream이 클러스터 버전을 대신 넣는다.
+      # ⚠️ 이 줄을 빼면 소비자가 값을 줘도 무시되고 노드그룹이 클러스터 버전을 따라간다. 컨트롤플레인만
+      #    올리려던 plan에 노드 롤링 교체가 함께 뜬다.
+      kubernetes_version = ng.kubernetes_version
+
       # upstream taints는 map(object) 이고 facade는 list다. 여기서 번역한다.
       # 키를 인덱스로 잡으면 리스트 순서만 바뀌어도 전량 diff가 나므로 (key, effect)를 쓴다.
       # k8s에서 이 쌍은 taint의 자연 식별자다.

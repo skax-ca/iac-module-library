@@ -262,6 +262,11 @@ module "eks" {
       #    null이면 upstream이 매 plan마다 최신을 해석해 apply 시 **노드 롤링 교체**를 유발한다.
       #    예제는 계정에 붙지 않아 유효한 버전 문자열을 확인할 수 없으므로 null로 둔다.
       ami_release_version = null
+
+      # 실환경에서는 노드그룹의 k8s 마이너도 박는다(예: "1.35"). ami_release_version과 마이너가 같은
+      #    값이다. null이면 클러스터의 kubernetes_version을 따라가, 그 값을 올리는 plan에 노드 롤링
+      #    교체가 함께 뜬다. 박아 두면 컨트롤플레인과 노드그룹을 다른 커밋으로 올릴 수 있다.
+      kubernetes_version = null
     }
   }
 

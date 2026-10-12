@@ -209,7 +209,7 @@ EKS에서 그 규칙을 적용한 결과다.
 | wave | addon | 기대는 것 |
 |:---:|---|---|
 | 0 | `gateway-api-crds` | 없다 |
-| 1 | `aws-lbc` · `karpenter` · `kyverno` · `keda`(opt-in) · `cluster-autoscaler`(opt-in) | ALBC: Gateway API CRD. Karpenter·Kyverno는 자기 CRD를 차트에 동봉한다 |
+| 1 | `aws-lbc` · `karpenter` · `kyverno` · `keda`(opt-in) · `cluster-autoscaler` | ALBC: Gateway API CRD. Karpenter·Kyverno는 자기 CRD를 차트에 동봉한다 |
 | 2 | `gateway` · `karpenter-nodepool` · `kyverno-policies` · `kyverno-custom-policies` | 자기 CRD와 finalizer를 처리하는 컨트롤러(wave 1) |
 
 설치 쪽에서 이 표가 막는 것은 ALBC의 CRD 감지다. ALBC는 파드가 시작할 때 discovery로 Gateway API

@@ -182,7 +182,7 @@ Kyverno는 엔진과 PSS 정책이 staged이고, 이 저장소가 만든 커스�
 | ALB Controller | 버전 핀 | **staged** | 없음(App Routing) |
 | Gateway API 표준 CRD | 버전 핀 | **staged** | 없음(AKS 관리형) |
 | KEDA | 버전 핀 | **opt-in** | 없음(관리형 add-on) |
-| Cluster Autoscaler | 버전 핀 | **opt-in** | 없음(NAP를 쓴다) |
+| Cluster Autoscaler | 버전 핀 + 이미지 태그 | **staged** | 없음(NAP를 쓴다) |
 
 Azure 열에 "없음"이 많은 이유는 노드와 트래픽을 다루는 컨트롤러(NAP · App Routing · 관리형
 KEDA)를 전부 관리형으로 받고, 버전 승격도 AKS가 클러스터 업그레이드에 맞춰 하기 때문이다.

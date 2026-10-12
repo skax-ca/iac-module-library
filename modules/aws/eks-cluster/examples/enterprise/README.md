@@ -105,6 +105,7 @@ source = "git::https://github.com/skax-ca/iac-module-library.git//modules/aws/wo
 | 🔴 **`workbench_ami_id`** | **자리표시자 `ami-00000000000000000`** | **조회한 실제 AMI ID.** 아래 **"workbench AMI"** 절. 그대로 apply하면 즉시 실패한다(의도된 것) |
 | `external_dns_hosted_zone_arns` | 예제가 만든 `aws_route53_zone.internal.arn` | **운영 중인 zone의 ARN**. 아래 **"external-dns"** 절 참조 |
 | `managed_node_groups.system.ami_release_version` | `null` | concrete 버전(예: `1.35.6-20260724`). null이면 매 plan이 최신을 해석해 **노드 롤링 교체**가 난다 |
+| `managed_node_groups.system.kubernetes_version` | `null` | 노드그룹의 k8s 마이너(예: `1.35`). null이면 클러스터 버전을 따라가 컨트롤플레인을 올리는 plan에 노드 롤링 교체가 함께 뜬다 |
 | `cluster_addons`의 `addon_version` | 미지정(= AWS 기본 버전) | 고정하려면 조회한 값을 박는다. 아래 **"addon 버전 고정"** 절. ⚠️ 모듈은 버전을 **갖지 않는다** |
 | CIDR | `10.0.0.0/16` | 사내 IP 계획과 충돌하지 않는 대역 |
 

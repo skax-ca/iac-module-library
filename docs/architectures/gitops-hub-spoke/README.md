@@ -131,6 +131,7 @@ iac-module-library         모듈(.tf) + 패턴 문서.        어느 계층도 
 | [ordering.md](ordering.md) | addon 설치·해제 순서: 부모 Application의 sync-wave | ✅ |
 | [aws/README.md](aws/README.md) | EKS 구성, ArgoCD 형태 선택, addon wave, 실행 기반 | ✅ |
 | [aws/network.md](aws/network.md) | 허브 위치와 크로스 계정 네트워크(Transit Gateway) | ✅ |
+| [aws/upgrade.md](aws/upgrade.md) | Kubernetes 마이너 업그레이드의 순서와 그 근거 | ✅ |
 | [azure/README.md](azure/README.md) | AKS 구성, addon 분류, 클러스터 등록, 실행 기반 | ✅ |
 | [azure/network.md](azure/network.md) | 허브-스포크 연결(Virtual WAN)과 Pod 네트워킹 | ✅ |
 

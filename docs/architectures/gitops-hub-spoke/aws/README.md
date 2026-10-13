@@ -4,7 +4,7 @@
 
 패턴 자체(3계층·저장소 구성·이 패턴이 맞는 환경)는 [../README.md](../README.md)가, 계층 2
 운영은 [../gitops.md](../gitops.md)가, 허브 위치와 크로스 계정 네트워크는
-[network.md](network.md)가 소유한다.
+[network.md](network.md)가, Kubernetes 마이너 업그레이드의 순서는 [upgrade.md](upgrade.md)가 소유한다.
 
 ---
 

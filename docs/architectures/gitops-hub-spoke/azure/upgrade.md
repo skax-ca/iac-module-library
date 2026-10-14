@@ -2,8 +2,8 @@
 
 **읽는 사람**: Kubernetes 마이너 업그레이드 절차를 설계하거나 검토하는 사람.
 
-따라 하는 절차는 레퍼런스 배포 저장소 `aks-reference-infra`의 `docs/upgrade.md`가 갖는다. 이 문서는 그
-절차가 왜 그 순서인지를 갖는다. EKS의 같은 주제는 [../aws/upgrade.md](../aws/upgrade.md)가 갖는다.
+따라 하는 절차와 실측값은 레퍼런스 배포 저장소 `aks-reference-infra`의 `docs/upgrade.md`가 갖는다. 이 문서는
+그 절차가 왜 그 순서인지를 갖는다. EKS의 같은 주제는 [../aws/upgrade.md](../aws/upgrade.md)가 갖는다.
 
 > **검증 상태**: ⏳ 표시가 붙은 줄은 실환경에서 확인하지 않았다.
 
@@ -36,7 +36,7 @@ Microsoft 문서가 적는 되돌리기는 노드 풀 하나다
 |------|---------------|------|
 | 컨트롤플레인 | 없다 | 새 마이너에서 고치거나 옛 버전으로 클러스터를 다시 세운다 |
 | 관리형 addon | 없다 | 버전이 컨트롤플레인의 Kubernetes 버전에 묶여 있다 |
-| 시스템 풀 | `az aks nodepool rollback` | 업그레이드 완료 뒤 7일, 직전 버전 하나, 그 버전이 지원 중일 것 |
+| 시스템 풀 | 버전을 올린 커밋의 revert | 업그레이드 완료 뒤 7일, 직전 버전 하나, 그 버전이 지원 중일 것 |
 | NAP 노드 | 없다 | 컨트롤플레인의 버전을 따라간다. 노드 풀이 아니라 되돌리기 명령의 대상이 아니다 |
 
 시스템 풀 되돌리기로 복구되는 실패는 한 종류다.
@@ -55,9 +55,9 @@ Microsoft 문서가 적는 되돌리기는 노드 풀 하나다
 - AKS는 컨트롤플레인의 마이너를 올릴 때 지난 12시간 안에 쓰인 deprecated API가 있으면 요청을 거부한다
   ([Stop cluster upgrades on API breaking changes](https://learn.microsoft.com/en-us/azure/aks/stop-cluster-upgrade-api-breaking-changes)).
   읽기 요청(`get`·`list`·`watch`)은 세지 않는다. 이 검사가 거부하면 우회하지 않고 사용처를 고친다.
-- 시스템 풀 되돌리기는 절차의 단계가 아니라 증상이 났을 때 여는 대응이다. `az aks nodepool rollback`은
-  azurerm에 없는 동작이라 사람이 로컬에서 실행하고, 바로 뒤에 시스템 풀의 버전을 올린 커밋을 revert해
-  코드를 실제와 맞춘다.
+- 시스템 풀 되돌리기는 절차의 단계가 아니라 증상이 났을 때 여는 대응이다. 되돌리기 기한 안에서는 AKS가 낮춘
+  `orchestrator_version`을 받아, 버전을 올린 커밋을 revert하면 CI 경로 그대로 내려간다. Microsoft 문서가 적는
+  `az aks nodepool rollback`은 azurerm에 없는 동작이라, revert가 거부될 때 사람이 로컬에서 실행하는 대안으로 둔다.
 
 ---
 
@@ -78,7 +78,8 @@ AKS는 컨트롤플레인이 노드 풀보다 3 마이너까지 앞서는 것을
 
 - 클러스터와 시스템 풀에 같은 패치 버전(`1.36.4`)을 적는다. 마이너 별칭(`1.36`)은 apply 시점에 패치가
   정해져, 날짜가 다른 두 apply에서 값이 갈릴 수 있다.
-- ⏳ 클러스터의 `kubernetes_version`만 바꾼 plan에는 시스템 풀이 뜨지 않는다.
+- 클러스터의 `kubernetes_version`만 바꾼 plan에는 시스템 풀이 뜨지 않는다. 시스템 풀의 값을 명시해 두었기
+  때문이다.
 
 ---
 
@@ -86,8 +87,8 @@ AKS는 컨트롤플레인이 노드 풀보다 3 마이너까지 앞서는 것을
 
 NAP 노드의 Kubernetes 버전은 컨트롤플레인을 따라간다
 ([Overview of node auto-provisioning](https://learn.microsoft.com/en-us/azure/aks/node-auto-provisioning)).
-컨트롤플레인이 올라가면 `NodePool`을 고치지 않아도 기존 노드가 교체 대상이 된다. budget을 적지 않은
-`NodePool`은 기본값 `10%`로 바로 교체를 시작한다.
+컨트롤플레인이 올라가면 `NodePool`을 고치지 않아도 기존 NodeClaim에 `Drifted`(`K8sVersionDrift`)가 붙어 교체
+대상이 된다. budget을 적지 않은 `NodePool`은 기본값 `10%`로 바로 교체를 시작한다.
 
 app 워크로드가 NAP 노드에 있다. 컨트롤플레인과 시스템 풀을 확인하기 전에 app 노드가 먼저 바뀌는 것을
 막으려고, `NodePool`의 disruption budget에 `Drifted`와 `Underutilized`를 `nodes: "0"`으로 막는 줄을 티어별
@@ -103,7 +104,8 @@ app 워크로드가 NAP 노드에 있다. 컨트롤플레인과 시스템 풀을
 🔑 NAP 노드는 되돌릴 수 없다. 차단을 풀기 전이 app 워크로드를 옛 마이너의 kubelet에 둘 수 있는 마지막
 지점이다. 차단은 되돌릴 구간을 지키는 장치가 아니라 교체의 순서를 정하는 장치다.
 
-- ⏳ NAP이 budget의 `reasons`를 받는다.
+- NAP은 budget의 `reasons`를 받는다. 차단 중에는 Karpenter가 `DisruptionBlocked` 이벤트를 남기고 노드를 그대로
+  둔다.
 - 이 패턴의 `NodePool`은 `expireAfter: Never`다. 만료로 노드가 바뀌는 경로가 없다.
 
 ---

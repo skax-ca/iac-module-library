@@ -317,6 +317,14 @@ variable "system_node_pool" {
       부트스트랩하는 컨트롤러(ArgoCD 등)에는 toleration을 줘야 첫 파드가 설 자리가 생긴다.
       ⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다. 그 순환은 cordon·drain을 하지 않아 돌던
       파드가 그대로 끊긴다.
+    kubernetes_version   - 시스템 풀의 Kubernetes 버전(예: "1.36.4", 마이너 별칭 "1.36"도 받는다).
+      null이면 넘기지 않는다. 그때 풀은 클러스터의 kubernetes_version으로 만들어진다.
+      클러스터의 kubernetes_version과 이 값을 다른 커밋에서 올리면 컨트롤플레인 업그레이드와
+      시스템 풀의 노드 교체가 다른 apply가 되어 승인도 따로 받는다.
+      ⚠️ 클러스터보다 높은 버전을 주면 AKS가 apply에서 거부한다. 형식만 검증하고 크기는
+      비교하지 않는다(별칭과 패치 표기가 섞이면 비교할 수 없다).
+      ⚠️ 별칭은 apply 시점에 패치가 정해진다. 클러스터와 풀을 날짜가 다른 apply로 올리면
+      패치가 갈릴 수 있으므로, 둘에 같은 패치 버전을 적는다.
   EOT
   type = object({
     vm_size                      = string
@@ -328,12 +336,18 @@ variable "system_node_pool" {
     max_pods                     = optional(number)
     zones                        = optional(list(string))
     only_critical_addons_enabled = optional(bool, false)
+    kubernetes_version           = optional(string)
   })
   nullable = false
 
   validation {
     condition     = !var.system_node_pool.auto_scaling_enabled || (var.system_node_pool.min_count != null && var.system_node_pool.max_count != null)
     error_message = "system_node_pool.auto_scaling_enabled = true이면 min_count·max_count를 함께 지정한다."
+  }
+
+  validation {
+    condition     = var.system_node_pool.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$", var.system_node_pool.kubernetes_version))
+    error_message = "system_node_pool.kubernetes_version은 \"1.36\" 또는 \"1.36.4\" 형식이어야 한다."
   }
 }
 
@@ -357,6 +371,9 @@ variable "node_pools" {
     zones                - 가용 영역 목록
     node_labels          - Kubernetes 노드 라벨
     node_taints          - Kubernetes 노드 taint("key=value:Effect" 형태 문자열 목록)
+    kubernetes_version   - 이 풀의 Kubernetes 버전. 형식과 주의는 system_node_pool의 같은 속성과
+      같다. ⚠️ null일 때의 동작은 시스템 풀과 다르다. 추가 풀은 클러스터의 버전이 아니라
+      provider가 생성 시점의 권장 버전으로 만든다. 클러스터의 버전을 적었다면 이 값도 적는다.
 
     ⛔ Windows 노드 풀은 지원하지 않는다. 이름 한도가 6자라 위 키 제약이 성립하지
     않는다(기술적 불가가 아니라 스코프 결정).
@@ -372,6 +389,7 @@ variable "node_pools" {
     zones                = optional(list(string))
     node_labels          = optional(map(string), {})
     node_taints          = optional(list(string), [])
+    kubernetes_version   = optional(string)
   }))
   default  = {}
   nullable = false
@@ -388,6 +406,14 @@ variable "node_pools" {
       for key, pool in var.node_pools : !pool.auto_scaling_enabled || (pool.min_count != null && pool.max_count != null)
     ])
     error_message = "auto_scaling_enabled = true인 노드 풀은 min_count·max_count를 함께 지정한다."
+  }
+
+  validation {
+    condition = alltrue([
+      for key, pool in var.node_pools :
+      pool.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$", pool.kubernetes_version))
+    ])
+    error_message = "node_pools의 kubernetes_version은 \"1.36\" 또는 \"1.36.4\" 형식이어야 한다."
   }
 }
 
@@ -470,9 +496,22 @@ variable "enable_keda" {
 # ── 버전 · SKU ───────────────────────────────────────────────────────────────
 
 variable "kubernetes_version" {
-  description = "Kubernetes 버전. 생략하면 provider가 최신 권장 버전을 쓴다(자동 업그레이드는 하지 않는다)."
+  description = <<-EOT
+    컨트롤플레인의 Kubernetes 버전(예: "1.36.4", 마이너 별칭 "1.36"도 받는다). 생략하면 provider가
+    생성 시점의 권장 버전을 쓴다(자동 업그레이드는 하지 않는다).
+
+    노드 풀의 버전은 system_node_pool·node_pools의 kubernetes_version이 따로 갖는다.
+    ⚠️ AKS에는 컨트롤플레인의 버전을 내리는 수단이 없다. 이 값을 낮추면 apply가 실패한다.
+    ⚠️ 마이너는 한 번에 하나만 올린다. 둘 이상을 건너뛰면 plan은 통과하고 apply에서 AKS가
+    거부한다.
+  EOT
   type        = string
   default     = null
+
+  validation {
+    condition     = var.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$", var.kubernetes_version))
+    error_message = "kubernetes_version은 \"1.36\" 또는 \"1.36.4\" 형식이어야 한다."
+  }
 }
 
 variable "sku_tier" {

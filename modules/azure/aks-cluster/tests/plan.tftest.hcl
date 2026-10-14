@@ -691,6 +691,77 @@ run "reject_node_pool_autoscaling_without_min_max" {
   expect_failures = [var.node_pools]
 }
 
+# ── Kubernetes 버전: 클러스터와 노드 풀이 값을 따로 받는다 ─────────────────────
+# 컨트롤플레인이 노드 풀보다 앞선 조합이 그대로 배선되는지를 본다. 한 값으로 묶이면 컨트롤플레인
+# 업그레이드와 노드 교체를 다른 apply로 나눌 수 없다.
+# ⚠️ 값을 주지 않은 경우는 assert하지 않는다. orchestrator_version은 computed라 모킹에서
+#    plan 시점에 unknown이다.
+run "kubernetes_versions_wired_separately" {
+  command = plan
+
+  variables {
+    kubernetes_version = "1.36.4"
+    system_node_pool = {
+      vm_size            = "Standard_D4s_v5"
+      node_count         = 2
+      kubernetes_version = "1.35.8"
+    }
+    node_pools = {
+      "app" = {
+        vm_size            = "Standard_D4s_v5"
+        kubernetes_version = "1.35"
+      }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].kubernetes_version == "1.36.4",
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].orchestrator_version == "1.35.8",
+      azurerm_kubernetes_cluster_node_pool.this["app"].orchestrator_version == "1.35",
+    ])
+    error_message = "클러스터·시스템 풀·추가 풀의 Kubernetes 버전이 각자의 입력과 다르다."
+  }
+}
+
+run "reject_cluster_kubernetes_version_bad_format" {
+  command = plan
+
+  variables {
+    kubernetes_version = "v1.36"
+  }
+
+  expect_failures = [var.kubernetes_version]
+}
+
+run "reject_system_node_pool_kubernetes_version_bad_format" {
+  command = plan
+
+  variables {
+    system_node_pool = {
+      vm_size            = "Standard_D4s_v5"
+      kubernetes_version = "1.36.x"
+    }
+  }
+
+  expect_failures = [var.system_node_pool]
+}
+
+run "reject_node_pool_kubernetes_version_bad_format" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "app" = {
+        vm_size            = "Standard_D4s_v5"
+        kubernetes_version = "latest"
+      }
+    }
+  }
+
+  expect_failures = [var.node_pools]
+}
+
 # ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
 run "nullable_false_falls_back_to_default" {
   command = plan

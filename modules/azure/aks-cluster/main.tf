@@ -57,6 +57,9 @@ resource "azurerm_kubernetes_cluster" "this" {
     vnet_subnet_id              = var.node_subnet_id
     pod_subnet_id               = local.pod_subnet_id_by_mode
     temporary_name_for_rotation = local.system_pool_temp_name
+    # 클러스터의 kubernetes_version과 따로 받는다. 한 값으로 묶으면 컨트롤플레인 업그레이드와
+    # 시스템 풀의 노드 교체를 다른 apply로 나눌 수 없다(변수 설명 참조).
+    orchestrator_version = var.system_node_pool.kubernetes_version
 
     # 이 인자가 요구하는 것이 위 temporary_name_for_rotation 이다. max_pods·vm_size 와 같은
     # 순환 대상 목록에 있어, 이름이 없으면 값을 바꾸는 plan 자체가 서지 않는다.
@@ -211,6 +214,7 @@ resource "azurerm_kubernetes_cluster_node_pool" "this" {
   zones                = each.value.zones
   node_labels          = each.value.node_labels
   node_taints          = each.value.node_taints
+  orchestrator_version = each.value.kubernetes_version
 
   # 전 노드 풀이 pod_subnet_id 하나를 공유한다(풀별 인자이지만 클러스터 단위 단일
   # 입력으로 계약한다). 풀별 오버라이드는 지원하지 않는다. cni_mode가 pod_subnet이 아니면 null

@@ -116,7 +116,7 @@ Job(`scale-to-zero`·`rm-webhooks`)은 시스템 풀에서 돌아 NAP 노드가 
 | 고정 노드 taint | `CriticalAddonsOnly=true:NoSchedule` | `CriticalAddonsOnly=true:NoSchedule` |
 | taint 키를 고르는가 | **고른다.** 고를 수 있는데 같은 값을 골랐다 | **못 고른다.** AKS가 이 키 하나만 받고, azurerm은 `only_critical_addons_enabled` bool로만 노출한다 |
 | 시스템 파드를 끌어당기는 것 | 노드그룹 `labels`로 우리가 만드는 `workload-class=system` | AKS가 시스템 풀 노드에 자동으로 붙이는 `kubernetes.azure.com/mode: system` 라벨 |
-| 플랫폼 addon의 toleration | 차트 기본값이 없는 곳만(cert-manager·ALBC·CA·KEDA·Kyverno·ArgoCD) | **ArgoCD·Kyverno 두 곳**(Kyverno는 nodeSelector로 고정) |
+| 플랫폼 addon의 toleration | 차트 기본값이 없는 곳만(cert-manager·ALBC·CA·KEDA·Kyverno·ArgoCD) | **ArgoCD·Kyverno 두 곳**(둘 다 nodeSelector로 고정) |
 | taint를 바꾸면 노드가 어떻게 되나 | in-place. `UpdateNodegroupConfig`가 taint만 갱신한다 | **시스템 풀을 순환한다.** cordon·drain 없이 |
 
 ⚠️ **두 열의 taint 값이 같아진 근거는 서로 다르다.** AKS는 강제이고, AWS는 생태계 관례에 맞춰
@@ -134,7 +134,10 @@ Microsoft는 시스템 풀을 앱에서 격리하라고 권고하고 이 taint�
 
 ArgoCD가 예외인 이유는 부트스트랩 순서다. 시스템 풀을 잠그면 seed 시점의 ArgoCD가 갈 곳이 없다 —
 NAP 노드는 아직 없고, 그 `NodePool` CR을 배포하는 것이 ArgoCD 자신이다. ArgoCD가 시스템 풀에 서야
-순환이 끊긴다. 🔑 toleration은 허용이지 선호가 아니라서 ArgoCD는 taint를 건 뒤에도 시스템 풀에 남는다.
+순환이 끊긴다. toleration에 `nodeSelector: kubernetes.azure.com/mode: system`을 더해 **고정**한다. 허용만
+두면 시스템 풀의 노드가 교체되어 파드가 비워질 때 NAP 노드로 갈 수 있다. NAP 노드는 drift와
+consolidation으로 교체되고 그 시점을 고를 수 없어, hub의 ArgoCD가 그 위에 서면 전 클러스터의 pull이
+노드 교체마다 흔들린다. hub는 ArgoCD를 HA로 두고 시스템 풀을 3대로 잡는다([upgrade.md](upgrade.md)).
 
 Kyverno가 예외인 이유는 세 가지다. ① admission webhook이라 죽으면 그 클러스터의 모든 배포가
 막히는 critical addon이다. ② NAP 노드에 두면 엔진이 NodePool(wave 2)에 기대어 [../ordering.md](../ordering.md)

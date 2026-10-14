@@ -134,6 +134,7 @@ iac-module-library         모듈(.tf) + 패턴 문서.        어느 계층도 
 | [aws/upgrade.md](aws/upgrade.md) | Kubernetes 마이너 업그레이드의 순서와 그 근거 | ✅ |
 | [azure/README.md](azure/README.md) | AKS 구성, addon 분류, 클러스터 등록, 실행 기반 | ✅ |
 | [azure/network.md](azure/network.md) | 허브-스포크 연결(Virtual WAN)과 Pod 네트워킹 | ✅ |
+| [azure/upgrade.md](azure/upgrade.md) | Kubernetes 마이너 업그레이드의 순서와 그 근거 | ⏳ |
 
 패턴별 살아있는 배포(계정·클러스터명이 등장하는 세우기·걷어내기 절차)는 그 패턴의 레퍼런스
 배포 저장소가 소유한다.

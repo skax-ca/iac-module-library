@@ -3,7 +3,8 @@
 **읽는 사람**: Azure에서 이 패턴을 세우려는 사람.
 
 패턴 자체(3계층·저장소 구성·이 패턴이 맞는 환경)는 [../README.md](../README.md)가, 계층 2
-운영은 [../gitops.md](../gitops.md)가, 허브-스포크 연결은 [network.md](network.md)가 소유한다.
+운영은 [../gitops.md](../gitops.md)가, 허브-스포크 연결은 [network.md](network.md)가, Kubernetes 마이너
+업그레이드의 순서는 [upgrade.md](upgrade.md)가 소유한다.
 AWS와 다른 지점만 여기 적는다.
 
 세우기·걷어내기 절차와 실제 값(구독·CIDR·이름)은 `aks-reference-infra`(계층 1)와

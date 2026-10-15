@@ -762,6 +762,55 @@ run "reject_node_pool_kubernetes_version_bad_format" {
   expect_failures = [var.node_pools]
 }
 
+# ── 노드 OS: 기본값은 AzureLinux, 풀마다 바꿀 수 있다 ──────────────────────────
+run "os_sku_defaults_to_azure_linux" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "app" = { vm_size = "Standard_D4s_v5" }
+      "apt" = { vm_size = "Standard_D4s_v5", os_sku = "Ubuntu" }
+    }
+  }
+
+  assert {
+    condition = alltrue([
+      azurerm_kubernetes_cluster.this[0].default_node_pool[0].os_sku == "AzureLinux",
+      azurerm_kubernetes_cluster_node_pool.this["app"].os_sku == "AzureLinux",
+      azurerm_kubernetes_cluster_node_pool.this["apt"].os_sku == "Ubuntu",
+    ])
+    error_message = "os_sku가 기본값(AzureLinux) 또는 풀별 입력과 다르다."
+  }
+}
+
+run "reject_system_node_pool_versioned_os_sku" {
+  command = plan
+
+  variables {
+    system_node_pool = {
+      vm_size = "Standard_D4s_v5"
+      os_sku  = "AzureLinux3"
+    }
+  }
+
+  expect_failures = [var.system_node_pool]
+}
+
+run "reject_node_pool_versioned_os_sku" {
+  command = plan
+
+  variables {
+    node_pools = {
+      "app" = {
+        vm_size = "Standard_D4s_v5"
+        os_sku  = "Ubuntu2404"
+      }
+    }
+  }
+
+  expect_failures = [var.node_pools]
+}
+
 # ── nullable = false 계약: 명시적 null이 crash 대신 default로 대체된다 ─────────
 run "nullable_false_falls_back_to_default" {
   command = plan

@@ -325,6 +325,11 @@ variable "system_node_pool" {
       비교하지 않는다(별칭과 패치 표기가 섞이면 비교할 수 없다).
       ⚠️ 별칭은 apply 시점에 패치가 정해진다. 클러스터와 풀을 날짜가 다른 apply로 올리면
       패치가 갈릴 수 있으므로, 둘에 같은 패치 버전을 적는다.
+    os_sku               - 노드 OS. "AzureLinux"(기본값) 또는 "Ubuntu". provider의 기본값(Ubuntu)을
+      따르지 않고 Microsoft AKS baseline 레퍼런스 아키텍처가 쓰는 Azure Linux를 기본으로 둔다.
+      버전 붙은 SKU("AzureLinux3"·"Ubuntu2404")는 받지 않는다. 지원 Kubernetes 범위가 끝나면
+      손으로 옮겨야 하고, 그 전에는 마이너 업그레이드가 막힌다.
+      ⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다(cordon·drain 없이). 리소스 교체는 아니다.
   EOT
   type = object({
     vm_size                      = string
@@ -337,6 +342,7 @@ variable "system_node_pool" {
     zones                        = optional(list(string))
     only_critical_addons_enabled = optional(bool, false)
     kubernetes_version           = optional(string)
+    os_sku                       = optional(string, "AzureLinux")
   })
   nullable = false
 
@@ -348,6 +354,11 @@ variable "system_node_pool" {
   validation {
     condition     = var.system_node_pool.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$", var.system_node_pool.kubernetes_version))
     error_message = "system_node_pool.kubernetes_version은 \"1.36\" 또는 \"1.36.4\" 형식이어야 한다."
+  }
+
+  validation {
+    condition     = contains(["AzureLinux", "Ubuntu"], var.system_node_pool.os_sku)
+    error_message = "system_node_pool.os_sku는 \"AzureLinux\" 또는 \"Ubuntu\"여야 한다(버전 붙은 SKU는 받지 않는다)."
   }
 }
 
@@ -374,6 +385,9 @@ variable "node_pools" {
     kubernetes_version   - 이 풀의 Kubernetes 버전. 형식과 주의는 system_node_pool의 같은 속성과
       같다. ⚠️ null일 때의 동작은 시스템 풀과 다르다. 추가 풀은 클러스터의 버전이 아니라
       provider가 생성 시점의 권장 버전으로 만든다. 클러스터의 버전을 적었다면 이 값도 적는다.
+    os_sku               - 노드 OS. 허용 값과 기본값("AzureLinux")은 system_node_pool의 같은 속성과
+      같다. 다른 OS가 필요한 풀에만 바꾼다. 풀마다 OS가 다르면 추적할 노드 이미지가 늘어난다.
+      ⚠️ "AzureLinux"와 "Ubuntu" 사이 전환은 리소스 교체가 아니지만 노드는 새로 만들어진다.
 
     ⛔ Windows 노드 풀은 지원하지 않는다. 이름 한도가 6자라 위 키 제약이 성립하지
     않는다(기술적 불가가 아니라 스코프 결정).
@@ -390,6 +404,7 @@ variable "node_pools" {
     node_labels          = optional(map(string), {})
     node_taints          = optional(list(string), [])
     kubernetes_version   = optional(string)
+    os_sku               = optional(string, "AzureLinux")
   }))
   default  = {}
   nullable = false
@@ -414,6 +429,13 @@ variable "node_pools" {
       pool.kubernetes_version == null ? true : can(regex("^[0-9]+\\.[0-9]+(\\.[0-9]+)?$", pool.kubernetes_version))
     ])
     error_message = "node_pools의 kubernetes_version은 \"1.36\" 또는 \"1.36.4\" 형식이어야 한다."
+  }
+
+  validation {
+    condition = alltrue([
+      for key, pool in var.node_pools : contains(["AzureLinux", "Ubuntu"], pool.os_sku)
+    ])
+    error_message = "node_pools의 os_sku는 \"AzureLinux\" 또는 \"Ubuntu\"여야 한다(버전 붙은 SKU는 받지 않는다)."
   }
 }
 

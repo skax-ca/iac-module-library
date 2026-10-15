@@ -12,7 +12,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 | aks-reference-infra | main = origin | **hub·dev 철거 상태(10-14).** 7개 루트를 전부 destroy했고 `teardown-verify.sh`가 두 구독에서 exit 0이다. bootstrap 소유물(state Storage Account·App Registration·RG)은 남아 있다. 다음 구축은 컨트롤플레인·시스템 풀 모두 Kubernetes 1.36.4로 서고 hub 시스템 풀은 3대다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** hub Secret은 `environment` 라벨이 있다(다음 seed의 입력). dev Secret은 `environment` 라벨이 없고 접속 값은 파기된 클러스터의 것이다. hub ArgoCD는 HA 구성이라 seed가 Ready인 시스템 풀 노드 3대를 요구한다 |
 
-## 지난 세션 (2026-10-14)
+## 지난 세션 (2026-10-14 ~ 10-15)
 
 **AKS hub·dev를 1.35.8로 세워 1.36.4로 올리고 철거했다.** 컨트롤플레인과 시스템 풀을 다른 apply로 나누려고 노드 풀별 `kubernetes_version`을 모듈에 넣었다(module #66, `aks-cluster-v0.11.0`). dev는 시스템 풀을 올렸다가 커밋 revert로 1.35.8로 되돌린 뒤 다시 올렸고(aks-ref #83~#86), hub는 절차서만 보고 따라 올렸다(#87·#88). 측정용 호출 약 2만 2천 회 중 실패는 시스템 풀 교체 시각의 3건이었다.
 
@@ -21,6 +21,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 **GitOps를 EKS와 같은 모양으로 맞췄다.** NodePool을 로컬 차트로 바꿔 `disruptionBlockByTier`를 두었고(aks-gitops #30), hub ArgoCD를 HA로 바꿔 시스템 풀에 고정했다(#31). prd 스위치를 켠 PR에서 verify 검사가 틀리는 것을 고쳤다(#34).
 
 **hub·dev를 함께 구축하면 hub vwan의 사후 재-plan이 dev 연결 1건을 보고하는 것을 찾았다.** spoke networking이 끝난 뒤 vwan을 걸도록 hub-lifecycle에 적었다(`eda53fc`).
+
+**노드 OS를 Ubuntu에서 Azure Linux로 바꿨다(10-15).** 기존 Ubuntu는 고른 값이 아니라 provider 기본값과 공식 예제를 따른 결과였다. Microsoft AKS baseline 레퍼런스 아키텍처와 AKS Automatic이 Azure Linux를 쓰는 것을 근거로 설계 문서에 정했고(module `8435134`), 모듈에 `os_sku`(기본값 `AzureLinux`)를 열었다(module #67, `aks-cluster-v0.12.0`). NAP은 aks-gitops #40, 배포 루트는 aks-ref #91이다. Azure Linux로 세운 적은 없어 ⏳로 남겼다.
 
 ## 다음 할 일
 

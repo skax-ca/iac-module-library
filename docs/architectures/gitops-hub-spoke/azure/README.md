@@ -166,6 +166,26 @@ kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS
 `system_node_pool`에 `only_critical_addons_enabled`를 노출해 태그를 컷하고, 배포 루트가 그 태그를
 참조해 값을 켠다. 순서를 뒤집으면 taint가 걸린 클러스터를 toleration 없는 ArgoCD로 seed하게 된다.
 
+### 노드 OS: Azure Linux
+
+시스템 풀·추가 노드 풀·NAP 노드를 모두 **Azure Linux**(`AzureLinux`)로 띄운다. 시스템 풀과 추가 풀은
+`aks-cluster` 모듈의 `os_sku`(기본값 `AzureLinux`)가, NAP 노드는 GitOps의 `AKSNodeClass`
+`imageFamily`가 정한다. 두 자리는 서로를 따라가지 않으므로 바꿀 때는 둘을 함께 바꾼다.
+
+| | 강제인가 선택인가 | 근거 |
+|---|---|---|
+| Linux 배포판 | **선택.** AKS Standard는 아무것도 적지 않으면 Ubuntu로 띄운다 | Microsoft의 AKS baseline 레퍼런스 아키텍처가 Azure Linux를 쓰고 Ubuntu를 대안으로 둔다. AKS Automatic도 시스템 풀을 Azure Linux로 띄운다 |
+| 이유 | | 컨테이너 실행에 필요한 패키지만 담아 공격 표면이 작고, Microsoft가 소스부터 빌드·서명·패치한다. AKS에서 CIS Level 1을 모두 통과하는 배포판이다. AKS 관리형 addon(Cilium·KEDA·CSI·NAP)은 모두 Azure Linux를 지원한다 |
+| 모든 풀에 같은 OS | **선택** | 레퍼런스 아키텍처가 다른 OS가 필요하지 않으면 하나로 맞추라고 권한다. 풀마다 다르면 노드 이미지와 패치 주기를 OS 수만큼 추적한다 |
+| 버전 없는 SKU(`AzureLinux`) | **선택** | Kubernetes 마이너를 올리면 OS 메이저도 AKS 기본값을 따라 올라간다. 버전 붙은 SKU(`AzureLinux3`)는 지원 Kubernetes 범위가 끝나면 손으로 옮겨야 하고, 그 전에는 마이너 업그레이드가 막힌다([upgrade.md](upgrade.md)의 "버전만 올린다" 전제가 깨진다) |
+
+Ubuntu로 돌아갈 근거는 노드에 배포판 패키지(apt)로 에이전트를 설치해야 하는 요구다. 그 요구가 오면
+그 풀만 `Ubuntu`로 둔다.
+
+⚠️ `os_sku`는 시스템 풀을 순환시키는 속성이다. `Ubuntu`와 `AzureLinux` 사이 전환은 리소스 교체가
+아니지만 노드는 새로 만들어진다. 클러스터가 철거된 상태에서 바꾼다. NAP 노드는 `imageFamily`를 바꾸면
+drift로 교체되고, 그 순서는 NodePool의 disruption budget이 정한다.
+
 ---
 
 ## 4. 클러스터 등록
@@ -237,5 +257,7 @@ kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS
 | 허브가 스포크 클러스터를 발견해 **허브 쪽에서** ArgoCD role assignment를 만든다 | 허브 CI가 스포크 리소스 그룹에 `roleAssignments/write`를 가져야 한다. 그 권한이면 허브 CI가 그 리소스 그룹에서 자신에게 어떤 역할이든 부여할 수 있다. 「모듈 경계」([`decisions.md`](../../../decisions.md))가 모듈에 신원·권한 부여 리소스를 두지 않는 것과 같은 논리다 |
 | Entra 통합을 "일단 켜 보고 아니면 되돌린다" | Azure가 통합 해제를 지원하지 않는다. 되돌리려면 클러스터 재생성이다 |
 | hub 클러스터는 Entra 통합 없이 둔다(hub ArgoCD가 Entra를 거치지 않으므로) | 통합이 없으면 workbench의 `Cluster User Role`이 관리자 kubeconfig를 내려준다. 같은 role assignment가 hub와 spoke에서 다른 권한이 된다 |
+| 노드 OS로 **Azure Container Linux(ACL)** | 불변 OS라 보안 축은 더 낫지만, Trusted Launch가 필수이고 OS 패치 채널이 `NodeImage`·`None`으로 묶인다. Artifact Streaming·Pod Sandboxing을 지원하지 않는다. 레퍼런스 아키텍처가 Azure Linux를 쓰는 동안은 그쪽을 따른다. 레퍼런스 아키텍처나 AKS Automatic의 기본값이 ACL로 바뀌면 다시 연다 |
+| 노드 OS를 **버전 붙은 SKU**(`AzureLinux3`·`Ubuntu2404`)로 고정 | 지원 Kubernetes 범위가 끝나면 손으로 옮겨야 하고, 옮기기 전에는 마이너 업그레이드가 막힌다. OS 메이저를 Kubernetes보다 먼저 시험할 때만 그 풀에 잠깐 둔다 |
 | 로컬 계정을 브레이크글래스로 남긴다 | 복구 경로는 ARM의 role assignment로 이미 있고(「클러스터 인증」), 그 경로는 Azure 활동 로그에 남는다. 로컬 계정 인증서는 남지 않는다 |
 | CI 신원의 **권한 크기**를 방어선으로 삼기(리소스 그룹 스코프 커스텀 역할 + 불변식 검사) | 한 번 세웠다가 걷어냈다. 배포 루트는 리소스 그룹·역할 할당까지 만들어야 해서 좁힌 역할을 계속 넓히게 되고, 그 과정에서 검사 항목만 늘어난다. AWS 실행 Role도 `AdministratorAccess`라 대칭이 아니었다. **방어선은 그 신원에 도달하는 경로(FIC subject) 하나뿐이다** |

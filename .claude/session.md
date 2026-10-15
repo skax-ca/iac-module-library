@@ -24,6 +24,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 **노드 OS를 Ubuntu에서 Azure Linux로 바꿨다(10-15).** 기존 Ubuntu는 고른 값이 아니라 provider 기본값과 공식 예제를 따른 결과였다. Microsoft AKS baseline 레퍼런스 아키텍처와 AKS Automatic이 Azure Linux를 쓰는 것을 근거로 설계 문서에 정했고(module `8435134`), 모듈에 `os_sku`(기본값 `AzureLinux`)를 열었다(module #67, `aks-cluster-v0.12.0`). NAP은 aks-gitops #40, 배포 루트는 aks-ref #91이다. Azure Linux로 세운 적은 없어 ⏳로 남겼다.
 
+**VM 표준 OS는 Ubuntu LTS로 두었다(10-15).** "Azure Linux를 표준으로, 예외만 Ubuntu"안을 검토했으나 VM용 지원 기간이 공개되지 않았고 4.0이 preview라 기각했다. 4.0 GA와 지원 기간 공개를 재검토 조건으로 module `docs/decisions.md` 「VM OS」에 적었다. workbench가 Ubuntu에 묶인 실제 근거(cloud-init의 apt·dpkg 전제)로 README와 description을 고쳤다(module `dcf94be`).
+
 ## 다음 할 일
 
 ### 지금

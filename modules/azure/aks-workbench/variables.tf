@@ -210,8 +210,8 @@ variable "entra_ssh_login_enabled" {
 variable "source_image_reference" {
   description = <<-EOT
     OS 이미지 참조. 기본값이 없다(필수 입력). ami_id와 같은 계약이다. 리전·세대 갱신은
-    소비 루트가 소유한다. Ubuntu LTS를 권장한다(Entra SSH 지원 배포판 목록에 Amazon
-    Linux 계열이 없다는 것이 결정적 근거: README 참조).
+    소비 루트가 소유한다. Ubuntu LTS 이미지만 동작한다. cloud-init 스크립트가 apt·dpkg를
+    전제로 하기 때문이다(README 「이미지·디스크」).
   EOT
   type = object({
     publisher = string

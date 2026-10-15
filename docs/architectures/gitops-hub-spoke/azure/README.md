@@ -182,6 +182,9 @@ kubectl -n kube-system get pod -o custom-columns=NAME:.metadata.name,TOLERATIONS
 Ubuntu로 돌아갈 근거는 노드에 배포판 패키지(apt)로 에이전트를 설치해야 하는 요구다. 그 요구가 오면
 그 풀만 `Ubuntu`로 둔다.
 
+workbench VM은 Ubuntu LTS다. VM은 노드와 달리 OS 메이저 이전을 우리가 직접 하므로 지원 종료일이
+공개된 배포판을 표준으로 둔다([decisions.md](../../../decisions.md)「VM OS」).
+
 ⚠️ `os_sku`는 시스템 풀을 순환시키는 속성이다. `Ubuntu`와 `AzureLinux` 사이 전환은 리소스 교체가
 아니지만 노드는 새로 만들어진다. 클러스터가 철거된 상태에서 바꾼다. NAP 노드는 `imageFamily`를 바꾸면
 drift로 교체되고, 그 순서는 NodePool의 disruption budget이 정한다.

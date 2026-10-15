@@ -228,9 +228,10 @@ kubeconfig 부트스트랩(`az aks get-credentials`, 필요시 `kubelogin` 설�
 ## 이미지·디스크
 
 `source_image_reference`는 필수 입력이고 `version = "latest"`를 거부한다(재현성
-보장). Ubuntu LTS를 권장한다. **Entra SSH의 공식 지원 배포판 목록에 Amazon Linux
-계열이 없다**는 것이 결정적 근거다(AlmaLinux·Azure Linux·Debian·openSUSE·Oracle·
-RHEL·Rocky·SLES·Ubuntu만 지원).
+보장). **Ubuntu LTS 이미지만 동작한다.** 부트스트랩 스크립트(`templates/cloud-init.sh.tftpl`)가
+apt·dpkg를 전제로 짜여 있어 다른 패키지 관리자를 쓰는 배포판(Azure Linux 등)에서는 도구 설치가
+실패한다. Ubuntu LTS는 저장소 전역 VM 표준이기도 하다(`docs/decisions.md`「VM OS」).
+Entra SSH는 Ubuntu와 Azure Linux를 모두 지원하므로 배포판 선택을 가르지 않는다.
 
 ## 부팅 후 확인
 
@@ -309,7 +310,7 @@ No modules.
 | <a name="input_purpose"></a> [purpose](#input\_purpose) | name 인자의 purpose 토큰. | `string` | `"workbench"` | no |
 | <a name="input_resource_group_name"></a> [resource\_group\_name](#input\_resource\_group\_name) | 이 모듈이 만드는 전 리소스를 배치할 리소스 그룹. | `string` | n/a | yes |
 | <a name="input_serial"></a> [serial](#input\_serial) | name 인자의 일련번호 토큰. | `string` | `"01"` | no |
-| <a name="input_source_image_reference"></a> [source\_image\_reference](#input\_source\_image\_reference) | OS 이미지 참조. 기본값이 없다(필수 입력). ami\_id와 같은 계약이다. 리전·세대 갱신은<br/>소비 루트가 소유한다. Ubuntu LTS를 권장한다(Entra SSH 지원 배포판 목록에 Amazon<br/>Linux 계열이 없다는 것이 결정적 근거: README 참조). | <pre>object({<br/>    publisher = string<br/>    offer     = string<br/>    sku       = string<br/>    version   = string<br/>  })</pre> | n/a | yes |
+| <a name="input_source_image_reference"></a> [source\_image\_reference](#input\_source\_image\_reference) | OS 이미지 참조. 기본값이 없다(필수 입력). ami\_id와 같은 계약이다. 리전·세대 갱신은<br/>소비 루트가 소유한다. Ubuntu LTS 이미지만 동작한다. cloud-init 스크립트가 apt·dpkg를<br/>전제로 하기 때문이다(README 「이미지·디스크」). | <pre>object({<br/>    publisher = string<br/>    offer     = string<br/>    sku       = string<br/>    version   = string<br/>  })</pre> | n/a | yes |
 | <a name="input_ssh_ingress_cidrs"></a> [ssh\_ingress\_cidrs](#input\_ssh\_ingress\_cidrs) | SSH(22/tcp) 인바운드를 허용할 CIDR 목록. 소스 무관: Bastion 서브넷 CIDR·P2S VPN<br/>풀·ExpressRoute 대역·사무실 공인 IP 전부 이 값으로 받는다.<br/><br/>이 값이 비어있지 않은 것이 일상 운영이 가능한 상태다. Azure NSG는 규칙을 하나도 안<br/>만들어도 플랫폼 기본 규칙(AllowVNetInBound)이 같은 VNet·피어링·온프레미스 전체에<br/>22번을 열어두므로, 이 모듈은 명시적 Deny(priority 4096, main.tf 참조)로 그 기본<br/>규칙을 실제로 덮는다. "인바운드 0"은 규칙 개수가 아니라 그 Deny의 존재로 성립한다.<br/><br/>⚠️ 기본값이 없다(필수 입력). ami\_id와 같은 계약이다. "진짜 인바운드 0"이 성립하는<br/>유일한 구성(빈 리스트)이 곧 일상 운영이 불가능한 구성이기도 해서, 침묵하는 기본값에<br/>맡기면 이 모듈의 안전성 주장이 아무도 쓰지 않을 설정에서만 참이 된다. 빈 리스트를<br/>원하면 ssh\_ingress\_cidrs = []를 명시적으로 써야 한다(entra\_ssh\_login\_enabled = false와<br/>한 세트로: 아래 변수 설명 참조). | `list(string)` | n/a | yes |
 | <a name="input_subnet_id"></a> [subnet\_id](#input\_subnet\_id) | workbench VM을 놓을 서브넷. AWS workbench의 subnet\_id(private 서브넷 전제, AZ 분산<br/>불필요)와 같은 형태다. workbench는 1대이므로 리스트를 받아 내부에서 고르지 않는다. | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | 이 모듈이 만드는 전 리소스에 연동할 태그. Azure는 provider 한 곳에서 거버넌스 태그를<br/>주입할 수 없어(docs/conventions.md「Azure 강제 방식」1번) 모듈이 리소스마다 명시로 넘긴다. | `map(string)` | `{}` | no |

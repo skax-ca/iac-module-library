@@ -83,6 +83,37 @@
 
 ---
 
+## VM OS
+
+> **결정**: 모듈이 만드는 VM은 **배포판 하나를 표준으로 두고, 표준이 지원하지 않는 요구가 있을
+> 때만 다른 배포판을 쓴다.** Azure 표준은 **Ubuntu LTS**다. 예외를 쓰는 모듈은 그 이유를
+> `variables.tf` description에 적는다.
+> AKS 노드는 이 결정의 대상이 아니다. 노드 OS는 AKS가 Kubernetes 버전에 맞춰 메이저까지 옮겨
+> 주므로 지원 종료일을 우리가 추적하지 않는다. 노드는 Azure Linux를 쓰고, 그 근거는
+> [azure/README.md](architectures/gitops-hub-spoke/azure/README.md)의 「노드 OS: Azure Linux」가 갖는다.
+
+표준 배포판은 아래 셋을 모두 갖춰야 한다. 표준의 역할이 "언제까지 쓰고 언제 옮길지"를 미리
+계획하게 하는 것이어서다.
+
+| 조건 | Ubuntu LTS | Azure Linux(VM) |
+|---|---|---|
+| 지원 종료일이 공개돼 있다 | 공개(24.04 LTS는 2029-06) | 미공개. 수명주기 문서가 지원 기간을 GA 전에 공개하겠다고만 적는다 |
+| 다음 메이저가 운영용으로 나와 있다 | 다음 LTS가 endorsed 목록에 있다 | 4.0이 preview이고 운영용이 아니라고 명시돼 있다 |
+| 클라우드가 VM용 platform image로 보증한다 | endorsed 배포판 | Microsoft가 지원하지만 endorsed 배포판 표에는 없다 |
+
+| 하지 말 것 | 이유 |
+|---|---|
+| **Azure Linux를 VM 표준 OS로** | AWS에서 Amazon Linux를 표준으로 삼을 수 있는 것은 AL2023이 메이저마다 5년의 지원 기간과 다음 메이저 주기를 공개하기 때문이다. Azure Linux는 VM 쪽에서 위 세 조건을 갖추지 못했다. 지금 표준으로 잡으면 마감일을 모르는 3.0 → 4.0 이전을 떠안은 채 시작한다. **Azure Linux 4.0이 GA되고 지원 기간이 공개되면 다시 연다.** 판단 기준은 위 표의 세 조건이다 |
+
+출처: [Azure Linux 수명주기](https://learn.microsoft.com/en-us/azure/azure-linux/release-cadence-lifecycle) ·
+[VM·VMSS용 Azure Linux](https://learn.microsoft.com/en-us/azure/azure-linux/azure-linux-vm-vmss-overview) ·
+[Azure endorsed 배포판](https://learn.microsoft.com/en-us/azure/virtual-machines/linux/endorsed-distros) ·
+[Azure CLI 지원 Linux 표](https://learn.microsoft.com/en-us/cli/azure/azure-cli-support-lifecycle) ·
+[VM 컴플라이언스 패턴](https://learn.microsoft.com/en-us/azure/architecture/example-scenario/security/virtual-machine-compliance) ·
+[AL2023 릴리스 주기](https://docs.aws.amazon.com/linux/al2023/ug/release-cadence.html)
+
+---
+
 ## 운영과 프로세스
 
 | 하지 말 것 | 이유 |

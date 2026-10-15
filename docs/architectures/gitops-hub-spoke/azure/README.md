@@ -185,12 +185,12 @@ Ubuntu로 돌아갈 근거는 노드에 배포판 패키지(apt)로 에이전트
 workbench VM은 Ubuntu LTS다. VM은 노드와 달리 OS 메이저 이전을 우리가 직접 하므로 지원 종료일이
 공개된 배포판을 표준으로 둔다([decisions.md](../../../decisions.md)「VM OS」).
 
-⚠️ `os_sku`는 시스템 풀을 순환시키는 속성이다. `Ubuntu`와 `AzureLinux` 사이 전환은 리소스 교체가
-아니지만 노드는 새로 만들어진다. 클러스터가 철거된 상태에서 바꾼다. NAP 노드는 `imageFamily`를 바꾸면
+⚠️ `os_sku`를 바꾸면 리소스 교체는 아니지만 노드는 새로 만들어진다. AKS가 노드 이미지 업그레이드와
+같은 방식으로 surge 노드를 띄우고 노드마다 cordon → PDB를 지키는 drain → reimage를 거친다. 서 있는
+클러스터에서 바꿀 수 있고, 걸리는 시간은 노드 이미지 업그레이드와 같다. NAP 노드는 `imageFamily`를 바꾸면
 drift로 교체되고, 그 순서는 NodePool의 disruption budget이 정한다.
 
-⏳ Azure Linux로 선 클러스터는 아직 세우지 않았다. 재구축 뒤 두 자리의 노드 이미지와 관리형 addon이
-도는지를 확인한다(`AKSAzureLinux-`로 시작해야 한다).
+바꾼 뒤에는 두 자리의 노드 이미지가 `AKSAzureLinux-`로 시작하고 노드 OS가 Azure Linux인지 본다.
 
 ```bash
 az aks nodepool list -g <rg> --cluster-name <cluster> --query '[].{name:name, image:nodeImageVersion}' -o table

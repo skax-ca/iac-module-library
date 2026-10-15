@@ -329,7 +329,9 @@ variable "system_node_pool" {
       따르지 않고 Microsoft AKS baseline 레퍼런스 아키텍처가 쓰는 Azure Linux를 기본으로 둔다.
       버전 붙은 SKU("AzureLinux3"·"Ubuntu2404")는 받지 않는다. 지원 Kubernetes 범위가 끝나면
       손으로 옮겨야 하고, 그 전에는 마이너 업그레이드가 막힌다.
-      ⚠️ 이 값을 바꾸면 AKS가 시스템 풀을 순환한다(cordon·drain 없이). 리소스 교체는 아니다.
+      ⚠️ 이 값을 바꾸면 AKS가 노드 이미지 업그레이드와 같은 방식으로 노드를 하나씩 바꾼다(surge 노드를
+      띄우고 cordon → PDB를 지키는 drain → reimage). 리소스 교체는 아니다. only_critical_addons_enabled
+      같은 순환 대상 값과 달리 drain을 거친다.
   EOT
   type = object({
     vm_size                      = string
@@ -387,7 +389,8 @@ variable "node_pools" {
       provider가 생성 시점의 권장 버전으로 만든다. 클러스터의 버전을 적었다면 이 값도 적는다.
     os_sku               - 노드 OS. 허용 값과 기본값("AzureLinux")은 system_node_pool의 같은 속성과
       같다. 다른 OS가 필요한 풀에만 바꾼다. 풀마다 OS가 다르면 추적할 노드 이미지가 늘어난다.
-      ⚠️ "AzureLinux"와 "Ubuntu" 사이 전환은 리소스 교체가 아니지만 노드는 새로 만들어진다.
+      ⚠️ "AzureLinux"와 "Ubuntu" 사이 전환은 리소스 교체가 아니지만 노드는 시스템 풀과 같은 방식으로
+      surge·drain을 거쳐 reimage된다.
 
     ⛔ Windows 노드 풀은 지원하지 않는다. 이름 한도가 6자라 위 키 제약이 성립하지
     않는다(기술적 불가가 아니라 스코프 결정).

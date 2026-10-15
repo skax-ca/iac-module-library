@@ -186,6 +186,14 @@ Ubuntu로 돌아갈 근거는 노드에 배포판 패키지(apt)로 에이전트
 아니지만 노드는 새로 만들어진다. 클러스터가 철거된 상태에서 바꾼다. NAP 노드는 `imageFamily`를 바꾸면
 drift로 교체되고, 그 순서는 NodePool의 disruption budget이 정한다.
 
+⏳ Azure Linux로 선 클러스터는 아직 세우지 않았다. 재구축 뒤 두 자리의 노드 이미지와 관리형 addon이
+도는지를 확인한다(`AKSAzureLinux-`로 시작해야 한다).
+
+```bash
+az aks nodepool list -g <rg> --cluster-name <cluster> --query '[].{name:name, image:nodeImageVersion}' -o table
+kubectl get nodes -o custom-columns=NAME:.metadata.name,OS:.status.nodeInfo.osImage
+```
+
 ---
 
 ## 4. 클러스터 등록

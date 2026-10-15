@@ -37,6 +37,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 
 - [ ] [eks-ref] EKS를 다시 세워 마이너를 올리게 되면: `docs/upgrade.md`·`docs/upgrade-rollback.md`의 ⏳를 걷는다 (10-13~)
 - [ ] [aks-ref·module] AKS를 다시 세워 마이너를 올리게 되면: aks-ref `docs/upgrade.md`와 module `azure/upgrade.md`의 ⏳를 걷는다 (10-14~)
+- [ ] [module] AKS를 다시 세우면: 노드 OS(Azure Linux)의 ⏳를 걷는다(module `docs/architectures/gitops-hub-spoke/azure/README.md` 「노드 OS: Azure Linux」) (10-15~)
 - [ ] [eks-gitops] EKS를 다시 세우면: nonprd의 `disruptionByTier`에 Karpenter `Balanced` consolidation을 시험한다(`addons/karpenter/nodepool/values.yaml`) (10-13~)
 - [ ] [*-gitops·module] 이 저장소들에 `id-token: write` job이 생기면: 액션 SHA 핀을 넓힌다(지금은 배포 루트만 SHA 핀) (09-23~)
 - [ ] [local] context7이 rate limit에 걸리면: 키를 로컬 설정 `Authorization: Bearer`로 넣는다 (09-23~)

@@ -12,7 +12,7 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 | aks-reference-infra | main = origin | **hub·dev 철거 상태(10-14).** 7개 루트를 전부 destroy했고 `teardown-verify.sh`가 두 구독에서 exit 0이다. bootstrap 소유물(state Storage Account·App Registration·RG)은 남아 있다. 다음 구축은 컨트롤플레인·시스템 풀 모두 Kubernetes 1.36.4로 서고 hub 시스템 풀은 3대다. hub 구독은 다른 프로젝트(azure-dmz-hcp)와 공용이다. vWAN `prevent_destroy`·VNet·AKS `deletion_protection`이 `false`인 것은 의도다. 로컬 `az` 기본 구독은 hub다 |
 | aks-platform-gitops | main = origin | **AKS 철거 상태.** hub Secret은 `environment` 라벨이 있다(다음 seed의 입력). dev Secret은 `environment` 라벨이 없고 접속 값은 파기된 클러스터의 것이다. hub ArgoCD는 HA 구성이라 seed가 Ready인 시스템 풀 노드 3대를 요구한다 |
 
-## 지난 세션 (2026-10-14 ~ 10-15)
+## 지난 세션 (2026-10-14 ~ 10-26)
 
 **AKS hub·dev를 1.35.8로 세워 1.36.4로 올리고 철거했다.** 컨트롤플레인과 시스템 풀을 다른 apply로 나누려고 노드 풀별 `kubernetes_version`을 모듈에 넣었다(module #66, `aks-cluster-v0.11.0`). dev는 시스템 풀을 올렸다가 커밋 revert로 1.35.8로 되돌린 뒤 다시 올렸고(aks-ref #83~#86), hub는 절차서만 보고 따라 올렸다(#87·#88). 측정용 호출 약 2만 2천 회 중 실패는 시스템 풀 교체 시각의 3건이었다.
 
@@ -25,6 +25,8 @@ session.md를 두지 않는다. 구조와 갱신 절차는 `.claude/rules/sessio
 **노드 OS를 Ubuntu에서 Azure Linux로 바꿨다(10-15).** 기존 Ubuntu는 고른 값이 아니라 provider 기본값과 공식 예제를 따른 결과였다. Microsoft AKS baseline 레퍼런스 아키텍처와 AKS Automatic이 Azure Linux를 쓰는 것을 근거로 설계 문서에 정했고(module `8435134`), 모듈에 `os_sku`(기본값 `AzureLinux`)를 열었다(module #67, `aks-cluster-v0.12.0`). NAP은 aks-gitops #40, 배포 루트는 aks-ref #91이다. Azure Linux 전환은 azure-dmz 계열 클러스터에서 제자리로 실측해 ⏳를 걷었다(module #68). `os_sku` 변경은 surge·drain을 거치는 업그레이드 경로였다.
 
 **VM 표준 OS는 Ubuntu LTS로 두었다(10-15).** "Azure Linux를 표준으로, 예외만 Ubuntu"안을 검토했으나 VM용 지원 기간이 공개되지 않았고 4.0이 preview라 기각했다. 4.0 GA와 지원 기간 공개를 재검토 조건으로 module `docs/decisions.md` 「VM OS」에 적었다. workbench가 Ubuntu에 묶인 실제 근거(cloud-init의 apt·dpkg 전제)로 README와 description을 고쳤다(module `dcf94be`).
+
+**aks-ref hub·dev `ilb` 서브넷의 빈 라우팅 테이블을 걷었다(10-26).** route를 얹는 곳도 출력을 읽는 곳도 없었고, hub↔spoke 경로는 vWAN이 전파한다(aks-ref #92). 머지가 깨운 networking plan이 철거 상태에서도 생성 plan으로 떠 게이트 2개를 Reject했고, 그 루트들을 module `CLAUDE.md` 「배포 루트 공통」에 더했다. azure-dmz-hcp의 같은 RT는 옆 세션이 맡았다.
 
 ## 다음 할 일
 
